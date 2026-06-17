@@ -18,5 +18,15 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
+sa-token:
+  token-name: Authorization
+  timeout: 2592000
+  is-share: false
+  token-style: uuid
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
 knife4j:
   enable: true

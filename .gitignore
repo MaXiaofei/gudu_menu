@@ -2,9 +2,9 @@
 *.iml
 .idea/
 .vscode/
-backend/target/
-admin/node_modules/
-admin/dist/
+menu-api/target/
+menu-admin/node_modules/
+menu-admin/dist/
 *.log
 data/
 .claude/
