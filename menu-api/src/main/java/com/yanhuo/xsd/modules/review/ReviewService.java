@@ -2,6 +2,7 @@ package com.yanhuo.xsd.modules.review;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.yanhuo.xsd.common.BizException;
 import com.yanhuo.xsd.modules.review.mapper.ReviewMapper;
 import com.yanhuo.xsd.modules.review.mapper.ReviewScoreMapper;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class ReviewService {
     @Transactional
     public Long submit(ReviewSaveDTO dto) {
         Long memberId = StpUtil.getSession().getLong("currentMemberId");
+        if (memberId == null) throw new BizException("请先选择就餐成员");
         Review r = new Review();
         r.setDishId(dto.getDishId());
         r.setMemberId(memberId);
@@ -37,6 +39,7 @@ public class ReviewService {
         reviewMapper.insert(r);
         if (dto.getDimensionScores() != null) {
             dto.getDimensionScores().forEach((dimId, score) -> {
+                if (score == null || score < 1 || score > 5) throw new BizException("维度分需为 1-5");
                 ReviewScore s = new ReviewScore();
                 s.setReviewId(r.getId());
                 s.setDimensionId(dimId);

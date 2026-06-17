@@ -19,6 +19,16 @@ class ReviewServiceTest {
     }
 
     @Test
+    void 空列表返回0() {
+        assertThat(calc.averageStar(List.of())).isEqualByComparingTo("0.0");
+    }
+
+    @Test
+    void 单元素原样返回() {
+        assertThat(calc.averageStar(List.of(5))).isEqualByComparingTo("5.0");
+    }
+
+    @Test
     void 各维度均分_按维度分组求平均() {
         var scores = List.of(
             new ScoreRow(1L, 4), new ScoreRow(2L, 3),
