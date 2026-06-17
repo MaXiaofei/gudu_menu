@@ -1,0 +1,45 @@
+/* 默认兜底主题（烟火暖橙），主题切换由 themeStore.apply 覆盖 CSS 变量 */
+:root {
+  --el-color-primary: #E8602C;
+  --el-color-primary-light-3: color-mix(in srgb, var(--el-color-primary) 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--el-color-primary) 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--el-color-primary) 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, var(--el-color-primary) 22%, white);
+  --el-color-primary-light-9: color-mix(in srgb, var(--el-color-primary) 14%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--el-color-primary) 80%, black);
+  --yh-sidebar: #2B1A12;
+  --yh-bg: #FFFAF5;
+  --yh-panel: #ffffff;
+  --el-border-radius-base: 10px;
+  --el-font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+#app {
+  height: 100%;
+}
+
+body {
+  font-family: var(--el-font-family);
+  background: var(--yh-bg);
+}
+
+/* 换肤下拉里的色点 */
+.sw-dot {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: middle;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
