@@ -23,6 +23,12 @@
 			"style": {
 				"navigationBarTitleText": "菜品详情"
 			}
+		},
+		{
+			"path": "pages/dish/Review",
+			"style": {
+				"navigationBarTitleText": "点评"
+			}
 		}
 	],
 	"globalStyle": {
