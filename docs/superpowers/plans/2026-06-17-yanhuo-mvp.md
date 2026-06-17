@@ -289,7 +289,7 @@ INSERT INTO sys_dict(dict_group,name) VALUES
  ('category','热菜'),('category','凉菜'),('category','汤羹'),('category','甜品'),
  ('unit','g'),('unit','ml'),('unit','个'),('unit','把'),
  ('purchase_category','蔬菜'),('purchase_category','畜禽肉'),('purchase_category','水产海鲜'),('purchase_category','蛋类'),('purchase_category','豆制品'),('purchase_category','乳制品'),('purchase_category','调味料'),('purchase_category','水果'),
- ('audience','三高'),('audience','糖尿病'),('audience','宝宝辅食'),
+ ('audience','高血压'),('audience','高血糖'),('audience','高血脂'),('audience','宝宝辅食'),
  ('role','掌勺'),('role','备菜'),('role','普通成员');
 ```
 
