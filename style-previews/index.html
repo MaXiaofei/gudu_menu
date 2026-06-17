@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>烟火小食单 · 双主题换肤预演</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.8.4/dist/index.css">
+<style>
+:root{
+  --el-color-primary:#E8602C;
+  --el-color-primary-light-3:color-mix(in srgb,var(--el-color-primary) 70%,white);
+  --el-color-primary-light-5:color-mix(in srgb,var(--el-color-primary) 50%,white);
+  --el-color-primary-light-7:color-mix(in srgb,var(--el-color-primary) 30%,white);
+  --el-color-primary-light-8:color-mix(in srgb,var(--el-color-primary) 22%,white);
+  --el-color-primary-light-9:color-mix(in srgb,var(--el-color-primary) 14%,white);
+  --el-color-primary-dark-2:color-mix(in srgb,var(--el-color-primary) 80%,black);
+  --yh-sidebar:#2B1A12;
+  --yh-bg:#FFFAF5;
+  --yh-panel:#ffffff;
+  --el-border-radius-base:10px;
+  --el-font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;}
+body{font-family:var(--el-font-family);background:#efeae3;display:flex;flex-direction:column;}
+
+.tophint{flex-shrink:0;background:#fff;border-bottom:1px solid #ece3d8;padding:9px 20px;font-size:12px;color:#9a8f80;display:flex;align-items:center;gap:6px;}
+.tophint b{color:#5a4f42;font-weight:600;}
+
+.preview{flex:1;min-height:0;display:flex;background:var(--yh-bg);}
+.sidebar{width:210px;background:var(--yh-sidebar);color:#e9d9cc;display:flex;flex-direction:column;flex-shrink:0;}
+.sidebar .logo{padding:18px 18px 16px;font-size:16px;font-weight:700;color:#fff;display:flex;align-items:center;gap:9px;letter-spacing:.5px;}
+.sidebar .logo .dot{width:10px;height:10px;border-radius:50%;background:var(--el-color-primary);transition:background .2s;}
+.sidebar .menu-item{padding:11px 20px;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:10px;border-left:3px solid transparent;color:#cdbfb1;}
+.sidebar .menu-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+.sidebar .menu-item.active{background:rgba(255,255,255,.10);border-left-color:var(--el-color-primary);color:#fff;font-weight:500;}
+.sidebar .menu-item .el-icon{font-size:16px;}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{height:54px;background:var(--yh-panel);border-bottom:1px solid #f0e8de;display:flex;align-items:center;padding:0 18px;gap:14px;}
+.topbar .crumb{font-size:14px;color:#8c8073;}
+.topbar .crumb b{color:#333;}
+.topbar .spacer{flex:1;}
+.sw-dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px;vertical-align:middle;border:1px solid rgba(0,0,0,.1);}
+
+.content{flex:1;overflow:auto;padding:18px;}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+.toolbar .spacer{flex:1;}
+
+.dish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;}
+.dish{background:var(--yh-panel);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(60,40,20,.06);border:1px solid #f3ece2;}
+.dish .cover{height:92px;background:linear-gradient(135deg,var(--el-color-primary-light-7),var(--el-color-primary-light-9));display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--el-color-primary-dark-2);opacity:.5;font-weight:700;position:relative;transition:background .2s;}
+.dish .cover .cal{position:absolute;right:8px;bottom:8px;background:rgba(255,255,255,.9);color:var(--el-color-primary-dark-2);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;opacity:1;}
+.dish .body{padding:10px 12px 12px;}
+.dish .name{font-size:14px;font-weight:600;color:#333;}
+.dish .tags{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;}
+.dish .tag{font-size:10px;background:var(--el-color-primary-light-9);color:var(--el-color-primary-dark-2);padding:1px 7px;border-radius:8px;transition:background .2s,color .2s;}
+
+.row2{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-top:16px;}
+.panel{background:var(--yh-panel);border-radius:12px;border:1px solid #f3ece2;padding:16px;box-shadow:0 1px 4px rgba(60,40,20,.05);}
+.panel h3{margin:0 0 14px;font-size:14px;color:#333;display:flex;align-items:center;gap:8px;}
+.nutri{display:flex;flex-direction:column;gap:12px;}
+.nutri .item{display:flex;align-items:center;gap:10px;font-size:13px;}
+.nutri .lbl{width:56px;color:#7a6f60;}
+.nutri .track{flex:1;height:9px;background:#f0e8de;border-radius:5px;overflow:hidden;}
+.nutri .fill{height:100%;border-radius:5px;background:var(--el-color-primary);transition:width .3s,background .2s;}
+.nutri .val{width:66px;text-align:right;color:#555;font-variant-numeric:tabular-nums;}
+.summary{font-size:13px;color:#7a6f60;line-height:1.8;}
+.summary .big{font-size:28px;font-weight:700;color:var(--el-color-primary);display:block;margin:2px 0;transition:color .2s;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topint">
+    <div class="tophint"><b>双主题换肤预演</b> · 默认「烟火暖橙」，点右上角换肤切到「鲜蔬青绿」——这就是 Task 18 顶栏换肤器最终的样子。</div>
+  </div>
+
+  <div class="preview">
+    <aside class="sidebar">
+      <div class="logo"><span class="dot"></span>烟火小食单</div>
+      <div class="menu-item" v-for="(m,i) in menus" :class="{active:i===2}">
+        <el-icon><component :is="m.icon"/></el-icon>{{m.title}}
+      </div>
+    </aside>
+    <section class="main">
+      <header class="topbar">
+        <div class="crumb">配置 / <b>菜品管理</b></div>
+        <div class="spacer"></div>
+        <el-input placeholder="搜索菜品" style="width:180px" :prefix-icon="Search"></el-input>
+        <el-dropdown trigger="click" @command="apply">
+          <el-button text style="font-size:13px">
+            <el-icon><Brush/></el-icon>
+            <span style="margin:0 3px 0 4px">主题</span>
+            <span class="sw-dot" :style="{background:current.primary}"></span>{{current.name}}
+            <el-icon style="margin-left:2px"><ArrowDown/></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-for="t in themes" :command="t.key">
+                <span class="sw-dot" :style="{background:t.primary}"></span>{{t.name}}
+                <span v-if="t.key===current.key" style="color:var(--el-color-primary);margin-left:8px;font-size:12px">✓ 当前</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-avatar size="small" style="background:var(--el-color-primary);color:#fff">掌</el-avatar>
+      </header>
+      <div class="content">
+        <div class="toolbar">
+          <el-select placeholder="菜系" style="width:120px"></el-select>
+          <el-select placeholder="标签" style="width:120px"></el-select>
+          <el-select placeholder="特殊人群" style="width:140px">
+            <el-option label="高血压"></el-option>
+            <el-option label="高血糖"></el-option>
+            <el-option label="高血脂"></el-option>
+            <el-option label="宝宝辅食"></el-option>
+          </el-select>
+          <div class="spacer"></div>
+          <el-button type="primary" :icon="Plus">新增菜品</el-button>
+        </div>
+
+        <div class="dish-grid">
+          <div class="dish" v-for="d in dishes">
+            <div class="cover">{{d.name.charAt(0)}}<span class="cal">{{d.cal}} kcal</span></div>
+            <div class="body">
+              <div class="name">{{d.name}}</div>
+              <div class="tags"><span class="tag" v-for="t in d.tags">{{t}}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="panel">
+            <h3><el-icon><DataAnalysis/></el-icon>今日菜单 · 营养汇总（2 人份）</h3>
+            <div class="nutri">
+              <div class="item" v-for="n in nutrition">
+                <div class="lbl">{{n.label}}</div>
+                <div class="track"><div class="fill" :style="{width:n.pct+'%'}"></div></div>
+                <div class="val">{{n.value}} {{n.unit}}</div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <h3><el-icon><Wallet/></el-icon>菜单总价</h3>
+            <div class="summary">预估食材成本<span class="big">¥ 46.5</span><span style="color:#a99c8a;font-size:12px">共 3 道菜 · 2 人份</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.12/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/element-plus@2.8.4/dist/index.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@element-plus/icons-vue@2.3.1/dist/index.iife.min.js"></script>
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const I = ElementPlusIconsVue;
+const themes = [
+  { key:'warm',  name:'烟火暖橙', primary:'#E8602C', sidebar:'#2B1A12', bg:'#FFFAF5' },
+  { key:'green', name:'鲜蔬青绿', primary:'#2EA66B', sidebar:'#1F3A2E', bg:'#F6FBF8' },
+];
+const menus = [
+  {icon:'Setting',title:'配置中心'},
+  {icon:'User',title:'家庭成员'},
+  {icon:'Food',title:'菜品'},
+  {icon:'Apple',title:'食材库'},
+  {icon:'List',title:'菜单'},
+  {icon:'Collection',title:'菜库'},
+  {icon:'FolderOpened',title:'数据备份'},
+];
+const dishes = [
+  {name:'番茄炒蛋',tags:['家常','快手'],cal:182},
+  {name:'清蒸鲈鱼',tags:['粤菜','低脂'],cal:120},
+  {name:'南瓜泥',tags:['宝宝辅食'],cal:50},
+  {name:'凉拌黄瓜',tags:['凉菜','低卡'],cal:30},
+  {name:'红烧肉',tags:['鲁菜'],cal:350},
+  {name:'蒸蛋羹',tags:['宝宝辅食'],cal:90},
+];
+const nutrition = [
+  {label:'热量',value:364,unit:'kcal',pct:91},
+  {label:'蛋白质',value:36,unit:'g',pct:72},
+  {label:'脂肪',value:18,unit:'g',pct:45},
+  {label:'碳水',value:24,unit:'g',pct:40},
+];
+const app = createApp({ setup(){
+  const key = ref('warm');
+  const current = computed(() => themes.find(t => t.key === key.value));
+  function apply(k){
+    const t = themes.find(x => x.key === k) || themes[0];
+    const r = document.documentElement.style;
+    r.setProperty('--el-color-primary', t.primary);
+    r.setProperty('--yh-sidebar', t.sidebar);
+    r.setProperty('--yh-bg', t.bg);
+    key.value = t.key;
+  }
+  onMounted(() => apply('warm'));
+  return { themes, menus, dishes, nutrition, current, apply, Plus:I.Plus, Search:I.Search };
+}});
+app.use(ElementPlus);
+for (const [k,v] of Object.entries(I)) app.component(k, v);
+app.mount('#app');
+</script>
+</body>
+</html>
