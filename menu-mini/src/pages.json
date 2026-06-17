@@ -29,6 +29,12 @@
 			"style": {
 				"navigationBarTitleText": "点评"
 			}
+		},
+		{
+			"path": "pages/dish/Create",
+			"style": {
+				"navigationBarTitleText": "录入新菜"
+			}
 		}
 	],
 	"globalStyle": {
