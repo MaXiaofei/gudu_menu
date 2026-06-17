@@ -1,34 +1,29 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Brush, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/auth'
 import { useThemeStore } from '@/store/theme'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 
 interface MenuEntry {
-  key: string
+  path: string
   title: string
   icon: string
 }
 
 const menus: MenuEntry[] = [
-  { key: 'config', title: '配置中心', icon: 'Setting' },
-  { key: 'member', title: '家庭成员', icon: 'User' },
-  { key: 'dish', title: '菜品', icon: 'Food' },
-  { key: 'ingredient', title: '食材库', icon: 'Apple' },
-  { key: 'menu', title: '菜单', icon: 'List' },
-  { key: 'library', title: '菜库', icon: 'Collection' },
-  { key: 'backup', title: '数据备份', icon: 'FolderOpened' },
+  { path: '/dict', title: '配置中心', icon: 'Setting' },
+  { path: '/member', title: '家庭成员', icon: 'User' },
+  { path: '/ingredient', title: '食材库', icon: 'Apple' },
+  { path: '/dish', title: '菜品', icon: 'Food' },
+  { path: '/menu', title: '菜单', icon: 'List' },
+  { path: '/backup', title: '数据备份', icon: 'FolderOpened' },
 ]
-
-function onMenu(key: string) {
-  // Task 18 占位，业务路由在 Task 19 接入
-  ElMessage.info(`「${menus.find((m) => m.key === key)?.title}」即将上线`)
-}
 
 async function onLogout() {
   await authStore.logout()
@@ -43,8 +38,8 @@ async function onLogout() {
       <div class="logo">
         <span class="dot"></span>烟火小食单
       </div>
-      <el-menu class="side-menu" @select="onMenu">
-        <el-menu-item v-for="m in menus" :key="m.key" :index="m.key">
+      <el-menu class="side-menu" router :default-active="route.path">
+        <el-menu-item v-for="m in menus" :key="m.path" :index="m.path">
           <el-icon><component :is="m.icon" /></el-icon>
           <span>{{ m.title }}</span>
         </el-menu-item>
@@ -53,7 +48,7 @@ async function onLogout() {
 
     <section class="main">
       <header class="topbar">
-        <div class="crumb">工作台</div>
+        <div class="crumb">{{ (route.meta.title as string) || '工作台' }}</div>
         <div class="spacer"></div>
 
         <el-dropdown trigger="click" @command="themeStore.apply">
