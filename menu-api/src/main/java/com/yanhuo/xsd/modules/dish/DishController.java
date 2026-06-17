@@ -2,6 +2,7 @@ package com.yanhuo.xsd.modules.dish;
 
 import com.yanhuo.xsd.common.R;
 import com.yanhuo.xsd.modules.dish.DishService.DishDetail;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +23,12 @@ public class DishController {
     @GetMapping
     public R<List<Dish>> list() {
         return R.ok(svc.list());
+    }
+
+    /** 多维搜索分页（放在 /{id} 之前，避免被路径变量吞掉）。 */
+    @GetMapping("/search")
+    public R<IPage<Dish>> search(DishSearchDTO q) {
+        return R.ok(svc.search(q));
     }
 
     @GetMapping("/{id}")

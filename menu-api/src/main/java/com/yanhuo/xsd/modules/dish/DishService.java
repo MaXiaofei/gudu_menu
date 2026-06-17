@@ -1,6 +1,8 @@
 package com.yanhuo.xsd.modules.dish;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yanhuo.xsd.modules.dish.mapper.DishDictMapper;
 import com.yanhuo.xsd.modules.dish.mapper.DishIngredientMapper;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -91,4 +94,29 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     public record DishDetail(Dish dish, List<DishStep> steps,
                              List<Long> cuisineIds, List<Long> tagIds, List<Long> categoryIds,
                              List<DishIngredient> ingredients) {}
+
+    /** 多维搜索分页：keyword + 菜系/标签/分类 + 最大耗时 + 最大难度（营养上限筛选 V1 强化）。 */
+    public IPage<Dish> search(DishSearchDTO q) {
+        Page<Dish> page = new Page<>(q.getPageNum(), q.getPageSize());
+        QueryWrapper<Dish> w = new QueryWrapper<>();
+        if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
+            w.like("name", q.getKeyword());
+        }
+        if (q.getMaxDifficulty() != null) {
+            w.le("difficulty", q.getMaxDifficulty());
+        }
+        if (q.getMaxMinutes() != null) {
+            w.apply("(IFNULL(prep_time,0) + IFNULL(cook_time,0)) <= {0}", q.getMaxMinutes());
+        }
+        addRelFilter(w, q.getCuisineIds(), "cuisine");
+        addRelFilter(w, q.getTagIds(), "tag");
+        addRelFilter(w, q.getCategoryIds(), "category");
+        return page(page, w);
+    }
+
+    private void addRelFilter(QueryWrapper<Dish> w, List<Long> ids, String relType) {
+        if (ids == null || ids.isEmpty()) return;
+        String in = ids.stream().map(String::valueOf).collect(Collectors.joining(","));
+        w.inSql("id", "SELECT dish_id FROM dish_dict WHERE rel_type='" + relType + "' AND dict_id IN (" + in + ")");
+    }
 }
