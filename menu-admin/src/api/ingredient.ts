@@ -4,8 +4,9 @@ export interface Ingredient {
   id: number
   name: string
   unitId: number
-  price: number
   purchaseCategoryId: number
+  /** metric name -> value(per 100g)：{calorie, protein, fat, carb, sugar, gi} */
+  nutrition?: Record<string, number>
   [key: string]: unknown
 }
 
@@ -15,7 +16,7 @@ export interface IngredientNutrition {
 }
 
 export interface IngredientSaveDTO {
-  ingredient: Partial<Ingredient> & { name: string; unitId: number; price: number; purchaseCategoryId: number }
+  ingredient: Partial<Ingredient> & { name: string; unitId: number; purchaseCategoryId: number }
   nutritions: IngredientNutrition[]
 }
 

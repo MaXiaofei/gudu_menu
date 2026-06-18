@@ -53,23 +53,40 @@ const baseForm = reactive<{
   id?: number
   name: string
   unitId: number | undefined
-  price: number | undefined
   purchaseCategoryId: number | undefined
 }>({
   name: '',
   unitId: undefined,
-  price: undefined,
   purchaseCategoryId: undefined,
 })
 
 // 动态营养值，key=metricId
 const nutritionMap = reactive<Record<number, number | undefined>>({})
 
+// 后端 nutrition key 是 metric name（英文），前端映射成中文展示
+const METRIC_CN: Record<string, string> = {
+  calorie: '热量',
+  protein: '蛋白质',
+  fat: '脂肪',
+  carb: '碳水',
+  sugar: '糖',
+  gi: '升糖指数',
+}
+const METRIC_ORDER = ['calorie', 'protein', 'fat', 'carb', 'sugar', 'gi']
+
+// 把 nutrition(metric name->value) 合成紧凑文本「热量 19 / 蛋白质 0.9 / ...」
+function nutritionText(nutrition?: Record<string, number>): string {
+  if (!nutrition) return '-'
+  const parts = METRIC_ORDER
+    .filter((k) => nutrition[k] !== undefined && nutrition[k] !== null)
+    .map((k) => `${METRIC_CN[k] || k} ${nutrition[k]}`)
+  return parts.length ? parts.join(' / ') : '-'
+}
+
 function resetForm() {
   baseForm.id = undefined
   baseForm.name = ''
   baseForm.unitId = undefined
-  baseForm.price = undefined
   baseForm.purchaseCategoryId = undefined
   for (const m of metrics.value) {
     nutritionMap[m.id] = undefined
@@ -88,7 +105,6 @@ async function openEdit(row: Ingredient) {
   baseForm.id = row.id
   baseForm.name = row.name
   baseForm.unitId = row.unitId
-  baseForm.price = row.price
   baseForm.purchaseCategoryId = row.purchaseCategoryId
   // 拉取已有营养值
   try {
@@ -126,7 +142,6 @@ async function onSubmit() {
   const ingredient = {
     name: baseForm.name.trim(),
     unitId: baseForm.unitId,
-    price: baseForm.price ?? 0,
     purchaseCategoryId: baseForm.purchaseCategoryId,
   }
   if (editing.value) {
@@ -161,9 +176,11 @@ async function onDelete(row: Ingredient) {
       <el-table-column label="单位" width="100">
         <template #default="{ row }">{{ unitName(row.unitId) }}</template>
       </el-table-column>
-      <el-table-column label="单价(元)" prop="price" width="120" />
       <el-table-column label="采购分类" width="140">
         <template #default="{ row }">{{ purchaseName(row.purchaseCategoryId) }}</template>
+      </el-table-column>
+      <el-table-column label="营养/100g" min-width="320">
+        <template #default="{ row }">{{ nutritionText(row.nutrition) }}</template>
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
@@ -182,9 +199,6 @@ async function onDelete(row: Ingredient) {
           <el-select v-model="baseForm.unitId" placeholder="选择单位" style="width: 100%">
             <el-option v-for="u in unitOptions" :key="u.id" :label="u.name" :value="u.id" />
           </el-select>
-        </el-form-item>
-        <el-form-item label="单价(元)">
-          <el-input-number v-model="baseForm.price" :min="0" :precision="2" />
         </el-form-item>
         <el-form-item label="采购分类">
           <el-select v-model="baseForm.purchaseCategoryId" placeholder="选择分类" style="width: 100%">

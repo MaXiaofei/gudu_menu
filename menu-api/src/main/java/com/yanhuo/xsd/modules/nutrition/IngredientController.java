@@ -18,8 +18,8 @@ public class IngredientController {
     private final IngredientService svc;
 
     @GetMapping
-    public R<List<Ingredient>> list() {
-        return R.ok(svc.list());
+    public R<List<IngredientVO>> list() {
+        return R.ok(svc.listWithNutrition());
     }
 
     /** 该食材营养：metricId -> value(per 100g)。 */
