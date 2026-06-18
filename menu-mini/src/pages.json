@@ -35,6 +35,12 @@
 			"style": {
 				"navigationBarTitleText": "录入新菜"
 			}
+		},
+		{
+			"path": "pages/mealplan/Calendar",
+			"style": {
+				"navigationBarTitleText": "周计划"
+			}
 		}
 	],
 	"globalStyle": {
