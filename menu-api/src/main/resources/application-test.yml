@@ -1,0 +1,19 @@
+# E2E 集成测试专用 profile：连独立测试库 yanhuo_test + 真 Redis（16379）。
+# @SpringBootTest 用 @ActiveProfiles("test") 激活；不跑 @Scheduled（task.scheduling 仅配置池大小）。
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.100.248:13306/yanhuo_test?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true
+    username: root
+    password: MYSQL_PWD_REDACTED
+  data:
+    redis:
+      host: 192.168.100.248
+      port: 16379
+  task:
+    scheduling:
+      pool:
+        size: 1
+
+yanhuo:
+  upload-dir: /tmp/yanhuo-test-uploads
