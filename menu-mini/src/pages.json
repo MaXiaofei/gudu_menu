@@ -41,6 +41,12 @@
 			"style": {
 				"navigationBarTitleText": "周计划"
 			}
+		},
+		{
+			"path": "pages/pantry/List",
+			"style": {
+				"navigationBarTitleText": "食材库存"
+			}
 		}
 	],
 	"globalStyle": {

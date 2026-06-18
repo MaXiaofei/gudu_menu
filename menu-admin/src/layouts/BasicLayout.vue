@@ -23,6 +23,7 @@ const menus: MenuEntry[] = [
   { path: '/dish', title: '菜品', icon: 'Food' },
   { path: '/menu', title: '菜单', icon: 'List' },
   { path: '/mealplan', title: '周计划', icon: 'Calendar' },
+  { path: '/pantry', title: '食材库存', icon: 'Box' },
   { path: '/backup', title: '数据备份', icon: 'FolderOpened' },
 ]
 
