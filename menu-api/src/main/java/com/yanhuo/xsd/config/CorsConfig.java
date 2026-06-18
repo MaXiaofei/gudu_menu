@@ -16,7 +16,7 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173")
+                .allowedOriginPatterns("*") // 允许所有源（dev localhost:5173 + prod 部署源；内网自用）
                 .allowedHeaders("*")
                 .allowedMethods("*")
                 .allowCredentials(true);
