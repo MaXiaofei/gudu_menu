@@ -15,14 +15,16 @@ export interface HealthProfile {
 export interface Member {
   id: number
   name: string
-  roleTags: string[]
+  /** 角色标签：逗号分隔的 role 字典 id 字符串（如 "32,34"）。 */
+  roleTags: string
   healthProfile: HealthProfile
 }
 
 export interface MemberSaveDTO {
   id?: number
   name: string
-  roleTags: string[]
+  /** 提交时为逗号分隔的 role 字典 id 字符串。 */
+  roleTags: string
   healthProfile: HealthProfile
 }
 

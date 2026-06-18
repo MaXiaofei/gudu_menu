@@ -14,7 +14,7 @@ import {
   type MenuSummary,
 } from '@/api/menu'
 import { listDishes } from '@/api/dish'
-import { listNutritionMetrics, type NutritionMetric } from '@/api/dict'
+import { listByGroup, listNutritionMetrics, type DictItem, type NutritionMetric } from '@/api/dict'
 
 const loading = ref(false)
 const list = ref<Menu[]>([])
@@ -23,6 +23,12 @@ const pageNum = ref(1)
 const pageSize = 10
 const dishes = ref<{ id: number; name: string }[]>([])
 const metrics = ref<NutritionMetric[]>([])
+const menuTypeOptions = ref<DictItem[]>([])
+
+function menuTypeName(id?: number): string {
+  if (id === undefined || id === null) return '-'
+  return menuTypeOptions.value.find((t) => t.id === id)?.name ?? `#${id}`
+}
 
 async function load() {
   loading.value = true
@@ -41,9 +47,10 @@ function onPageChange(p: number) {
 }
 
 async function loadOptions() {
-  const [d, m] = await Promise.all([listDishes(), listNutritionMetrics()])
+  const [d, m, mt] = await Promise.all([listDishes(), listNutritionMetrics(), listByGroup('menu_type')])
   dishes.value = d.map((x) => ({ id: x.id, name: x.name }))
   metrics.value = m
+  menuTypeOptions.value = mt
 }
 
 onMounted(() => {
@@ -58,8 +65,9 @@ const editing = ref<Menu | null>(null)
 const baseForm = reactive<{
   id?: number
   name: string
+  typeId: number | undefined
   servingCount: number
-}>({ name: '', servingCount: 1 })
+}>({ name: '', typeId: undefined, servingCount: 1 })
 
 const menuDishes = ref<MenuDish[]>([{ dishId: undefined as unknown as number, servingFactor: 1 }])
 
@@ -67,6 +75,7 @@ function resetForm() {
   editing.value = null
   baseForm.id = undefined
   baseForm.name = ''
+  baseForm.typeId = undefined
   baseForm.servingCount = 1
   menuDishes.value = [{ dishId: undefined as unknown as number, servingFactor: 1 }]
 }
@@ -81,6 +90,7 @@ async function openEdit(row: Menu) {
   editing.value = row
   baseForm.id = row.id
   baseForm.name = row.name
+  baseForm.typeId = row.typeId
   baseForm.servingCount = row.servingCount
   dialogVisible.value = true
   // 拉详情填排菜
@@ -114,6 +124,7 @@ async function onSubmit() {
 
   const menu = {
     name: baseForm.name.trim(),
+    typeId: baseForm.typeId,
     servingCount: baseForm.servingCount,
   }
   if (editing.value && baseForm.id) {
@@ -201,6 +212,9 @@ onUnmounted(() => {
     </div>
     <el-table v-loading="loading" :data="list" border>
       <el-table-column label="菜单名称" prop="name" min-width="200" />
+      <el-table-column label="菜单类型" width="120">
+        <template #default="{ row }">{{ menuTypeName(row.typeId) }}</template>
+      </el-table-column>
       <el-table-column label="份数" prop="servingCount" width="100" />
       <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
@@ -226,6 +240,11 @@ onUnmounted(() => {
       <el-form label-width="100px">
         <el-form-item label="菜单名称">
           <el-input v-model="baseForm.name" placeholder="菜单名称" />
+        </el-form-item>
+        <el-form-item label="菜单类型">
+          <el-select v-model="baseForm.typeId" clearable placeholder="选择类型" style="width: 100%">
+            <el-option v-for="t in menuTypeOptions" :key="t.id" :label="t.name" :value="t.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="份数">
           <el-input-number v-model="baseForm.servingCount" :min="1" />

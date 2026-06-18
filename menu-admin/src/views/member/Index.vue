@@ -49,10 +49,35 @@ onMounted(() => {
 const dialogVisible = ref(false)
 const editing = ref<Member | null>(null)
 
+/** 把后端 roleTags（逗号分隔 id 串，如 "32,34"）拆成 number[]。 */
+function parseRoleIds(s: string | undefined | null): number[] {
+  if (!s) return []
+  return String(s)
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => !Number.isNaN(n) && n > 0)
+}
+
+/** 把 role 字典 id 映射成中文名，逗号拼接。 */
+function roleTagsText(s: string | undefined | null): string {
+  const ids = parseRoleIds(s)
+  if (!ids.length) return '-'
+  return ids
+    .map((id) => roleOptions.value.find((r) => r.id === id)?.name ?? `#${id}`)
+    .join('、')
+}
+
+/** 健康档案适用人群：种子已是中文字符串数组（如 ["高血压"]），直接 join 展示。 */
+function audienceText(arr: unknown): string {
+  if (!Array.isArray(arr) || !arr.length) return ''
+  return arr.map((x) => String(x)).join('、')
+}
+
 function blankForm() {
   return {
     name: '',
-    roleTags: [] as string[],
+    // 表单内部用 number[]（role 字典 id）承载多选
+    roleTags: [] as number[],
     healthProfile: {
       height: undefined as number | undefined,
       weight: undefined as number | undefined,
@@ -82,7 +107,7 @@ function openEdit(row: Member) {
   editing.value = row
   resetForm()
   form.name = row.name
-  form.roleTags = [...(row.roleTags || [])]
+  form.roleTags = parseRoleIds(row.roleTags)
   form.healthProfile = { ...(row.healthProfile || {}) } as HealthProfile
   if (!form.healthProfile.audiences) form.healthProfile.audiences = []
   if (!form.healthProfile.allergies) form.healthProfile.allergies = []
@@ -94,18 +119,20 @@ async function onSubmit() {
     ElMessage.warning('请填写成员姓名')
     return
   }
+  // roleTags 表单内为 number[]，后端存逗号分隔 id 串
+  const roleTagsStr = form.roleTags.map(String).join(',')
   if (editing.value) {
     await updateMember({
       id: editing.value.id,
       name: form.name.trim(),
-      roleTags: form.roleTags,
+      roleTags: roleTagsStr,
       healthProfile: form.healthProfile,
     })
     ElMessage.success('已更新')
   } else {
     await createMember({
       name: form.name.trim(),
-      roleTags: form.roleTags,
+      roleTags: roleTagsStr,
       healthProfile: form.healthProfile,
     })
     ElMessage.success('已新增')
@@ -131,20 +158,14 @@ async function onDelete(row: Member) {
       <el-table-column label="姓名" prop="name" width="160" />
       <el-table-column label="角色标签" min-width="200">
         <template #default="{ row }">
-          <el-tag
-            v-for="t in row.roleTags || []"
-            :key="t"
-            style="margin-right: 6px"
-            type="info"
-          >
-            {{ t }}
-          </el-tag>
+          <span class="mini">{{ roleTagsText(row.roleTags) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="健康档案" min-width="280">
         <template #default="{ row }">
           <span class="mini">
             身高 {{ row.healthProfile?.height ?? '-' }} / 体重 {{ row.healthProfile?.weight ?? '-' }}
+            <template v-if="audienceText(row.healthProfile?.audiences)"> · {{ audienceText(row.healthProfile?.audiences) }}</template>
           </span>
         </template>
       </el-table-column>
@@ -175,17 +196,14 @@ async function onDelete(row: Member) {
           <el-select
             v-model="form.roleTags"
             multiple
-            filterable
-            allow-create
-            default-first-option
-            placeholder="选择或输入角色"
+            placeholder="选择角色"
             style="width: 100%"
           >
             <el-option
               v-for="r in roleOptions"
               :key="r.id"
               :label="r.name"
-              :value="r.name"
+              :value="r.id"
             />
           </el-select>
         </el-form-item>
