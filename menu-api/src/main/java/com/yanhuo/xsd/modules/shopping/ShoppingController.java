@@ -5,12 +5,19 @@ import com.yanhuo.xsd.common.PageQuery;
 import com.yanhuo.xsd.common.R;
 import com.yanhuo.xsd.modules.member.MpPerm;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.util.List;
+
 /**
- * 采购清单接口。范式照 pantry/mealplan：返回 R<T>，@Tag 分组。
- * 不做估价（price 无意义）。generate 走 @MpPerm(shopping.generate) 功能权限。
+ * 采购清单接口（redesign）。范式照 pantry/mealplan：返回 R<T>，@Tag 分组。
+ * 不做估价。generate 走 @MpPerm(shopping.generate) 功能权限。
+ *
+ * <p>三数据源：menu（从 menu_dish）/ dish（多选）/ plan（从 meal_plan_item）。
+ * 采购量+采购单位由用户填（PUT /item/{id}），referenceGrams 仅提示。
  */
 @RestController
 @RequestMapping("/shopping")
@@ -20,18 +27,29 @@ public class ShoppingController {
 
     private final ShoppingService svc;
 
+    /** 生成请求体：sourceType + sourceId(menu/plan) 或 sourceIds(dish 多选)。 */
+    @Data
+    public static class GenerateReq {
+        /** 数据源：menu / dish / plan。 */
+        private String sourceType;
+        /** menu 或 plan 的 id（sourceType=menu/plan 时用）。 */
+        private Long sourceId;
+        /** dish 多选 id 列表（sourceType=dish 时用）。 */
+        private List<Long> sourceIds;
+    }
+
     /**
-     * 从周计划生成采购清单：聚合各菜用量 → 合并同食材(同单位) → 品类分区 → 落库。
+     * 从菜单/菜品/周计划生成采购草稿（按 ingredient_id 去重，referenceGrams = 菜谱克数合计）。
      * 返回新生成的 shopping_list.id。
      */
     @PostMapping("/generate")
     @MpPerm("shopping.generate")
-    public R<Long> generate(@RequestParam Long planId,
-                            @RequestParam(required = false, defaultValue = "week") String timeRange) {
-        return R.ok(svc.generateFromPlan(planId, timeRange));
+    public R<Long> generate(@RequestBody GenerateReq req) {
+        String type = req.getSourceType() == null ? "plan" : req.getSourceType();
+        return R.ok(svc.generate(type, req.getSourceId(), req.getSourceIds()));
     }
 
-    /** 采购清单详情：含 items（带中文：食材名/单位名/品类名）+ 按品类分区。 */
+    /** 采购清单详情：含 items（带中文：食材名/采购单位名/品类名）+ 按品类分区。 */
     @GetMapping("/{listId}")
     public R<ShoppingListVO> get(@PathVariable Long listId) {
         return R.ok(svc.getDetail(listId));
@@ -41,6 +59,20 @@ public class ShoppingController {
     @GetMapping
     public R<IPage<ShoppingList>> list(PageQuery q) {
         return R.ok(svc.page(q));
+    }
+
+    /** 用户填采购量 + 采购单位（斤/把/个 等）。 */
+    @PutMapping("/item/{itemId}")
+    public R<?> updatePurchase(@PathVariable Long itemId, @RequestBody UpdatePurchaseReq req) {
+        svc.updatePurchase(itemId, req.getPurchaseAmount(), req.getPurchaseUnitId());
+        return R.ok(null);
+    }
+
+    /** 更新采购量/单位请求体。 */
+    @Data
+    public static class UpdatePurchaseReq {
+        private BigDecimal purchaseAmount;
+        private Long purchaseUnitId;
     }
 
     /** 勾选/取消勾选某明细已买。 */

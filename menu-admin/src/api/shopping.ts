@@ -1,12 +1,19 @@
 import { request } from './request'
 
-// 采购清单（从周计划聚合：合并同食材同单位 → 品类分区）
+// 采购清单（redesign：三数据源 menu/dish/plan + 用户填采购量+采购单位 斤/把/个）
 export interface ShoppingItemVO {
   id: number
   listId?: number
   ingredientId: number
   ingredientName?: string
-  totalAmount: number
+  // 参考克数（菜谱用量合计，提示用）
+  referenceGrams?: number
+  // 用户填的采购量 + 采购单位
+  purchaseAmount?: number | null
+  purchaseUnitId?: number | null
+  purchaseUnitName?: string
+  // 参考分区/旧字段（保留）
+  totalAmount?: number
   unitId?: number
   unitName?: string
   purchaseCategoryId?: number
@@ -43,6 +50,14 @@ export interface ShoppingListPage {
   total: number
 }
 
+export type ShoppingSourceType = 'menu' | 'dish' | 'plan'
+
+export interface GenerateReq {
+  sourceType: ShoppingSourceType
+  sourceId?: number
+  sourceIds?: number[]
+}
+
 export function listShopping(params: { pageNum: number; pageSize: number }) {
   return request<ShoppingListPage>({ url: '/shopping', method: 'get', params })
 }
@@ -51,8 +66,17 @@ export function getShoppingDetail(listId: number) {
   return request<ShoppingListVO>({ url: `/shopping/${listId}`, method: 'get' })
 }
 
-export function generateShopping(planId: number, timeRange = 'week') {
-  return request<number>({ url: '/shopping/generate', method: 'post', params: { planId, timeRange } })
+export function generateShopping(req: GenerateReq) {
+  return request<number>({ url: '/shopping/generate', method: 'post', data: req })
+}
+
+/** 用户填采购量 + 采购单位。 */
+export function updatePurchase(itemId: number, purchaseAmount: number, purchaseUnitId: number) {
+  return request<void>({
+    url: `/shopping/item/${itemId}`,
+    method: 'put',
+    data: { purchaseAmount, purchaseUnitId },
+  })
 }
 
 export function togglePurchased(itemId: number) {

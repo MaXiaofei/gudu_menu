@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import javax.sql.DataSource;
@@ -32,9 +33,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * MockMvc 接口测试：mock ShoppingService，验证关键端点。
+ * MockMvc 接口测试：mock ShoppingService，验证关键端点（redesign 后）。
  * 范式照 PantryControllerTest：@WebMvcTest + 排除 SaTokenConfig + mock SqlSessionFactory 装配 Mapper bean。
- * generate 端点带 @MpPerm(shopping.generate)；切片下未选成员时切面放行，故 200。
+ *
+ * <p>generate 三 sourceType（menu/dish/plan）；updatePurchase 用户填采购量+单位；list VO 含采购单位中文。
  */
 @WebMvcTest(
         value = ShoppingController.class,
@@ -68,42 +70,67 @@ class ShoppingControllerTest {
 
     private final ObjectMapper om = new ObjectMapper();
 
-    /** 造一个明细 VO（带中文）。 */
-    private ShoppingItemVO itemVO(Long id, String ing, BigDecimal amt, String unit, String cat) {
+    /** 造一个明细 VO（带中文 + 参考克 + 采购单位名）。 */
+    private ShoppingItemVO itemVO(Long id, String ing, BigDecimal refG, BigDecimal amt, Long unitId, String unitName) {
         ShoppingItemVO v = new ShoppingItemVO();
         v.setId(id);
         v.setListId(1L);
         v.setIngredientId(10L);
         v.setIngredientName(ing);
-        v.setTotalAmount(amt);
-        v.setUnitId(20L);
-        v.setUnitName(unit);
+        v.setReferenceGrams(refG);
+        v.setPurchaseAmount(amt);
+        v.setPurchaseUnitId(unitId);
+        v.setPurchaseUnitName(unitName);
         v.setPurchaseCategoryId(24L);
-        v.setPurchaseCategoryName(cat);
+        v.setPurchaseCategoryName("蔬菜");
         v.setPurchased(0);
         return v;
     }
 
     @Test
-    void 从周计划生成_返回listId() throws Exception {
-        given(svc.generateFromPlan(eq(7L), eq("week"))).willReturn(99L);
+    void 从菜单生成_返回listId() throws Exception {
+        given(svc.generate(eq("menu"), eq(3L), any())).willReturn(99L);
+        String body = om.writeValueAsString(Map.of("sourceType", "menu", "sourceId", 3));
 
-        mvc.perform(post("/shopping/generate").param("planId", "7").param("timeRange", "week"))
+        mvc.perform(post("/shopping/generate").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data").value(99));
-        verify(svc).generateFromPlan(eq(7L), eq("week"));
+        verify(svc).generate(eq("menu"), eq(3L), any());
     }
 
     @Test
-    void 查采购清单详情_返回带中文items和分区() throws Exception {
+    void 从菜品多选生成_返回listId() throws Exception {
+        given(svc.generate(eq("dish"), eq(null), any())).willReturn(88L);
+        String body = om.writeValueAsString(Map.of("sourceType", "dish", "sourceIds", List.of(11, 12)));
+
+        mvc.perform(post("/shopping/generate").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(88));
+        verify(svc).generate(eq("dish"), eq(null), any());
+    }
+
+    @Test
+    void 从周计划生成_返回listId() throws Exception {
+        given(svc.generate(eq("plan"), eq(7L), any())).willReturn(77L);
+        String body = om.writeValueAsString(Map.of("sourceType", "plan", "sourceId", 7));
+
+        mvc.perform(post("/shopping/generate").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(77));
+        verify(svc).generate(eq("plan"), eq(7L), any());
+    }
+
+    @Test
+    void 查采购清单详情_返回带参考克和采购单位中文() throws Exception {
         ShoppingListVO vo = new ShoppingListVO();
         vo.setId(1L);
         vo.setSourcePlanId(7L);
-        vo.setTimeRange("week");
+        vo.setTimeRange("plan");
         vo.setStartDate(LocalDate.of(2026, 6, 16));
         vo.setEndDate(LocalDate.of(2026, 6, 22));
-        ShoppingItemVO tomato = itemVO(1L, "番茄", new BigDecimal("500"), "g", "蔬菜");
+        // 番茄：参考约 500g，用户填 1 斤
+        ShoppingItemVO tomato = itemVO(1L, "番茄", new BigDecimal("500"), new BigDecimal("1"), 40L, "斤");
         vo.setItems(List.of(tomato));
         vo.setGrouped(Map.of(24L, List.of(tomato)));
         vo.setCategoryNames(Map.of(24L, "蔬菜"));
@@ -112,11 +139,22 @@ class ShoppingControllerTest {
         mvc.perform(get("/shopping/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.id").value(1))
                 .andExpect(jsonPath("$.data.items[0].ingredientName").value("番茄"))
-                .andExpect(jsonPath("$.data.items[0].unitName").value("g"))
-                .andExpect(jsonPath("$.data.items[0].purchaseCategoryName").value("蔬菜"))
-                .andExpect(jsonPath("$.data.items[0].totalAmount").value(500));
+                .andExpect(jsonPath("$.data.items[0].referenceGrams").value(500))
+                .andExpect(jsonPath("$.data.items[0].purchaseAmount").value(1))
+                .andExpect(jsonPath("$.data.items[0].purchaseUnitName").value("斤"))
+                .andExpect(jsonPath("$.data.items[0].purchaseCategoryName").value("蔬菜"));
+    }
+
+    @Test
+    void 用户填采购量和单位_调用updatePurchase() throws Exception {
+        String body = om.writeValueAsString(Map.of(
+                "purchaseAmount", 2, "purchaseUnitId", 40));
+
+        mvc.perform(put("/shopping/item/5").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        verify(svc).updatePurchase(eq(5L), eq(new BigDecimal("2")), eq(40L));
     }
 
     @Test

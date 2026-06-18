@@ -18,6 +18,7 @@ import org.springframework.test.context.jdbc.Sql;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,35 +114,24 @@ class YanhuoE2EFlowTest {
                 .isNotZero();
     }
 
-    /** 场景2：从周计划生成采购清单 → 合并用量 → 品类分区。 */
+    /** 场景2（redesign）：从菜品生成采购草稿 → 验证参考克数 → 用户填采购量+采购单位 → 验证保存。 */
     @Test
-    void 采购_从周计划生成清单_食材合并且按品类分区() {
+    void 采购_从菜品生成清单_用户填采购量保存() {
         String token = loginAdmin();
         post(token, "/member/current?memberId=" + MEMBER_CHEF, null);
 
-        // 建周计划并挂番茄炒蛋（周一午餐 + 周二午餐，两顿，用量翻倍验证合并）
-        LocalDate monday = LocalDate.now().with(java.time.DayOfWeek.MONDAY);
-        LocalDate tuesday = monday.plusDays(1);
-        Map<String, Object> planReq = Map.of("weekStart", monday.toString(), "name", "采购测试");
-        long planId = post(token, "/mealplan", planReq).get("data").asLong();
-
-        Map<String, Object> item1 = item(monday, "午餐", DISH_FANQIE_CHAODAN);
-        Map<String, Object> item2 = item(tuesday, "午餐", DISH_FANQIE_CHAODAN);
-        post(token, "/mealplan/" + planId + "/item", item1);
-        post(token, "/mealplan/" + planId + "/item", item2);
-
-        // 生成采购清单（week）
-        JsonNode gen = post(token, "/shopping/generate?planId=" + planId + "&timeRange=week", null);
+        // 从「番茄炒蛋」(dish=1) 直接生成采购草稿
+        Map<String, Object> genReq = Map.of("sourceType", "dish", "sourceIds", List.of(DISH_FANQIE_CHAODAN));
+        JsonNode gen = post(token, "/shopping/generate", genReq);
         assertThat(gen.get("code").asInt()).isEqualTo(0);
         long listId = gen.get("data").asLong();
         assertThat(listId).isPositive();
 
-        // 查清单详情：番茄合并后 = 300*2 = 600g，且在「蔬菜」分区
+        // 查清单详情：番茄参考克 = 300g（菜谱用量），purchase_amount/unit 草稿态为 null
         JsonNode detail = get(token, "/shopping/" + listId);
         assertThat(detail.get("code").asInt()).isEqualTo(0);
         JsonNode data = detail.get("data");
         assertThat(data.get("items").isArray()).isTrue();
-        // 找到番茄明细
         JsonNode tomato = null;
         for (JsonNode it : data.get("items")) {
             if ("番茄".equals(it.get("ingredientName").asText())) {
@@ -150,12 +140,37 @@ class YanhuoE2EFlowTest {
             }
         }
         assertThat(tomato).as("采购清单应含番茄").isNotNull();
-        assertThat(tomato.get("totalAmount").asDouble())
-                .as("两顿番茄炒蛋合并番茄用量 = 600g")
-                .isEqualTo(600.0);
-        assertThat(tomato.get("purchaseCategoryName").asText()).isEqualTo("蔬菜");
-        // grouped 分区应包含蔬菜品类
-        assertThat(data.get("grouped").has(Integer.toString((int) CAT_VEGETABLE)))
+        assertThat(tomato.get("referenceGrams").asDouble())
+                .as("番茄炒蛋番茄用量参考克 = 300g")
+                .isEqualTo(300.0);
+        // 草稿态：采购量/单位未填
+        assertThat(tomato.get("purchaseAmount").isNull()).as("草稿态采购量应为空").isTrue();
+
+        // 查采购单位字典 group=purchase_unit，拿「个」id
+        JsonNode dictResp = get(token, "/dict?group=purchase_unit&pageNum=1&pageSize=20");
+        long unitGe = -1L;
+        for (JsonNode d : dictResp.get("data").get("records")) {
+            if ("个".equals(d.get("name").asText())) { unitGe = d.get("id").asLong(); break; }
+        }
+        assertThat(unitGe).as("采购单位字典应含「个」").isPositive();
+
+        // 用户填采购量 3 个
+        long tomatoItemId = tomato.get("id").asLong();
+        Map<String, Object> upd = Map.of("purchaseAmount", 3, "purchaseUnitId", unitGe);
+        JsonNode updResp = put(token, "/shopping/item/" + tomatoItemId, upd);
+        assertThat(updResp.get("code").asInt()).isEqualTo(0);
+
+        // 重新查清单：采购量=3、采购单位中文=「个」
+        JsonNode detail2 = get(token, "/shopping/" + listId);
+        JsonNode tomato2 = null;
+        for (JsonNode it : detail2.get("data").get("items")) {
+            if ("番茄".equals(it.get("ingredientName").asText())) { tomato2 = it; break; }
+        }
+        assertThat(tomato2.get("purchaseAmount").asDouble()).isEqualTo(3.0);
+        assertThat(tomato2.get("purchaseUnitName").asText()).isEqualTo("个");
+
+        // grouped 分区仍包含蔬菜品类（参考分区保留）
+        assertThat(detail2.get("data").get("grouped").has(Integer.toString((int) CAT_VEGETABLE)))
                 .as("按品类分区应含「蔬菜」").isTrue();
     }
 
@@ -290,6 +305,21 @@ class YanhuoE2EFlowTest {
             return om.readTree(resp.getBody());
         } catch (Exception e) {
             throw new RuntimeException("GET " + path + " 失败: " + e.getMessage(), e);
+        }
+    }
+
+    /** PUT（带 Authorization header + JSON body）。 */
+    private JsonNode put(String token, String path, Object body) {
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_JSON);
+        if (token != null) h.set("Authorization", token);
+        try {
+            String json = body == null ? "" : om.writeValueAsString(body);
+            ResponseEntity<String> resp = http.exchange(path, HttpMethod.PUT,
+                    new HttpEntity<>(json, h), String.class);
+            return om.readTree(resp.getBody());
+        } catch (Exception e) {
+            throw new RuntimeException("PUT " + path + " 失败: " + e.getMessage(), e);
         }
     }
 

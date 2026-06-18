@@ -9,57 +9,53 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 采购清单合并算法（纯函数，算法地基）。
+ * 采购清单聚合算法（纯函数，算法地基）。
  *
  * <p>不依赖任何 Mapper / Spring 状态，可单测。参照 {@code MenuCalcService} 范式。
  *
- * <p>合并规则：
+ * <p>新设计（redesign）聚合规则：
  * <ul>
- *   <li>按 (ingredientId, unitId) 分组，同组 amount 相加 → 一行 ShoppingLine；</li>
- *   <li>同食材不同单位：不合并，分别成行；</li>
- *   <li>purchaseCategoryId 仅随组携带（同组内若有不同品类，取首条；正常场景下同食材品类一致）。</li>
+ *   <li>按 ingredientId 去重，同食材的多笔用量合计克数 → referenceGrams（参考克数，信息性提示）；</li>
+ *   <li>不再按 unit 合并 —— 采购单位（斤/把/个 等）由用户在前端填，不预合并；</li>
+ *   <li>purchaseCategoryId 随行携带（同食材内取首条，正常同食材品类一致），仅用于参考分区。</li>
  * </ul>
  */
 @Component
 public class ShoppingAggregator {
 
-    /** 一笔用量：某食材在某单位下用掉多少（来自某道菜的 dish_ingredient，已 join ingredient）。 */
-    public record Usage(Long ingredientId, Long unitId, BigDecimal amount, Long purchaseCategoryId) {}
+    /** 一笔用量：某食材用掉多少克（来自某道菜的 dish_ingredient，已 join ingredient 拿采购品类）。 */
+    public record Usage(Long ingredientId, BigDecimal amount, Long purchaseCategoryId) {}
 
-    /** 合并后的一行采购明细。 */
-    public record ShoppingLine(Long ingredientId, Long unitId, BigDecimal totalAmount, Long purchaseCategoryId) {}
-
-    /** 分组键：食材 + 单位（不同单位不合并）。 */
-    private record Key(Long ingredientId, Long unitId) {}
+    /** 聚合后的一行采购明细：食材 + 参考克数 + 采购品类（采购量/单位由用户后填）。 */
+    public record ShoppingLine(Long ingredientId, BigDecimal referenceGrams, Long purchaseCategoryId) {}
 
     /**
-     * 聚合：把多笔用量按 (ingredientId, unitId) 合并，amount 相加。
+     * 聚合：把多笔用量按 ingredientId 去重，克数相加 → referenceGrams。
      *
      * @param usages 用量列表，可空
-     * @return 合并后的采购行（无稳定顺序保证，按首次出现顺序）
+     * @return 聚合后的采购行（按首次出现顺序）
      */
     public List<ShoppingLine> aggregate(List<Usage> usages) {
         if (usages == null || usages.isEmpty()) return new ArrayList<>();
-        Map<Key, ShoppingLine> acc = new LinkedHashMap<>();
+        Map<Long, ShoppingLine> acc = new LinkedHashMap<>();
         for (Usage u : usages) {
-            if (u == null) continue;
+            if (u == null || u.ingredientId() == null) continue;
             BigDecimal amt = u.amount() == null ? BigDecimal.ZERO : u.amount();
-            Key k = new Key(u.ingredientId(), u.unitId());
-            ShoppingLine cur = acc.get(k);
+            ShoppingLine cur = acc.get(u.ingredientId());
             if (cur == null) {
-                acc.put(k, new ShoppingLine(u.ingredientId(), u.unitId(), amt, u.purchaseCategoryId()));
+                acc.put(u.ingredientId(), new ShoppingLine(u.ingredientId(), amt, u.purchaseCategoryId()));
             } else {
-                acc.put(k, new ShoppingLine(
-                        cur.ingredientId(), cur.unitId(),
-                        cur.totalAmount().add(amt),
-                        cur.purchaseCategoryId()));
+                acc.put(u.ingredientId(), new ShoppingLine(
+                        cur.ingredientId(),
+                        cur.referenceGrams().add(amt),
+                        cur.purchaseCategoryId() != null ? cur.purchaseCategoryId() : u.purchaseCategoryId()));
             }
         }
         return new ArrayList<>(acc.values());
     }
 
     /**
-     * 按采购品类(purchaseCategoryId)分区：先 aggregate 合并，再按品类分组。
+     * 按采购品类(purchaseCategoryId)分区：先 aggregate 聚合，再按品类分组。
      *
      * @return categoryId -> 该品类下的采购行列表（null 品类归到 key=null）
      */
