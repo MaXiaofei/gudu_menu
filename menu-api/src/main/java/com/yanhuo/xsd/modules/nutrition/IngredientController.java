@@ -1,7 +1,6 @@
 package com.yanhuo.xsd.modules.nutrition;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.yanhuo.xsd.common.PageQuery;
 import com.yanhuo.xsd.common.R;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +19,7 @@ public class IngredientController {
     private final IngredientService svc;
 
     @GetMapping
-    public R<IPage<IngredientVO>> list(PageQuery q) {
+    public R<IPage<IngredientVO>> list(IngredientPageQuery q) {
         return R.ok(svc.pageWithNutrition(q));
     }
 

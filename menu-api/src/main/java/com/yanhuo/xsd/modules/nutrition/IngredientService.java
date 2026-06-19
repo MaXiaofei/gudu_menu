@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.yanhuo.xsd.common.PageQuery;
 import com.yanhuo.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.yanhuo.xsd.modules.nutrition.mapper.IngredientNutritionMapper;
 import com.yanhuo.xsd.modules.nutrition.mapper.NutritionMetricMapper;
@@ -58,22 +57,32 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
      * 列表（含营养）：一次查 metric 字典建 id->name 映射，再对每个食材查其 EAV，
      * 将 metricId->value 转成 metric name->value（per 100g），便于前端直接做中文映射展示。
      * 食材库量小（几十），逐条查可接受。
+     *
+     * @param purchaseCategoryId 采购分类 id，null 表示全部
      */
-    public List<IngredientVO> listWithNutrition() {
+    public List<IngredientVO> listWithNutrition(Long purchaseCategoryId) {
         Map<Long, String> metricNameById = metricMapper.selectList(null).stream()
                 .collect(Collectors.toMap(NutritionMetric::getId, NutritionMetric::getName));
-        return list().stream().map(ing -> toVO(ing, metricNameById)).collect(Collectors.toList());
+        QueryWrapper<Ingredient> qw = new QueryWrapper<Ingredient>().orderByDesc("id");
+        if (purchaseCategoryId != null) {
+            qw.eq("purchase_category_id", purchaseCategoryId);
+        }
+        return list(qw).stream().map(ing -> toVO(ing, metricNameById)).collect(Collectors.toList());
     }
 
     /**
      * 分页列表（含营养，后台管理）：分页查食材实体后，逐条填营养 VO。
      * IPage 的 records 转成 VO 后塞回同一 IPage（total/current/size 不变）。
+     * 支持按 purchaseCategoryId 过滤；营养排序由前端在拉全量后处理（数据量小）。
      */
-    public IPage<IngredientVO> pageWithNutrition(PageQuery q) {
+    public IPage<IngredientVO> pageWithNutrition(IngredientPageQuery q) {
         Map<Long, String> metricNameById = metricMapper.selectList(null).stream()
                 .collect(Collectors.toMap(NutritionMetric::getId, NutritionMetric::getName));
-        IPage<Ingredient> page = page(new Page<>(q.getPageNum(), q.getPageSize()),
-                new QueryWrapper<Ingredient>().orderByDesc("id"));
+        QueryWrapper<Ingredient> qw = new QueryWrapper<Ingredient>().orderByDesc("id");
+        if (q.getPurchaseCategoryId() != null) {
+            qw.eq("purchase_category_id", q.getPurchaseCategoryId());
+        }
+        IPage<Ingredient> page = page(new Page<>(q.getPageNum(), q.getPageSize()), qw);
         List<IngredientVO> voRecords = page.getRecords().stream()
                 .map(ing -> toVO(ing, metricNameById))
                 .collect(Collectors.toList());

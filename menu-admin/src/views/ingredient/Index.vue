@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  listIngredientsPaged,
+  listIngredients,
   createIngredient,
   updateIngredient,
   deleteIngredient,
@@ -13,28 +13,70 @@ import { listByGroup, listNutritionMetrics, type DictItem, type NutritionMetric 
 import { aiFillNutrition } from '@/api/ai'
 
 const loading = ref(false)
-const list = ref<Ingredient[]>([])
-const total = ref(0)
+// 全量食材（含营养），由后端一次拉取；数据量小（~187），前端负责筛选/排序/分页
+const allList = ref<Ingredient[]>([])
+// 采购分类筛选：null=全部；非空则按 purchaseCategoryId 过滤
+const purchaseFilter = ref<number | null>(null)
+// 营养排序：sortBy=metric name(如 calorie)，sortOrder=asc/desc；都为空则按后端默认 id 倒序
+const sortBy = ref<string>('')
+const sortOrder = ref<'asc' | 'desc'>('desc')
+// 前端分页
 const pageNum = ref(1)
 const pageSize = 10
+
 const unitOptions = ref<DictItem[]>([])
 const purchaseOptions = ref<DictItem[]>([])
 const metrics = ref<NutritionMetric[]>([])
 
+// 后端 nutrition key 是 metric name（英文），前端映射成中文展示
+const METRIC_CN: Record<string, string> = {
+  calorie: '热量',
+  protein: '蛋白质',
+  fat: '脂肪',
+  carb: '碳水',
+  sugar: '糖',
+  gi: '升糖指数',
+}
+const METRIC_ORDER = ['calorie', 'protein', 'fat', 'carb', 'sugar', 'gi']
+
+function numOr(v: number | undefined | null, fallback: number): number {
+  return v === undefined || v === null || Number.isNaN(v) ? fallback : v
+}
+
+// 全量 → 按采购分类过滤 → 按营养排序
+const filteredList = computed<Ingredient[]>(() => {
+  let rows = allList.value
+  if (purchaseFilter.value !== null) {
+    rows = rows.filter((r) => r.purchaseCategoryId === purchaseFilter.value)
+  }
+  if (!sortBy.value) return rows
+  const metric = sortBy.value
+  const asc = sortOrder.value === 'asc'
+  // 缺值项始终排在末尾：升序用 +∞，降序用 -∞
+  const miss = asc ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
+  return [...rows].sort((a, b) => {
+    const va = numOr(a.nutrition?.[metric] as number | undefined, miss)
+    const vb = numOr(b.nutrition?.[metric] as number | undefined, miss)
+    return asc ? va - vb : vb - va
+  })
+})
+
+const total = computed(() => filteredList.value.length)
+
+// 当前页数据（前端切片）
+const list = computed<Ingredient[]>(() => {
+  const start = (pageNum.value - 1) * pageSize
+  return filteredList.value.slice(start, start + pageSize)
+})
+
 async function load() {
   loading.value = true
   try {
-    const page = await listIngredientsPaged({ pageNum: pageNum.value, pageSize })
-    list.value = page.records || []
-    total.value = page.total || 0
+    allList.value = await listIngredients()
+    pageNum.value = 1
   } finally {
     loading.value = false
   }
-}
-
-function onPageChange(p: number) {
-  pageNum.value = p
-  load()
 }
 
 async function loadDicts() {
@@ -49,11 +91,42 @@ onMounted(() => {
   loadDicts()
 })
 
+// 筛选/排序变化时回到第一页
+watch([purchaseFilter, sortBy, sortOrder], () => {
+  pageNum.value = 1
+})
+
+function onPageChange(p: number) {
+  pageNum.value = p
+}
+
+// 表头点击排序：el-table sort-change 回调（sortable="custom"）
+function onSortChange({ prop, order }: { prop: string | null; order: 'ascending' | 'descending' | null }) {
+  if (!order) {
+    sortBy.value = ''
+    sortOrder.value = 'desc'
+    return
+  }
+  sortBy.value = prop || ''
+  sortOrder.value = order === 'ascending' ? 'asc' : 'desc'
+}
+
+// 清空采购分类筛选（“全部”）
+function clearPurchaseFilter() {
+  purchaseFilter.value = null
+}
+
 function unitName(id?: number) {
   return unitOptions.value.find((u) => u.id === id)?.name ?? '-'
 }
 function purchaseName(id?: number) {
   return purchaseOptions.value.find((p) => p.id === id)?.name ?? '-'
+}
+
+// 单元格营养值显示：缺值显示 “-”
+function nutritionVal(row: Ingredient, metric: string): string {
+  const v = row.nutrition?.[metric]
+  return v === undefined || v === null ? '-' : String(v)
 }
 
 // ===== 对话框 =====
@@ -73,17 +146,6 @@ const baseForm = reactive<{
 
 // 动态营养值，key=metricId
 const nutritionMap = reactive<Record<number, number | undefined>>({})
-
-// 后端 nutrition key 是 metric name（英文），前端映射成中文展示
-const METRIC_CN: Record<string, string> = {
-  calorie: '热量',
-  protein: '蛋白质',
-  fat: '脂肪',
-  carb: '碳水',
-  sugar: '糖',
-  gi: '升糖指数',
-}
-const METRIC_ORDER = ['calorie', 'protein', 'fat', 'carb', 'sugar', 'gi']
 
 // AI 补全营养（mock，待接 GLM）
 const aiLoading = ref(false)
@@ -107,14 +169,15 @@ async function onAiFillNutrition() {
   }
 }
 
-// 把 nutrition(metric name->value) 合成紧凑文本「热量 19 / 蛋白质 0.9 / ...」
+// 把 nutrition(metric name->value) 合成紧凑文本「热量 19 / 蛋白质 0.9 / ...」（弹窗/其他展示备用）
 function nutritionText(nutrition?: Record<string, number>): string {
   if (!nutrition) return '-'
-  const parts = METRIC_ORDER
-    .filter((k) => nutrition[k] !== undefined && nutrition[k] !== null)
-    .map((k) => `${METRIC_CN[k] || k} ${nutrition[k]}`)
+  const parts = METRIC_ORDER.filter((k) => nutrition[k] !== undefined && nutrition[k] !== null).map(
+    (k) => `${METRIC_CN[k] || k} ${nutrition[k]}`,
+  )
   return parts.length ? parts.join(' / ') : '-'
 }
+void nutritionText
 
 function resetForm() {
   baseForm.id = undefined
@@ -203,8 +266,18 @@ async function onDelete(row: Ingredient) {
   <div class="page">
     <div class="toolbar">
       <el-button type="primary" @click="openCreate">新增食材</el-button>
+      <el-select
+        v-model="purchaseFilter"
+        placeholder="采购分类（全部）"
+        clearable
+        style="width: 200px; margin-left: 12px"
+        @clear="clearPurchaseFilter"
+      >
+        <el-option label="全部" :value="null" />
+        <el-option v-for="p in purchaseOptions" :key="p.id" :label="p.name" :value="p.id" />
+      </el-select>
     </div>
-    <el-table v-loading="loading" :data="list" border>
+    <el-table v-loading="loading" :data="list" border @sort-change="onSortChange">
       <el-table-column label="名称" prop="name" min-width="160" />
       <el-table-column label="单位" width="100">
         <template #default="{ row }">{{ unitName(row.unitId) }}</template>
@@ -212,8 +285,15 @@ async function onDelete(row: Ingredient) {
       <el-table-column label="采购分类" width="140">
         <template #default="{ row }">{{ purchaseName(row.purchaseCategoryId) }}</template>
       </el-table-column>
-      <el-table-column label="营养/100g" min-width="320">
-        <template #default="{ row }">{{ nutritionText(row.nutrition) }}</template>
+      <el-table-column
+        v-for="metric in METRIC_ORDER"
+        :key="metric"
+        :label="METRIC_CN[metric]"
+        :prop="metric"
+        :sortable="'custom'"
+        width="110"
+      >
+        <template #default="{ row }">{{ nutritionVal(row, metric) }}</template>
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
