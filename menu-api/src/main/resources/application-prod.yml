@@ -14,4 +14,8 @@ spring:
 yanhuo:
   upload-dir: /app/uploads
   ai:
-    provider: mock
+    provider: ${YANHUO_AI_PROVIDER:deepseek}
+    deepseek:
+      base-url: https://api.deepseek.com/v1
+      model: deepseek-chat
+      key: ${API_KEY:}

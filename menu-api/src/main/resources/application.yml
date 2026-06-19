@@ -38,5 +38,9 @@ knife4j:
 yanhuo:
   upload-dir: uploads
   ai:
-    # AI provider：mock（规则表兜底，默认）/ glm（智谱 GLM，预留空壳）
-    provider: mock
+    # AI provider：deepseek（默认，真调 DeepSeek，失败降级 mock）/ mock（规则表兜底）/ glm（预留空壳）
+    provider: ${YANHUO_AI_PROVIDER:deepseek}
+    deepseek:
+      base-url: https://api.deepseek.com/v1
+      model: deepseek-chat
+      key: ${API_KEY:}   # 从环境变量 API_KEY 注入（.env.dev），不硬编码

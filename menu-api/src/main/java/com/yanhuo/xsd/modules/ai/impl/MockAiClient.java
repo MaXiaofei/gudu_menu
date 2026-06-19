@@ -7,7 +7,6 @@ import com.yanhuo.xsd.modules.ai.dto.MenuRecommendRequest;
 import com.yanhuo.xsd.modules.ai.dto.NutritionFillRequest;
 import com.yanhuo.xsd.modules.ai.dto.NutritionFillResponse;
 import com.yanhuo.xsd.modules.nutrition.IngredientNutrition;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -16,14 +15,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Mock AI 客户端：规则表兜底实现（默认，{@code yanhuo.ai.provider=mock} 或缺省时启用）。
+ * Mock AI 客户端：规则表兜底实现。
+ *
+ * <p>始终装配：作为默认 AiClient（provider=mock 时）+ DeepSeekAiClient 失败时的 fallback bean。
+ * 默认 provider 由配置决定（application.yml 的 {@code yanhuo.ai.provider}），DeepSeekAiClient 标
+ * {@code @Primary}，provider=deepseek 时 AiService 注入 DeepSeekAiClient，本类仍作为降级依赖可用。
  *
  * <p>营养补全：先查关键词精确表（参考中国食物成分表 per100g），未命中走分类兜底（按名字含「肉/蛋/奶/菜/米/油」匹配模板），
  * 全无匹配抛 {@link BizException}。菜单推荐：仅占位，真正编排由 AiService 调 MenuRecommender 完成；
  * AiClient 层只负责「外部 AI 能力」，mock 下推荐返回空（实际推荐逻辑是确定性算法，走 AiService 内的 MenuRecommender）。
  */
 @Component
-@ConditionalOnProperty(name = "yanhuo.ai.provider", havingValue = "mock", matchIfMissing = true)
 public class MockAiClient implements AiClient {
 
     private static final String SOURCE = "mock";

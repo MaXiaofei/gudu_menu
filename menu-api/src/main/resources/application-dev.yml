@@ -19,3 +19,11 @@ spring:
       port: 16379
       database: 0
       timeout: 3000ms
+
+yanhuo:
+  ai:
+    provider: ${YANHUO_AI_PROVIDER:deepseek}
+    deepseek:
+      base-url: https://api.deepseek.com/v1
+      model: deepseek-chat
+      key: ${API_KEY:}
