@@ -13,3 +13,5 @@ spring:
 
 yanhuo:
   upload-dir: /app/uploads
+  ai:
+    provider: mock

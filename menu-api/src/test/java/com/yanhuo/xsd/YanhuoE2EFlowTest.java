@@ -273,6 +273,70 @@ class YanhuoE2EFlowTest {
         assertThat(msg).containsAnyOf("权限", "无此");
     }
 
+    /** 场景6（AI）：营养补全 番茄（带 ingredientId=1）→ 6 项指标落到 ingredient_nutrition。 */
+    @Test
+    void AI_营养补全番茄_六项指标落库() {
+        String token = loginAdmin();
+        // 设掌勺成员（role=32 含 ai.use 权限）
+        post(token, "/member/current?memberId=" + MEMBER_CHEF, null);
+
+        Map<String, Object> req = Map.of("name", "番茄", "ingredientId", ING_TOMATO);
+        JsonNode r = post(token, "/ai/nutrition/fill", req);
+        assertThat(r.get("code").asInt())
+                .as("营养补全应成功 msg=" + text(r, "msg")).isEqualTo(0);
+        JsonNode data = r.get("data");
+        assertThat(data.get("source").asText()).isEqualTo("mock");
+        // 响应含 6 项指标
+        assertThat(data.get("nutrition").isArray()).isTrue();
+        assertThat(data.get("nutrition").size()).isEqualTo(6);
+        // calorie(metricId=1) = 19
+        int cal = -1;
+        for (JsonNode n : data.get("nutrition")) {
+            if (n.get("metricId").asLong() == 1L) { cal = n.get("value").asInt(); break; }
+        }
+        assertThat(cal).as("番茄 calorie 应=19").isEqualTo(19);
+
+        // 验证 ingredient_nutrition 真落了 6 项：GET /ingredient/1/nutrition
+        JsonNode nut = get(token, "/ingredient/" + ING_TOMATO + "/nutrition");
+        assertThat(nut.get("code").asInt()).isEqualTo(0);
+        JsonNode map = nut.get("data");
+        assertThat(map.has("1")).as("落库应含 calorie").isTrue();
+        assertThat(map.has("2")).as("落库应含 protein").isTrue();
+        assertThat(map.has("3")).as("落库应含 fat").isTrue();
+        assertThat(map.has("4")).as("落库应含 carb").isTrue();
+        assertThat(map.has("5")).as("落库应含 sugar").isTrue();
+        assertThat(map.has("6")).as("落库应含 gi").isTrue();
+    }
+
+    /** 场景7（AI）：菜单推荐 DAY scope → 候选 ≤ 1 组、每组 totalPrice ≤ budget。 */
+    @Test
+    void AI_菜单推荐_DAY候选受限且不超预算() {
+        String token = loginAdmin();
+        post(token, "/member/current?memberId=" + MEMBER_CHEF, null);
+
+        // 候选池：番茄炒蛋(dish=1，含营养)。budget 给一个能容纳的值。
+        Map<String, Object> req = new HashMap<>();
+        req.put("memberId", MEMBER_CHEF);
+        req.put("budget", 100);   // 番茄炒蛋参考价远低于 100
+        req.put("scope", "DAY");
+        JsonNode r = post(token, "/ai/menu/recommend", req);
+        assertThat(r.get("code").asInt())
+                .as("菜单推荐应成功 msg=" + text(r, "msg")).isEqualTo(0);
+        JsonNode arr = r.get("data");
+        assertThat(arr.isArray()).isTrue();
+        assertThat(arr.size()).as("DAY 至多 1 组候选").isLessThanOrEqualTo(1);
+        // 每组 totalPrice ≤ budget
+        for (JsonNode g : arr) {
+            double total = g.get("totalPrice").asDouble();
+            assertThat(total).as("候选总价不超预算 100").isLessThanOrEqualTo(100.0);
+            // source = mock
+            assertThat(g.get("source").asText()).isEqualTo("mock");
+            // dishes 非空
+            assertThat(g.get("dishes").isArray()).isTrue();
+            assertThat(g.get("dishes").size()).isPositive();
+        }
+    }
+
     // ---------------- HTTP 工具 ----------------
 
     /** POST（带 Authorization header）。 */

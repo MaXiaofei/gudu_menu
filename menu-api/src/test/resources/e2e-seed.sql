@@ -17,5 +17,6 @@ DELETE FROM favorite;
 DELETE FROM menu_dish;
 DELETE FROM menu;
 DELETE FROM dish_history;
+DELETE FROM ai_call_log;
 
 -- 重置自增，便于断言固定 id（可选；测试用返回 id 不依赖固定值，故保留默认即可）。

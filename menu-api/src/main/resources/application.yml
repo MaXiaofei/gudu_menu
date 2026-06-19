@@ -37,3 +37,6 @@ knife4j:
 
 yanhuo:
   upload-dir: uploads
+  ai:
+    # AI provider：mock（规则表兜底，默认）/ glm（智谱 GLM，预留空壳）
+    provider: mock

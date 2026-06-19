@@ -17,3 +17,5 @@ spring:
 
 yanhuo:
   upload-dir: /tmp/yanhuo-test-uploads
+  ai:
+    provider: mock

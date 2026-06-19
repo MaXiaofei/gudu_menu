@@ -33,7 +33,8 @@ public class MpPermissionService {
                     "pantry.manage",
                     "shopping.generate",
                     "review.create",
-                    "health.view"),
+                    "health.view",
+                    "ai.use"),
             // 备菜(prep):备菜相关 + 看菜单
             "33", Set.of(
                     "menu.plan", "menu.view",
@@ -110,7 +111,8 @@ public class MpPermissionService {
                 "pantry.manage", "管理库存",
                 "shopping.generate", "生成采购清单",
                 "review.create", "发表点评",
-                "health.view", "查看健康档案");
+                "health.view", "查看健康档案",
+                "ai.use", "AI 助手");
     }
 
     /** 全量功能 key 列表(用于表单多选项)。 */
