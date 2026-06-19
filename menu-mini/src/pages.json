@@ -59,6 +59,18 @@
 			"style": {
 				"navigationBarTitleText": "每日饮食记录"
 			}
+		},
+		{
+			"path": "pages/ingredient/Create",
+			"style": {
+				"navigationBarTitleText": "录入食材"
+			}
+		},
+		{
+			"path": "pages/ai/Recommend",
+			"style": {
+				"navigationBarTitleText": "AI 帮我定菜单"
+			}
 		}
 	],
 	"globalStyle": {

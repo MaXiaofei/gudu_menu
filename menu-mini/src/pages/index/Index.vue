@@ -8,6 +8,8 @@
     <view class="entries">
       <u-button @click="goList">浏览菜库</u-button>
       <u-button @click="goCreate">录入新菜</u-button>
+      <u-button type="warning" @click="goIngredientCreate">录入食材</u-button>
+      <u-button type="warning" @click="goAiRecommend">AI 帮我定菜单</u-button>
       <u-button type="error" @click="onLogout">退出登录</u-button>
     </view>
     <u-picker
@@ -55,6 +57,12 @@ function goCreate() {
   } catch {
     uni.showToast({ title: '录入页未就绪', icon: 'none' })
   }
+}
+function goIngredientCreate() {
+  uni.navigateTo({ url: '/pages/ingredient/Create' })
+}
+function goAiRecommend() {
+  uni.navigateTo({ url: '/pages/ai/Recommend' })
 }
 function onLogout() { auth.logout() }
 </script>

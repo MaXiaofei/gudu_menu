@@ -10,6 +10,7 @@ import {
   type Ingredient,
 } from '@/api/ingredient'
 import { listByGroup, listNutritionMetrics, type DictItem, type NutritionMetric } from '@/api/dict'
+import { aiFillNutrition } from '@/api/ai'
 
 const loading = ref(false)
 const list = ref<Ingredient[]>([])
@@ -83,6 +84,28 @@ const METRIC_CN: Record<string, string> = {
   gi: '升糖指数',
 }
 const METRIC_ORDER = ['calorie', 'protein', 'fat', 'carb', 'sugar', 'gi']
+
+// AI 补全营养（mock，待接 GLM）
+const aiLoading = ref(false)
+async function onAiFillNutrition() {
+  if (!baseForm.name.trim()) {
+    ElMessage.warning('请先填写食材名称')
+    return
+  }
+  aiLoading.value = true
+  try {
+    const r = await aiFillNutrition(baseForm.name.trim())
+    // 后端返回 {nutrition:[{metricId,value}], source}
+    for (const it of r.nutrition || []) {
+      nutritionMap[it.metricId] = Number(it.value)
+    }
+    ElMessage.success(
+      `AI 已填${r.nutrition?.length || 0}项${r.source === 'mock' ? '（mock，待接 GLM，请核对）' : ''}`,
+    )
+  } finally {
+    aiLoading.value = false
+  }
+}
 
 // 把 nutrition(metric name->value) 合成紧凑文本「热量 19 / 蛋白质 0.9 / ...」
 function nutritionText(nutrition?: Record<string, number>): string {
@@ -214,6 +237,11 @@ async function onDelete(row: Ingredient) {
       <el-form label-width="100px">
         <el-form-item label="名称">
           <el-input v-model="baseForm.name" placeholder="食材名称" />
+        </el-form-item>
+        <el-form-item label=" ">
+          <el-button type="warning" :loading="aiLoading" @click="onAiFillNutrition">
+            AI 补全营养（按名称预估 6 项，mock 待接 GLM，请核对）
+          </el-button>
         </el-form-item>
         <el-form-item label="计量单位">
           <el-select v-model="baseForm.unitId" placeholder="选择单位" style="width: 100%">
