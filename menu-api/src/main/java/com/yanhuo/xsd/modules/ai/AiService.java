@@ -2,8 +2,8 @@ package com.yanhuo.xsd.modules.ai;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yanhuo.xsd.common.BizException;
-import com.yanhuo.xsd.modules.ai.MenuRecommender.CandidateDish;
 import com.yanhuo.xsd.modules.ai.MenuRecommender.Constraints;
+import com.yanhuo.xsd.modules.ai.dto.CandidateDish;
 import com.yanhuo.xsd.modules.ai.dto.MenuCandidate;
 import com.yanhuo.xsd.modules.ai.dto.MenuRecommendRequest;
 import com.yanhuo.xsd.modules.ai.dto.NutritionFillRequest;
@@ -58,7 +58,6 @@ public class AiService {
     private final DishIngredientMapper dishIngredientMapper;
     private final MemberMapper memberMapper;
     private final AiCallLogMapper aiCallLogMapper;
-    private final MenuRecommender menuRecommender;
     private final ObjectMapper objectMapper;
 
     private static final long METRIC_SUGAR = 5L;
@@ -102,7 +101,7 @@ public class AiService {
         long start = System.currentTimeMillis();
         String reqJson = safeJson(req);
         try {
-            // 1. 取成员健康档案（constraints / allergies）
+            // 1. 取成员健康档案（constraints / allergies）→ healthConstraints
             Constraints cons = new Constraints(null, null);
             List<String> allergies = List.of();
             if (req.memberId() != null) {
@@ -112,6 +111,10 @@ public class AiService {
                     allergies = parseAllergies(m.getHealthProfile());
                 }
             }
+            Map<String, Object> healthConstraints = new HashMap<>();
+            if (cons.sugarMax() != null) healthConstraints.put("sugarMax", cons.sugarMax());
+            if (cons.calMax() != null) healthConstraints.put("calMax", cons.calMax());
+            if (!allergies.isEmpty()) healthConstraints.put("allergies", allergies);
 
             // 2. 候选池：DishService.search
             DishSearchDTO q = new DishSearchDTO();
@@ -135,12 +138,13 @@ public class AiService {
                 candidates.add(new CandidateDish(d.getId(), d.getName(), price, nut, ingNames));
             }
 
-            // 4. 纯函数：过滤 + 打分 + 组合
-            BigDecimal budget = req.budget();
-            String scope = req.scope() == null ? "DAY" : req.scope();
-            long seed = req.memberId() == null ? 42L : req.memberId();
-            List<MenuCandidate> groups = menuRecommender.recommend(
-                    candidates, cons, allergies, budget, scope, seed);
+            // 4. 回填候选上下文 + 健康约束进 req，交给 AiClient（DeepSeek 从候选选+组合+理由，失败降级 MenuRecommender）
+            MenuRecommendRequest enriched = new MenuRecommendRequest(
+                    req.memberId(), req.budget(), req.scope(),
+                    req.cuisineIds(), req.tagIds(), req.categoryIds(),
+                    req.maxMinutes(), req.maxDifficulty(),
+                    candidates, healthConstraints);
+            List<MenuCandidate> groups = aiClient.recommendMenu(enriched);
 
             logCall("menu_recommend", req.memberId(), reqJson, safeJson(groups),
                     0, 0, BigDecimal.ZERO, aiClient.provider(), "ok", null, start);

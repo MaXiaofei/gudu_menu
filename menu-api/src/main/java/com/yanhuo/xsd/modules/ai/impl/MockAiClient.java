@@ -2,6 +2,8 @@ package com.yanhuo.xsd.modules.ai.impl;
 
 import com.yanhuo.xsd.common.BizException;
 import com.yanhuo.xsd.modules.ai.AiClient;
+import com.yanhuo.xsd.modules.ai.MenuRecommender;
+import com.yanhuo.xsd.modules.ai.dto.CandidateDish;
 import com.yanhuo.xsd.modules.ai.dto.MenuCandidate;
 import com.yanhuo.xsd.modules.ai.dto.MenuRecommendRequest;
 import com.yanhuo.xsd.modules.ai.dto.NutritionFillRequest;
@@ -29,6 +31,12 @@ import java.util.Map;
 public class MockAiClient implements AiClient {
 
     private static final String SOURCE = "mock";
+
+    private final MenuRecommender menuRecommender;
+
+    public MockAiClient(MenuRecommender menuRecommender) {
+        this.menuRecommender = menuRecommender;
+    }
 
     /** 关键词表：[cal, protein, fat, carb, sugar, gi]，per 100g。 */
     private static final Map<String, double[]> TABLE = Map.ofEntries(
@@ -73,9 +81,33 @@ public class MockAiClient implements AiClient {
 
     @Override
     public List<MenuCandidate> recommendMenu(MenuRecommendRequest req) {
-        // mock 下推荐走确定性算法（AiService 编排 MenuRecommender），AiClient 层只表示外部 AI 能力。
-        // 此处返回空，真正的推荐候选由 AiService 直接产出。
-        return List.of();
+        // provider=mock 时：用规则 MenuRecommender 在 req.candidates（AiService 已回填）上过滤/打分/组合。
+        // 候选为空（异常调用）直接返回空。
+        if (req.candidates() == null || req.candidates().isEmpty()) {
+            return List.of();
+        }
+        List<MenuRecommender.CandidateDish> list = new ArrayList<>();
+        for (CandidateDish c : req.candidates()) {
+            list.add(new MenuRecommender.CandidateDish(
+                    c.dishId(), c.name(), c.price(), c.nutrition(), c.ingredientNames()));
+        }
+        Map<String, Object> hc = req.healthConstraints() == null
+                ? Map.of() : req.healthConstraints();
+        MenuRecommender.Constraints cons = new MenuRecommender.Constraints(
+                toBd(hc.get("sugarMax")), toBd(hc.get("calMax")));
+        @SuppressWarnings("unchecked")
+        List<String> allergies = hc.get("allergies") instanceof List<?> al
+                ? al.stream().map(String::valueOf).toList() : List.of();
+        long seed = req.memberId() == null ? 42L : req.memberId();
+        return menuRecommender.recommend(list, cons, allergies, req.budget(),
+                req.scope() == null ? "DAY" : req.scope(), seed);
+    }
+
+    private static BigDecimal toBd(Object o) {
+        if (o == null) return null;
+        if (o instanceof BigDecimal b) return b;
+        if (o instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        try { return new BigDecimal(o.toString().trim()); } catch (Exception e) { return null; }
     }
 
     @Override

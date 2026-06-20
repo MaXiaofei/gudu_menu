@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class MockAiClientTest {
 
-    private final MockAiClient c = new MockAiClient();
+    private final MockAiClient c = new MockAiClient(new MenuRecommender());
 
     /** metricId -> value。 */
     private static Map<Long, BigDecimal> toMap(NutritionFillResponse r) {

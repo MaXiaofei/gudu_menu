@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yanhuo.xsd.common.BizException;
 import com.yanhuo.xsd.modules.ai.AiClient;
+import com.yanhuo.xsd.modules.ai.MenuRecommender;
+import com.yanhuo.xsd.modules.ai.dto.CandidateDish;
 import com.yanhuo.xsd.modules.ai.dto.MenuCandidate;
 import com.yanhuo.xsd.modules.ai.dto.MenuRecommendRequest;
 import com.yanhuo.xsd.modules.ai.dto.NutritionFillRequest;
@@ -20,6 +22,8 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,11 +34,12 @@ import java.util.Map;
  * Body 含 {@code response_format:{type:json_object}}，解析 {@code choices[0].message.content}（JSON 字符串）。
  *
  * <p>营养补全：每 100g 6 项指标（calorie/protein/fat/carb/sugar/gi）→ metricId 1..6。
- * 菜单推荐：基于约束/预算给出推荐组（当前 AiService.recommendMenu 走确定性 MenuRecommender，
- * 本方法为接口契约与未来扩展保留；收到的 req 仅含约束/预算，无候选菜上下文）。
+ * 菜单推荐：AiService 已查好候选菜池 + 健康约束回填进 req.candidates/healthConstraints，
+ * 本方法把候选菜上下文序列化进 prompt，让 DeepSeek 从候选里选菜组合并给理由，
+ * 解析回真实 dishId（仅候选映射，不编造）；失败（key/网络/解析）降级 {@link MenuRecommender}（规则）。
  *
- * <p>降级：key 空 / 网络 / 解析失败时，fallback 调 {@link MockAiClient}，保证基本可用。
- * DeepSeek 偶尔返回带 ```json 围栏的 markdown，解析前清洗。
+ * <p>降级：菜单推荐降级复用规则 {@link MenuRecommender}（候选上下文已有，直接过滤/打分/组合）；
+ * 营养补全降级 {@link MockAiClient}。DeepSeek 偶尔返回带 ```json 围栏的 markdown，解析前清洗。
  */
 @Slf4j
 @Component
@@ -43,9 +48,12 @@ import java.util.Map;
 public class DeepSeekAiClient implements AiClient {
 
     private static final String SOURCE = "deepseek";
+    /** 传给 LLM 的候选菜上限（避免 token 爆）。 */
+    private static final int MAX_CANDIDATES = 18;
 
     private final RestClient restClient;
     private final MockAiClient mockFallback;
+    private final MenuRecommender menuRecommender;
     private final ObjectMapper objectMapper;
 
     @Value("${yanhuo.ai.deepseek.base-url:https://api.deepseek.com/v1}")
@@ -59,14 +67,17 @@ public class DeepSeekAiClient implements AiClient {
 
     /** 生产构造：自建 RestClient（Spring 装配用，多构造时 @Autowired 显式指定）。 */
     @Autowired
-    public DeepSeekAiClient(MockAiClient mockFallback, ObjectMapper objectMapper) {
-        this(RestClient.builder().build(), mockFallback, objectMapper);
+    public DeepSeekAiClient(MockAiClient mockFallback, MenuRecommender menuRecommender,
+                            ObjectMapper objectMapper) {
+        this(RestClient.builder().build(), mockFallback, menuRecommender, objectMapper);
     }
 
     /** 测试构造：注入 mock RestClient。 */
-    public DeepSeekAiClient(RestClient restClient, MockAiClient mockFallback, ObjectMapper objectMapper) {
+    public DeepSeekAiClient(RestClient restClient, MockAiClient mockFallback,
+                            MenuRecommender menuRecommender, ObjectMapper objectMapper) {
         this.restClient = restClient;
         this.mockFallback = mockFallback;
+        this.menuRecommender = menuRecommender;
         this.objectMapper = objectMapper;
     }
 
@@ -97,49 +108,126 @@ public class DeepSeekAiClient implements AiClient {
 
     @Override
     public List<MenuCandidate> recommendMenu(MenuRecommendRequest req) {
+        // 无候选上下文 → 无法让 LLM 从候选选，直接走规则降级（候选组装是 AiService 的职责）。
+        if (req.candidates() == null || req.candidates().isEmpty()) {
+            return ruleFallback(req);
+        }
         try {
             if (key == null || key.isBlank()) {
-                throw new BizException("API_KEY 未配置，降级 mock");
+                throw new BizException("API_KEY 未配置，降级规则");
             }
-            String user = String.format(
-                    "预算：%s，范围：%s，菜系：%s，标签：%s，分类：%s，最大耗时：%s 分钟，最大难度：%s",
-                    req.budget(), req.scope(), req.cuisineIds(), req.tagIds(),
-                    req.categoryIds(), req.maxMinutes(), req.maxDifficulty());
+            // 候选限量，避免 token 爆；保留 dishId -> 候选 的映射以解析回真实 id。
+            List<CandidateDish> limited = req.candidates().size() > MAX_CANDIDATES
+                    ? req.candidates().subList(0, MAX_CANDIDATES)
+                    : req.candidates();
+            Map<Long, CandidateDish> byId = new HashMap<>();
+            for (CandidateDish c : limited) {
+                byId.put(c.dishId(), c);
+            }
+
+            String user = buildUserPrompt(limited, req);
             String content = chat(
-                    "你是家庭菜单推荐助手。根据健康约束/预算/口味，推荐菜单组合，"
-                            + "返回 JSON 数组 [{dishes:[{name,price}],reasons:[...]}]。只返回 JSON。",
+                    "你是家庭菜单推荐助手。根据健康约束/预算/口味，从给定的候选菜里选菜组成菜单，"
+                            + "返回 JSON 对象 {\"menus\":[{\"dishes\":[{\"dishId\":数字,\"name\":\"菜名\"}],"
+                            + "\"reasons\":[\"...\"]}]}。"
+                            + "只能从候选菜里选，dishId 必须用候选里给出的真实数字，不编造。"
+                            + "scope 为 DAY 时返回 1 组菜单，WEEK 时返回至多 3 组。只返回 JSON。",
                     user);
-            JsonNode arr = parseJson(content);
+            JsonNode root = parseJson(content);
+            // 兼容：根可能是数组也可能是 {menus:[...]}
+            JsonNode arr = root.isArray() ? root : root.path("menus");
+            if (!arr.isArray()) {
+                throw new BizException("DeepSeek 返回非数组");
+            }
+
+            int limit = "WEEK".equalsIgnoreCase(req.scope()) ? 3 : 1;
             List<MenuCandidate> out = new ArrayList<>();
-            if (arr.isArray()) {
-                for (JsonNode g : arr) {
-                    List<MenuCandidate.DishItem> dishes = new ArrayList<>();
-                    JsonNode dishesNode = g.path("dishes");
-                    if (dishesNode.isArray()) {
-                        for (JsonNode d : dishesNode) {
-                            dishes.add(new MenuCandidate.DishItem(
-                                    null,
-                                    d.path("name").asText(""),
-                                    BigDecimal.ONE,
-                                    toBd(d.path("price"))));
+            for (JsonNode g : arr) {
+                if (out.size() >= limit) break;
+                List<MenuCandidate.DishItem> dishes = new ArrayList<>();
+                Map<Long, BigDecimal> nut = new HashMap<>();
+                JsonNode dishesNode = g.path("dishes");
+                if (dishesNode.isArray()) {
+                    for (JsonNode d : dishesNode) {
+                        long dishId = d.path("dishId").asLong(0L);
+                        CandidateDish c = byId.get(dishId);
+                        // LLM 编造的 dishId（不在候选里）→ 跳过，防止返回不存在的菜。
+                        if (c == null) {
+                            // 次选：按名字匹配候选（LLM 有时会改名）
+                            String nm = d.path("name").asText("");
+                            c = byId.values().stream()
+                                    .filter(x -> nm.equals(x.name()))
+                                    .findFirst().orElse(null);
+                        }
+                        if (c == null) continue;
+                        dishes.add(new MenuCandidate.DishItem(
+                                c.dishId(), c.name(), BigDecimal.ONE, c.price()));
+                        if (c.nutrition() != null) {
+                            for (var e : c.nutrition().entrySet()) {
+                                nut.merge(e.getKey(), e.getValue(), BigDecimal::add);
+                            }
                         }
                     }
-                    List<String> reasons = new ArrayList<>();
-                    JsonNode reasonsNode = g.path("reasons");
-                    if (reasonsNode.isArray()) {
-                        for (JsonNode r : reasonsNode) reasons.add(r.asText());
-                    }
-                    BigDecimal total = dishes.stream()
-                            .map(MenuCandidate.DishItem::price)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
-                    out.add(new MenuCandidate(dishes, total, Map.of(), 0.0, reasons, SOURCE));
                 }
+                if (dishes.isEmpty()) continue; // 该组全部不在候选，丢弃
+                List<String> reasons = new ArrayList<>();
+                JsonNode reasonsNode = g.path("reasons");
+                if (reasonsNode.isArray()) {
+                    for (JsonNode r : reasonsNode) reasons.add(r.asText());
+                }
+                BigDecimal total = dishes.stream()
+                        .map(MenuCandidate.DishItem::price)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                out.add(new MenuCandidate(dishes, total, nut, 0.0, reasons, SOURCE));
+            }
+            // LLM 一组没选出来（全编造/全超预算）→ 降级规则
+            if (out.isEmpty()) {
+                throw new BizException("DeepSeek 未选出有效候选，降级规则");
             }
             return out;
         } catch (Exception e) {
-            log.warn("DeepSeek recommendMenu 失败，降级 mock: {}", e.getMessage());
-            return mockFallback.recommendMenu(req);
+            log.warn("DeepSeek recommendMenu 失败，降级规则: {}", e.getMessage());
+            return ruleFallback(req);
         }
+    }
+
+    /** 规则降级：用 MenuRecommender 在候选池上过滤/打分/组合。 */
+    private List<MenuCandidate> ruleFallback(MenuRecommendRequest req) {
+        List<MenuRecommender.CandidateDish> list = new ArrayList<>();
+        if (req.candidates() != null) {
+            for (CandidateDish c : req.candidates()) {
+                list.add(new MenuRecommender.CandidateDish(
+                        c.dishId(), c.name(), c.price(), c.nutrition(), c.ingredientNames()));
+            }
+        }
+        Map<String, Object> hc = req.healthConstraints() == null
+                ? Map.of() : req.healthConstraints();
+        MenuRecommender.Constraints cons = new MenuRecommender.Constraints(
+                toBd(hc.get("sugarMax")), toBd(hc.get("calMax")));
+        @SuppressWarnings("unchecked")
+        List<String> allergies = hc.get("allergies") instanceof List<?> al
+                ? al.stream().map(String::valueOf).toList() : List.of();
+        long seed = req.memberId() == null ? 42L : req.memberId();
+        return menuRecommender.recommend(list, cons, allergies, req.budget(),
+                req.scope() == null ? "DAY" : req.scope(), seed);
+    }
+
+    /** 组装 user prompt：候选菜（dishId+名+价格）+ 健康约束 + 预算 + scope。 */
+    private static String buildUserPrompt(List<CandidateDish> candidates, MenuRecommendRequest req) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("范围(scope)：").append(req.scope() == null ? "DAY" : req.scope()).append('\n');
+        sb.append("预算(budget)：").append(req.budget()).append('\n');
+        Map<String, Object> hc = req.healthConstraints() == null ? Map.of() : req.healthConstraints();
+        sb.append("健康约束：");
+        if (!hc.isEmpty()) sb.append(hc); else sb.append("无");
+        sb.append('\n');
+        sb.append("候选菜（只能从中选，dishId 为真实数字）：\n");
+        for (CandidateDish c : candidates) {
+            sb.append("- dishId=").append(c.dishId())
+                    .append(" 名称=").append(c.name())
+                    .append(" 价格=").append(c.price()).append('\n');
+        }
+        return sb.toString();
     }
 
     @Override
@@ -205,5 +293,13 @@ public class DeepSeekAiClient implements AiClient {
         if (n == null || n.isMissingNode() || n.isNull()) return BigDecimal.ZERO;
         if (n.isNumber()) return n.decimalValue();
         try { return new BigDecimal(n.asText().trim()); } catch (Exception e) { return BigDecimal.ZERO; }
+    }
+
+    /** Object -> BigDecimal（healthConstraints 里的数值可能是 Integer/Double/String）。 */
+    private static BigDecimal toBd(Object o) {
+        if (o == null) return null;
+        if (o instanceof BigDecimal b) return b;
+        if (o instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        try { return new BigDecimal(o.toString().trim()); } catch (Exception e) { return null; }
     }
 }
