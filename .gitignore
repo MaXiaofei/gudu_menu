@@ -8,3 +8,5 @@ menu-admin/dist/
 *.log
 data/
 .claude/
+.env*
+!.env.example
