@@ -11,6 +11,7 @@ import {
   type DictSaveDTO,
   type NutritionMetric,
 } from '@/api/dict'
+import Pagination from '@/components/Pagination.vue'
 
 type GroupKey =
   | 'cuisine'
@@ -175,14 +176,11 @@ async function onDelete(row: DictItem) {
             </template>
           </el-table-column>
         </el-table>
-        <el-pagination
-          background
-          layout="total, prev, pager, next, jumper"
+        <Pagination
           :total="(dictMap[g.key] && dictMap[g.key].total) || 0"
           :page-size="pageSize"
           :current-page="(dictMap[g.key] && dictMap[g.key].pageNum) || 1"
           @current-change="(p: number) => onPageChange(g.key, p)"
-          style="margin-top: 16px; justify-content: flex-end; display: flex"
         />
       </el-tab-pane>
 

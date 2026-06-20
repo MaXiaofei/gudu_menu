@@ -11,6 +11,7 @@ import {
   type HealthProfile,
 } from '@/api/member'
 import { listByGroup, type DictItem } from '@/api/dict'
+import Pagination from '@/components/Pagination.vue'
 
 const loading = ref(false)
 const list = ref<Member[]>([])
@@ -18,6 +19,7 @@ const total = ref(0)
 const pageNum = ref(1)
 const pageSize = 10
 const audienceOptions = ref<DictItem[]>([])
+const genderOptions = ref<DictItem[]>([])
 const roleOptions = ref<DictItem[]>([])
 /** 全量功能权限 key -> 中文映射（来自后端 /member/permissions/keys）。 */
 const permOptions = ref<Record<string, string>>({})
@@ -39,8 +41,14 @@ function onPageChange(p: number) {
 }
 
 async function loadDicts() {
-  const [a, r, p] = await Promise.all([listByGroup('audience'), listByGroup('role'), listPermKeys()])
+  const [a, g, r, p] = await Promise.all([
+    listByGroup('audience'),
+    listByGroup('gender'),
+    listByGroup('role'),
+    listPermKeys(),
+  ])
   audienceOptions.value = a
+  genderOptions.value = g
   roleOptions.value = r
   permOptions.value = p || {}
 }
@@ -188,14 +196,11 @@ async function onDelete(row: Member) {
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      background
-      layout="total, prev, pager, next, jumper"
+    <Pagination
       :total="total"
       :page-size="pageSize"
       :current-page="pageNum"
       @current-change="onPageChange"
-      style="margin-top: 16px; justify-content: flex-end; display: flex"
     />
 
     <el-dialog v-model="dialogVisible" :title="editing ? '编辑成员' : '新增成员'" width="560px">
@@ -229,7 +234,16 @@ async function onDelete(row: Member) {
           <el-input-number v-model="form.healthProfile.age" :min="0" />
         </el-form-item>
         <el-form-item label="性别">
-          <el-input v-model="form.healthProfile.gender" placeholder="男/女" />
+          <el-radio-group v-model="form.healthProfile.gender">
+            <el-radio
+              v-for="g in genderOptions"
+              :key="g.id"
+              :value="g.name"
+            >
+              {{ g.name }}
+            </el-radio>
+            <el-radio value="">未知</el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="适用人群">
           <el-select

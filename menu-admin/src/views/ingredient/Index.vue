@@ -11,6 +11,7 @@ import {
 } from '@/api/ingredient'
 import { listByGroup, listNutritionMetrics, type DictItem, type NutritionMetric } from '@/api/dict'
 import { aiFillNutrition } from '@/api/ai'
+import Pagination from '@/components/Pagination.vue'
 
 const loading = ref(false)
 // 全量食材（含营养），由后端一次拉取；数据量小（~187），前端负责筛选/排序/分页
@@ -303,14 +304,11 @@ async function onDelete(row: Ingredient) {
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      background
-      layout="total, prev, pager, next, jumper"
+    <Pagination
       :total="total"
       :page-size="pageSize"
       :current-page="pageNum"
       @current-change="onPageChange"
-      style="margin-top: 16px; justify-content: flex-end; display: flex"
     />
 
     <el-dialog v-model="dialogVisible" :title="editing ? '编辑食材' : '新增食材'" width="640px">

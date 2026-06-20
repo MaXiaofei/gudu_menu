@@ -19,6 +19,7 @@ import { listPlans, type MealPlan } from '@/api/mealplan'
 import { listMenus, type Menu } from '@/api/menu'
 import { listDishes, type Dish } from '@/api/dish'
 import { listByGroup, type DictItem } from '@/api/dict'
+import Pagination from '@/components/Pagination.vue'
 
 // ============ 清单分页列表 ============
 const loading = ref(false)
@@ -259,14 +260,11 @@ onMounted(async () => {
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      background
-      layout="total, prev, pager, next, jumper"
+    <Pagination
       :total="total"
       :page-size="pageSize"
       :current-page="pageNum"
       @current-change="onPageChange"
-      style="margin-top: 16px; justify-content: flex-end; display: flex"
     />
 
     <!-- 生成弹窗：三数据源 -->

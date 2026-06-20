@@ -14,6 +14,7 @@ import {
   type MenuTemplate,
 } from '@/api/mealplan'
 import { listDishes } from '@/api/dish'
+import Pagination from '@/components/Pagination.vue'
 
 const loading = ref(false)
 const list = ref<MealPlan[]>([])
@@ -180,14 +181,11 @@ async function onApplyTemplate(tplId: number) {
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      background
-      layout="total, prev, pager, next, jumper"
+    <Pagination
       :total="total"
       :page-size="pageSize"
       :current-page="pageNum"
       @current-change="onPageChange"
-      style="margin-top: 16px; justify-content: flex-end; display: flex"
     />
 
     <!-- 新建 -->

@@ -14,6 +14,7 @@ import {
   type MenuSummary,
 } from '@/api/menu'
 import { listDishes } from '@/api/dish'
+import Pagination from '@/components/Pagination.vue'
 import { listByGroup, listNutritionMetrics, type DictItem, type NutritionMetric } from '@/api/dict'
 
 const loading = ref(false)
@@ -225,14 +226,11 @@ onUnmounted(() => {
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      background
-      layout="total, prev, pager, next, jumper"
+    <Pagination
       :total="total"
       :page-size="pageSize"
       :current-page="pageNum"
       @current-change="onPageChange"
-      style="margin-top: 16px; justify-content: flex-end; display: flex"
     />
 
     <!-- 新增/编辑 -->

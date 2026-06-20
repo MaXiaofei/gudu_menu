@@ -20,6 +20,7 @@ import { listByGroup, listNutritionMetrics, type DictItem, type NutritionMetric 
 import { listIngredients, type Ingredient } from '@/api/ingredient'
 import { upload } from '@/api/upload'
 import type { UploadAjaxError } from 'element-plus/es/components/upload/src/ajax'
+import Pagination from '@/components/Pagination.vue'
 
 // ===== 字典/选项 =====
 const cuisineOptions = ref<DictItem[]>([])
@@ -323,14 +324,11 @@ async function showHistory(row: DishSearchRow) {
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      background
-      style="margin-top: 16px; justify-content: flex-end; display: flex"
-      v-model:current-page="query.pageNum"
-      v-model:page-size="query.pageSize"
+    <Pagination
       :total="total"
-      layout="total, prev, pager, next, jumper"
-      @current-change="load"
+      :page-size="query.pageSize"
+      :current-page="query.pageNum"
+      @current-change="(p: number) => { query.pageNum = p; load() }"
     />
 
     <!-- 新增/编辑大表单 -->

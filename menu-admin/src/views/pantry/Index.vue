@@ -11,6 +11,7 @@ import {
 } from '@/api/pantry'
 import { listIngredients } from '@/api/ingredient'
 import { listByGroup, type DictItem } from '@/api/dict'
+import Pagination from '@/components/Pagination.vue'
 
 const loading = ref(false)
 const list = ref<PantryVO[]>([])
@@ -185,14 +186,11 @@ const tableRowClass = ({ row }: { row: PantryVO }) => {
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      background
-      layout="total, prev, pager, next, jumper"
+    <Pagination
       :total="total"
       :page-size="pageSize"
       :current-page="pageNum"
       @current-change="onPageChange"
-      style="margin-top: 16px; justify-content: flex-end; display: flex"
     />
 
     <el-dialog v-model="dialogVisible" :title="editing ? '编辑库存' : '新增库存'" width="520px">
