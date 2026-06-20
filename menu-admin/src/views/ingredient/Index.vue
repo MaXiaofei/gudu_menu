@@ -14,11 +14,14 @@ import { aiFillNutrition } from '@/api/ai'
 import Pagination from '@/components/Pagination.vue'
 
 const loading = ref(false)
-// 全量食材（含营养），由后端一次拉取；数据量小（~187），前端负责筛选/排序/分页
+// 全量食材（含营养），由后端一次拉取（已按 usage_count 权重倒序）；数据量小（~445），
+// 前端负责名称/分类双筛选 + 营养排序 + 分页
 const allList = ref<Ingredient[]>([])
+// 名称关键词筛选：空=不过滤；非空 name includes（不区分大小写）
+const keyword = ref('')
 // 采购分类筛选：null=全部；非空则按 purchaseCategoryId 过滤
 const purchaseFilter = ref<number | null>(null)
-// 营养排序：sortBy=metric name(如 calorie)，sortOrder=asc/desc；都为空则按后端默认 id 倒序
+// 营养排序：sortBy=metric name(如 calorie)，sortOrder=asc/desc；都为空则保留后端 usage_count 权重顺序
 const sortBy = ref<string>('')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 // 前端分页
@@ -44,9 +47,14 @@ function numOr(v: number | undefined | null, fallback: number): number {
   return v === undefined || v === null || Number.isNaN(v) ? fallback : v
 }
 
-// 全量 → 按采购分类过滤 → 按营养排序
+// 全量 → 名称关键词过滤 → 采购分类过滤 → 按营养排序
+//   默认（无营养排序）保留后端 usage_count 权重倒序：用得多的靠前
 const filteredList = computed<Ingredient[]>(() => {
   let rows = allList.value
+  const kw = keyword.value.trim().toLowerCase()
+  if (kw) {
+    rows = rows.filter((r) => (r.name || '').toLowerCase().includes(kw))
+  }
   if (purchaseFilter.value !== null) {
     rows = rows.filter((r) => r.purchaseCategoryId === purchaseFilter.value)
   }
@@ -93,7 +101,7 @@ onMounted(() => {
 })
 
 // 筛选/排序变化时回到第一页
-watch([purchaseFilter, sortBy, sortOrder], () => {
+watch([keyword, purchaseFilter, sortBy, sortOrder], () => {
   pageNum.value = 1
 })
 
@@ -267,16 +275,23 @@ async function onDelete(row: Ingredient) {
   <div class="page">
     <div class="toolbar">
       <el-button type="primary" @click="openCreate">新增食材</el-button>
+      <el-input
+        v-model="keyword"
+        placeholder="搜索食材名称"
+        clearable
+        class="filter-name"
+      />
       <el-select
         v-model="purchaseFilter"
         placeholder="采购分类（全部）"
         clearable
-        style="width: 200px; margin-left: 12px"
+        class="filter-cat"
         @clear="clearPurchaseFilter"
       >
         <el-option label="全部" :value="null" />
         <el-option v-for="p in purchaseOptions" :key="p.id" :label="p.name" :value="p.id" />
       </el-select>
+      <span class="filter-tip">默认按使用次数排序</span>
     </div>
     <el-table v-loading="loading" :data="list" border @sort-change="onSortChange">
       <el-table-column label="名称" prop="name" min-width="160" />
@@ -286,6 +301,7 @@ async function onDelete(row: Ingredient) {
       <el-table-column label="采购分类" width="140">
         <template #default="{ row }">{{ purchaseName(row.purchaseCategoryId) }}</template>
       </el-table-column>
+      <el-table-column label="使用次数" prop="usageCount" width="110" align="center" />
       <el-table-column
         v-for="metric in METRIC_ORDER"
         :key="metric"
@@ -360,6 +376,20 @@ async function onDelete(row: Ingredient) {
 }
 .toolbar {
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.filter-name {
+  width: 220px;
+}
+.filter-cat {
+  width: 200px;
+}
+.filter-tip {
+  font-size: 12px;
+  color: var(--yh-text-secondary, #909399);
 }
 .nut-grid {
   display: grid;

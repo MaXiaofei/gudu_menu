@@ -56,16 +56,22 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
     /**
      * 列表（含营养）：一次查 metric 字典建 id->name 映射，再对每个食材查其 EAV，
      * 将 metricId->value 转成 metric name->value（per 100g），便于前端直接做中文映射展示。
-     * 食材库量小（几十），逐条查可接受。
+     * 食材库量小（几百），逐条查可接受。
      *
      * @param purchaseCategoryId 采购分类 id，null 表示全部
+     * @param keyword 名称模糊搜索关键词，null/空 表示不过滤
      */
-    public List<IngredientVO> listWithNutrition(Long purchaseCategoryId) {
+    public List<IngredientVO> listWithNutrition(Long purchaseCategoryId, String keyword) {
         Map<Long, String> metricNameById = metricMapper.selectList(null).stream()
                 .collect(Collectors.toMap(NutritionMetric::getId, NutritionMetric::getName));
-        QueryWrapper<Ingredient> qw = new QueryWrapper<Ingredient>().orderByDesc("id");
+        // 权重排序：usage_count 倒序（用得多的靠前），同分再按 id 倒序稳定
+        QueryWrapper<Ingredient> qw = new QueryWrapper<Ingredient>()
+                .orderByDesc("usage_count").orderByDesc("id");
         if (purchaseCategoryId != null) {
             qw.eq("purchase_category_id", purchaseCategoryId);
+        }
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            qw.like("name", keyword.trim());
         }
         return list(qw).stream().map(ing -> toVO(ing, metricNameById)).collect(Collectors.toList());
     }
@@ -73,14 +79,19 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
     /**
      * 分页列表（含营养，后台管理）：分页查食材实体后，逐条填营养 VO。
      * IPage 的 records 转成 VO 后塞回同一 IPage（total/current/size 不变）。
-     * 支持按 purchaseCategoryId 过滤；营养排序由前端在拉全量后处理（数据量小）。
+     * 支持 keyword(名称 LIKE) + purchaseCategoryId 双筛选；默认按 usage_count 权重倒序。
      */
     public IPage<IngredientVO> pageWithNutrition(IngredientPageQuery q) {
         Map<Long, String> metricNameById = metricMapper.selectList(null).stream()
                 .collect(Collectors.toMap(NutritionMetric::getId, NutritionMetric::getName));
-        QueryWrapper<Ingredient> qw = new QueryWrapper<Ingredient>().orderByDesc("id");
+        // 权重排序：usage_count 倒序（用户用得多的靠前），同分再按 id 倒序稳定
+        QueryWrapper<Ingredient> qw = new QueryWrapper<Ingredient>()
+                .orderByDesc("usage_count").orderByDesc("id");
         if (q.getPurchaseCategoryId() != null) {
             qw.eq("purchase_category_id", q.getPurchaseCategoryId());
+        }
+        if (q.getKeyword() != null && !q.getKeyword().trim().isEmpty()) {
+            qw.like("name", q.getKeyword().trim());
         }
         IPage<Ingredient> page = page(new Page<>(q.getPageNum(), q.getPageSize()), qw);
         List<IngredientVO> voRecords = page.getRecords().stream()
