@@ -42,6 +42,21 @@ const activeTab = ref<string>('cuisine')
 const loading = ref(false)
 const pageSize = 10
 
+// 营养指标 name(英文, DB/营养 EAV 兼容 key) → 中文展示名
+// DB 仍存英文，前端展示时映射；未命中时回退为原 name。
+const METRIC_CN: Record<string, string> = {
+  calorie: '热量',
+  protein: '蛋白质',
+  fat: '脂肪',
+  carb: '碳水',
+  sugar: '糖',
+  gi: '升糖指数',
+}
+
+function metricDisplayName(name: string): string {
+  return METRIC_CN[name] ?? name
+}
+
 interface GroupState {
   records: DictItem[]
   total: number
@@ -173,7 +188,9 @@ async function onDelete(row: DictItem) {
 
       <el-tab-pane label="营养指标" name="nutrition">
         <el-table v-loading="loading" :data="metrics" border size="default">
-          <el-table-column label="指标名称" prop="name" min-width="160" />
+          <el-table-column label="指标名称" min-width="160">
+            <template #default="{ row }">{{ metricDisplayName(row.name) }}</template>
+          </el-table-column>
           <el-table-column label="单位" prop="unit" width="120" />
           <el-table-column label="分组" prop="metricGroup" width="160" />
         </el-table>
