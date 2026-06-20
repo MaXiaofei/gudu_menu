@@ -3,6 +3,10 @@ import { request } from '@/utils/request'
 export const searchDishes = (params: Record<string, any>) =>
   request<any>({ url: '/dish/search', method: 'GET', data: params })
 
+/** 营养筛选（POST，支持 nutritionLimits JSON body；GET 无法传 Map）。 */
+export const searchDishesByNutrition = (params: Record<string, any>) =>
+  request<any>({ url: '/dish/search', method: 'POST', data: params })
+
 // 详情：后端 DishDetail record → { dish, steps, cuisineIds, tagIds, categoryIds, ingredients }
 export const dishDetail = (id: number) =>
   request<any>({ url: `/dish/${id}`, method: 'GET' })

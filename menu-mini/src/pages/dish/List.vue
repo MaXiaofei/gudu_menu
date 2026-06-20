@@ -70,7 +70,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
-import { searchDishes } from '@/api/dish'
+import { searchDishes, searchDishesByNutrition } from '@/api/dish'
 import { getCurrentMember, listMembers } from '@/api/member'
 
 const dishes = ref<any[]>([])
@@ -167,7 +167,11 @@ async function reload() {
 async function load() {
   status.value = 'loading'
   try {
-    const r = await searchDishes(buildParams(page.value))
+    const params = buildParams(page.value)
+    // 含营养上限（nutritionLimits）时走 POST（GET 无法绑 Map<Long,BigDecimal>）
+    const r = params.nutritionLimits
+      ? await searchDishesByNutrition(params)
+      : await searchDishes(params)
     const records = Array.isArray(r) ? r : (r.records || [])
     dishes.value.push(...records)
     status.value = records.length < pageSize ? 'nomore' : 'loadmore'

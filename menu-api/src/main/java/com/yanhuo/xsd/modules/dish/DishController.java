@@ -33,6 +33,12 @@ public class DishController {
         return R.ok(svc.search(q));
     }
 
+    /** 营养筛选（POST，@RequestBody 支持 nutritionLimits JSON body；GET 无法绑 Map<Long,BigDecimal>）。 */
+    @PostMapping("/search")
+    public R<IPage<Dish>> searchByNutrition(@RequestBody DishSearchDTO q) {
+        return R.ok(svc.search(q));
+    }
+
     @GetMapping("/{id}")
     public R<DishDetail> detail(@PathVariable Long id) {
         return R.ok(svc.detail(id));
