@@ -88,6 +88,11 @@ export function deleteDish(id: number) {
   return request<void>({ url: `/dish/${id}`, method: 'delete' })
 }
 
+/** URL 导入菜谱：POST /dish/import-url?url=xxx 抓网页解析落库，返回新菜品 id */
+export function importDishByUrl(url: string) {
+  return request<number>({ url: '/dish/import-url', method: 'post', params: { url } })
+}
+
 export function getDishNutrition(id: number, serving = 1) {
   return request<Record<string, number>>({ url: `/dish/${id}/nutrition`, method: 'get', params: { serving } })
 }

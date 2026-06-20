@@ -19,6 +19,10 @@ export const markDone = (dishId: number, memberId: number, note?: string) =>
 // V1 第一批：仅 dish + steps（关联/食材 YAGNI 留第二批）
 export const saveDish = (data: any) => request({ url: '/dish', method: 'POST', data })
 
+// URL 导入菜谱：后端 POST /dish/import-url?url=xxx 抓网页解析落库，返回新菜品 id
+export const importDishByUrl = (url: string) =>
+  request<number>({ url: `/dish/import-url?url=${encodeURIComponent(url)}`, method: 'POST' })
+
 // 营养指标字典：[{id,name,unit,metricGroup,sort}]，把 nutrition 的 id(→值) 映射成「名字: 值(单位)」
 export const nutritionMetrics = () => request<any[]>({ url: '/nutrition/metric', method: 'GET' })
 

@@ -81,6 +81,13 @@
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
+        <!-- Jsoup：URL 导入菜谱（抓网页 + CSS 选择器解析） -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.17.2</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

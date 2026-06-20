@@ -20,6 +20,7 @@ public class DishController {
 
     private final DishService svc;
     private final DishQueryService querySvc;
+    private final RecipeImporter recipeImporter;
 
     @GetMapping
     public R<List<Dish>> list() {
@@ -64,6 +65,15 @@ public class DishController {
     @PostMapping
     @MpPerm("dish.create")
     public R<?> save(@RequestBody DishSaveDTO dto) {
+        svc.saveFull(dto);
+        return R.ok(dto.getDish().getId());
+    }
+
+    /** URL 导入菜谱：抓网页 → 解析 → 落库，返回新菜品 id。 */
+    @PostMapping("/import-url")
+    @MpPerm("dish.create")
+    public R<Long> importUrl(@RequestParam String url) {
+        DishSaveDTO dto = recipeImporter.importFromUrl(url);
         svc.saveFull(dto);
         return R.ok(dto.getDish().getId());
     }

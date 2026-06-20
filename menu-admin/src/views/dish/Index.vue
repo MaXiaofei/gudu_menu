@@ -8,6 +8,7 @@ import {
   createDish,
   updateDish,
   deleteDish,
+  importDishByUrl,
   getDishNutrition,
   getDishHistory,
   type Dish,
@@ -53,6 +54,34 @@ const query = reactive({
   pageNum: 1,
   pageSize: 10,
 })
+
+// ===== URL 导入 =====
+const importDialogVisible = ref(false)
+const importUrl = ref('')
+const importing = ref(false)
+
+function openImport() {
+  importUrl.value = ''
+  importDialogVisible.value = true
+}
+
+async function doImport() {
+  if (!importUrl.value.trim()) {
+    ElMessage.warning('请粘贴菜谱链接')
+    return
+  }
+  importing.value = true
+  try {
+    const id = await importDishByUrl(importUrl.value.trim())
+    ElMessage.success(`导入成功，新菜品 ID: ${id}`)
+    importDialogVisible.value = false
+    await load()
+  } catch {
+    // request 拦截器已弹错误
+  } finally {
+    importing.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -307,6 +336,7 @@ async function showHistory(row: DishSearchRow) {
       />
       <el-button type="primary" @click="onSearch">搜索</el-button>
       <el-button type="success" @click="openCreate">新增菜品</el-button>
+      <el-button type="warning" @click="openImport">URL 导入</el-button>
     </div>
 
     <el-table v-loading="loading" :data="list" border>
@@ -453,6 +483,21 @@ async function showHistory(row: DishSearchRow) {
       </el-table>
       <div v-if="!historyList.length" class="empty">暂无历史版本</div>
     </el-drawer>
+
+    <!-- URL 导入 -->
+    <el-dialog v-model="importDialogVisible" title="URL 导入菜谱" width="520px">
+      <el-alert
+        type="info"
+        :closable="false"
+        title="支持 下厨房 / 美食杰 / 豆果美食；其他站点尽力提取。"
+        style="margin-bottom: 12px"
+      />
+      <el-input v-model="importUrl" placeholder="粘贴菜谱网页链接" clearable />
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="importing" @click="doImport">导入</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

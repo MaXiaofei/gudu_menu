@@ -4,6 +4,14 @@
       <text class="label">菜名 *</text>
       <u-input v-model="form.name" placeholder="如：番茄炒蛋" border="surround" />
     </view>
+
+    <view class="block import-block">
+      <text class="label">URL 导入（下厨房/美食杰/豆果）</text>
+      <view class="import-row">
+        <u-input v-model="importUrl" placeholder="粘贴菜谱链接" border="surround" />
+        <u-button size="mini" type="success" :loading="importing" @click="onImportUrl">导入</u-button>
+      </view>
+    </view>
     <view class="block">
       <text class="label">备注</text>
       <u-input v-model="form.note" placeholder="可选" border="surround" />
@@ -39,13 +47,32 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { saveDish } from '@/api/dish'
+import { saveDish, importDishByUrl } from '@/api/dish'
 
 // dish 字段对齐后端 Dish 实体（name/note/prepTime/cookTime/difficulty/price）
 const form = reactive({ name: '', note: '', prepTime: '', cookTime: '', difficulty: '3', price: '' })
 // steps 字段对齐后端 DishStep 实体（seq/text/sortOrder/images）
 const steps = reactive<any[]>([{ text: '' }])
 const loading = ref(false)
+const importUrl = ref('')
+const importing = ref(false)
+
+async function onImportUrl() {
+  if (!importUrl.value.trim()) {
+    uni.showToast({ title: '请粘贴链接', icon: 'none' })
+    return
+  }
+  importing.value = true
+  try {
+    const id = await importDishByUrl(importUrl.value.trim())
+    uni.showToast({ title: '导入成功', icon: 'success' })
+    setTimeout(() => uni.redirectTo({ url: `/pages/dish/Detail?id=${id}` }), 800)
+  } catch {
+    // request.ts 已弹 toast
+  } finally {
+    importing.value = false
+  }
+}
 
 function addStep() { steps.push({ text: '' }) }
 
@@ -84,6 +111,8 @@ async function onSave() {
 <style scoped>
 .create { padding: 30rpx; }
 .block { margin-bottom: 24rpx; }
+.import-block { background: #faf6f0; padding: 16rpx; border-radius: 12rpx; }
+.import-row { display: flex; gap: 12rpx; align-items: center; }
 .label { display: block; font-size: 26rpx; color: #666; margin-bottom: 12rpx; }
 .row { display: flex; gap: 16rpx; }
 .col { flex: 1; }
