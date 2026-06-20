@@ -33,3 +33,9 @@ export { nutritionMetrics }
 /** 新建食材（对齐后端 POST /ingredient { ingredient, nutritions }） */
 export const createIngredient = (data: IngredientSaveDTO) =>
   request<number>({ url: '/ingredient', method: 'POST', data })
+
+/** 全部食材（name + id，供「反向找菜」多选）：后端 GET /ingredient → IPage<IngredientVO>，取 records。 */
+export const listAllIngredients = () =>
+  request<any>({ url: '/ingredient', method: 'GET', data: { pageNum: 1, pageSize: 1000 } }).then(
+    (p: any) => (p && p.records) || [],
+  )

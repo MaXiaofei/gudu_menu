@@ -77,6 +77,12 @@
 			"style": {
 				"navigationBarTitleText": "AI 估营养"
 			}
+		},
+		{
+			"path": "pages/cookbook/FindByIngredients",
+			"style": {
+				"navigationBarTitleText": "冰箱找菜"
+			}
 		}
 	],
 	"globalStyle": {

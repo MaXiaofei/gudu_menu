@@ -7,6 +7,7 @@
     </view>
     <view class="entries">
       <u-button @click="goList">浏览菜库</u-button>
+      <u-button type="success" @click="goFindByIngredients">冰箱找菜</u-button>
       <u-button @click="goCreate">录入新菜</u-button>
       <u-button type="warning" @click="goIngredientCreate">录入食材</u-button>
       <u-button type="warning" @click="goAiRecommend">AI 帮我定菜单</u-button>
@@ -61,6 +62,9 @@ function goCreate() {
 }
 function goIngredientCreate() {
   uni.navigateTo({ url: '/pages/ingredient/Create' })
+}
+function goFindByIngredients() {
+  uni.navigateTo({ url: '/pages/cookbook/FindByIngredients' })
 }
 function goAiRecommend() {
   uni.navigateTo({ url: '/pages/ai/Recommend' })
