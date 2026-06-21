@@ -54,9 +54,26 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
     }
 
     /**
-     * 列表（含营养）：一次查 metric 字典建 id->name 映射，再对每个食材查其 EAV，
+     * 批量查询多个食材的营养 EAV（一次 IN 查询，消除 N+1）。
+     * 返回 ingredientId -> (metricId -> value)。未命中食材不出现在 map 中（调用方按需补空）。
+     * 入参为空时直接返回空 map，避免拼出非法的 `IN ()`。
+     */
+    public Map<Long, Map<Long, BigDecimal>> nutritionBatch(List<Long> ingredientIds) {
+        Map<Long, Map<Long, BigDecimal>> result = new HashMap<>();
+        if (ingredientIds == null || ingredientIds.isEmpty()) {
+            return result;
+        }
+        nutMapper.selectList(new QueryWrapper<IngredientNutrition>().in("ingredient_id", ingredientIds))
+                .forEach(n -> result
+                        .computeIfAbsent(n.getIngredientId(), k -> new HashMap<>())
+                        .put(n.getMetricId(), n.getValue()));
+        return result;
+    }
+
+    /**
+     * 列表（含营养）：一次查 metric 字典建 id->name 映射，再对结果食材做一次 IN 批量取营养 EAV，
      * 将 metricId->value 转成 metric name->value（per 100g），便于前端直接做中文映射展示。
-     * 食材库量小（几百），逐条查可接受。
+     * 整体 2 次 DB 查询（metric 字典 + 营养批量），不再逐食材查。
      *
      * @param purchaseCategoryId 采购分类 id，null 表示全部
      * @param keyword 名称模糊搜索关键词，null/空 表示不过滤
@@ -73,7 +90,14 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         if (keyword != null && !keyword.trim().isEmpty()) {
             qw.like("name", keyword.trim());
         }
-        return list(qw).stream().map(ing -> toVO(ing, metricNameById)).collect(Collectors.toList());
+        List<Ingredient> ings = list(qw);
+        // 一次 IN 批量取全部营养，消除 N+1
+        Map<Long, Map<Long, BigDecimal>> nutByIngredient = nutritionBatch(
+                ings.stream().map(Ingredient::getId).collect(Collectors.toList()));
+        return ings.stream()
+                .map(ing -> toVO(ing, metricNameById,
+                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap())))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -94,8 +118,12 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
             qw.like("name", q.getKeyword().trim());
         }
         IPage<Ingredient> page = page(new Page<>(q.getPageNum(), q.getPageSize()), qw);
+        // 一次 IN 批量取本页全部营养，消除 N+1
+        Map<Long, Map<Long, BigDecimal>> nutByIngredient = nutritionBatch(
+                page.getRecords().stream().map(Ingredient::getId).collect(Collectors.toList()));
         List<IngredientVO> voRecords = page.getRecords().stream()
-                .map(ing -> toVO(ing, metricNameById))
+                .map(ing -> toVO(ing, metricNameById,
+                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap())))
                 .collect(Collectors.toList());
         // IPage 是接口，直接转换 records；用 setRecords 保留分页元信息
         Page<IngredientVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
@@ -103,11 +131,16 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         return result;
     }
 
-    private IngredientVO toVO(Ingredient ing, Map<Long, String> metricNameById) {
+    /**
+     * 组装 VO：拷贝食材字段，把预取的 metricId->value 映射成 metric name->value。
+     * 营养由调用方批量预取后传入（ingredientId 对应的那一份），不在本方法内再查 DB。
+     */
+    private IngredientVO toVO(Ingredient ing, Map<Long, String> metricNameById,
+                              Map<Long, BigDecimal> metricIdToValue) {
         IngredientVO vo = new IngredientVO();
         BeanUtils.copyProperties(ing, vo);
         Map<String, BigDecimal> named = new HashMap<>();
-        for (Map.Entry<Long, BigDecimal> e : nutritionOf(ing.getId()).entrySet()) {
+        for (Map.Entry<Long, BigDecimal> e : metricIdToValue.entrySet()) {
             String name = metricNameById.get(e.getKey());
             if (name != null) {
                 named.put(name, e.getValue());
