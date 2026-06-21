@@ -95,4 +95,30 @@ public class ShoppingController {
         svc.deleteList(listId);
         return R.ok(null);
     }
+
+    /**
+     * 手动添加自定义采购项（V30）：采购清单不强绑菜单/菜品。
+     * name 命中已有 ingredient → 关联 ingredientId；未命中 → ingredientId 留空、name 存 custom_name。
+     * 返回新增的 shopping_item.id。
+     */
+    @PostMapping("/item/custom")
+    public R<Long> addCustomItem(@RequestBody AddCustomItemReq req) {
+        return R.ok(svc.addItemCustom(req.getListId(), req.getName(),
+                req.getAmount(), req.getUnitId(), req.getPurchaseCategoryId()));
+    }
+
+    /** 手动添加自定义采购项请求体。 */
+    @Data
+    public static class AddCustomItemReq {
+        /** 目标采购清单 id。 */
+        private Long listId;
+        /** 自定义食材名（如「土豆」「老抽」）。 */
+        private String name;
+        /** 采购量（可空，用户后填）。 */
+        private BigDecimal amount;
+        /** 采购单位 sys_dict(group=purchase_unit) id（可空）。 */
+        private Long unitId;
+        /** 采购品类 sys_dict(group=purchase_category) id（可空，用于分区）。 */
+        private Long purchaseCategoryId;
+    }
 }

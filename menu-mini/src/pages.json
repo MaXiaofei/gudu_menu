@@ -9,73 +9,79 @@
 		{
 			"path": "pages/index/Index",
 			"style": {
-				"navigationBarTitleText": "小食单"
+				"navigationBarTitleText": "今晚吃啥"
 			}
 		},
 		{
 			"path": "pages/dish/List",
 			"style": {
-				"navigationBarTitleText": "菜库"
+				"navigationBarTitleText": "我的菜谱"
 			}
 		},
 		{
 			"path": "pages/dish/Detail",
 			"style": {
-				"navigationBarTitleText": "菜品详情"
+				"navigationBarTitleText": "菜谱"
 			}
 		},
 		{
 			"path": "pages/dish/Review",
 			"style": {
-				"navigationBarTitleText": "点评"
+				"navigationBarTitleText": "好不好吃"
 			}
 		},
 		{
 			"path": "pages/dish/Create",
 			"style": {
-				"navigationBarTitleText": "录入新菜"
+				"navigationBarTitleText": "分享个菜谱"
 			}
 		},
 		{
 			"path": "pages/mealplan/Calendar",
 			"style": {
-				"navigationBarTitleText": "周计划"
-			}
-		},
-		{
-			"path": "pages/pantry/List",
-			"style": {
-				"navigationBarTitleText": "食材库存"
+				"navigationBarTitleText": "本周排菜"
 			}
 		},
 		{
 			"path": "pages/shopping/List",
 			"style": {
-				"navigationBarTitleText": "采购清单"
+				"navigationBarTitleText": "采购单"
+			}
+		},
+		{
+			"path": "pages/shopping/Home",
+			"style": {
+				"navigationBarTitleText": "买点啥"
+			}
+		},
+		{
+			"path": "pages/pantry/List",
+			"style": {
+				"navigationBarTitleText": "还剩啥"
 			}
 		},
 		{
 			"path": "pages/dailylog/Index",
 			"style": {
-				"navigationBarTitleText": "每日饮食记录"
+				"navigationBarTitleText": "今天吃了啥"
 			}
 		},
 		{
 			"path": "pages/ingredient/Create",
 			"style": {
-				"navigationBarTitleText": "录入食材"
+				"navigationBarTitleText": "食材补全"
 			}
 		},
 		{
 			"path": "pages/ai/Recommend",
 			"style": {
-				"navigationBarTitleText": "AI 帮我定菜单"
+				"navigationBarTitleText": "换个推荐"
 			}
 		},
 		{
 			"path": "pages/ai/Estimate",
 			"style": {
-				"navigationBarTitleText": "AI 估营养"
+				"navigationBarTitleText": "算热量"
 			}
 		},
 		{
@@ -83,19 +89,36 @@
 			"style": {
 				"navigationBarTitleText": "冰箱找菜"
 			}
+		},
+		{
+			"path": "pages/profile/Settings",
+			"style": {
+				"navigationBarTitleText": "设置"
+			}
 		}
 	],
 	"globalStyle": {
-		"navigationBarBackgroundColor": "#FF8C42",
-		"navigationBarTextStyle": "white"
+		"navigationBarBackgroundColor": "#FFFFFF",
+		"navigationBarTextStyle": "black",
+		"backgroundColor": "#FAFAFA"
 	},
 	"tabBar": {
 		"color": "#999999",
-		"selectedColor": "#FF8C42",
+		"selectedColor": "#FF6B35",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "white",
 		"list": [
 			{
 				"pagePath": "pages/index/Index",
-				"text": "首页"
+				"text": "今晚吃啥"
+			},
+			{
+				"pagePath": "pages/dish/List",
+				"text": "我的菜谱"
+			},
+			{
+				"pagePath": "pages/shopping/Home",
+				"text": "买点啥"
 			}
 		]
 	}

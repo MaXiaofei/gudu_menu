@@ -50,4 +50,10 @@ public class ShoppingItem {
 
     /** 是否已买（0 未买 / 1 已买）。 */
     private Integer purchased;
+
+    /**
+     * 自定义食材名（V30）：手动添加采购项时，若 name 未命中 ingredient 表，
+     * ingredientId 留空，食材名直接存这里。命中时此列为空（用 ingredientName 展示）。
+     */
+    private String customName;
 }

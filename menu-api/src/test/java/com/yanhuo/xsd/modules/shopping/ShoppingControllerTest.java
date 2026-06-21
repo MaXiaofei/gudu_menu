@@ -180,4 +180,18 @@ class ShoppingControllerTest {
                 .andExpect(jsonPath("$.code").value(0));
         verify(svc).deleteList(8L);
     }
+
+    @Test
+    void 手动添加自定义采购项_调用addItemCustom() throws Exception {
+        given(svc.addItemCustom(eq(3L), eq("土豆"), eq(new BigDecimal("2")), eq(40L), eq(24L)))
+                .willReturn(66L);
+        String body = om.writeValueAsString(Map.of(
+                "listId", 3, "name", "土豆", "amount", 2, "unitId", 40, "purchaseCategoryId", 24));
+
+        mvc.perform(post("/shopping/item/custom").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").value(66));
+        verify(svc).addItemCustom(eq(3L), eq("土豆"), eq(new BigDecimal("2")), eq(40L), eq(24L));
+    }
 }

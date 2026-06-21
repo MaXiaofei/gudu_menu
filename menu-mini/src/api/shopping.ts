@@ -4,8 +4,10 @@ import { request } from '@/utils/request'
 export interface ShoppingItemVO {
   id: number
   listId?: number
-  ingredientId: number
+  ingredientId: number | null
   ingredientName?: string
+  /** V30：手动添加未命中食材时存的自由食材名，展示时 ingredientName 已 fallback 到它。 */
+  customName?: string | null
   referenceGrams?: number
   purchaseAmount?: number | null
   purchaseUnitId?: number | null
@@ -72,6 +74,15 @@ export const updatePurchase = (itemId: number, purchaseAmount: number, purchaseU
     url: `/shopping/item/${itemId}`,
     method: 'PUT',
     data: { purchaseAmount, purchaseUnitId }
+  })
+
+// 手动添加自定义采购项（V30）：采购清单不强绑菜单/菜品
+// name 命中已有 ingredient → 关联；未命中 → ingredientId=null + name 存 custom_name
+export const addCustomItem = (listId: number, name: string, amount: number | null, unitId: number | null, purchaseCategoryId: number | null) =>
+  request<number>({
+    url: '/shopping/item/custom',
+    method: 'POST',
+    data: { listId, name, amount, unitId, purchaseCategoryId }
   })
 
 // 勾选/取消已买

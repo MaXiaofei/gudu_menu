@@ -275,6 +275,49 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         itemMapper.updateById(it);
     }
 
+    /**
+     * 手动添加自定义采购项（V30）：采购清单不强绑菜单/菜品。
+     * <p>规则：name 命中 ingredient 表（精确名匹配）→ 关联 ingredientId + 顺带带出该食材的 purchaseCategoryId；
+     * 未命中 → ingredientId 留空、name 存 custom_name，purchaseCategoryId 用前端传值（可空）。
+     *
+     * @param listId             目标采购清单 id
+     * @param name               用户输入的食材名（必填，trim 后非空）
+     * @param amount             采购量（可空，用户后填）
+     * @param unitId             采购单位 sys_dict(group=purchase_unit) id（可空）
+     * @param purchaseCategoryId 采购品类 sys_dict(group=purchase_category) id（可空，命中 ingredient 时被食材自身品类覆盖）
+     * @return 新增的 shopping_item.id
+     */
+    @Transactional
+    public Long addItemCustom(Long listId, String name, BigDecimal amount, Long unitId, Long purchaseCategoryId) {
+        if (listId == null) throw new IllegalArgumentException("listId 不能为空");
+        if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("食材名不能为空");
+        String trimmed = name.trim();
+
+        ShoppingItem item = new ShoppingItem();
+        item.setListId(listId);
+        item.setPurchaseAmount(amount);
+        item.setPurchaseUnitId(unitId);
+        item.setPurchased(0);
+
+        // name 命中已有 ingredient → 关联，并带出其 purchaseCategoryId（前端传值作兜底）
+        List<Ingredient> matched = ingredientMapper.selectList(
+                new QueryWrapper<Ingredient>().eq("name", trimmed).last("LIMIT 1"));
+        if (!matched.isEmpty()) {
+            Ingredient ing = matched.get(0);
+            item.setIngredientId(ing.getId());
+            item.setPurchaseCategoryId(ing.getPurchaseCategoryId() != null
+                    ? ing.getPurchaseCategoryId() : purchaseCategoryId);
+            item.setCustomName(null);
+        } else {
+            // 未命中：纯自定义项，ingredientId 留空，name 存 custom_name
+            item.setIngredientId(null);
+            item.setCustomName(trimmed);
+            item.setPurchaseCategoryId(purchaseCategoryId);
+        }
+        itemMapper.insert(item);
+        return item.getId();
+    }
+
     /** 勾选/取消勾选某明细已买。 */
     public void togglePurchased(Long itemId) {
         ShoppingItem it = itemMapper.selectById(itemId);
@@ -321,7 +364,12 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         for (ShoppingItem it : rows) {
             ShoppingItemVO vo = new ShoppingItemVO();
             BeanUtils.copyProperties(it, vo);
-            vo.setIngredientName(ingName.get(it.getIngredientId()));
+            // 展示名：有 ingredientId 取食材名；否则用 custom_name（V30 手动添加项）
+            String display = it.getIngredientId() != null ? ingName.get(it.getIngredientId()) : null;
+            if (display == null || display.isEmpty()) {
+                display = it.getCustomName();
+            }
+            vo.setIngredientName(display);
             vo.setUnitName(unitName.get(it.getUnitId()));
             vo.setPurchaseCategoryName(catName.get(it.getPurchaseCategoryId()));
             vo.setPurchaseUnitName(purchaseUnitName.get(it.getPurchaseUnitId()));
