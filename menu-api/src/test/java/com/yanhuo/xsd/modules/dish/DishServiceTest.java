@@ -43,7 +43,7 @@ class DishServiceTest {
         dictRelMapper = Mockito.mock(DishDictMapper.class);
         dishIngMapper = Mockito.mock(DishIngredientMapper.class);
         ingredientNutritionMapper = Mockito.mock(IngredientNutritionMapper.class);
-        svc = new DishService(stepMapper, dictRelMapper, dishIngMapper, ingredientNutritionMapper, new NutritionCalcService());
+        svc = new DishService(stepMapper, dictRelMapper, dishIngMapper, ingredientNutritionMapper, new NutritionCalcService(), null);
         injectBaseMapper(svc, dishMapper);
     }
 
