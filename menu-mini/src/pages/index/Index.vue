@@ -4,9 +4,6 @@
     <view class="greeting">
       <view class="g-row">
         <text class="g-hi">{{ greeting }}，{{ memberName }}</text>
-        <view class="g-switch" @click="onSwitchMember">
-          <text class="g-chip">{{ memberName }} ▾</text>
-        </view>
       </view>
       <text class="g-quote">{{ todayQuote }}</text>
     </view>
@@ -35,23 +32,23 @@
       </view>
       <view class="grid-cell" @click="go('/pages/pantry/List')">
         <view class="cell-ico" style="background: rgba(111,191,142,0.15); color:#6FBF8E;">🧊</view>
-        <text class="cell-name">冰箱食材</text>
+        <text class="cell-name">食材库存</text>
       </view>
       <view class="grid-cell" @click="go('/pages/mealplan/Calendar')">
         <view class="cell-ico" style="background: rgba(107,168,232,0.15); color:#6BA8E8;">📅</view>
-        <text class="cell-name">排菜</text>
+        <text class="cell-name">周计划</text>
       </view>
       <view class="grid-cell" @click="go('/pages/shopping/List')">
         <view class="cell-ico" style="background: rgba(232,163,61,0.15); color:#E8A33D;">🛒</view>
-        <text class="cell-name">采购单</text>
+        <text class="cell-name">采购清单</text>
       </view>
       <view class="grid-cell" @click="go('/pages/dailylog/Index')">
         <view class="cell-ico" style="background: rgba(176,123,216,0.15); color:#B07BD8;">📝</view>
-        <text class="cell-name">饮食日记</text>
+        <text class="cell-name">饮食记录</text>
       </view>
-      <view class="grid-cell" @click="go('/pages/ai/Estimate')">
-        <view class="cell-ico" style="background: rgba(224,123,123,0.15); color:#E07B7B;">🔥</view>
-        <text class="cell-name">算热量</text>
+      <view class="grid-cell" @click="go('/pages/ai/Recommend')">
+        <view class="cell-ico" style="background: rgba(224,123,123,0.15); color:#E07B7B;">✨</view>
+        <text class="cell-name">AI 帮我</text>
       </view>
     </view>
 

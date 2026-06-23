@@ -32,4 +32,13 @@ public class DishSearchDTO extends PageQuery {
      * 性能：先按 keyword/维度 SQL 过滤候选，再内存算营养二次过滤，候选池大时慢。
      */
     private Map<Long, BigDecimal> nutritionLimits;
+
+    /** 来源筛选：ORIGINAL(自创) / IMPORT(导入)。 */
+    private String source;
+
+    /** 仅看做过的菜。 */
+    private Boolean done;
+
+    /** 仅看收藏的菜。 */
+    private Boolean star;
 }

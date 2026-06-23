@@ -35,6 +35,9 @@ public class Dish {
     /** 难度 1-5。 */
     private Integer difficulty;
 
+    /** 来源：ORIGINAL(自创) / IMPORT(导入)。 */
+    private String source;
+
     private LocalDateTime createTime;
 
     @TableLogic

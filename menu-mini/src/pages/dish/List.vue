@@ -1,19 +1,15 @@
 <template>
   <view class="page">
-    <!-- 顶栏：大标题 + 齿轮 -->
+    <!-- 顶栏：大标题 -->
     <view class="topbar">
       <view class="title-wrap">
         <view class="title-bar"></view>
         <text class="title">我的菜</text>
       </view>
-      <view class="top-actions">
-        <text class="ico-btn" @click="toggleSearch">🔍</text>
-        <text class="ico-btn" @click="goSettings">⚙️</text>
-      </view>
     </view>
 
-    <!-- 搜索（默认收起） -->
-    <view v-if="searchOpen" class="search-box">
+    <!-- 搜索框（常驻显示） -->
+    <view class="search-box">
       <text class="s-ico">🔍</text>
       <input
         class="s-input"
@@ -54,16 +50,37 @@
           <input class="f-input" type="digit" v-model="filters.sugar" placeholder="如25" />
         </view>
         <view class="f-cell">
-          <text class="f-label">GI≤</text>
-          <input class="f-input" type="digit" v-model="filters.gi" placeholder="如55" />
-        </view>
-        <view class="f-cell">
           <text class="f-label">热量≤(kcal)</text>
           <input class="f-input" type="digit" v-model="filters.cal" placeholder="如500" />
         </view>
       </view>
 
-      <view class="f-grid" style="margin-top: 12px;">
+      <view class="f-title" style="margin-top: 14px;">分类筛选</view>
+      <view class="f-grid">
+        <view class="f-cell">
+          <text class="f-label">菜系</text>
+          <picker mode="selector" :range="cuisineLabels" :value="cuisineIdx" @change="(e:any)=>cuisineIdx=Number(e.detail.value)">
+            <view class="f-picker">{{ cuisineLabels[cuisineIdx] }}</view>
+          </picker>
+        </view>
+        <view class="f-cell">
+          <text class="f-label">分类</text>
+          <picker mode="selector" :range="categoryLabels" :value="categoryIdx" @change="(e:any)=>categoryIdx=Number(e.detail.value)">
+            <view class="f-picker">{{ categoryLabels[categoryIdx] }}</view>
+          </picker>
+        </view>
+      </view>
+      <view class="f-grid" style="margin-top: 8px;">
+        <view class="f-cell">
+          <text class="f-label">标签</text>
+          <picker mode="selector" :range="tagLabels" :value="tagIdx" @change="(e:any)=>tagIdx=Number(e.detail.value)">
+            <view class="f-picker">{{ tagLabels[tagIdx] }}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="f-title" style="margin-top: 14px;">其他</view>
+      <view class="f-grid">
         <view class="f-cell">
           <text class="f-label">难度≤</text>
           <picker mode="selector" :range="diffNames" :value="diffIdx" @change="(e:any)=>diffIdx=Number(e.detail.value)">
@@ -135,11 +152,12 @@
 import { ref, reactive, computed } from 'vue'
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
 import { searchDishes, searchDishesByNutrition } from '@/api/dish'
+import { request } from '@/utils/request'
 
 const dishes = ref<any[]>([])
 const keyword = ref('')
 const page = ref(1)
-const pageSize = 20
+const pageSize = 10
 const status = ref<'loadmore' | 'loading' | 'nomore'>('loadmore')
 const loading = ref(false)
 
@@ -155,20 +173,47 @@ const cats = [
   { key: 'star', label: '⭐' },
 ]
 
-const filters = reactive({ sugar: '', gi: '', cal: '', minutes: '' })
+const filters = reactive({ sugar: '', cal: '', minutes: '' })
 const diffNames = ['不限', '1', '2', '3', '4', '5']
 const diffIdx = ref(0)
 const METRIC_SUGAR = 5
-const METRIC_GI = 6
 const METRIC_CAL = 1
+
+// 菜系/分类/标签字典
+const cuisines = ref<any[]>([{ id: 0, name: '不限' }])
+const categories = ref<any[]>([{ id: 0, name: '不限' }])
+const tags = ref<any[]>([{ id: 0, name: '不限' }])
+const cuisineIdx = ref(0)
+const categoryIdx = ref(0)
+const tagIdx = ref(0)
+const cuisineLabels = computed(() => cuisines.value.map((x: any) => x.name))
+const categoryLabels = computed(() => categories.value.map((x: any) => x.name))
+const tagLabels = computed(() => tags.value.map((x: any) => x.name))
+
+async function loadDicts() {
+  try {
+    const [cu, cat, tg] = await Promise.all([
+      request<any>({ url: '/dict', method: 'GET', data: { group: 'cuisine', pageSize: 1000 } }),
+      request<any>({ url: '/dict', method: 'GET', data: { group: 'category', pageSize: 1000 } }),
+      request<any>({ url: '/dict', method: 'GET', data: { group: 'tag', pageSize: 1000 } }),
+    ])
+    const toList = (r: any) => Array.isArray(r) ? r : (r?.records || [])
+    cuisines.value = [{ id: 0, name: '不限' }, ...toList(cu)]
+    categories.value = [{ id: 0, name: '不限' }, ...toList(cat)]
+    tags.value = [{ id: 0, name: '不限' }, ...toList(tg)]
+  } catch {}
+}
+loadDicts()
 
 const activeFilterCount = computed(() => {
   let n = 0
   if (filters.sugar) n++
-  if (filters.gi) n++
   if (filters.cal) n++
   if (filters.minutes) n++
   if (diffIdx.value > 0) n++
+  if (cuisineIdx.value > 0) n++
+  if (categoryIdx.value > 0) n++
+  if (tagIdx.value > 0) n++
   return n
 })
 
@@ -197,21 +242,28 @@ function buildParams(pn: number) {
   if (diffIdx.value > 0) p.maxDifficulty = diffIdx.value
   if (filters.minutes) p.maxMinutes = Number(filters.minutes)
   // 来源分类
-  if (activeCat.value === 'own') p.source = 'OWN'
+  if (activeCat.value === 'own') p.source = 'ORIGINAL'
   if (activeCat.value === 'import') p.source = 'IMPORT'
+  if (activeCat.value === 'done') p.done = true
+  if (activeCat.value === 'star') p.star = true
+  // 菜系/分类/标签
+  if (cuisineIdx.value > 0) p.cuisineIds = [cuisines.value[cuisineIdx.value].id]
+  if (categoryIdx.value > 0) p.categoryIds = [categories.value[categoryIdx.value].id]
+  if (tagIdx.value > 0) p.tagIds = [tags.value[tagIdx.value].id]
   const limits: Record<string, number> = {}
   if (filters.sugar) limits[METRIC_SUGAR] = Number(filters.sugar)
-  if (filters.gi) limits[METRIC_GI] = Number(filters.gi)
   if (filters.cal) limits[METRIC_CAL] = Number(filters.cal)
   if (Object.keys(limits).length) p.nutritionLimits = limits
   return p
 }
 function resetFilters() {
   filters.sugar = ''
-  filters.gi = ''
   filters.cal = ''
   filters.minutes = ''
   diffIdx.value = 0
+  cuisineIdx.value = 0
+  categoryIdx.value = 0
+  tagIdx.value = 0
   reload()
 }
 

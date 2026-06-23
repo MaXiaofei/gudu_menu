@@ -122,6 +122,22 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         addRelFilter(w, q.getTagIds(), "tag");
         addRelFilter(w, q.getCategoryIds(), "category");
 
+        // 来源筛选
+        if (q.getSource() != null && !q.getSource().isBlank()) {
+            w.eq("source", q.getSource());
+        }
+        // 做过/收藏筛选（需要当前就餐成员）
+        Long curMember = null;
+        try {
+            curMember = cn.dev33.satoken.stp.StpUtil.getSession().getLong("currentMemberId");
+        } catch (Exception ignored) {}
+        if (Boolean.TRUE.equals(q.getDone()) && curMember != null) {
+            w.exists("SELECT 1 FROM cooking_record cr WHERE cr.dish_id = dish.id AND cr.member_id = " + curMember);
+        }
+        if (Boolean.TRUE.equals(q.getStar()) && curMember != null) {
+            w.exists("SELECT 1 FROM favorite f WHERE f.dish_id = dish.id AND f.member_id = " + curMember);
+        }
+
         // 无营养约束：原 SQL 分页。
         Map<Long, BigDecimal> limits = q.getNutritionLimits();
         if (limits == null || limits.isEmpty()) {

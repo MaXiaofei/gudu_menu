@@ -1,0 +1,2 @@
+-- 菜品来源标记（自创/导入）
+ALTER TABLE dish ADD COLUMN source VARCHAR(16) DEFAULT 'ORIGINAL';
