@@ -105,6 +105,10 @@
                   <text v-if="it.purchaseAmount != null" class="ref-g">· {{ it.purchaseAmount }} {{ it.purchaseUnitName || '' }}</text>
                 </view>
               </view>
+              <view class="item-actions">
+                <text class="item-edit" @click.stop="openEdit(it)">编辑</text>
+                <text class="item-del" @click.stop="onDelete(it)">删除</text>
+              </view>
             </view>
           </view>
         </view>
@@ -153,6 +157,33 @@
       </view>
     </view>
 
+    <!-- 编辑弹层 -->
+    <view v-if="editOpen" class="mask" @click.self="closeEdit">
+      <view class="sheet">
+        <view class="sheet-title">编辑采购项</view>
+        <view class="sheet-row">
+          <text class="lbl">食材名</text>
+          <input class="sheet-input" v-model="editForm.name" placeholder="食材名" disabled />
+        </view>
+        <view class="sheet-row">
+          <text class="lbl">采购量</text>
+          <input class="sheet-input" type="digit" v-model="editForm.amount" placeholder="买多少" />
+        </view>
+        <view class="sheet-row">
+          <text class="lbl">单位</text>
+          <picker mode="selector" :range="unitNames" :value="editForm.unitIdx" @change="(e:any)=>editForm.unitIdx=Number(e.detail.value)">
+            <view class="sheet-picker">{{ editForm.unitIdx >= 0 ? unitNames[editForm.unitIdx] : '选单位' }}</view>
+          </picker>
+        </view>
+        <view class="sheet-actions">
+          <button class="yh-btn-ghost half" @click="closeEdit">取消</button>
+          <button class="yh-btn-gradient half" :disabled="saving" @click="onSaveEdit">
+            {{ saving ? '保存中…' : '保存' }}
+          </button>
+        </view>
+      </view>
+    </view>
+
     <!-- 离屏画布：导出图片 -->
     <canvas
       canvas-id="shoppingExport"
@@ -172,6 +203,8 @@ import {
   getDetail,
   togglePurchased,
   addCustomItem,
+  updatePurchase,
+  deleteItem,
   type ShoppingListVO,
   type ShoppingItemVO,
   type ShoppingSourceType,
@@ -229,6 +262,46 @@ const catNames = computed(() => cats.value.map((c) => c.name))
 const addOpen = ref(false)
 const adding = ref(false)
 const form = reactive({ name: '', amount: '', unitIdx: -1, catIdx: -1 })
+
+// 编辑表单
+const editOpen = ref(false)
+const saving = ref(false)
+const editForm = reactive({ id: 0, name: '', amount: '', unitIdx: -1 })
+
+function openEdit(it: any) {
+  editForm.id = it.id
+  editForm.name = it.ingredientName || it.customName || ''
+  editForm.amount = it.purchaseAmount != null ? String(it.purchaseAmount) : ''
+  editForm.unitIdx = it.purchaseUnitId != null ? Math.max(0, units.value.findIndex(u => u.id === it.purchaseUnitId)) : -1
+  editOpen.value = true
+}
+function closeEdit() { editOpen.value = false }
+
+async function onSaveEdit() {
+  saving.value = true
+  try {
+    const unitId = editForm.unitIdx >= 0 ? units.value[editForm.unitIdx]?.id : null
+    await updatePurchase(editForm.id, Number(editForm.amount) || 0, unitId as any)
+    uni.showToast({ title: '已保存' })
+    closeEdit()
+    await loadDetail()
+  } catch {} finally { saving.value = false }
+}
+
+async function onDelete(it: any) {
+  uni.showModal({
+    title: '删除采购项',
+    content: `确定删除「${it.ingredientName || it.customName || '该项'}」？`,
+    success: async (r) => {
+      if (!r.confirm) return
+      try {
+        await deleteItem(it.id)
+        uni.showToast({ title: '已删除' })
+        await loadDetail()
+      } catch {}
+    },
+  })
+}
 
 function weekText(weekStart?: string): string {
   if (!weekStart) return '#'
