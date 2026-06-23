@@ -57,7 +57,7 @@
 		{
 			"path": "pages/shopping/List",
 			"style": {
-				"navigationBarTitleText": "买菜"
+				"navigationBarTitleText": "采购"
 			}
 		},
 		{

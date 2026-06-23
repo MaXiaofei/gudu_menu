@@ -16,8 +16,17 @@
       <view class="yh-card entry" @click="go('/pages/shopping/List')">
         <view class="entry-ico" style="background: rgba(232,163,61,0.15); color:#E8A33D;">🛒</view>
         <view class="entry-body">
-          <text class="entry-name">买菜</text>
-          <text class="entry-sub">采购清单，缺啥买啥</text>
+          <text class="entry-name">采购</text>
+          <text class="entry-sub">从菜品/菜单生成采购清单</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
+
+      <view class="yh-card entry" @click="go('/pages/shopping/List?custom=1')">
+        <view class="entry-ico" style="background: rgba(232,163,61,0.15); color:#E8A33D;">✏️</view>
+        <view class="entry-body">
+          <text class="entry-name">自定义采购</text>
+          <text class="entry-sub">手动添加要买的东西</text>
         </view>
         <text class="entry-arrow">›</text>
       </view>
@@ -40,15 +49,6 @@
         <text class="entry-arrow">›</text>
       </view>
 
-      <view class="yh-card entry" @click="go('/pages/mealplan/Calendar')">
-        <view class="entry-ico" style="background: rgba(107,168,232,0.15); color:#6BA8E8;">📅</view>
-        <view class="entry-body">
-          <text class="entry-name">本周排菜</text>
-          <text class="entry-sub">一周菜单排起来</text>
-        </view>
-        <text class="entry-arrow">›</text>
-      </view>
-
       <view class="yh-card entry" @click="go('/pages/ai/Recommend')">
         <view class="entry-ico" style="background: rgba(224,123,123,0.15); color:#E07B7B;">✨</view>
         <view class="entry-body">
@@ -66,6 +66,15 @@
         </view>
         <text class="entry-arrow">›</text>
       </view>
+
+      <view class="yh-card entry" @click="go('/pages/mealplan/Calendar')">
+        <view class="entry-ico" style="background: rgba(107,168,232,0.15); color:#6BA8E8;">📅</view>
+        <view class="entry-body">
+          <text class="entry-name">本周排菜</text>
+          <text class="entry-sub">一周菜单排起来</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
     </view>
 
     <!-- 今日推荐入口（跳 index） -->
@@ -78,16 +87,12 @@
     </view>
 
     <view style="height: 60rpx;"></view>
-    <button class="yh-btn-ghost logout" @click="goSettings">设置 · 切换成员 · 退出</button>
   </view>
 </template>
 
 <script setup lang="ts">
 function go(url: string) {
   uni.navigateTo({ url })
-}
-function goSettings() {
-  uni.navigateTo({ url: '/pages/profile/Settings' })
 }
 </script>
 
