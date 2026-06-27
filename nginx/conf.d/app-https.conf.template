@@ -1,0 +1,50 @@
+# ============================================================
+#  HTTPS 生产配置（Certbot 签发证书后启用）
+#  将 gudxsd.top 替换为实际域名
+# ============================================================
+
+# HTTP → HTTPS 重定向
+server {
+    listen 80;
+    server_name gudxsd.top;
+
+    # ACME 续期验证
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS 主服务
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name gudxsd.top;
+
+    # SSL 证书
+    ssl_certificate     /etc/letsencrypt/live/gudxsd.top/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/gudxsd.top/privkey.pem;
+
+    # 安全头
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # 安全增强
+    add_header Strict-Transport-Security "max-age=63072000" always;
+
+    # 代理到 menu-admin
+    location / {
+        proxy_pass http://menu-admin:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 50m;
+    }
+}

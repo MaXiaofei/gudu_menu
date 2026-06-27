@@ -1,46 +1,84 @@
-# 烟火小食单 · 全栈一键部署
-# 用法：docker compose -f docker-compose.prod.yml up -d --build
-# 访问：http://<host>   登录 admin / admin123
-# 注：根目录 docker-compose.yml 是「开发 DB」（mysql/redis/minio 端口映射，本机开发连）；
-#     本文件是「全栈部署」（含后端前端，内部网络，仅前端 80 对外）。
+# 咕嘟小食单 · 全栈一键部署（HTTPS）
+# ============================================================
+# 首次部署：
+#   1. 替换 nginx/init-letsencrypt.sh 中的域名和邮箱
+#   2. docker compose -f docker-compose.prod.yml up -d --build
+#   3. ./nginx/init-letsencrypt.sh   （签发 HTTPS 证书）
+# ============================================================
 services:
-  yanhuo-mysql:
+  gudu-mysql:
     image: mysql:8.0
-    container_name: yanhuo-mysql-prod
+    container_name: gudu-mysql-prod
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: MYSQL_PWD_REDACTED
-      MYSQL_DATABASE: yanhuo
+      MYSQL_DATABASE: gudu
       TZ: Asia/Shanghai
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--character-set-client-handshake=FALSE"]
+    ports:
+      - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./menu-api/sql:/docker-entrypoint-initdb.d:ro   # 首启自动建表+灌种子(V1..V11)
+      - ./menu-api/sql:/docker-entrypoint-initdb.d:ro
 
-  yanhuo-redis:
+  gudu-redis:
     image: redis:7
-    container_name: yanhuo-redis-prod
+    container_name: gudu-redis-prod
     restart: unless-stopped
+    ports:
+      - "6379:6379"
 
   menu-api:
     build: ./menu-api
     container_name: menu-api
     restart: unless-stopped
-    depends_on: [yanhuo-mysql, yanhuo-redis]
+    depends_on: [gudu-mysql, gudu-redis]
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: Asia/Shanghai
       API_KEY: ${API_KEY:-}
     volumes:
       - uploads:/app/uploads
+      - ./logs:/app/logs
 
   menu-admin:
     build: ./menu-admin
     container_name: menu-admin
     restart: unless-stopped
     depends_on: [menu-api]
+    # 不暴露端口到宿主机，由 front-nginx 统一代理
+
+  front-nginx:
+    image: nginx:alpine
+    container_name: gudu-nginx
+    restart: unless-stopped
     ports:
-      - "8081:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    depends_on:
+      - menu-admin
+
+  certbot:
+    image: certbot/certbot
+    container_name: gudu-certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: >
+      /bin/sh -c '
+      trap exit TERM;
+      while :; do
+        certbot renew --quiet;
+        echo "certbot renew checked at $$(date)";
+        sleep 12h;
+      done'
+    depends_on:
+      - front-nginx
 
 volumes:
   mysql-data:

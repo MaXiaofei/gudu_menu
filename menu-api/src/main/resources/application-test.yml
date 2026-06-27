@@ -15,7 +15,7 @@ spring:
       pool:
         size: 1
 
-yanhuo:
-  upload-dir: /tmp/yanhuo-test-uploads
+gudu:
+  upload-dir: /tmp/gudu-test-uploads
   ai:
     provider: mock

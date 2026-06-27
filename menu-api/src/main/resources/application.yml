@@ -35,7 +35,7 @@ springdoc:
 knife4j:
   enable: true
 
-yanhuo:
+gudu:
   upload-dir: uploads
   ai:
     # AI provider：deepseek（默认，真调 DeepSeek，失败降级 mock）/ mock（规则表兜底）/ glm（预留空壳）

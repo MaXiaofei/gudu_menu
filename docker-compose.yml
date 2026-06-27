@@ -1,4 +1,4 @@
-# 烟火小食单 · 开发依赖（MySQL / Redis / MinIO）
+# 咕嘟小食单 · 开发依赖（MySQL / Redis / MinIO）
 # 部署位置：服务器 192.168.100.248:/home/claude/yanhuo-deps/
 # 本机开发连这一组：
 #   mysql  192.168.100.248:13306  (root/MYSQL_PWD_REDACTED, 库 yanhuo)

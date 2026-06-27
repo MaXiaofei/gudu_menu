@@ -1,0 +1,44 @@
+package com.gudu.xsd.modules.dish;
+
+import com.gudu.xsd.common.PageQuery;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 菜品搜索入参（继承分页）。keyword+维度+时间+难度；营养上限筛选 V1 强化。
+ */
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class DishSearchDTO extends PageQuery {
+
+    private String keyword;
+
+    private List<Long> cuisineIds;
+
+    private List<Long> tagIds;
+
+    private List<Long> categoryIds;
+
+    private Integer maxMinutes;
+
+    private Integer maxDifficulty;
+
+    /**
+     * 营养上限精确筛选：metricId → 上限值。任一指标超限即剔除（1 份基准）。
+     * 性能：先按 keyword/维度 SQL 过滤候选，再内存算营养二次过滤，候选池大时慢。
+     */
+    private Map<Long, BigDecimal> nutritionLimits;
+
+    /** 来源筛选：ORIGINAL(自创) / IMPORT(导入)。 */
+    private String source;
+
+    /** 仅看做过的菜。 */
+    private Boolean done;
+
+    /** 仅看收藏的菜。 */
+    private Boolean star;
+}

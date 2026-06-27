@@ -11,7 +11,7 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-      pool-name: YanhuoHikariCP
+      pool-name: GuduHikariCP
 
   data:
     redis:
@@ -20,7 +20,7 @@ spring:
       database: 0
       timeout: 3000ms
 
-yanhuo:
+gudu:
   ai:
     provider: ${YANHUO_AI_PROVIDER:deepseek}
     deepseek:
