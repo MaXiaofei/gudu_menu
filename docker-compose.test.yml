@@ -1,0 +1,62 @@
+# 咕嘟小食单 · 测试环境一键部署（内网，HTTP）
+# ============================================================
+# 与生产 docker-compose.prod.yml 的区别：
+#   - 测试环境不要 HTTPS，故无 front-nginx / certbot
+#   - menu-admin 直接映射 8080→80，作为唯一对外入口
+#   - mysql / redis / menu-api 与生产一致，复用同一份 application-prod.yml
+#
+# 部署（测试环境 192.168.100.248:/home/claude/yanhuo-deploy/）：
+#   sudo docker compose --project-directory /home/claude/yanhuo-deploy \
+#     -f docker-compose.test.yml up -d --build
+#
+# ⚠️ 复用与生产相同的数据卷（project=yanhuo-deploy, service=yanhuo-mysql）。
+#    test.yml 与 prod.yml 的 service 名 / 卷名严格保持一致，切换时不重建卷、不丢数据。
+# ============================================================
+services:
+  yanhuo-mysql:
+    image: mysql:8.0
+    container_name: yanhuo-mysql-prod
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: MYSQL_PWD_REDACTED
+      MYSQL_DATABASE: yanhuo
+      TZ: Asia/Shanghai
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--character-set-client-handshake=FALSE"]
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./menu-api/sql:/docker-entrypoint-initdb.d:ro
+
+  yanhuo-redis:
+    image: redis:7
+    container_name: yanhuo-redis-prod
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  menu-api:
+    build: ./menu-api
+    container_name: menu-api
+    restart: unless-stopped
+    depends_on: [yanhuo-mysql, yanhuo-redis]
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: Asia/Shanghai
+      API_KEY: ${API_KEY:-}
+    volumes:
+      - uploads:/app/uploads
+      - ./logs:/app/logs
+
+  menu-admin:
+    build: ./menu-admin
+    container_name: menu-admin
+    restart: unless-stopped
+    ports:
+      - "8080:80"   # 测试环境唯一对外入口：http://192.168.100.248:8080
+    depends_on:
+      - menu-api
+
+volumes:
+  mysql-data:
+  uploads:
