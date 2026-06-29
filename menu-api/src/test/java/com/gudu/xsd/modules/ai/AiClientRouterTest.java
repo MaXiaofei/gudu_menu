@@ -44,7 +44,7 @@ class AiClientRouterTest {
     }
 
     private AiClientRouter router(String bootProvider) {
-        return new AiClientRouter(deepSeek, glm, mock, redis, bootProvider);
+        return new AiClientRouter(deepSeek, glm, mock, redis, new com.fasterxml.jackson.databind.ObjectMapper(), bootProvider);
     }
 
     // ---------------- currentProvider：Redis 优先，回退启动初值 ----------------
