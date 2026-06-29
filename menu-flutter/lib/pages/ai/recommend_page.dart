@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
+import '../../services/dailylog_service.dart';
 import '../../services/mealplan_service.dart';
 import '../../stores/member_store.dart';
 
@@ -22,11 +23,20 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
   bool _loading = false;
   List<dynamic>? _groups;
   String? _error;
+  bool _hasHealthProfile = true; // 当前成员是否有健康档案
 
   Future<void> _recommend() async {
     setState(() { _loading = true; _error = null; _groups = null; });
     try {
       final memberId = context.read<MemberStore>().currentId;
+      // 检查是否有健康档案（营养目标接口返回 null 表示没填身高体重/goal）
+      try {
+        final target = await DailyLogService.nutritionTarget(memberId);
+        _hasHealthProfile = target != null;
+      } catch (_) {
+        _hasHealthProfile = false;
+      }
+
       final body = <String, dynamic>{
         'memberId': memberId,
         'budget': double.tryParse(_budget) ?? 50,
@@ -156,6 +166,25 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           if (_groups != null && _groups!.isNotEmpty) ...[
             const SizedBox(height: 20),
             ..._groups!.asMap().entries.map((e) => _buildGroupCard(e.key + 1, e.value as Map<String, dynamic>)),
+            if (!_hasHealthProfile) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBF0),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE8D8B8)),
+                ),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('⚠️', style: TextStyle(fontSize: 14)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    '当前成员未设置健康约束（糖上限/热量上限/过敏原），推荐未做健康过滤。建议在成员档案中完善。',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF9B8060)),
+                  )),
+                ]),
+              ),
+            ],
           ],
         ]),
       ),

@@ -63,7 +63,9 @@ class AiServiceTest {
         svc = new AiService(aiClient, ingredientService, ingredientMapper,
                 dishService, dishQueryService, dishIngredientMapper,
                 memberMapper, aiCallLogMapper, new ObjectMapper(),
-                new AiInputGuard(), menuRecommender);
+                new AiInputGuard(), menuRecommender,
+                mock(com.gudu.xsd.modules.dish.mapper.DishMapper.class),
+                mock(com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper.class));
         // @Value 在 new 出来的实例上不生效，手动注入默认额度
         org.springframework.test.util.ReflectionTestUtils.setField(svc, "dailyLimit", 50);
     }

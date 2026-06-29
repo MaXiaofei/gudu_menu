@@ -78,12 +78,17 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 10),
           _buildGridRow([
             _entryCard('菜库', '📖', '/dish', AppColors.primary),
-            _entryCard('记录', '📝', '/dailylog', AppColors.saveGreen),
+            _entryCard('排菜计划', '📅', '/mealplan', const Color(0xFF6BA8E8)),
           ]),
           const SizedBox(height: 10),
           _buildGridRow([
+            _entryCard('饮食记录', '📝', '/dailylog', AppColors.saveGreen),
             _entryCard('新菜', '➕', '/create-dish', AppColors.warnOrange),
+          ]),
+          const SizedBox(height: 10),
+          _buildGridRow([
             _entryCard('食材', '🥬', '/create-ingredient', const Color(0xFF8B5E3C)),
+            _entryCard('点评', '⭐', '/dish', const Color(0xFFE8A33D)),
           ]),
 
           const SizedBox(height: 20),
@@ -100,7 +105,7 @@ class _HomePageState extends State<HomePage> {
           _sectionHeader('🤖', 'AI 帮你'),
           const SizedBox(height: 10),
           _buildGridRow([
-            _entryCard('定菜单', '📋', '/ai-recommend', const Color(0xFF7B68EE)),
+            _entryCard('智能荐菜', '📋', '/ai-recommend', const Color(0xFF7B68EE)),
             _entryCard('估营养', '🔍', '/ai-estimate', const Color(0xFF3A7BD5)),
           ]),
 

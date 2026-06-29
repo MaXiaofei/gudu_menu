@@ -28,6 +28,9 @@ class _MealPlanPageState extends State<MealPlanPage> {
   // 菜名缓存
   final Map<int, String> _dishNames = {};
 
+  // 每日营养小计：date → {calorie, protein}
+  final Map<String, _DayNutrition> _dayNutrition = {};
+
   // 选菜弹窗
   String? _pickDate;
   String? _pickMeal;
@@ -76,7 +79,34 @@ class _MealPlanPageState extends State<MealPlanPage> {
           _dishNames[it.dishId!] = it.dishName!;
         }
       }
+      // 并行查营养小计
+      _loadDayNutrition();
     } catch (_) {}
+    if (mounted) setState(() {});
+  }
+
+  /// 按日期汇总每天菜品的热量和蛋白质。
+  Future<void> _loadDayNutrition() async {
+    if (_detail == null) return;
+    _dayNutrition.clear();
+    // 按日期分组
+    final byDate = _detail!.itemsByDate();
+    // 并行查所有菜品的营养
+    for (final entry in byDate.entries) {
+      final date = entry.key;
+      final items = entry.value;
+      double cal = 0, protein = 0;
+      for (final it in items) {
+        if (it.dishId == null) continue;
+        try {
+          final nut = await DishService.nutrition(it.dishId!, serving: it.servingFactor ?? 1);
+          // metricId=1 是热量，metricId=2 是蛋白质
+          if (nut['1'] != null) cal += (nut['1'] as num).toDouble();
+          if (nut['2'] != null) protein += (nut['2'] as num).toDouble();
+        } catch (_) {}
+      }
+      _dayNutrition[date] = _DayNutrition(calorie: cal.round(), protein: protein.round());
+    }
     if (mounted) setState(() {});
   }
 
@@ -358,6 +388,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
 
   Widget _buildDayCard(String date, int dayIndex, List<MealPlanItem> items) {
     final md = date.length >= 10 ? '${date.substring(5, 7)}/${date.substring(8, 10)}' : date;
+    final nut = _dayNutrition[date];
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
@@ -373,6 +404,24 @@ class _MealPlanPageState extends State<MealPlanPage> {
           ]),
           const SizedBox(height: 8),
           ..._meals.map((meal) => _buildMealSlot(date, meal, items)),
+          // 每日营养小计
+          if (nut != null && (nut.calorie > 0 || nut.protein > 0)) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F5F0),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(children: [
+                const Text('营养小计', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                const Spacer(),
+                Text('🔥 ${nut.calorie}kcal', style: const TextStyle(fontSize: 11, color: AppColors.warnRed, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 10),
+                Text('🥩 ${nut.protein}g', style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ],
         ]),
       ),
     );
@@ -430,4 +479,11 @@ class _DishLite {
   final int id;
   final String name;
   const _DishLite(this.id, this.name);
+}
+
+/// 每日营养小计。
+class _DayNutrition {
+  final int calorie;
+  final int protein;
+  const _DayNutrition({required this.calorie, required this.protein});
 }

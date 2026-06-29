@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class MealPlanServiceTest {
 
-    private final MealPlanService svc = new MealPlanService(null, null, null);
+    private final MealPlanService svc = new MealPlanService(null, null, null, null);
 
     @Test
     void 检测同日同餐重复菜() {

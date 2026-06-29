@@ -10,9 +10,22 @@ class AppColors {
   static const Color warnRed = Color(0xFFF56C6C); // 红：库存不足色条 / 危险操作
   static const Color warnOrange = Color(0xFFE6A23C); // 橙黄：库存临期色条
   static const Color textSecondary = Color(0xFF999999); // 次要文字（对应 tabBar.color）
+  static const Color textPrimary = Color(0xFF2D2A26); // 主文字
   static const Color textHint = Color(0xFF666666);
+  static const Color cream = Color(0xFFFAF8F5); // 页面暖底色
+  static const Color cardBg = Color(0xFFFFFFFF); // 卡片背景
   static const Color divider = Color(0xFFEEEEEE); // 分隔线/底色
   static const Color rowDivider = Color(0xFFF0F0F0);
+}
+
+/// 渐变色集合。
+class AppGradients {
+  AppGradients._();
+  static const LinearGradient primary = LinearGradient(
+    colors: [Color(0xFFFF8C42), Color(0xFFE6762A)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }
 
 ThemeData buildAppTheme() {
