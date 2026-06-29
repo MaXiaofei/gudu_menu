@@ -87,7 +87,7 @@ class _HomePageState extends State<HomePage> {
           ]),
           const SizedBox(height: 10),
           _buildGridRow([
-            _entryCard('食材', '🥬', '/create-ingredient', const Color(0xFF8B5E3C)),
+            _entryCard('食材', '🥬', '/ingredient', const Color(0xFF8B5E3C)),
             _entryCard('点评', '⭐', '/dish', const Color(0xFFE8A33D)),
           ]),
 

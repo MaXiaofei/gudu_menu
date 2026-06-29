@@ -40,9 +40,9 @@ public class MpPermissionService {
                     "menu.plan", "menu.view",
                     "pantry.manage",
                     "shopping.generate"),
-            // 普通成员(member):只读点评 + 看菜单
+            // 普通成员(member):只读点评 + 看菜单 + 排菜计划（家庭基础功能）
             "34", Set.of(
-                    "review.create", "menu.view")
+                    "review.create", "menu.view", "menu.plan")
     );
 
     private final MemberMapper memberMapper;

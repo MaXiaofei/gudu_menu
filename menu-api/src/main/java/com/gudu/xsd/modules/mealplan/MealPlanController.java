@@ -52,9 +52,10 @@ public class MealPlanController {
     public R<Map<String, Object>> addItem(@PathVariable Long planId, @RequestBody MealPlanItem item) {
         item.setPlanId(planId);
         List<MealPlanService.Item> dup = svc.saveItem(item);
-        return R.ok(Map.of(
-                "itemId", item.getId(),
-                "duplicates", dup));
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("itemId", item.getId());
+        result.put("duplicates", dup);
+        return R.ok(result);
     }
 
     /** 删排菜项。 */

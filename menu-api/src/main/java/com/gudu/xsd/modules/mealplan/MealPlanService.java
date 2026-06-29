@@ -135,7 +135,14 @@ public class MealPlanService extends ServiceImpl<MealPlanMapper, MealPlan> {
         }
         if (item.getSort() == null) item.setSort(0);
         if (item.getId() == null) {
-            itemMapper.insert(item);
+            try {
+                itemMapper.insert(item);
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                // 同日同餐同菜已存在（DB UNIQUE 约束），构造重复提示
+                List<Item> dup = new java.util.ArrayList<>();
+                dup.add(new Item(item.getDishId(), item.getDate(), item.getMeal()));
+                return dup;
+            }
         } else {
             itemMapper.updateById(item);
         }

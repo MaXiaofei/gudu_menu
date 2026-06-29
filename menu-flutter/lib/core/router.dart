@@ -12,6 +12,7 @@ import '../pages/dish/list_page.dart';
 import '../pages/dish/review_page.dart';
 import '../pages/home_page.dart';
 import '../pages/ingredient/create_page.dart';
+import '../pages/ingredient/list_page.dart';
 import '../pages/login_page.dart';
 import '../stores/auth_store.dart';
 
@@ -49,6 +50,10 @@ GoRouter createRouter(AuthStore auth) {
           path: '/create-dish',
           builder: (_, __) => const CreateDishPage()),
       // 以下为 P1/P2 占位，后续替换为真实页面
+      // === 食材库 ===
+      GoRoute(
+          path: '/ingredient',
+          builder: (_, __) => const IngredientListPage()),
       // === 录入食材 ===
       GoRoute(
           path: '/create-ingredient',
