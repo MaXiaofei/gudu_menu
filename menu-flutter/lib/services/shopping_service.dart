@@ -1,7 +1,23 @@
 import '../core/api_client.dart';
+import '../models/page.dart';
 
 /// 采购清单服务。
 class ShoppingService {
+  /// 分页列表：GET /shopping?pageNum=&pageSize=（每页 10 条）。
+  static Future<PageData<ShoppingList>> listPaged({
+    int pageNum = 1,
+    int pageSize = 10,
+  }) async {
+    final data = await ApiClient.instance.get('/shopping', query: {
+      'pageNum': pageNum,
+      'pageSize': pageSize,
+    });
+    return PageData<ShoppingList>.fromJson(
+      data as Map<String, dynamic>,
+      ShoppingList.fromJson,
+    );
+  }
+
   /// 列表（按创建时间倒序）：GET /shopping?pageSize=100
   static Future<List<ShoppingList>> list() async {
     final data = await ApiClient.instance.get('/shopping', query: {

@@ -354,6 +354,11 @@ class _MealPlanPageState extends State<MealPlanPage> {
           : _detail == null
               ? _buildEmpty()
               : _buildPlan(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openAddByDate,
+        tooltip: '加菜',
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
@@ -375,16 +380,99 @@ class _MealPlanPageState extends State<MealPlanPage> {
     final dates = _weekDates();
     final byDate = _detail!.itemsByDate();
 
+    // 严格只展示有挂菜的日期（空日期全隐藏）。加菜走右下角 + 按钮（_openAddByDate）。
+    final showIdx = <int>[];
+    for (var i = 0; i < dates.length; i++) {
+      if ((byDate[dates[i]] ?? []).isNotEmpty) showIdx.add(i);
+    }
+    if (showIdx.isEmpty) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('本周还没排菜', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _openAddByDate,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('给某天加菜'),
+          ),
+        ]),
+      );
+    }
     return ListView.builder(
       padding: const EdgeInsets.all(14),
-      itemCount: dates.length,
-      itemBuilder: (_, i) {
-        final date = dates[i];
-        final dayItems = byDate[date] ?? [];
-        return _buildDayCard(date, i, dayItems);
+      itemCount: showIdx.length,
+      itemBuilder: (_, k) {
+        final i = showIdx[k];
+        return _buildDayCard(dates[i], i, byDate[dates[i]] ?? []);
       },
     );
   }
+
+  /// 独立加菜入口：先选「日期 + 餐次」再进选菜。
+  /// （空日期被隐藏后，无法点日期卡里的「+」，故提供此入口给任意日期加菜。）
+  void _openAddByDate() {
+    final dates = _weekDates();
+    if (dates.isEmpty || _meals.isEmpty) return;
+    String date = dates.first;
+    String meal = _meals.first;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (_, ss) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('选日期', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: [
+                  for (var i = 0; i < dates.length; i++)
+                    ChoiceChip(
+                      label: Text('${_weekdays[i]} ${_md(dates[i])}'),
+                      selected: date == dates[i],
+                      onSelected: (_) => ss(() => date = dates[i]),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('选餐次', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: _meals
+                    .map((m) => ChoiceChip(
+                          label: Text(m),
+                          selected: meal == m,
+                          onSelected: (_) => ss(() => meal = m),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _openPicker(date, meal);
+                  },
+                  child: const Text('去选菜'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 日期串 → MM/DD（选日期 chip 用）。
+  static String _md(String d) =>
+      d.length >= 10 ? '${d.substring(5, 7)}/${d.substring(8, 10)}' : d;
 
   Widget _buildDayCard(String date, int dayIndex, List<MealPlanItem> items) {
     final md = date.length >= 10 ? '${date.substring(5, 7)}/${date.substring(8, 10)}' : date;

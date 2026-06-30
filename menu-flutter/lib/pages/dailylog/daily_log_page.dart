@@ -77,7 +77,8 @@ class _DailyLogPageState extends State<DailyLogPage> {
 
   Future<void> _loadOptions() async {
     try {
-      final r = await DishService.search(pageSize: 1000);
+      // 仅预载 8 条作为「快速记」的热门 chips；「从菜库选」走服务端搜索（每页 10）。
+      final r = await DishService.search(pageSize: 8);
       _dishes = r.records.map((d) => _DishLite(d.id, d.name)).toList();
     } catch (_) {}
     if (mounted) setState(() {});
@@ -131,7 +132,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           String sheetMode = 'quick'; // quick / library
-          String searchQ = '';
+          List<_DishLite> searchResults = [];
           return Padding(
             padding: EdgeInsets.only(
               left: 16, right: 16, top: 20,
@@ -213,7 +214,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                     ),
                   ),
                 ] else ...[
-                  // 从菜库选
+                  // 从菜库选（服务端搜索，每页 10 条）
                   TextField(
                     decoration: InputDecoration(
                       hintText: '搜索菜品…',
@@ -221,25 +222,42 @@ class _DailyLogPageState extends State<DailyLogPage> {
                       filled: true, fillColor: const Color(0xFFFAFAFA),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onChanged: (v) => setSheetState(() => searchQ = v),
+                    onChanged: (v) async {
+                      final kw = v.trim();
+                      if (kw.isEmpty) {
+                        setSheetState(() => searchResults = []);
+                        return;
+                      }
+                      try {
+                        final r = await DishService.search(keyword: kw, pageSize: 10);
+                        if (!ctx.mounted) return;
+                        setSheetState(() =>
+                            searchResults = r.records.map((d) => _DishLite(d.id, d.name)).toList());
+                      } catch (_) {}
+                    },
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
                     height: 240,
-                    child: ListView(
-                      children: _dishes
-                          .where((d) => searchQ.isEmpty || d.name.contains(searchQ))
-                          .take(20)
-                          .map((d) => ListTile(
+                    child: searchResults.isEmpty
+                        ? const Center(
+                            child: Text('输入菜名搜索',
+                                style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                          )
+                        : ListView.builder(
+                            itemCount: searchResults.length,
+                            itemBuilder: (_, i) {
+                              final d = searchResults[i];
+                              return ListTile(
                                 dense: true,
                                 title: Text(d.name, style: const TextStyle(fontSize: 14)),
                                 onTap: () {
                                   Navigator.pop(ctx);
                                   _doAddDish(d.id, d.name, 1);
                                 },
-                              ))
-                          .toList(),
-                    ),
+                              );
+                            },
+                          ),
                   ),
                 ],
               ],

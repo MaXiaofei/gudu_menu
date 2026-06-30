@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -27,7 +29,8 @@ public class Member {
     /** 登录手机号(V29 合并 user 后,member 自带账号)。admin 用字面量 "admin"。 */
     private String phone;
 
-    /** BCrypt 密码哈希。null 表示该成员未开通登录(纯家庭成员)。 */
+    /** BCrypt 密码哈希。null 表示该成员未开通登录(纯家庭成员)。仅服务端比对用，禁止外泄。 */
+    @JsonIgnore
     private String passwordHash;
 
     /** 是否超管:1 绕过 @MpPerm 全权,0 走角色+个人勾选权限矩阵。 */
@@ -38,6 +41,7 @@ public class Member {
      * 新增:必填,落 passwordHash;编辑:留空表示不改密码,非空则重置。
      */
     @TableField(exist = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) // 允许表单写入，但响应里不输出
     private String password;
 
     /** 角色标签，逗号分隔（关联 sys_dict role）。 */

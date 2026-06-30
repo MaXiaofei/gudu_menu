@@ -67,6 +67,14 @@ class _PantryListPageState extends State<PantryListPage>
   List<DictItem> _ingredients = [];
   bool _loading = true;
 
+  // 分页（仅"全部"tab）：每页 10 条，滚动到底加载更多
+  static const _pageSize = 10;
+  final _scroll = ScrollController();
+  int _page = 1;
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  bool get _paginated => _tabCtrl.index == 0;
+
   // 批量模式
   final List<_BatchRow> _batchRows = [];
   bool _batchSaving = false;
@@ -75,6 +83,8 @@ class _PantryListPageState extends State<PantryListPage>
   final _amountCtrl = TextEditingController();
   final _expireCtrl = TextEditingController();
   final _thresholdCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController(); // 单品添加的食材名
+  List<DictItem> _matchedIngredients = []; // 输入匹配结果
 
   @override
   void initState() {
@@ -83,15 +93,18 @@ class _PantryListPageState extends State<PantryListPage>
     _tabCtrl.addListener(() {
       if (!_tabCtrl.indexIsChanging) _load();
     });
+    _scroll.addListener(_onScroll);
     _load();
   }
 
   @override
   void dispose() {
+    _scroll.dispose();
     _tabCtrl.dispose();
     _amountCtrl.dispose();
     _expireCtrl.dispose();
     _thresholdCtrl.dispose();
+    _nameCtrl.dispose();
     super.dispose();
   }
 
@@ -104,10 +117,15 @@ class _PantryListPageState extends State<PantryListPage>
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    _page = 1;
+    _hasMore = false;
     try {
       switch (_tabCtrl.index) {
         case 0:
-          _items = await PantryService.listAll();
+          // "全部" tab 走分页，首屏 10 条
+          final pg = await PantryService.list(pageNum: 1, pageSize: _pageSize);
+          _items = pg.records;
+          _hasMore = pg.records.length >= _pageSize;
           break;
         case 1:
           _items = await PantryService.listExpiring();
@@ -123,6 +141,28 @@ class _PantryListPageState extends State<PantryListPage>
     if (mounted) setState(() => _loading = false);
   }
 
+  /// 滚动到底加载下一页（仅"全部"tab）。
+  Future<void> _loadMore() async {
+    if (!_paginated || _loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      _page++;
+      final pg = await PantryService.list(pageNum: _page, pageSize: _pageSize);
+      _items.addAll(pg.records);
+      _hasMore = pg.records.length >= _pageSize;
+    } catch (_) {
+      _page--;
+      _hasMore = false;
+    }
+    if (mounted) setState(() => _loadingMore = false);
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients || !_paginated || _loadingMore || !_hasMore) return;
+    final pos = _scroll.position;
+    if (pos.pixels >= pos.maxScrollExtent - 100) _loadMore();
+  }
+
   // ===== 新增 / 编辑 =====
 
   void _showAddSheet() {
@@ -134,10 +174,11 @@ class _PantryListPageState extends State<PantryListPage>
   }
 
   void _showFormSheet({required bool isEdit, PantryVO? item}) {
-    int? selIngredientId = item?.ingredientId;
+    _nameCtrl.text = item?.ingredientName ?? item?.displayName ?? '';
     _amountCtrl.text = item != null ? item.amount.toString() : '';
     _expireCtrl.text = item?.expireDate ?? '';
     _thresholdCtrl.text = item?.lowThreshold?.toString() ?? '';
+    _matchedIngredients = [];
 
     showModalBottomSheet(
       context: context,
@@ -158,33 +199,59 @@ class _PantryListPageState extends State<PantryListPage>
               Text(isEdit ? '编辑库存' : '添加库存',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 14),
-              // 食材选择（chip 列表）
-              Text('选择食材', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-              const SizedBox(height: 4),
-              if (_ingredients.isEmpty)
-                const Text('加载食材列表…', style: TextStyle(color: AppColors.textSecondary))
-              else
-                Wrap(
-                  spacing: 6, runSpacing: 6,
-                  children: _ingredients.map((ing) {
-                    final sel = selIngredientId == ing.id;
-                    return GestureDetector(
-                      onTap: () => setSheetState(() => selIngredientId = ing.id),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: sel ? AppColors.primary.withAlpha(25) : const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: sel ? AppColors.primary : const Color(0xFFE0E0E0),
-                          ),
-                        ),
-                        child: Text(ing.name,
-                            style: TextStyle(
-                                fontSize: 12, color: sel ? AppColors.primary : const Color(0xFF444444))),
-                      ),
+              // 食材输入框（替代 chip 列表）
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                style: const TextStyle(fontSize: 15),
+                decoration: InputDecoration(
+                  labelText: isEdit ? '食材名' : '食材名（输入或选择）',
+                  hintText: '如：牛奶、排骨',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  filled: true, fillColor: const Color(0xFFFAFAFA),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onChanged: (v) {
+                  setSheetState(() {
+                    final q = v.trim().toLowerCase();
+                    if (q.isEmpty) {
+                      _matchedIngredients = [];
+                    } else {
+                      _matchedIngredients = _ingredients
+                          .where((i) => i.name.toLowerCase().contains(q))
+                          .take(5)
+                          .toList();
+                    }
+                  });
+                },
+              ),
+              // 匹配结果下拉提示
+              if (_matchedIngredients.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE0E0E0)),
+                  ),
+                  child: Column(children: _matchedIngredients.map((ing) {
+                    return ListTile(
+                      dense: true,
+                      title: Text(ing.name, style: const TextStyle(fontSize: 14)),
+                      onTap: () {
+                        _nameCtrl.text = ing.name;
+                        setSheetState(() {
+                          _matchedIngredients = [];
+                        });
+                      },
                     );
-                  }).toList(),
+                  }).toList()),
+                ),
+              if (_nameCtrl.text.isNotEmpty && _matchedIngredients.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4),
+                  child: Text('未匹配到已有食材，将创建新食材"${_nameCtrl.text.trim()}"',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                 ),
               const SizedBox(height: 12),
               // 数量
@@ -243,8 +310,9 @@ class _PantryListPageState extends State<PantryListPage>
                 height: 44,
                 child: ElevatedButton(
                   onPressed: () async {
-                    if (selIngredientId == null) {
-                      _snack(ctx, '请选择食材');
+                    final name = _nameCtrl.text.trim();
+                    if (name.isEmpty) {
+                      _snack(ctx, '请输入食材名');
                       return;
                     }
                     final amt = double.tryParse(_amountCtrl.text.trim());
@@ -261,18 +329,17 @@ class _PantryListPageState extends State<PantryListPage>
                       if (isEdit && item != null) {
                         await PantryService.update({
                           'id': item.id,
-                          'ingredientId': selIngredientId,
                           'amount': amt,
                           'expireDate': expire,
                           'lowThreshold': threshold,
                         });
                       } else {
-                        await PantryService.create({
-                          'ingredientId': selIngredientId,
+                        // 用批量接口（后端按 name 匹配/创建 ingredient）
+                        await PantryService.batchAdd([{
+                          'name': name,
                           'amount': amt,
                           'expireDate': expire,
-                          'lowThreshold': threshold,
-                        });
+                        }]);
                       }
                       Navigator.pop(ctx);
                       _load();
@@ -582,9 +649,21 @@ class _PantryListPageState extends State<PantryListPage>
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.builder(
+                    controller: _scroll,
                     padding: const EdgeInsets.all(12),
-                    itemCount: _items.length,
+                    itemCount: _items.length + (_loadingMore ? 1 : 0),
                     itemBuilder: (_, i) {
+                      if (i == _items.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
                       final item = _items[i];
                       return _buildCard(item);
                     },

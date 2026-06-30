@@ -1,7 +1,23 @@
 import '../core/api_client.dart';
+import '../models/page.dart';
 
 /// 食材库存服务。
 class PantryService {
+  /// 分页库存列表：GET /pantry?pageNum=&pageSize=（"全部" tab 用，每页 10 条）。
+  static Future<PageData<PantryVO>> list({
+    int pageNum = 1,
+    int pageSize = 10,
+  }) async {
+    final data = await ApiClient.instance.get('/pantry', query: {
+      'pageNum': pageNum,
+      'pageSize': pageSize,
+    });
+    return PageData<PantryVO>.fromJson(
+      data as Map<String, dynamic>,
+      PantryVO.fromJson,
+    );
+  }
+
   /// 全量库存列表：GET /pantry?pageSize=1000
   static Future<List<PantryVO>> listAll() async {
     final data = await ApiClient.instance.get('/pantry', query: {

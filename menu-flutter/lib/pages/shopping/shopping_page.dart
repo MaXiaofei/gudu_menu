@@ -19,6 +19,12 @@ class _ShoppingPageState extends State<ShoppingPage> {
   // 列表
   List<ShoppingList> _lists = [];
   bool _loading = true;
+  // 分页：每页 10 条，滚动到底加载更多
+  static const _pageSize = 10;
+  final _scroll = ScrollController();
+  int _page = 1;
+  bool _hasMore = false;
+  bool _loadingMore = false;
 
   // 当前打开的采购单（null=列表视图）
   ShoppingListVO? _detail;
@@ -46,11 +52,13 @@ class _ShoppingPageState extends State<ShoppingPage> {
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     _loadLists();
   }
 
   @override
   void dispose() {
+    _scroll.dispose();
     _customTextCtrl.dispose();
     _addNameCtrl.dispose();
     _addAmountCtrl.dispose();
@@ -59,10 +67,36 @@ class _ShoppingPageState extends State<ShoppingPage> {
 
   Future<void> _loadLists() async {
     setState(() => _loading = true);
+    _page = 1;
+    _hasMore = false;
     try {
-      _lists = await ShoppingService.list();
+      final pg = await ShoppingService.listPaged(pageNum: 1, pageSize: _pageSize);
+      _lists = pg.records;
+      _hasMore = pg.records.length >= _pageSize;
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
+  }
+
+  /// 滚动到底加载下一页。
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      _page++;
+      final pg = await ShoppingService.listPaged(pageNum: _page, pageSize: _pageSize);
+      _lists.addAll(pg.records);
+      _hasMore = pg.records.length >= _pageSize;
+    } catch (_) {
+      _page--;
+      _hasMore = false;
+    }
+    if (mounted) setState(() => _loadingMore = false);
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients || _loadingMore || !_hasMore) return;
+    final pos = _scroll.position;
+    if (pos.pixels >= pos.maxScrollExtent - 100) _loadMore();
   }
 
   Future<void> _openDetail(int id) async {
@@ -132,9 +166,21 @@ class _ShoppingPageState extends State<ShoppingPage> {
               : RefreshIndicator(
                   onRefresh: _loadLists,
                   child: ListView.builder(
+                    controller: _scroll,
                     padding: const EdgeInsets.all(12),
-                    itemCount: _lists.length,
+                    itemCount: _lists.length + (_loadingMore ? 1 : 0),
                     itemBuilder: (_, i) {
+                      if (i == _lists.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
                       final l = _lists[i];
                       return _buildListCard(l);
                     },
@@ -142,8 +188,12 @@ class _ShoppingPageState extends State<ShoppingPage> {
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final id = await ShoppingService.createEmpty();
-          if (mounted) _openDetail(id);
+          try {
+            final id = await ShoppingService.createEmpty();
+            if (mounted) _openDetail(id);
+          } catch (e) {
+            _snack('创建失败');
+          }
         },
         child: const Icon(Icons.add),
       ),
