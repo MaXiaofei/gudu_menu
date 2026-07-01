@@ -123,21 +123,21 @@ async function onSubmit() {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #FFFBF5;
+  background: #FDFAF4;
   padding: 0 28rpx calc(env(safe-area-inset-bottom) + 40rpx);
 }
 
 /* 总评星级：醒目渐变卡 */
 .rating-card {
   margin-top: calc(env(safe-area-inset-top) + 24rpx);
-  background: linear-gradient(180deg, #FF8C42, #E6762A);
+  background: linear-gradient(180deg, #E89150, #D17A3C);
   border-radius: 36rpx;
   padding: 48rpx 40rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 20rpx;
-  box-shadow: 0 8rpx 24rpx rgba(255, 140, 66, 0.25);
+  box-shadow: 0 8rpx 24rpx rgba(232, 145, 80, 0.25);
 }
 .rating-label {
   font-size: 32rpx;
@@ -161,13 +161,13 @@ async function onSubmit() {
 .tbar {
   width: 8rpx;
   height: 32rpx;
-  background: #FF8C42;
+  background: #E89150;
   border-radius: 4rpx;
 }
 .block-title text {
   font-size: 32rpx;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 
 /* 维度分项卡 */
@@ -177,12 +177,12 @@ async function onSubmit() {
   align-items: center;
   justify-content: space-between;
   padding: 24rpx 0;
-  border-bottom: 2rpx solid #F2EDE4;
+  border-bottom: 2rpx solid #F0E6D6;
 }
 .dim-row:last-child { border-bottom: none; }
 .dim-name {
   font-size: 28rpx;
-  color: #2D2A26;
+  color: #4A382A;
 }
 
 /* 底部固定提交栏 */

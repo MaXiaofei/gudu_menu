@@ -14,7 +14,7 @@
     <!-- 功能入口（单列卡片） -->
     <view class="entry-list">
       <view class="yh-card entry" @click="go('/pages/shopping/List')">
-        <view class="entry-ico" style="background: rgba(232,163,61,0.15); color:#E8A33D;">🛒</view>
+        <view class="entry-ico" style="background: rgba(232,163,61,0.15); color:#E5A938;">🛒</view>
         <view class="entry-body">
           <text class="entry-name">采购</text>
           <text class="entry-sub">从菜品/菜单生成采购清单</text>
@@ -23,7 +23,7 @@
       </view>
 
       <view class="yh-card entry" @click="go('/pages/shopping/List')">
-        <view class="entry-ico" style="background: rgba(232,163,61,0.15); color:#E8A33D;">✏️</view>
+        <view class="entry-ico" style="background: rgba(232,163,61,0.15); color:#E5A938;">✏️</view>
         <view class="entry-body">
           <text class="entry-name">自定义采购</text>
           <text class="entry-sub">手动添加要买的东西</text>
@@ -81,7 +81,7 @@
     <view class="yh-card home-entry" @click="go('/pages/index/Index')">
       <view class="home-left">
         <text class="home-title">今天给全家做点啥？</text>
-        <text class="home-sub">看看今日推荐和人间烟火 →</text>
+        <text class="home-sub">看看今日推荐，小火慢炖 →</text>
       </view>
       <text class="home-emoji">🍳</text>
     </view>
@@ -119,13 +119,13 @@ function goSettings() {
 .title-bar {
   width: 8rpx;
   height: 36rpx;
-  background: #FF8C42;
+  background: #E89150;
   border-radius: 4rpx;
 }
 .title {
   font-size: 24px;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .ico-btn {
   font-size: 22px;
@@ -133,7 +133,7 @@ function goSettings() {
 }
 .sub {
   font-size: 24rpx;
-  color: #9B958C;
+  color: #9C8C7A;
   padding: 0 8rpx 24rpx;
 }
 
@@ -169,21 +169,21 @@ function goSettings() {
 .entry-name {
   font-size: 30rpx;
   font-weight: 600;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .entry-sub {
   font-size: 24rpx;
-  color: #9B958C;
+  color: #9C8C7A;
 }
 .entry-arrow {
   font-size: 40rpx;
-  color: #B8B2A7;
+  color: #9C8C7A;
 }
 
 /* 今日推荐入口（渐变底） */
 .home-entry {
   margin-top: 32rpx;
-  background: linear-gradient(135deg, #FF8C42, #FFA45C);
+  background: linear-gradient(135deg, #E89150, #D17A3C);
   display: flex;
   align-items: center;
   justify-content: space-between;

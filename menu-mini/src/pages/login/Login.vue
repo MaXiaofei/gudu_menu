@@ -4,7 +4,7 @@
     <view class="header">
       <view class="logo-circle">🍜</view>
       <text class="brand">小食单</text>
-      <text class="slogan">烟火气里，藏着家的味道</text>
+      <text class="slogan">小火慢炖，咕嘟出家的味道</text>
     </view>
 
     <!-- 表单卡片 -->
@@ -76,14 +76,14 @@ async function onLogin() {
 <style scoped>
 .login {
   min-height: 100vh;
-  background: #FFFBF5;
+  background: #FDFAF4;
   display: flex;
   flex-direction: column;
 }
 
 /* 渐变 header */
 .header {
-  background: linear-gradient(180deg, #FF8C42, #E6762A);
+  background: linear-gradient(180deg, #E89150, #D17A3C);
   padding: 80rpx 0 70rpx;
   display: flex;
   flex-direction: column;
@@ -126,12 +126,12 @@ async function onLogin() {
 .welcome {
   font-size: 44rpx;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .welcome-sub {
   margin-top: 8rpx;
   font-size: 26rpx;
-  color: #9B958C;
+  color: #9C8C7A;
 }
 
 .field {
@@ -139,19 +139,19 @@ async function onLogin() {
 }
 .field-label {
   font-size: 26rpx;
-  color: #9B958C;
+  color: #9C8C7A;
 }
 .input-wrap {
   margin-top: 14rpx;
   display: flex;
   align-items: center;
-  background: #FFFBF5;
+  background: #FDFAF4;
   border-radius: 28rpx;
   padding: 0 24rpx;
   border: 2rpx solid transparent;
 }
 .input-wrap:focus-within {
-  border-color: #FF8C42;
+  border-color: #E89150;
 }
 .input-ico {
   font-size: 32rpx;
@@ -161,10 +161,10 @@ async function onLogin() {
   flex: 1;
   height: 88rpx;
   font-size: 30rpx;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .ipt-ph {
-  color: #B8B2A7;
+  color: #9C8C7A;
   font-size: 28rpx;
 }
 .pwd-toggle {

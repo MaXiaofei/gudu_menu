@@ -13,7 +13,7 @@
 
     <!-- 今日推荐渐变卡（对齐 Flutter AppCard + primaryVertical） -->
     <view class="rec-card" @click="onRecommend">
-      <view class="rec-top" :style="{ background: 'linear-gradient(180deg, #FF8C42, #E6762A)' }">
+      <view class="rec-top" :style="{ background: 'linear-gradient(180deg, #E89150, #D17A3C)' }">
         <view class="rec-head">
           <text class="rec-flame">🔥</text>
           <text class="rec-label">今日推荐</text>
@@ -30,7 +30,7 @@
     </view>
     <view class="grid">
       <view class="grid-cell" @click="go('/pages/dish/List')">
-        <view class="cell-ico" style="background: rgba(255,159,90,0.15); color:#FF9F5A;">📖</view>
+        <view class="cell-ico" style="background: rgba(255,159,90,0.15); color:#E89150;">📖</view>
         <text class="cell-name">菜库</text>
       </view>
       <view class="grid-cell" @click="go('/pages/pantry/List')">
@@ -42,7 +42,7 @@
         <text class="cell-name">周计划</text>
       </view>
       <view class="grid-cell" @click="go('/pages/shopping/List')">
-        <view class="cell-ico" style="background: rgba(232,163,61,0.15); color:#E8A33D;">🛒</view>
+        <view class="cell-ico" style="background: rgba(232,163,61,0.15); color:#E5A938;">🛒</view>
         <text class="cell-name">采购清单</text>
       </view>
       <view class="grid-cell" @click="go('/pages/dailylog/Index')">
@@ -89,10 +89,10 @@ const greeting = computed(() => {
 
 // Flutter 版金句（完全对齐 home_page.dart _quotes）
 const quotes = [
-  '三餐四季，不过一碗人间烟火',
+  '三餐四季，不过一锅咕嘟慢炖',
   '是谁来自山川湖海，却囿于昼夜、厨房与爱',
-  '食一碗人间烟火，饮几杯人生起落',
-  '四方食事，不过一碗烟火',
+  '炖一锅咕嘟慢炖，饮几杯人生起落',
+  '四方食事，不过一碗咕嘟',
   '人生忽如寄，莫辜负茶、汤和好天气',
   '把日子炖成一锅汤，小火慢熬才有味道',
   '总有一顿饭，让你想起家的方向',
@@ -168,7 +168,7 @@ onShow(() => { m.load() })
 
 <style scoped>
 .page {
-  background: #FFFBF5;
+  background: #FDFAF4;
   min-height: 100vh;
   padding: 0 36rpx calc(env(safe-area-inset-bottom) + 40rpx);
 }
@@ -185,23 +185,23 @@ onShow(() => { m.load() })
 .g-hi {
   font-size: 48rpx;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .g-switch {
-  background: rgba(255, 140, 66, 0.12);
+  background: rgba(232, 145, 80, 0.12);
   border-radius: 32rpx;
   padding: 8rpx 24rpx;
 }
 .g-chip {
   font-size: 26rpx;
-  color: #FF8C42;
+  color: #E89150;
   font-weight: 500;
 }
 .g-quote {
   display: block;
   margin-top: 16rpx;
   font-size: 26rpx;
-  color: #9B958C;
+  color: #9C8C7A;
   line-height: 1.6;
 }
 
@@ -210,7 +210,7 @@ onShow(() => { m.load() })
   margin-top: 40rpx;
   border-radius: 36rpx;
   overflow: hidden;
-  box-shadow: 0 8rpx 24rpx rgba(255, 140, 66, 0.25);
+  box-shadow: 0 8rpx 24rpx rgba(232, 145, 80, 0.25);
 }
 .rec-top {
   padding: 44rpx 40rpx;
@@ -248,13 +248,13 @@ onShow(() => { m.load() })
 .tbar {
   width: 8rpx;
   height: 36rpx;
-  background: #FF8C42;
+  background: #E89150;
   border-radius: 4rpx;
 }
 .block-title text {
   font-size: 34rpx;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 
 /* 宫格 */
@@ -284,7 +284,7 @@ onShow(() => { m.load() })
 }
 .cell-name {
   font-size: 26rpx;
-  color: #2D2A26;
+  color: #4A382A;
   font-weight: 500;
 }
 </style>

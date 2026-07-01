@@ -71,7 +71,7 @@ Mac 开着 AltServer + 同 WiFi → 每 7 天自动续签，你无感
 5. **Team** 下拉框 → 选你刚登录的 **Personal Team**（你的名字）
 
 6. **Bundle Identifier** 应该已经是 `com.maxiaofei.menuFlutter`
-   - 如果报红说被占用，改成 `com.maxiaofei.yanhuo` 或加个后缀 `com.maxiaofei.menuFlutter2`
+   - 如果报红说被占用，改成 `com.maxiaofei.gudu` 或加个后缀 `com.maxiaofei.menuFlutter2`
 
 7. 看到 **"Signing Certificate"** 显示 `Apple Development: 你的邮箱` 就对了
 

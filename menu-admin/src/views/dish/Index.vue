@@ -555,7 +555,7 @@ async function showHistory(row: DishSearchRow) {
 }
 .nut-value {
   font-weight: bold;
-  color: #E8602C;
+  color: #E89150;
 }
 .snap {
   max-height: 200px;

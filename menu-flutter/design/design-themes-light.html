@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>咕嘟小食单 · 双主题设计系统</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--title);padding:30px 24px 100px;line-height:1.5;transition:background .3s,color .3s}
+  /* ===== 双主题（均已调浅）===== */
+  [data-theme="cream"]{
+    --primary:#E89150;--primary-deep:#D17A3C;--primary-soft:#F6D9BE;
+    --secondary:#FBF0DD;--accent:#B8762E;
+    --bg:#FDFAF4;--card:#FFFFFF;--border:#F0E6D6;
+    --title:#6B5944;--body:#8A7B69;--caption:#B8AD9D;
+    --sh:169,101,30;
+  }
+  [data-theme="matcha"]{
+    --primary:#7A9A5B;--primary-deep:#648449;--primary-soft:#D8E2C8;
+    --secondary:#E8E4D5;--accent:#6B8A4D;
+    --bg:#F7F5EE;--card:#FFFFFF;--border:#E5E2D5;
+    --title:#52633F;--body:#78846C;--caption:#A8B2A0;
+    --sh:122,154,91;
+  }
+  body{--success:#4FAE6E;--warning:#E5A938;--error:#DB5A4E;--info:#4FA0D0;
+       --r-sm:8px;--r-md:14px;--r-lg:22px;--r-pill:999px;
+       --sh-sm:0 1px 3px rgba(var(--sh),.08);
+       --sh-md:0 6px 18px rgba(var(--sh),.1);
+       --sh-lg:0 14px 36px rgba(var(--sh),.14);}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:28px;margin:0 0 4px;letter-spacing:-.5px}
+  .sub{color:var(--caption);margin:0 0 16px;font-size:14px}
+  .ma{display:none}
+  body[data-theme="matcha"] .co{display:none}
+  body[data-theme="matcha"] .ma{display:inline}
+
+  .switch{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);padding:5px;gap:4px;margin-bottom:26px;box-shadow:var(--sh-sm)}
+  .switch button{border:none;background:transparent;padding:9px 20px;font-size:13px;font-weight:700;color:var(--body);border-radius:var(--r-pill);cursor:pointer;font-family:inherit}
+  .switch button.on{background:var(--primary);color:#fff;box-shadow:var(--sh-sm)}
+
+  section{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:22px 24px;margin:0 0 18px;box-shadow:var(--sh-sm)}
+  section>h2{font-size:17px;margin:0 0 4px}
+  section>.desc{color:var(--caption);font-size:13px;margin:0 0 16px}
+  .grp-title{font-size:11px;color:var(--caption);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;font-weight:700}
+  .row{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+  .col{flex:1;min-width:110px;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border)}
+  .col .sw{height:58px}
+  .col .meta{padding:7px 10px;font-size:11px;color:var(--body);background:var(--card)}
+  .col .meta b{display:block;font-size:12px;color:var(--title)}
+  .col .meta span{opacity:.65}
+
+  .type-row{display:flex;align-items:baseline;gap:16px;padding:6px 0;border-bottom:1px dashed var(--border)}
+  .type-row:last-child{border:none}
+  .type-row .tag{font-size:11px;color:var(--caption);width:90px;flex-shrink:0}
+
+  .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  @media(max-width:680px){.form-grid{grid-template-columns:repeat(2,1fr)}}
+  .form-cell{display:flex;flex-direction:column;align-items:center;gap:7px;font-size:11px;color:var(--caption)}
+  .r-demo{width:60px;height:60px;background:var(--primary-soft);border:1px solid var(--border)}
+  .sh-demo{width:70px;height:50px;background:var(--card);border-radius:var(--r-md)}
+  .sp-bar{height:13px;background:var(--primary);border-radius:3px}
+
+  .comp{display:flex;flex-wrap:wrap;gap:11px;align-items:center;margin-bottom:15px}
+  .btn{border:none;cursor:pointer;font-weight:700;font-size:14px;padding:11px 22px;border-radius:var(--r-md);background:var(--primary);color:#fff;transition:.2s}
+  .btn:hover{background:var(--primary-deep)}
+  .btn.secondary{background:var(--secondary);color:var(--accent)}
+  .btn.ghost{background:transparent;color:var(--primary);border:1.6px solid var(--primary)}
+  .btn.disabled{background:var(--caption);color:#fff;cursor:not-allowed;opacity:.6}
+  .btn.sm{padding:7px 14px;font-size:12px;border-radius:var(--r-sm)}
+  .chip{font-size:12px;font-weight:700;padding:4px 12px;border-radius:var(--r-pill);background:var(--primary);color:#fff}
+  .chip.soft{background:var(--primary-soft);color:var(--accent)}
+  .chip.outline{background:transparent;border:1px solid var(--primary);color:var(--primary)}
+  .input{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-md);padding:11px 14px;font-size:14px;color:var(--title);min-width:220px}
+  .input.focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(var(--sh),.18);background:var(--card)}
+  .seg{display:inline-flex;background:var(--secondary);border-radius:var(--r-md);padding:4px;gap:4px}
+  .seg span{padding:8px 18px;font-size:13px;border-radius:10px;color:var(--body);cursor:pointer}
+  .seg span.on{background:var(--card);color:var(--accent);font-weight:700;box-shadow:var(--sh-sm)}
+  .switch2{width:46px;height:27px;background:var(--primary);border-radius:var(--r-pill);position:relative;display:inline-block}
+  .switch2::after{content:"";position:absolute;width:21px;height:21px;background:#fff;border-radius:50%;top:3px;right:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+  .dish{width:225px;background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-md);overflow:hidden}
+  .dish-img{height:125px;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:52px}
+  .dish-body{padding:13px 15px 17px}
+  .dish-body h4{margin:0 0 5px;font-size:16px}
+  .dish-meta{font-size:12px;color:var(--caption);margin-bottom:9px}
+  .list-item{display:flex;align-items:center;gap:12px;padding:11px 13px;background:var(--bg);border-radius:var(--r-md);margin-bottom:8px}
+  .avatar{width:38px;height:38px;border-radius:var(--r-md);background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+  .list-item .t{font-size:14px;font-weight:600}
+  .list-item .d{font-size:12px;color:var(--caption)}
+  .today{background:var(--secondary);border-radius:var(--r-lg);padding:16px 18px;display:flex;align-items:center;gap:15px}
+  .today .emoji{font-size:38px}
+  .today h3{margin:0;font-size:17px}
+  .today p{margin:2px 0 0;font-size:13px;color:var(--body)}
+  .tabbar{display:flex;background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);padding:5px;max-width:360px;box-shadow:var(--sh-sm)}
+  .tabbar span{flex:1;text-align:center;padding:9px 0;font-size:13px;color:var(--caption)}
+  .tabbar span.on{background:var(--primary);color:#fff;border-radius:var(--r-pill);font-weight:700}
+  .label{font-size:12px;color:var(--caption);margin:0 0 8px}
+  .note{font-size:12px;color:var(--caption);margin-top:10px;padding:9px 12px;background:var(--bg);border-radius:var(--r-sm)}
+</style>
+</head>
+<body data-theme="cream">
+<div class="wrap">
+  <h1>咕嘟小食单 · 双主题设计系统</h1>
+  <p class="sub"><span class="co">主题 A · 奶油轻食 · 焦糖橙 + 奶油 · 温暖轻盈（深色已调浅）</span><span class="ma">主题 B · 抹茶禅意 · 草木绿 + 米白 · 安静克制（深色已调浅）</span></p>
+  <div class="switch">
+    <button class="on" onclick="setTheme('cream')">奶油轻食 · 暖橙</button>
+    <button onclick="setTheme('matcha')">抹茶禅意 · 草绿</button>
+  </div>
+
+  <section>
+    <h2>Color 颜色</h2>
+    <p class="desc">两套主题各自的色板（深色均已调浅）· 三端共享。</p>
+    <div class="grp-title">品牌色</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:var(--primary)"></div><div class="meta"><b><span class="co">#E89150</span><span class="ma">#7A9A5B</span></b><span>primary 主色</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--primary-deep)"></div><div class="meta"><b><span class="co">#D17A3C</span><span class="ma">#648449</span></b><span>primary-deep 加深</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--primary-soft)"></div><div class="meta"><b><span class="co">#F6D9BE</span><span class="ma">#D8E2C8</span></b><span>primary-soft 淡</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--secondary)"></div><div class="meta"><b><span class="co">#FBF0DD</span><span class="ma">#E8E4D5</span></b><span>secondary 辅色</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--accent)"></div><div class="meta"><b><span class="co">#B8762E</span><span class="ma">#6B8A4D</span></b><span>accent 强调</span></div></div>
+    </div>
+    <div class="grp-title">中性色（重点调浅项）</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:var(--bg)"></div><div class="meta"><b><span class="co">#FDFAF4</span><span class="ma">#F7F5EE</span></b><span>bg 页面底</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--card);border-bottom:1px solid var(--border)"></div><div class="meta"><b>#FFFFFF</b><span>card 卡片</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--border)"></div><div class="meta"><b><span class="co">#F0E6D6</span><span class="ma">#E5E2D5</span></b><span>border 描边</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--title)"></div><div class="meta"><b><span class="co">#6B5944</span><span class="ma">#52633F</span></b><span>title 标题（调浅）</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--body)"></div><div class="meta"><b><span class="co">#8A7B69</span><span class="ma">#78846C</span></b><span>body 正文（调浅）</span></div></div>
+      <div class="col"><div class="sw" style="background:var(--caption)"></div><div class="meta"><b><span class="co">#B8AD9D</span><span class="ma">#A8B2A0</span></b><span>caption 辅助</span></div></div>
+    </div>
+    <div class="grp-title">功能色（两套共享）</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:#4FAE6E"></div><div class="meta"><b>#4FAE6E</b><span>success</span></div></div>
+      <div class="col"><div class="sw" style="background:#E5A938"></div><div class="meta"><b>#E5A938</b><span>warning</span></div></div>
+      <div class="col"><div class="sw" style="background:#DB5A4E"></div><div class="meta"><b>#DB5A4E</b><span>error</span></div></div>
+      <div class="col"><div class="sw" style="background:#4FA0D0"></div><div class="meta"><b>#4FA0D0</b><span>info</span></div></div>
+    </div>
+    <div class="note">↳ 调浅对照：<span class="co">标题 <b>#4A382A → #6B5944</b>，强调 <b>#A9651E → #B8762E</b></span><span class="ma">标题 <b>#2E3520 → #52633F</b>，强调 <b>#3D4E2A → #6B8A4D</b></span></div>
+  </section>
+
+  <section>
+    <h2>Typography 字号阶梯</h2>
+    <div class="type-row"><span class="tag">40 / Bold</span><span style="font-size:40px;font-weight:800">今日咕嘟</span></div>
+    <div class="type-row"><span class="tag">32 / Bold</span><span style="font-size:32px;font-weight:800">页面大标题</span></div>
+    <div class="type-row"><span class="tag">24 / Bold</span><span style="font-size:24px;font-weight:700">区块标题</span></div>
+    <div class="type-row"><span class="tag">20 / Semi</span><span style="font-size:20px;font-weight:600">卡片标题</span></div>
+    <div class="type-row"><span class="tag">16 / Medium</span><span style="font-size:16px;font-weight:500">正文 · 番茄牛腩煲</span></div>
+    <div class="type-row"><span class="tag">14 / Regular</span><span style="font-size:14px;color:var(--body)">辅助正文 · 35 分钟 · 385 kcal</span></div>
+    <div class="type-row"><span class="tag">12 / Regular</span><span style="font-size:12px;color:var(--caption)">说明文字 / 时间戳</span></div>
+  </section>
+
+  <section>
+    <h2>圆角 / 阴影 / 间距</h2>
+    <div class="grp-title">圆角</div>
+    <div class="form-grid">
+      <div class="form-cell"><div class="r-demo" style="border-radius:8px"></div>sm 8</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:14px"></div>md 14</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:22px"></div>lg 22</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:999px"></div>pill</div>
+    </div>
+    <div class="grp-title">阴影（色调跟随主题）</div>
+    <div class="form-grid">
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:0 1px 3px rgba(var(--sh),.08)"></div>sm</div>
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:0 6px 18px rgba(var(--sh),.1)"></div>md</div>
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:0 14px 36px rgba(var(--sh),.14)"></div>lg</div>
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:none;border:1px dashed var(--border)"></div>none</div>
+    </div>
+    <div class="grp-title">间距</div>
+    <div class="form-grid">
+      <div class="form-cell"><div class="sp-bar" style="width:4px"></div>4</div>
+      <div class="form-cell"><div class="sp-bar" style="width:8px"></div>8</div>
+      <div class="form-cell"><div class="sp-bar" style="width:12px"></div>12</div>
+      <div class="form-cell"><div class="sp-bar" style="width:16px"></div>16</div>
+      <div class="form-cell"><div class="sp-bar" style="width:24px"></div>24</div>
+      <div class="form-cell"><div class="sp-bar" style="width:32px"></div>32</div>
+      <div class="form-cell"><div class="sp-bar" style="width:48px"></div>48</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>组件库（切换主题看双色）</h2>
+    <p class="label">Buttons</p>
+    <div class="comp">
+      <button class="btn">加入排菜</button>
+      <button class="btn secondary">次要</button>
+      <button class="btn ghost">幽灵</button>
+      <button class="btn disabled" disabled>禁用</button>
+      <button class="btn sm">小按钮</button>
+    </div>
+    <p class="label">Chips</p>
+    <div class="comp"><span class="chip">实心</span><span class="chip soft">柔和</span><span class="chip outline">描边</span></div>
+    <p class="label">Input / Segmented / Switch</p>
+    <div class="comp">
+      <div class="input"><span class="co">搜索食材或菜谱…</span><span class="ma">搜索时令蔬菜…</span></div>
+      <div class="seg"><span>今天</span><span class="on">本周</span><span>本月</span></div>
+      <span class="switch2"></span>
+    </div>
+    <p class="label">菜品卡（纯色图 · 无渐变）</p>
+    <div class="comp">
+      <div class="dish"><div class="dish-img"><span class="co">🥗</span><span class="ma">🍵</span></div><div class="dish-body"><h4><span class="co">牛油果鸡胸沙拉</span><span class="ma">茶碗蒸</span></h4><div class="dish-meta"><span class="co">290 kcal · 15 分钟</span><span class="ma">180 kcal · 20 分钟</span></div><span class="chip soft"><span class="co">低脂</span><span class="ma">清淡</span></span></div></div>
+      <div class="dish"><div class="dish-img" style="background:var(--primary-soft)"><span class="co">🍜</span><span class="ma">🌱</span></div><div class="dish-body"><h4><span class="co">番茄牛腩煲</span><span class="ma">菌菇杂炊</span></h4><div class="dish-meta"><span class="co">385 kcal · 35 分钟</span><span class="ma">320 kcal · 30 分钟</span></div><span class="chip soft"><span class="co">高蛋白</span><span class="ma">高纤维</span></span></div></div>
+    </div>
+    <p class="label">食材列表项</p>
+    <div style="max-width:420px">
+      <div class="list-item"><div class="avatar"><span class="co">🍅</span><span class="ma">🥬</span></div><div style="flex:1"><div class="t"><span class="co">番茄 · 3 个</span><span class="ma">菠菜 · 1 把</span></div><div class="d"><span class="co">7/5 过期</span><span class="ma">7/4 过期</span></div></div><span class="chip outline" style="font-size:11px">2 天</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>组合示意</h2>
+    <p class="label">今日推荐</p>
+    <div class="today">
+      <div class="emoji"><span class="co">🍲</span><span class="ma">🍵</span></div>
+      <div style="flex:1"><h3><span class="co">今晚吃点暖的？</span><span class="ma">来点清淡的？</span></h3><p><span class="co">3 道低脂高蛋白菜谱</span><span class="ma">3 道时令轻食菜谱</span></p></div>
+      <button class="btn sm">看看</button>
+    </div>
+    <p class="label" style="margin-top:16px">底部 Tab Bar</p>
+    <div class="tabbar"><span class="on">首页</span><span>排菜</span><span>食谱</span><span class="co">pantry</span><span class="ma">菜篮</span><span>我的</span></div>
+  </section>
+</div>
+<script>
+function setTheme(t){
+  document.body.setAttribute('data-theme',t);
+  document.querySelectorAll('.switch button').forEach(b=>b.classList.remove('on'));
+  event.currentTarget.classList.add('on');
+}
+</script>
+</body>
+</html>

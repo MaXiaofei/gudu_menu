@@ -214,7 +214,7 @@ async function onRemove(it: MealPlanItem) {
 .cell.row-head { background: #fafafa; display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .cell.slot { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; }
 .cell.slot .plus { color: #ccc; text-align: center; line-height: 90rpx; font-size: 32rpx; }
-.dish-chip { background: #FF8C42; color: #fff; border-radius: 6rpx; padding: 2rpx 8rpx; margin: 2rpx 0; font-size: 20rpx; display: flex; justify-content: space-between; align-items: center; }
+.dish-chip { background: #E89150; color: #fff; border-radius: 6rpx; padding: 2rpx 8rpx; margin: 2rpx 0; font-size: 20rpx; display: flex; justify-content: space-between; align-items: center; }
 .dish-chip .x { font-size: 24rpx; }
 .empty { color: #aaa; text-align: center; padding: 60rpx 0; }
 .picker { padding: 24rpx; }

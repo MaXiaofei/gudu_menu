@@ -110,12 +110,12 @@ async function onRec() {
 .lbl { display: block; font-size: 26rpx; color: #666; margin-bottom: 12rpx; }
 .seg { display: flex; gap: 16rpx; }
 .rec-btn { margin-bottom: 12rpx; }
-.mock-tip { display: block; font-size: 22rpx; color: #FF8C42; margin-bottom: 24rpx; }
+.mock-tip { display: block; font-size: 22rpx; color: #E89150; margin-bottom: 24rpx; }
 .empty { text-align: center; color: #999; padding: 60rpx 0; }
 .group { border: 1rpx solid #eee; border-radius: 12rpx; padding: 24rpx; margin-bottom: 24rpx; }
 .group-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
 .g-title { font-size: 30rpx; font-weight: bold; }
-.g-score { font-size: 24rpx; color: #FF8C42; }
+.g-score { font-size: 24rpx; color: #E89150; }
 .dishes { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 16rpx; }
 .line { font-size: 26rpx; color: #666; margin-top: 8rpx; }
 .reasons { margin-top: 12rpx; }

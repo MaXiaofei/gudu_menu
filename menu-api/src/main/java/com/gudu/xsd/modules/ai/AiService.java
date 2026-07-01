@@ -70,7 +70,7 @@ public class AiService {
     private final com.gudu.xsd.modules.dish.mapper.DishMapper dishMapper;
     private final com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper cookingRecordMapper;
 
-    /** 每 member 每日 AI 调用上限（配置 yanhuo.ai.daily-limit，默认 50）。null/无 member 不限。 */
+    /** 每 member 每日 AI 调用上限（配置 gudu.ai.daily-limit，默认 50）。null/无 member 不限。 */
     @Value("${gudu.ai.daily-limit:50}")
     private int dailyLimit;
 

@@ -394,7 +394,7 @@ onMounted(async () => {
 .cat-title {
   font-size: 14px;
   font-weight: 600;
-  color: #ff8c42;
+  color: #E89150;
   border-bottom: 1px dashed #f0e0d0;
   padding-bottom: 6px;
   margin-bottom: 4px;

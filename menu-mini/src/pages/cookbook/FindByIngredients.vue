@@ -159,19 +159,19 @@ function goDetail(id: number) {
 .find { padding: 20rpx; }
 .toolbar { display: flex; align-items: center; gap: 16rpx; margin-bottom: 16rpx; flex-wrap: wrap; }
 .src-tab { font-size: 26rpx; color: #666; padding: 8rpx 20rpx; border: 1rpx solid #ddd; border-radius: 30rpx; }
-.src-tab.on { color: #fff; background: #FF8C42; border-color: #FF8C42; }
+.src-tab.on { color: #fff; background: #E89150; border-color: #E89150; }
 .chips { display: flex; flex-wrap: wrap; gap: 16rpx; margin: 20rpx 0; }
 .chip { font-size: 26rpx; color: #333; padding: 12rpx 24rpx; border: 1rpx solid #ddd; border-radius: 30rpx; background: #f7f7f7; }
-.chip.on { color: #fff; background: #FF8C42; border-color: #FF8C42; }
+.chip.on { color: #fff; background: #E89150; border-color: #E89150; }
 .empty { text-align: center; color: #999; padding: 60rpx 0; }
 .empty.small { padding: 24rpx 0; font-size: 26rpx; }
 .result { margin-top: 20rpx; }
 .section-title { font-size: 30rpx; font-weight: 600; color: #333; margin: 30rpx 0 16rpx; }
 .card { padding: 24rpx; border-radius: 16rpx; margin-bottom: 16rpx; background: #fff; box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05); }
-.card.canMake { border-left: 8rpx solid #4CAF50; }
-.card.partial { border-left: 8rpx solid #FF8C42; }
+.card.canMake { border-left: 8rpx solid #4FAE6E; }
+.card.partial { border-left: 8rpx solid #E89150; }
 .card-name { font-size: 32rpx; font-weight: 600; color: #222; }
 .card-meta { font-size: 26rpx; color: #888; margin-top: 8rpx; }
-.tag-ok { color: #4CAF50; font-size: 24rpx; margin-left: 12rpx; }
-.missing { font-size: 26rpx; color: #FF8C42; margin-top: 8rpx; }
+.tag-ok { color: #4FAE6E; font-size: 24rpx; margin-left: 12rpx; }
+.missing { font-size: 26rpx; color: #E89150; margin-top: 8rpx; }
 </style>

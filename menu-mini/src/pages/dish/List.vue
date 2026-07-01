@@ -353,13 +353,13 @@ reload()
 .title-bar {
   width: 8rpx;
   height: 36rpx;
-  background: #FF8C42;
+  background: #E89150;
   border-radius: 4rpx;
 }
 .title {
   font-size: 24px;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .top-actions {
   display: flex;
@@ -381,10 +381,10 @@ reload()
   margin: 12rpx 0;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 }
-.s-ico { font-size: 16px; color: #9B958C; }
-.s-input { flex: 1; font-size: 14px; color: #2D2A26; }
-.s-ph { color: #B8B2A7; }
-.s-clear { font-size: 14px; color: #B8B2A7; padding: 0 4px; }
+.s-ico { font-size: 16px; color: #9C8C7A; }
+.s-input { flex: 1; font-size: 14px; color: #4A382A; }
+.s-ph { color: #9C8C7A; }
+.s-clear { font-size: 14px; color: #9C8C7A; padding: 0 4px; }
 
 /* 分类横滑 */
 .cat-scroll {
@@ -401,13 +401,13 @@ reload()
   padding: 10rpx 28rpx;
   border-radius: 30rpx;
   font-size: 26rpx;
-  color: #9B958C;
+  color: #9C8C7A;
   background: #FFFFFF;
   box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.04);
 }
 .cat-chip.on {
-  background: rgba(255, 140, 66, 0.12);
-  color: #FF8C42;
+  background: rgba(232, 145, 80, 0.12);
+  color: #E89150;
   font-weight: 600;
 }
 
@@ -415,31 +415,31 @@ reload()
 .filter-toggle {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 6rpx 0 10rpx;
-  color: #FF8C42; font-size: 13px;
+  color: #E89150; font-size: 13px;
 }
 .badge {
-  background: #FF8C42; color: #fff; font-size: 11px;
+  background: #E89150; color: #fff; font-size: 11px;
   border-radius: 10px; padding: 0 6px; line-height: 16px;
 }
 .filter-panel { padding: 14px; }
-.f-title { font-size: 12px; color: #9B958C; margin-bottom: 8px; }
+.f-title { font-size: 12px; color: #9C8C7A; margin-bottom: 8px; }
 .f-grid { display: flex; gap: 8px; }
 .f-cell { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.f-label { font-size: 11px; color: #9B958C; }
+.f-label { font-size: 11px; color: #9C8C7A; }
 .f-input {
-  background: #FFFBF5;
+  background: #FDFAF4;
   border-radius: 14rpx;
   padding: 16rpx 20rpx;
   font-size: 26rpx;
-  color: #2D2A26;
+  color: #4A382A;
   min-height: 60rpx;
 }
 .f-picker {
-  background: #FFFBF5;
+  background: #FDFAF4;
   border-radius: 14rpx;
   padding: 16rpx 20rpx;
   font-size: 26rpx;
-  color: #2D2A26;
+  color: #4A382A;
   min-height: 60rpx;
 }
 .f-actions { display: flex; gap: 8px; margin-top: 12px; }
@@ -468,7 +468,7 @@ reload()
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #FFD9B8, #FFB37A);
+  background: linear-gradient(135deg, #F6D9BE, #F6D9BE);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -492,7 +492,7 @@ reload()
 .dish-name {
   font-size: 17px;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -508,11 +508,11 @@ reload()
 }
 .dish-meta {
   font-size: 24rpx;
-  color: #9B958C;
+  color: #9C8C7A;
 }
 .dish-dot {
   font-size: 24rpx;
-  color: #B8B2A7;
+  color: #9C8C7A;
 }
 /* 第3行：分类标签（暖橙背景） */
 .dish-r3 {
@@ -525,8 +525,8 @@ reload()
 }
 .dish-tag {
   display: inline-block;
-  background: rgba(255, 140, 66, 0.1);
-  color: #FF8C42;
+  background: rgba(232, 145, 80, 0.1);
+  color: #E89150;
   border-radius: 8rpx;
   padding: 4rpx 16rpx;
   font-size: 22rpx;
@@ -536,10 +536,10 @@ reload()
 .empty {
   display: flex; flex-direction: column; align-items: center;
   gap: 12px; padding: 80px 0;
-  color: #B8B2A7; font-size: 13px; text-align: center;
+  color: #9C8C7A; font-size: 13px; text-align: center;
 }
 .empty-ico { font-size: 48px; }
-.end { text-align: center; color: #B8B2A7; font-size: 12px; padding: 20rpx 0; }
+.end { text-align: center; color: #9C8C7A; font-size: 12px; padding: 20rpx 0; }
 
 /* 悬浮 + */
 .fab {
@@ -549,13 +549,13 @@ reload()
   width: 108rpx;
   height: 108rpx;
   border-radius: 54rpx;
-  background: linear-gradient(135deg, #FF8C42, #FFA45C);
+  background: linear-gradient(135deg, #E89150, #D17A3C);
   color: #FFFFFF;
   font-size: 56rpx;
   font-weight: 300;
   line-height: 108rpx;
   text-align: center;
-  box-shadow: 0 8rpx 24rpx rgba(255, 140, 66, 0.4);
+  box-shadow: 0 8rpx 24rpx rgba(232, 145, 80, 0.4);
   z-index: 99;
 }
 </style>

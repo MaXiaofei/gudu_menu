@@ -168,7 +168,7 @@ async function onSave() {
 .name-row { display: flex; align-items: center; gap: 16rpx; }
 .picker-row { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .section { display: block; font-size: 30rpx; font-weight: bold; margin: 30rpx 0 12rpx; }
-.mock-tip { display: block; font-size: 22rpx; color: #FF8C42; margin-bottom: 16rpx; }
+.mock-tip { display: block; font-size: 22rpx; color: #E89150; margin-bottom: 16rpx; }
 .hint { font-size: 24rpx; color: #999; }
 .nut-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; }
 .nut-item { display: flex; flex-direction: column; gap: 8rpx; }

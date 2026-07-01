@@ -105,18 +105,18 @@ async function onEstimate() {
 .row { display: flex; gap: 24rpx; }
 .lbl { display: block; font-size: 26rpx; color: #666; margin-bottom: 12rpx; }
 .est-btn { margin-bottom: 12rpx; }
-.tip { display: block; font-size: 22rpx; color: #FF8C42; margin-bottom: 24rpx; }
+.tip { display: block; font-size: 22rpx; color: #E89150; margin-bottom: 24rpx; }
 .empty { text-align: center; color: #999; padding: 60rpx 0; }
 .card { border: 1rpx solid #eee; border-radius: 12rpx; padding: 24rpx; }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
 .c-title { font-size: 30rpx; font-weight: bold; }
 .c-src { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 20rpx; background: #f0f0f0; color: #666; }
-.c-src.deepseek { background: #FFF1E5; color: #FF8C42; }
+.c-src.deepseek { background: #FDFAF4; color: #E89150; }
 .desc { font-size: 26rpx; color: #333; margin-bottom: 20rpx; }
 .nut-list { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .nut-item { width: calc(33.33% - 12rpx); background: #FAFAFA; border-radius: 10rpx; padding: 16rpx; text-align: center; }
 .nut-name { display: block; font-size: 24rpx; color: #999; margin-bottom: 8rpx; }
-.nut-val { font-size: 32rpx; font-weight: bold; color: #FF8C42; }
+.nut-val { font-size: 32rpx; font-weight: bold; color: #E89150; }
 .unit { font-size: 20rpx; color: #999; font-weight: normal; margin-left: 4rpx; }
 .note { margin-top: 20rpx; padding-top: 16rpx; border-top: 1rpx solid #f0f0f0; }
 .note-lbl { display: block; font-size: 24rpx; color: #999; margin-bottom: 6rpx; }

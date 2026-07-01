@@ -1,6 +1,6 @@
 -- ============================================================
 -- V28__ingredient_category_fix.sql
--- 烟火小食单：食材库补全无采购分类（purchase_category_id IS NULL OR =0）
+-- 咕嘟小食单：食材库补全无采购分类（purchase_category_id IS NULL OR =0）
 --
 -- 背景：ingredient 有 18 条 purchase_category_id 为 NULL/0（大米/小米/挂面/燕麦/
 --      玉米面/米饭/糯米/荞麦/面粉/馒头/鲜面条/糙米/黑米/藜麦/饺子皮/馄饨皮/紫薯/燕麦片）。

@@ -135,10 +135,10 @@ onLoad(() => { reload() })
 .title-wrap { display: flex; align-items: center; gap: 8px; }
 .title-bar {
   width: 8rpx; height: 36rpx;
-  background: #FF8C42; border-radius: 4rpx;
+  background: #E89150; border-radius: 4rpx;
 }
 .title {
-  font-size: 24px; font-weight: bold; color: #2D2A26;
+  font-size: 24px; font-weight: bold; color: #4A382A;
 }
 
 /* 列表卡片 */
@@ -157,21 +157,21 @@ onLoad(() => { reload() })
   min-width: 0;
 }
 .row-title {
-  font-size: 17px; font-weight: 600; color: #2D2A26;
+  font-size: 17px; font-weight: 600; color: #4A382A;
 }
 .row-date {
-  font-size: 24rpx; color: #9B958C;
+  font-size: 24rpx; color: #9C8C7A;
 }
 .row-range {
-  background: rgba(255, 140, 66, 0.1);
-  color: #FF8C42;
+  background: rgba(232, 145, 80, 0.1);
+  color: #E89150;
   border-radius: 8rpx;
   padding: 4rpx 16rpx;
   font-size: 22rpx;
   flex-shrink: 0;
 }
 .row-arrow {
-  font-size: 40rpx; color: #B8B2A7;
+  font-size: 40rpx; color: #9C8C7A;
   flex-shrink: 0;
 }
 
@@ -179,7 +179,7 @@ onLoad(() => { reload() })
 .empty {
   display: flex; flex-direction: column; align-items: center;
   gap: 12px; padding: 100px 0;
-  color: #B8B2A7; font-size: 13px; text-align: center;
+  color: #9C8C7A; font-size: 13px; text-align: center;
 }
 .empty-ico { font-size: 48px; }
 
@@ -191,13 +191,13 @@ onLoad(() => { reload() })
   width: 108rpx;
   height: 108rpx;
   border-radius: 54rpx;
-  background: linear-gradient(135deg, #FF8C42, #FFA45C);
+  background: linear-gradient(135deg, #E89150, #D17A3C);
   color: #FFFFFF;
   font-size: 56rpx;
   font-weight: 300;
   line-height: 108rpx;
   text-align: center;
-  box-shadow: 0 8rpx 24rpx rgba(255, 140, 66, 0.4);
+  box-shadow: 0 8rpx 24rpx rgba(232, 145, 80, 0.4);
   z-index: 99;
 }
 </style>

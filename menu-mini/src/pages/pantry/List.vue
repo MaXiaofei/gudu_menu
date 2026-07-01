@@ -94,7 +94,7 @@ onShow(() => { load() })
 .pantry { padding: 12px; }
 .tabs { display: flex; margin-bottom: 10px; }
 .tab { flex: 1; text-align: center; padding: 8px 0; font-size: 14px; color: #888; border-bottom: 2px solid transparent; }
-.tab.on { color: #FF8C42; border-bottom-color: #FF8C42; font-weight: 600; }
+.tab.on { color: #E89150; border-bottom-color: #E89150; font-weight: 600; }
 .empty { text-align: center; color: #aaa; padding: 40px 0; font-size: 13px; }
 .cards { display: flex; flex-direction: column; gap: 10px; }
 .card { background: #fff; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -102,7 +102,7 @@ onShow(() => { load() })
 .card.m-expiring { border-left: 4px solid #e6a23c; }
 .row1 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .name { font-size: 15px; font-weight: 600; color: #333; }
-.amt { font-size: 14px; color: #FF8C42; font-weight: 600; }
+.amt { font-size: 14px; color: #E89150; font-weight: 600; }
 .row2 { display: flex; justify-content: space-between; align-items: center; }
 .meta { font-size: 12px; color: #999; }
 .expire { font-size: 12px; }

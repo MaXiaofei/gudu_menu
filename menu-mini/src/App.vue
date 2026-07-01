@@ -15,11 +15,11 @@ onHide(() => {
 </script>
 <style lang="scss">
 @import "uview-plus/index.scss";
-/* ============ 温暖烟火·卡片流（Flutter 风格移植） ============ */
-/* 全局奶油白底 #FFFBF5 + 卡片白底大圆角 18 + 柔和阴影 + 暖橙渐变按钮 */
+/* ============ 温暖咕嘟·卡片流（Flutter 风格移植） ============ */
+/* 全局奶油白底 #FDFAF4 + 卡片白底大圆角 18 + 柔和阴影 + 暖橙渐变按钮 */
 page {
-  background: #FFFBF5;
-  color: #2D2A26;
+  background: #FDFAF4;
+  color: #4A382A;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
@@ -43,7 +43,7 @@ page {
 
 /* 渐变按钮（暖橙） */
 .yh-btn-gradient {
-  background: linear-gradient(135deg, #FF8C42, #FFA45C);
+  background: linear-gradient(135deg, #E89150, #D17A3C);
   color: #FFFFFF;
   border: none;
   border-radius: 14px;
@@ -51,12 +51,12 @@ page {
   text-align: center;
   font-size: 16px;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
+  box-shadow: 0 4px 12px rgba(232, 145, 80, 0.3);
   line-height: 1.4;
 }
 .yh-btn-gradient::after { border: none; }
 .yh-btn-gradient[disabled] {
-  background: linear-gradient(135deg, #FFB88C, #FFC9A8);
+  background: linear-gradient(135deg, #F6D9BE, #F6D9BE);
   color: rgba(255, 255, 255, 0.85);
   box-shadow: none;
 }
@@ -64,8 +64,8 @@ page {
 /* 次按钮：白底描边暖橙 */
 .yh-btn-ghost {
   background: #FFFFFF;
-  color: #FF8C42;
-  border: 1px solid #FF8C42;
+  color: #E89150;
+  border: 1px solid #E89150;
   border-radius: 14px;
   padding: 13px 0;
   font-size: 16px;
@@ -76,7 +76,7 @@ page {
 /* 小标题（暖灰） */
 .yh-section-title {
   font-size: 14px;
-  color: #9B958C;
+  color: #9C8C7A;
   margin: 16px 0 8px;
   display: flex;
   align-items: center;
@@ -85,22 +85,22 @@ page {
 /* 暖橙 tag */
 .yh-tag {
   display: inline-block;
-  background: rgba(255, 140, 66, 0.1);
-  color: #FF8C42;
+  background: rgba(232, 145, 80, 0.1);
+  color: #E89150;
   border-radius: 6px;
   padding: 2px 8px;
   font-size: 12px;
 }
 
 /* 文字色 */
-.yh-text-primary { color: #2D2A26; }
-.yh-text-secondary { color: #9B958C; }
-.yh-text-hint { color: #B8B2A7; }
+.yh-text-primary { color: #4A382A; }
+.yh-text-secondary { color: #9C8C7A; }
+.yh-text-hint { color: #9C8C7A; }
 
 /* 原生 input 复位（统一奶油白填充 + 暖橙聚焦边） */
 input {
   font-size: 14px;
-  color: #2D2A26;
+  color: #4A382A;
 }
 
 /* 原生 button 复位 */

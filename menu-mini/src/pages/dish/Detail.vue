@@ -221,7 +221,7 @@ function goBack() {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #FFFBF5;
+  background: #FDFAF4;
   display: flex;
   flex-direction: column;
 }
@@ -232,18 +232,18 @@ function goBack() {
   align-items: center;
   justify-content: space-between;
   padding: calc(env(safe-area-inset-top) + 16rpx) 24rpx 12rpx;
-  background: #FFFBF5;
+  background: #FDFAF4;
 }
 .back {
   width: 60rpx;
   font-size: 48rpx;
-  color: #2D2A26;
+  color: #4A382A;
   text-align: center;
 }
 .top-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #2D2A26;
+  color: #4A382A;
 }
 
 .scroll { flex: 1; }
@@ -258,7 +258,7 @@ function goBack() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #FFD9B8, #FFB37A);
+  background: linear-gradient(135deg, #F6D9BE, #F6D9BE);
   font-size: 100rpx;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -282,13 +282,13 @@ function goBack() {
   flex: 1;
   font-size: 40rpx;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .src-tag {
   width: 56rpx;
   height: 56rpx;
   border-radius: 50%;
-  background: rgba(255, 140, 66, 0.12);
+  background: rgba(232, 145, 80, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -300,12 +300,12 @@ function goBack() {
   gap: 10rpx;
   margin-top: 16rpx;
 }
-.meta-item { font-size: 24rpx; color: #9B958C; }
-.meta-dot { color: #B8B2A7; }
+.meta-item { font-size: 24rpx; color: #9C8C7A; }
+.meta-dot { color: #9C8C7A; }
 .diff-tag {
   display: inline-block;
-  background: rgba(255, 140, 66, 0.1);
-  color: #FF8C42;
+  background: rgba(232, 145, 80, 0.1);
+  color: #E89150;
   border-radius: 8rpx;
   padding: 4rpx 16rpx;
   font-size: 22rpx;
@@ -313,12 +313,12 @@ function goBack() {
 .expand-toggle {
   margin-left: auto;
   font-size: 24rpx;
-  color: #9B958C;
+  color: #9C8C7A;
 }
 .note {
   margin-top: 16rpx;
   font-size: 26rpx;
-  color: #9B958C;
+  color: #9C8C7A;
   line-height: 1.6;
 }
 
@@ -333,13 +333,13 @@ function goBack() {
 .tbar {
   width: 8rpx;
   height: 32rpx;
-  background: #FF8C42;
+  background: #E89150;
   border-radius: 4rpx;
 }
 .block-title text {
   font-size: 32rpx;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 
 /* 营养卡 */
@@ -349,13 +349,13 @@ function goBack() {
   align-items: center;
   justify-content: space-between;
   padding: 24rpx 0;
-  border-bottom: 2rpx solid #F2EDE4;
+  border-bottom: 2rpx solid #F0E6D6;
 }
 .nutrition-row:last-child { border-bottom: none; }
-.n-label { font-size: 28rpx; color: #2D2A26; }
+.n-label { font-size: 28rpx; color: #4A382A; }
 .n-right { display: flex; align-items: baseline; gap: 6rpx; }
-.n-value { font-size: 32rpx; font-weight: bold; color: #FF8C42; }
-.n-unit { font-size: 22rpx; color: #9B958C; }
+.n-value { font-size: 32rpx; font-weight: bold; color: #E89150; }
+.n-unit { font-size: 22rpx; color: #9C8C7A; }
 
 /* 食材卡（复用营养卡视觉语言） */
 .ingredient-card { padding: 8rpx 32rpx; }
@@ -364,13 +364,13 @@ function goBack() {
   align-items: center;
   justify-content: space-between;
   padding: 24rpx 0;
-  border-bottom: 2rpx solid #F2EDE4;
+  border-bottom: 2rpx solid #F0E6D6;
 }
 .ingredient-row:last-child { border-bottom: none; }
-.ing-name { font-size: 28rpx; color: #2D2A26; }
+.ing-name { font-size: 28rpx; color: #4A382A; }
 .ing-right { display: flex; align-items: baseline; gap: 4rpx; }
-.ing-amount { font-size: 32rpx; font-weight: bold; color: #FF8C42; }
-.ing-unit { font-size: 22rpx; color: #9B958C; }
+.ing-amount { font-size: 32rpx; font-weight: bold; color: #E89150; }
+.ing-unit { font-size: 22rpx; color: #9C8C7A; }
 
 /* 步骤卡 */
 .step-card { padding: 28rpx 32rpx; }
@@ -379,9 +379,9 @@ function goBack() {
   align-items: center;
   justify-content: space-between;
 }
-.step-no { font-size: 28rpx; font-weight: 600; color: #2D2A26; }
+.step-no { font-size: 28rpx; font-weight: 600; color: #4A382A; }
 .timer-btn {
-  background: #FF8C42;
+  background: #E89150;
   color: #FFFFFF;
   font-size: 24rpx;
   padding: 8rpx 24rpx;
@@ -390,13 +390,13 @@ function goBack() {
 }
 .timer-btn::after { border: none; }
 .timer-btn.stop {
-  background: #F56C6C;
+  background: #DB5A4E;
 }
 .step-text {
   display: block;
   margin-top: 16rpx;
   font-size: 28rpx;
-  color: #2D2A26;
+  color: #4A382A;
   line-height: 1.6;
 }
 .step-imgs {
@@ -411,7 +411,7 @@ function goBack() {
   border-radius: 16rpx;
 }
 .timer {
-  color: #FF8C42;
+  color: #E89150;
   font-size: 36rpx;
   font-weight: bold;
   margin-top: 16rpx;
@@ -422,7 +422,7 @@ function goBack() {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #B8B2A7;
+  color: #9C8C7A;
   font-size: 14px;
 }
 

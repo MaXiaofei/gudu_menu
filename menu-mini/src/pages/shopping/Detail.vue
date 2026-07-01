@@ -527,7 +527,7 @@ async function onExportImage() {
     const ctx = uni.createCanvasContext('shoppingExport')
     ctx.setFillStyle('#fffaf3')
     ctx.fillRect(0, 0, width, height)
-    ctx.setFillStyle('#FF6B35')
+    ctx.setFillStyle('#D17A3C')
     ctx.setFontSize(18)
     ctx.fillText('采购单', 16, 34)
     if (d) {
@@ -538,7 +538,7 @@ async function onExportImage() {
     rows.forEach((r) => {
       if (r.y === 0) return
       if (r.bold) {
-        ctx.setFillStyle('#FF6B35')
+        ctx.setFillStyle('#D17A3C')
         ctx.setFontSize(14)
         ctx.fillText(r.text, 16, r.y)
         ctx.setStrokeStyle('#f0e0d0')
@@ -549,11 +549,11 @@ async function onExportImage() {
       } else {
         const boxX = 16
         const boxY = r.y - 11
-        ctx.setStrokeStyle(r.done ? '#FF6B35' : '#ccc')
+        ctx.setStrokeStyle(r.done ? '#D17A3C' : '#ccc')
         ctx.setLineWidth(1.5)
         ctx.strokeRect(boxX, boxY, 14, 14)
         if (r.done) {
-          ctx.setFillStyle('#FF6B35')
+          ctx.setFillStyle('#D17A3C')
           ctx.fillRect(boxX + 2, boxY + 2, 10, 10)
         }
         ctx.setFillStyle(r.done ? '#bbb' : '#333')
@@ -655,7 +655,7 @@ function nextFrame(): Promise<void> {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #FFFBF5;
+  background: #FDFAF4;
   display: flex;
   flex-direction: column;
 }
@@ -666,18 +666,18 @@ function nextFrame(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   padding: calc(env(safe-area-inset-top) + 16rpx) 24rpx 12rpx;
-  background: #FFFBF5;
+  background: #FDFAF4;
 }
 .back {
   width: 60rpx;
   font-size: 48rpx;
-  color: #2D2A26;
+  color: #4A382A;
   text-align: center;
 }
 .top-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #2D2A26;
+  color: #4A382A;
 }
 
 .scroll { flex: 1; }
@@ -692,12 +692,12 @@ function nextFrame(): Promise<void> {
 }
 .tbar {
   width: 8rpx; height: 32rpx;
-  background: #FF8C42; border-radius: 4rpx;
+  background: #E89150; border-radius: 4rpx;
 }
 .block-title text {
   font-size: 32rpx;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 
 /* 生成区 */
@@ -705,10 +705,10 @@ function nextFrame(): Promise<void> {
 .src-tabs { display: flex; gap: 12rpx; margin-bottom: 20rpx; }
 .tab {
   flex: 1; text-align: center; font-size: 13px; padding: 14rpx 0;
-  border-radius: 12rpx; background: #FFFBF5; color: #9B958C;
+  border-radius: 12rpx; background: #FDFAF4; color: #9C8C7A;
 }
 .tab.on {
-  background: linear-gradient(135deg, #FF8C42, #FFA45C);
+  background: linear-gradient(135deg, #E89150, #D17A3C);
   color: #fff; font-weight: 600;
 }
 .gen-input {
@@ -726,22 +726,22 @@ function nextFrame(): Promise<void> {
   margin-bottom: 20rpx;
 }
 .head-name {
-  font-size: 17px; font-weight: 600; color: #2D2A26;
+  font-size: 17px; font-weight: 600; color: #4A382A;
 }
 .head-range {
-  font-size: 24rpx; color: #9B958C;
+  font-size: 24rpx; color: #9C8C7A;
 }
 .export-bar { display: flex; gap: 16rpx; }
 .half { flex: 1; }
 .sm { font-size: 13px; padding: 16rpx 0; }
-.share { color: #FF8C42; border-color: #FF8C42; }
+.share { color: #E89150; border-color: #E89150; }
 
 /* 品类分区 */
 .cat-card { padding: 8rpx 32rpx; }
 .item {
   display: flex;
   padding: 24rpx 0;
-  border-bottom: 2rpx solid #F2EDE4;
+  border-bottom: 2rpx solid #F0E6D6;
 }
 .item:last-child { border-bottom: none; }
 .item.done .iname { color: #bbb; text-decoration: line-through; }
@@ -753,16 +753,16 @@ function nextFrame(): Promise<void> {
   font-size: 26rpx; color: transparent;
 }
 .box.checked {
-  background: #FF8C42; border-color: #FF8C42; color: #fff;
+  background: #E89150; border-color: #E89150; color: #fff;
 }
 .main { flex: 1; }
 .row1 { display: flex; align-items: center; gap: 12rpx; flex-wrap: wrap; }
-.iname { font-size: 15px; color: #2D2A26; }
-.ref-g { font-size: 24rpx; color: #9B958C; }
+.iname { font-size: 15px; color: #4A382A; }
+.ref-g { font-size: 24rpx; color: #9C8C7A; }
 
 /* 空态 */
 .empty {
-  text-align: center; color: #B8B2A7;
+  text-align: center; color: #9C8C7A;
   padding: 80rpx 0; font-size: 13px;
 }
 .loading {
@@ -770,7 +770,7 @@ function nextFrame(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #B8B2A7;
+  color: #9C8C7A;
   font-size: 14px;
   padding: 80rpx 0;
 }
@@ -802,11 +802,11 @@ function nextFrame(): Promise<void> {
   padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
 }
 .sheet-title {
-  font-size: 32rpx; font-weight: 700; color: #2D2A26; margin-bottom: 24rpx;
+  font-size: 32rpx; font-weight: 700; color: #4A382A; margin-bottom: 24rpx;
 }
 .sheet-row {
   display: flex; align-items: center; gap: 20rpx;
-  padding: 20rpx 0; border-bottom: 2rpx solid #F2EDE4;
+  padding: 20rpx 0; border-bottom: 2rpx solid #F0E6D6;
 }
 .sheet-row:last-of-type { border-bottom: none; }
 .lbl { flex: 0 0 112rpx; font-size: 14px; color: #666; }

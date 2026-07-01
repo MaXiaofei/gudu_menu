@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>烟火小食单 · 双主题换肤预演</title>
+<title>咕嘟小食单 · 双主题换肤预演</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.8.4/dist/index.css">
 <style>
 :root{
@@ -72,12 +72,12 @@ body{font-family:var(--el-font-family);background:#efeae3;display:flex;flex-dire
 <body>
 <div id="app">
   <div class="topint">
-    <div class="tophint"><b>双主题换肤预演</b> · 默认「烟火暖橙」，点右上角换肤切到「鲜蔬青绿」——这就是 Task 18 顶栏换肤器最终的样子。</div>
+    <div class="tophint"><b>双主题换肤预演</b> · 默认「咕嘟暖橙」，点右上角换肤切到「鲜蔬青绿」——这就是 Task 18 顶栏换肤器最终的样子。</div>
   </div>
 
   <div class="preview">
     <aside class="sidebar">
-      <div class="logo"><span class="dot"></span>烟火小食单</div>
+      <div class="logo"><span class="dot"></span>咕嘟小食单</div>
       <div class="menu-item" v-for="(m,i) in menus" :class="{active:i===2}">
         <el-icon><component :is="m.icon"/></el-icon>{{m.title}}
       </div>
@@ -157,7 +157,7 @@ body{font-family:var(--el-font-family);background:#efeae3;display:flex;flex-dire
 const { createApp, ref, computed, onMounted } = Vue;
 const I = ElementPlusIconsVue;
 const themes = [
-  { key:'warm',  name:'烟火暖橙', primary:'#E8602C', sidebar:'#2B1A12', bg:'#FFFAF5' },
+  { key:'warm',  name:'咕嘟暖橙', primary:'#E8602C', sidebar:'#2B1A12', bg:'#FFFAF5' },
   { key:'green', name:'鲜蔬青绿', primary:'#2EA66B', sidebar:'#1F3A2E', bg:'#F6FBF8' },
 ];
 const menus = [

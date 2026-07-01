@@ -100,23 +100,23 @@ onShow(() => {
 .title-bar {
   width: 8rpx;
   height: 36rpx;
-  background: #FF8C42;
+  background: #E89150;
   border-radius: 4rpx;
 }
 .title {
   font-size: 24px;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .ico-btn {
   font-size: 32px;
-  color: #FF8C42;
+  color: #E89150;
   padding: 0 8rpx;
   line-height: 1;
 }
 .sub {
   font-size: 24rpx;
-  color: #9B958C;
+  color: #9C8C7A;
   padding: 0 8rpx 24rpx;
 }
 
@@ -136,17 +136,17 @@ onShow(() => {
   font-weight: 600;
 }
 .type-chip.daily {
-  background: rgba(255, 140, 66, 0.12);
-  color: #FF8C42;
+  background: rgba(232, 145, 80, 0.12);
+  color: #E89150;
 }
 .type-chip.feast {
   background: rgba(230, 162, 60, 0.15);
-  color: #E6A23C;
+  color: #E5A938;
 }
 .menu-name {
   font-size: 32rpx;
   font-weight: bold;
-  color: #2D2A26;
+  color: #4A382A;
 }
 .menu-meta {
   display: flex;
@@ -159,20 +159,20 @@ onShow(() => {
   justify-content: space-between;
   margin-top: 16rpx;
   padding-top: 20rpx;
-  border-top: 2rpx solid #F2EDE4;
+  border-top: 2rpx solid #F0E6D6;
 }
-.m-item { font-size: 26rpx; color: #9B958C; }
+.m-item { font-size: 26rpx; color: #9C8C7A; }
 .m-item.price {
   font-size: 32rpx;
   font-weight: bold;
-  color: #FF8C42;
+  color: #E89150;
 }
 
 /* 空态 */
 .empty {
   display: flex; flex-direction: column; align-items: center;
   gap: 16px; padding: 100px 0;
-  color: #B8B2A7; font-size: 13px; text-align: center;
+  color: #9C8C7A; font-size: 13px; text-align: center;
 }
 .empty-ico { font-size: 56px; }
 

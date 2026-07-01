@@ -1,13 +1,13 @@
 -- ============================================================
 -- V27__dict_real.sql
--- 烟火小食单：配置中心灌真实字典（参考下厨房等家庭做菜分类）
+-- 咕嘟小食单：配置中心灌真实字典（参考下厨房等家庭做菜分类）
 --
 -- 背景：V02 种子（cuisine/tag/category/menu_type/unit/purchase_category）在
---      yanhuo / prod 库存在 UTF-8 双重编码 mojibake（latin1 误读为 utf8 再编码），
---      导致前端下拉显示乱码；yanhuo_test 库正常。本迁移两步走：
+--      gudu / prod 库存在 UTF-8 双重编码 mojibake（latin1 误读为 utf8 再编码），
+--      导致前端下拉显示乱码；gudu_test 库正常。本迁移两步走：
 --
 --   STEP 1  原地修复 V02 mojibake 行（按 id UPDATE，仅当 HEX(name) 与正确 UTF-8 不一致）：
---           - 幂等：已是正确 UTF-8（如 yanhuo_test）则 WHERE 不命中 → no-op。
+--           - 幂等：已是正确 UTF-8（如 gudu_test）则 WHERE 不命中 → no-op。
 --           - 不 DELETE、不改 id → 食材 purchase_category_id / unit_id 引用全部保留。
 --           - 仅修 cuisine/tag/category/menu_type/unit/purchase_category；
 --             audience（V26 已扩，用户明确不动）、role（用户明确排除）不碰。

@@ -187,7 +187,7 @@ function renderChart() {
       {
         type: 'bar',
         data: data.map((d) => d.value),
-        itemStyle: { color: '#2EA66B', borderRadius: [4, 4, 0, 0] },
+        itemStyle: { color: '#7A9A5B', borderRadius: [4, 4, 0, 0] },
       },
     ],
   })

@@ -15,7 +15,7 @@ public class Knife4jConfig {
     @Bean
     public GroupedOpenApi groupedOpenApi() {
         return GroupedOpenApi.builder()
-                .group("yanhuo")
+                .group("gudu")
                 .pathsToMatch("/**")
                 .build();
     }

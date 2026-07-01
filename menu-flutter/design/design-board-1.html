@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>咕嘟小食单 · 设计风格板 · 方向①温暖食欲向</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;background:#ECEAE6;color:#222;padding:32px 20px 90px}
+  h1{font-size:28px;margin:0 0 4px}
+  .sub{color:#666;margin:0 0 22px}
+  .meta{background:#fff;border-radius:16px;padding:16px 20px;margin:0 0 28px;display:flex;flex-wrap:wrap;gap:16px 30px;font-size:13px;color:#444;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .meta b{color:#111}
+  .meta span{color:#9a9a9a;margin-right:5px}
+  .board{background:var(--bg);color:var(--text);border-radius:20px;padding:28px;margin:0 0 24px;box-shadow:0 2px 12px rgba(0,0,0,.09)}
+  .board>header{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+  .board h2{font-size:22px;margin:0}
+  .board .tag{font-size:12px;padding:3px 11px;border-radius:999px;background:var(--primary);color:#fff;font-weight:700}
+  .board .pos{margin-left:auto;opacity:.62;font-size:13px}
+  .swatches{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+  .sw{flex:1;min-width:96px;border-radius:12px;overflow:hidden;border:1px solid rgba(0,0,0,.1)}
+  .sw .chip{height:58px;background:var(--c)}
+  .sw .lbl{background:var(--card);padding:7px 10px;font-size:11px;line-height:1.5;color:var(--text)}
+  .sw .lbl b{display:block;font-size:12px}
+  .sw .lbl span{opacity:.6}
+  .preview{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+  @media(max-width:760px){.preview{grid-template-columns:1fr}}
+  .dish-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;border:var(--bd,none)}
+  .dish-img{height:128px;background:linear-gradient(135deg,var(--primary),var(--secondary))}
+  .dish-body{padding:15px 17px 19px}
+  .dish-body h3{margin:0 0 9px;font-size:18px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:15px}
+  .pill{font-size:11px;padding:3px 10px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700}
+  .pill.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  .btn{display:inline-block;background:var(--primary);color:#fff;border:none;border-radius:var(--radius);padding:11px 22px;font-size:14px;font-weight:800;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--primary);border:1.6px solid var(--primary)}
+  .controls{display:flex;flex-direction:column;gap:13px;justify-content:center}
+  .input{background:var(--card);border:var(--bd,1px solid rgba(0,0,0,.12));border-radius:var(--radius);padding:12px 15px;color:var(--text);font-size:14px}
+  .seg{display:flex;background:var(--card);border:var(--bd,1px solid rgba(0,0,0,.1));border-radius:var(--radius);padding:4px;gap:4px}
+  .seg span{flex:1;text-align:center;padding:8px 0;font-size:13px;border-radius:calc(var(--radius) - 4px);opacity:.6}
+  .seg span.on{background:var(--primary);color:#fff;opacity:1;font-weight:700}
+  [data-theme="w1"]{--primary:#F2691A;--secondary:#E8A05C;--accent:#C23A2A;--bg:#FFF9F2;--text:#2E1F14;--card:#FFFFFF;--radius:14px;--shadow:0 6px 18px rgba(242,105,26,.16)}
+  [data-theme="w2"]{--primary:#E8542D;--secondary:#F4D9A0;--accent:#3E5C4A;--bg:#F5EBD9;--text:#2A1C12;--card:#FBF5E9;--radius:6px;--shadow:0 4px 0 rgba(42,28,18,.08);--bd:1px dashed rgba(62,92,74,.45)}
+  [data-theme="w3"]{--primary:#E89150;--secondary:#FBF0DD;--accent:#A9651E;--bg:#FDFAF4;--text:#4A382A;--card:#FFFFFF;--radius:22px;--shadow:0 12px 32px rgba(169,101,30,.1)}
+  [data-theme="w4"]{--primary:#FF8C3A;--secondary:#5A4636;--accent:#E6B25A;--bg:#1E1714;--text:#F2E8DC;--card:#2A211B;--radius:14px;--shadow:0 0 26px rgba(255,140,58,.28);--bd:1px solid rgba(230,178,90,.22)}
+  [data-theme="w5"]{--primary:#E63E2A;--secondary:#F0A92B;--accent:#9E2B3E;--bg:#FFF7F0;--text:#2A1410;--card:#FFFFFF;--radius:18px;--shadow:0 9px 22px rgba(230,62,42,.2)}
+  [data-theme="w6"]{--primary:#F0763A;--secondary:#D9CFC6;--accent:#3A2A1E;--bg:#FAF7F3;--text:#221A14;--card:#FFFFFF;--radius:4px;--shadow:none;--bd:1px solid rgba(0,0,0,.1)}
+  .hint{color:#888;font-size:12px;margin-top:6px;text-align:right}
+</style>
+</head>
+<body>
+  <h1>咕嘟小食单 · 设计风格板</h1>
+  <p class="sub">方向 ① 温暖食欲向 · 6 套 · 沿「浓淡 / 明暗 / 繁简」光谱排开</p>
+  <div class="meta">
+    <div><span>间距</span><b>4·8·12·16·24·32·48</b></div>
+    <div><span>字号</span><b>12·14·16·20·24·32·40</b></div>
+    <div><span>圆角</span><b>6·12·20·999</b></div>
+    <div><span>阴影</span><b>sm·md·lg</b></div>
+    <div><span>动效</span><b>200ms / 300ms</b></div>
+  </div>
+
+  <div class="board" data-theme="w1">
+    <header><h2>①-1 经典咕嘟</h2><span class="tag">中圆角 · 柔和阴影</span><span class="pos">亲切家常 · 亮堂厨房 · 推荐起步</span></header>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="--c:#F2691A"></div><div class="lbl"><b>#F2691A</b><span>主 咕嘟橙</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#E8A05C"></div><div class="lbl"><b>#E8A05C</b><span>辅 暖砂</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#C23A2A"></div><div class="lbl"><b>#C23A2A</b><span>强调 酱红</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#FFF9F2"></div><div class="lbl"><b>#FFF9F2</b><span>背景 奶白</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#2E1F14"></div><div class="lbl"><b>#2E1F14</b><span>文字 深棕</span></div></div>
+    </div>
+    <div class="preview">
+      <div class="dish-card"><div class="dish-img"></div><div class="dish-body">
+        <h3>番茄牛腩煲</h3>
+        <div class="chips"><span class="pill">385 kcal</span><span class="pill ghost">35 分钟</span><span class="pill ghost">高蛋白</span></div>
+        <button class="btn">加入排菜</button>
+      </div></div>
+      <div class="controls">
+        <div class="input">搜索食材或菜谱…</div>
+        <div class="seg"><span>今天</span><span class="on">本周</span><span>本月</span></div>
+        <button class="btn ghost">查看营养小计</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="board" data-theme="w2">
+    <header><h2>①-2 复古食堂</h2><span class="tag">小圆角 · 虚线票据</span><span class="pos">80 年代国营食堂 · 怀旧咕嘟</span></header>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="--c:#E8542D"></div><div class="lbl"><b>#E8542D</b><span>主 招牌橙红</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#F4D9A0"></div><div class="lbl"><b>#F4D9A0</b><span>辅 米黄</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#3E5C4A"></div><div class="lbl"><b>#3E5C4A</b><span>强调 票据墨绿</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#F5EBD9"></div><div class="lbl"><b>#F5EBD9</b><span>背景 牛皮纸</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#2A1C12"></div><div class="lbl"><b>#2A1C12</b><span>文字 酱黑</span></div></div>
+    </div>
+    <div class="preview">
+      <div class="dish-card"><div class="dish-img"></div><div class="dish-body">
+        <h3>红烧大排饭</h3>
+        <div class="chips"><span class="pill">520 kcal</span><span class="pill ghost">20 分钟</span><span class="pill ghost">饱腹</span></div>
+        <button class="btn">加入排菜</button>
+      </div></div>
+      <div class="controls">
+        <div class="input">搜索食材或菜谱…</div>
+        <div class="seg"><span>今天</span><span class="on">本周</span><span>本月</span></div>
+        <button class="btn ghost">查看营养小计</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="board" data-theme="w3">
+    <header><h2>①-3 奶油轻食</h2><span class="tag">大圆角 · 轻阴影</span><span class="pos">轻食咖啡馆 · ins 风 · 大量留白</span></header>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="--c:#E89150"></div><div class="lbl"><b>#E89150</b><span>主 焦糖橙</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#FBF0DD"></div><div class="lbl"><b>#FBF0DD</b><span>辅 奶油</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#A9651E"></div><div class="lbl"><b>#A9651E</b><span>强调 蜜棕</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#FDFAF4"></div><div class="lbl"><b>#FDFAF4</b><span>背景 纯奶白</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#4A382A"></div><div class="lbl"><b>#4A382A</b><span>文字 暖灰棕</span></div></div>
+    </div>
+    <div class="preview">
+      <div class="dish-card"><div class="dish-img"></div><div class="dish-body">
+        <h3>牛油果鸡胸沙拉</h3>
+        <div class="chips"><span class="pill">290 kcal</span><span class="pill ghost">15 分钟</span><span class="pill ghost">低脂</span></div>
+        <button class="btn">加入排菜</button>
+      </div></div>
+      <div class="controls">
+        <div class="input">搜索食材或菜谱…</div>
+        <div class="seg"><span>今天</span><span class="on">本周</span><span>本月</span></div>
+        <button class="btn ghost">查看营养小计</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="board" data-theme="w4">
+    <header><h2>①-4 深夜食堂</h2><span class="tag">暗底 · 暖辉光</span><span class="pos">深夜街角小馆 · 治愈氛围</span></header>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="--c:#FF8C3A"></div><div class="lbl"><b>#FF8C3A</b><span>主 琥珀橙</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#5A4636"></div><div class="lbl"><b>#5A4636</b><span>辅 暖炭</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#E6B25A"></div><div class="lbl"><b>#E6B25A</b><span>强调 烛光金</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#1E1714"></div><div class="lbl"><b>#1E1714</b><span>背景 深可可</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#F2E8DC"></div><div class="lbl"><b>#F2E8DC</b><span>文字 暖米白</span></div></div>
+    </div>
+    <div class="preview">
+      <div class="dish-card"><div class="dish-img"></div><div class="dish-body">
+        <h3>关东煮拼盘</h3>
+        <div class="chips"><span class="pill">210 kcal</span><span class="pill ghost">10 分钟</span><span class="pill ghost">暖胃</span></div>
+        <button class="btn">加入排菜</button>
+      </div></div>
+      <div class="controls">
+        <div class="input">搜索食材或菜谱…</div>
+        <div class="seg"><span>今天</span><span class="on">本周</span><span>本月</span></div>
+        <button class="btn ghost">查看营养小计</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="board" data-theme="w5">
+    <header><h2>①-5 节日红火</h2><span class="tag">饱满圆角 · 强对比</span><span class="pos">年夜饭家宴 · 浓烈喜庆</span></header>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="--c:#E63E2A"></div><div class="lbl"><b>#E63E2A</b><span>主 中国红橙</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#F0A92B"></div><div class="lbl"><b>#F0A92B</b><span>辅 丰金</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#9E2B3E"></div><div class="lbl"><b>#9E2B3E</b><span>强调 暖紫红</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#FFF7F0"></div><div class="lbl"><b>#FFF7F0</b><span>背景 暖白</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#2A1410"></div><div class="lbl"><b>#2A1410</b><span>文字 酒红黑</span></div></div>
+    </div>
+    <div class="preview">
+      <div class="dish-card"><div class="dish-img"></div><div class="dish-body">
+        <h3>八宝炖鸭</h3>
+        <div class="chips"><span class="pill">610 kcal</span><span class="pill ghost">90 分钟</span><span class="pill ghost">家宴</span></div>
+        <button class="btn">加入排菜</button>
+      </div></div>
+      <div class="controls">
+        <div class="input">搜索食材或菜谱…</div>
+        <div class="seg"><span>今天</span><span class="on">本周</span><span>本月</span></div>
+        <button class="btn ghost">查看营养小计</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="board" data-theme="w6">
+    <header><h2>①-6 暖极简</h2><span class="tag">直角 · 无阴影</span><span class="pos">暖色瑞士极简 · 克制有质感</span></header>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="--c:#F0763A"></div><div class="lbl"><b>#F0763A</b><span>主 点睛橙</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#D9CFC6"></div><div class="lbl"><b>#D9CFC6</b><span>辅 暖灰</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#3A2A1E"></div><div class="lbl"><b>#3A2A1E</b><span>强调 墨棕</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#FAF7F3"></div><div class="lbl"><b>#FAF7F3</b><span>背景 暖白</span></div></div>
+      <div class="sw"><div class="chip" style="--c:#221A14"></div><div class="lbl"><b>#221A14</b><span>文字 近黑棕</span></div></div>
+    </div>
+    <div class="preview">
+      <div class="dish-card"><div class="dish-img"></div><div class="dish-body">
+        <h3>清炖牛肉</h3>
+        <div class="chips"><span class="pill">340 kcal</span><span class="pill ghost">60 分钟</span><span class="pill ghost">原汁原味</span></div>
+        <button class="btn">加入排菜</button>
+      </div></div>
+      <div class="controls">
+        <div class="input">搜索食材或菜谱…</div>
+        <div class="seg"><span>今天</span><span class="on">本周</span><span>本月</span></div>
+        <button class="btn ghost">查看营养小计</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint">方向 ① 共 6 套 · 后续补 ② 清新健康向 / ③ 克制精致向</p>
+</body>
+</html>

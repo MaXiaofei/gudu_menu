@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>咕嘟小食单 · 设计系统 · ①-3 奶油轻食</title>
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --primary:#E89150; --primary-deep:#D17A3C; --primary-soft:#F6D9BE;
+    --secondary:#FBF0DD; --accent:#A9651E;
+    --bg:#FDFAF4; --card:#FFFFFF; --border:#F0E6D6;
+    --title:#4A382A; --body:#6E5C49; --caption:#9C8C7A; --disabled:#C9BDB0;
+    --success:#6BA77A; --warning:#E0A23C; --error:#D96057; --info:#6B9BC4;
+    --r-sm:8px; --r-md:14px; --r-lg:22px; --r-pill:999px;
+    --sh-sm:0 1px 3px rgba(169,101,30,.08);
+    --sh-md:0 6px 18px rgba(169,101,30,.1);
+    --sh-lg:0 14px 36px rgba(169,101,30,.14);
+  }
+  body{margin:0;font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--title);padding:32px 24px 100px;line-height:1.5}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-size:30px;margin:0 0 4px;letter-spacing:-.5px}
+  .sub{color:var(--caption);margin:0 0 8px}
+  .locked{display:inline-block;background:var(--primary);color:#fff;font-size:12px;font-weight:700;padding:4px 12px;border-radius:var(--r-pill);margin-bottom:28px}
+  section{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:24px 26px;margin:0 0 20px;box-shadow:var(--sh-sm)}
+  section>h2{font-size:18px;margin:0 0 4px}
+  section>.desc{color:var(--caption);font-size:13px;margin:0 0 18px}
+
+  /* 色板 */
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .col{flex:1;min-width:120px;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border)}
+  .col .sw{height:64px}
+  .col .meta{padding:8px 11px;font-size:11px;color:var(--body)}
+  .col .meta b{display:block;font-size:12px;color:var(--title);margin-bottom:1px}
+  .grp-title{font-size:12px;color:var(--caption);text-transform:uppercase;letter-spacing:1px;margin:18px 0 8px;font-weight:700}
+
+  /* 字号阶梯 */
+  .type-row{display:flex;align-items:baseline;gap:16px;padding:7px 0;border-bottom:1px dashed var(--border)}
+  .type-row:last-child{border:none}
+  .type-row .tag{font-size:11px;color:var(--caption);width:90px;flex-shrink:0}
+
+  /* form tokens */
+  .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  @media(max-width:680px){.form-grid{grid-template-columns:repeat(2,1fr)}}
+  .form-cell{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:11px;color:var(--caption)}
+  .r-demo{width:64px;height:64px;background:var(--primary-soft);border:1px solid var(--border)}
+  .sh-demo{width:72px;height:54px;background:var(--card);border-radius:var(--r-md)}
+  .sp-bar{height:14px;background:var(--primary);border-radius:3px}
+
+  /* 组件 */
+  .comp{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:16px}
+  .btn{border:none;cursor:pointer;font-weight:700;font-size:14px;padding:11px 22px;border-radius:var(--r-md);background:var(--primary);color:#fff;transition:.2s}
+  .btn:hover{background:var(--primary-deep)}
+  .btn.secondary{background:var(--secondary);color:var(--accent)}
+  .btn.ghost{background:transparent;color:var(--primary);border:1.6px solid var(--primary)}
+  .btn.disabled{background:var(--disabled);color:#fff;cursor:not-allowed}
+  .btn.sm{padding:7px 14px;font-size:12px;border-radius:var(--r-sm)}
+  .chip{font-size:12px;font-weight:700;padding:4px 12px;border-radius:var(--r-pill);background:var(--primary);color:#fff}
+  .chip.soft{background:var(--primary-soft);color:var(--accent)}
+  .chip.outline{background:transparent;border:1px solid var(--primary);color:var(--primary)}
+  .chip.close::after{content:"×";margin-left:5px;opacity:.7}
+  .input{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-md);padding:11px 14px;font-size:14px;color:var(--title);min-width:220px}
+  .input.focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(232,145,80,.18);background:#fff}
+  .seg{display:inline-flex;background:var(--secondary);border-radius:var(--r-md);padding:4px;gap:4px}
+  .seg span{padding:8px 18px;font-size:13px;border-radius:10px;color:var(--body);cursor:pointer}
+  .seg span.on{background:#fff;color:var(--accent);font-weight:700;box-shadow:var(--sh-sm)}
+  .switch{width:46px;height:27px;background:var(--primary);border-radius:var(--r-pill);position:relative;display:inline-block}
+  .switch::after{content:"";position:absolute;width:21px;height:21px;background:#fff;border-radius:50%;top:3px;right:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+  .switch.off{background:var(--border)}
+  .switch.off::after{right:auto;left:3px}
+
+  /* 菜品卡（纯色图，无渐变） */
+  .dish{width:230px;background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-md);overflow:hidden}
+  .dish-img{height:130px;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:54px}
+  .dish-body{padding:14px 16px 18px}
+  .dish-body h4{margin:0 0 6px;font-size:16px}
+  .dish-meta{font-size:12px;color:var(--caption);margin-bottom:10px}
+
+  /* 列表项 */
+  .list-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg);border-radius:var(--r-md);margin-bottom:8px}
+  .avatar{width:40px;height:40px;border-radius:var(--r-md);background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .list-item .t{font-size:14px;font-weight:600}
+  .list-item .d{font-size:12px;color:var(--caption)}
+
+  /* 组合示意 */
+  .today{background:linear-gradient?no;background:var(--secondary);border-radius:var(--r-lg);padding:18px 20px;display:flex;align-items:center;gap:16px}
+  .today .emoji{font-size:42px}
+  .today h3{margin:0;font-size:18px}
+  .today p{margin:3px 0 0;font-size:13px;color:var(--body)}
+
+  /* 底部 tab */
+  .tabbar{display:flex;background:#fff;border:1px solid var(--border);border-radius:var(--r-pill);padding:6px;max-width:360px;margin-top:8px;box-shadow:var(--sh-sm)}
+  .tabbar span{flex:1;text-align:center;padding:9px 0;font-size:13px;color:var(--caption)}
+  .tabbar span.on{background:var(--primary);color:#fff;border-radius:var(--r-pill);font-weight:700}
+  .label{font-size:12px;color:var(--caption);margin:0 0 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>咕嘟小食单 · 设计系统</h1>
+  <p class="sub">已选定向：①-3 奶油轻食 · 焦糖橙 + 奶油 · 大圆角 · 轻阴影 · 纯色无渐变</p>
+  <span class="locked">✓ 方向已锁定</span>
+
+  <!-- 颜色 -->
+  <section>
+    <h2>Color 颜色</h2>
+    <p class="desc">品牌色 + 中性色 + 功能色。三端共享这一份 Token。</p>
+    <div class="grp-title">品牌色</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:#E89150"></div><div class="meta"><b>#E89150</b>primary 主色</div></div>
+      <div class="col"><div class="sw" style="background:#D17A3C"></div><div class="meta"><b>#D17A3C</b>primary-deep 加深</div></div>
+      <div class="col"><div class="sw" style="background:#F6D9BE"></div><div class="meta"><b>#F6D9BE</b>primary-soft 淡</div></div>
+      <div class="col"><div class="sw" style="background:#FBF0DD"></div><div class="meta"><b>#FBF0DD</b>secondary 奶油</div></div>
+      <div class="col"><div class="sw" style="background:#A9651E"></div><div class="meta"><b>#A9651E</b>accent 蜜棕</div></div>
+    </div>
+    <div class="grp-title">中性色</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:#FDFAF4"></div><div class="meta"><b>#FDFAF4</b>bg 页面底</div></div>
+      <div class="col"><div class="sw" style="background:#FFFFFF"></div><div class="meta"><b>#FFFFFF</b>card 卡片</div></div>
+      <div class="col"><div class="sw" style="background:#F0E6D6"></div><div class="meta"><b>#F0E6D6</b>border 描边</div></div>
+      <div class="col"><div class="sw" style="background:#4A382A"></div><div class="meta"><b>#4A382A</b>title 标题</div></div>
+      <div class="col"><div class="sw" style="background:#6E5C49"></div><div class="meta"><b>#6E5C49</b>body 正文</div></div>
+      <div class="col"><div class="sw" style="background:#9C8C7A"></div><div class="meta"><b>#9C8C7A</b>caption 辅助</div></div>
+    </div>
+    <div class="grp-title">功能色</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:#6BA77A"></div><div class="meta"><b>#6BA77A</b>success</div></div>
+      <div class="col"><div class="sw" style="background:#E0A23C"></div><div class="meta"><b>#E0A23C</b>warning</div></div>
+      <div class="col"><div class="sw" style="background:#D96057"></div><div class="meta"><b>#D96057</b>error</div></div>
+      <div class="col"><div class="sw" style="background:#6B9BC4"></div><div class="meta"><b>#6B9BC4</b>info</div></div>
+    </div>
+  </section>
+
+  <!-- 字号 -->
+  <section>
+    <h2>Typography 字号阶梯</h2>
+    <p class="desc">中文苹方/思源黑体 · 数字用 SF Pro。</p>
+    <div class="type-row"><span class="tag">40 / Bold</span><span style="font-size:40px;font-weight:800">今日咕嘟</span></div>
+    <div class="type-row"><span class="tag">32 / Bold</span><span style="font-size:32px;font-weight:800">页面大标题</span></div>
+    <div class="type-row"><span class="tag">24 / Bold</span><span style="font-size:24px;font-weight:700">区块标题</span></div>
+    <div class="type-row"><span class="tag">20 / Semi</span><span style="font-size:20px;font-weight:600">卡片标题</span></div>
+    <div class="type-row"><span class="tag">16 / Medium</span><span style="font-size:16px;font-weight:500">正文 · 番茄牛腩煲</span></div>
+    <div class="type-row"><span class="tag">14 / Regular</span><span style="font-size:14px">辅助正文 · 35 分钟 · 385 kcal</span></div>
+    <div class="type-row"><span class="tag">12 / Regular</span><span style="font-size:12px;color:var(--caption)">说明文字 / 时间戳</span></div>
+  </section>
+
+  <!-- Form tokens -->
+  <section>
+    <h2>Form Tokens 圆角 / 阴影 / 间距</h2>
+    <p class="desc">圆角偏大、阴影偏轻、间距充足——奶油轻食的呼吸感来源。</p>
+    <div class="grp-title">圆角 Radius</div>
+    <div class="form-grid">
+      <div class="form-cell"><div class="r-demo" style="border-radius:8px"></div>sm 8</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:14px"></div>md 14</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:22px"></div>lg 22</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:999px"></div>pill 999</div>
+    </div>
+    <div class="grp-title">阴影 Shadow</div>
+    <div class="form-grid">
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:0 1px 3px rgba(169,101,30,.08)"></div>sm</div>
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:0 6px 18px rgba(169,101,30,.1)"></div>md</div>
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:0 14px 36px rgba(169,101,30,.14)"></div>lg</div>
+      <div class="form-cell" style="color:var(--disabled)"><div class="sh-demo" style="box-shadow:none;border:1px dashed var(--border)"></div>none</div>
+    </div>
+    <div class="grp-title">间距 Spacing（4 的倍数）</div>
+    <div class="form-grid">
+      <div class="form-cell"><div class="sp-bar" style="width:4px"></div>4</div>
+      <div class="form-cell"><div class="sp-bar" style="width:8px"></div>8</div>
+      <div class="form-cell"><div class="sp-bar" style="width:12px"></div>12</div>
+      <div class="form-cell"><div class="sp-bar" style="width:16px"></div>16</div>
+      <div class="form-cell"><div class="sp-bar" style="width:24px"></div>24</div>
+      <div class="form-cell"><div class="sp-bar" style="width:32px"></div>32</div>
+      <div class="form-cell"><div class="sp-bar" style="width:48px"></div>48</div>
+    </div>
+  </section>
+
+  <!-- 组件 -->
+  <section>
+    <h2>Components 组件库</h2>
+    <p class="desc">三端各自实现，但视觉遵循这里的规范。</p>
+
+    <p class="label">Buttons 按钮</p>
+    <div class="comp">
+      <button class="btn">加入排菜</button>
+      <button class="btn secondary">次要操作</button>
+      <button class="btn ghost">幽灵</button>
+      <button class="btn disabled" disabled>禁用</button>
+      <button class="btn sm">小按钮</button>
+    </div>
+
+    <p class="label">Chips / Tags 标签</p>
+    <div class="comp">
+      <span class="chip">实心</span>
+      <span class="chip soft">柔和</span>
+      <span class="chip outline">描边</span>
+      <span class="chip soft close">可关闭</span>
+    </div>
+
+    <p class="label">Input 输入框</p>
+    <div class="comp">
+      <div class="input">搜索食材或菜谱…</div>
+      <div class="input focus">番茄</div>
+    </div>
+
+    <p class="label">Segmented / Switch</p>
+    <div class="comp">
+      <div class="seg"><span>今天</span><span class="on">本周</span><span>本月</span></div>
+      <span style="font-size:13px;color:var(--body);margin-left:8px">健康提示</span>
+      <span class="switch"></span>
+      <span class="switch off"></span>
+    </div>
+
+    <p class="label">菜品卡（纯色图 · 无渐变）</p>
+    <div class="comp">
+      <div class="dish">
+        <div class="dish-img">🥗</div>
+        <div class="dish-body">
+          <h4>牛油果鸡胸沙拉</h4>
+          <div class="dish-meta">290 kcal · 15 分钟</div>
+          <span class="chip soft">低脂</span>
+        </div>
+      </div>
+      <div class="dish">
+        <div class="dish-img" style="background:#F6D9BE">🍜</div>
+        <div class="dish-body">
+          <h4>番茄牛腩煲</h4>
+          <div class="dish-meta">385 kcal · 35 分钟</div>
+          <span class="chip soft">高蛋白</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="label">List Item 食材列表项</p>
+    <div style="max-width:420px">
+      <div class="list-item"><div class="avatar">🍅</div><div style="flex:1"><div class="t">番茄</div><div class="d">库存 3 个 · 将于 7/5 过期</div></div><span class="chip outline" style="font-size:11px">2 天</span></div>
+      <div class="list-item"><div class="avatar">🥚</div><div style="flex:1"><div class="t">鸡蛋</div><div class="d">库存 12 个 · 充足</div></div><span class="chip soft" style="font-size:11px">充足</span></div>
+    </div>
+  </section>
+
+  <!-- 组合示意 -->
+  <section>
+    <h2>组合示意</h2>
+    <p class="desc">真实页面里这些组件搭在一起的样子。</p>
+    <p class="label">今日推荐模块</p>
+    <div class="today">
+      <div class="emoji">🍲</div>
+      <div style="flex:1">
+        <h3>今晚吃点暖的？</h3>
+        <p>根据你的健康档案，推荐 3 道低脂高蛋白菜谱</p>
+      </div>
+      <button class="btn sm">看看</button>
+    </div>
+    <p class="label" style="margin-top:18px">底部导航 Tab Bar</p>
+    <div class="tabbar"><span class="on">首页</span><span>排菜</span><span>食谱</span><span> pantry</span><span>我的</span></div>
+  </section>
+</div>
+</body>
+</html>

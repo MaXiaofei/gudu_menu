@@ -1,14 +1,14 @@
-/* 默认兜底主题（咕嘟暖橙），主题切换由 themeStore.apply 覆盖 CSS 变量 */
+/* 默认兜底主题（奶油轻食），主题切换由 themeStore.apply 覆盖 CSS 变量 */
 :root {
-  --el-color-primary: #E8602C;
+  --el-color-primary: #E89150;
   --el-color-primary-light-3: color-mix(in srgb, var(--el-color-primary) 70%, white);
   --el-color-primary-light-5: color-mix(in srgb, var(--el-color-primary) 50%, white);
   --el-color-primary-light-7: color-mix(in srgb, var(--el-color-primary) 30%, white);
   --el-color-primary-light-8: color-mix(in srgb, var(--el-color-primary) 22%, white);
   --el-color-primary-light-9: color-mix(in srgb, var(--el-color-primary) 14%, white);
   --el-color-primary-dark-2: color-mix(in srgb, var(--el-color-primary) 80%, black);
-  --yh-sidebar: #2B1A12;
-  --yh-bg: #FFFAF5;
+  --yh-sidebar: #3A2818;
+  --yh-bg: #FDFAF4;
   --yh-panel: #ffffff;
   --el-border-radius-base: 10px;
   --el-font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;

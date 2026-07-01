@@ -25,9 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 全链路 E2E 集成测试：@SpringBootTest RANDOM_PORT 起真 Tomcat，TestRestTemplate 走真 HTTP。
- * 连独立测试库 yanhuo_test + 真 Redis(16379)。Sa-Token 真登录拿 token，后续请求带 Authorization。
+ * 连独立测试库 gudu_test + 真 Redis(16379)。Sa-Token 真登录拿 token，后续请求带 Authorization。
  *
- * <p>种子(yanhuo_test 已灌 V01-V20 + demo)：
+ * <p>种子(gudu_test 已灌 V01-V20 + demo)：
  * <ul>
  *   <li>user admin / admin123</li>
  *   <li>member 1 张爸爸(掌勺 role=32) / member 2 张妈妈(普通成员 role=34)</li>
@@ -49,7 +49,7 @@ class GuduE2EFlowTest {
 
     private final ObjectMapper om = new ObjectMapper();
 
-    /** 静态种子 id（yanhuo_test 由 V01-V20 + demo 灌入，固定不变）。 */
+    /** 静态种子 id（gudu_test 由 V01-V20 + demo 灌入，固定不变）。 */
     private static final long ADMIN_USER_ID = 1L;
     private static final long MEMBER_CHEF = 1L;        // 张爸爸 掌勺(32)
     private static final long MEMBER_NORMAL = 2L;       // 张妈妈 普通成员(34)

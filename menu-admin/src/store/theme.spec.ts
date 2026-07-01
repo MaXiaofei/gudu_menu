@@ -29,9 +29,9 @@ describe('useThemeStore', () => {
 
       const el = document.documentElement
       const style = el.style
-      expect(style.getPropertyValue('--el-color-primary')).toBe('#2EA66B')
-      expect(style.getPropertyValue('--yh-sidebar')).toBe('#1F3A2E')
-      expect(style.getPropertyValue('--yh-bg')).toBe('#F6FBF8')
+      expect(style.getPropertyValue('--el-color-primary')).toBe('#7A9A5B')
+      expect(style.getPropertyValue('--yh-sidebar')).toBe('#2E3520')
+      expect(style.getPropertyValue('--yh-bg')).toBe('#F7F5EE')
       expect(el.getAttribute('data-theme')).toBe('green')
       expect(store.current).toBe('green')
       expect(localStorage.getItem('gudu-theme')).toBe('green')
@@ -42,8 +42,8 @@ describe('useThemeStore', () => {
       store.apply('warm')
 
       const style = document.documentElement.style
-      expect(style.getPropertyValue('--el-color-primary')).toBe('#E8602C')
-      expect(style.getPropertyValue('--yh-sidebar')).toBe('#2B1A12')
+      expect(style.getPropertyValue('--el-color-primary')).toBe('#E89150')
+      expect(style.getPropertyValue('--yh-sidebar')).toBe('#3A2818')
       expect(localStorage.getItem('gudu-theme')).toBe('warm')
     })
 
@@ -52,7 +52,7 @@ describe('useThemeStore', () => {
       store.apply('not-exist')
 
       expect(store.current).toBe('warm')
-      expect(document.documentElement.style.getPropertyValue('--el-color-primary')).toBe('#E8602C')
+      expect(document.documentElement.style.getPropertyValue('--el-color-primary')).toBe('#E89150')
       expect(localStorage.getItem('gudu-theme')).toBe('warm')
     })
   })
@@ -66,6 +66,6 @@ describe('useThemeStore', () => {
     const store = useThemeStore()
     store.apply('green')
     expect(store.currentTheme().key).toBe('green')
-    expect(store.currentTheme().primary).toBe('#2EA66B')
+    expect(store.currentTheme().primary).toBe('#7A9A5B')
   })
 })

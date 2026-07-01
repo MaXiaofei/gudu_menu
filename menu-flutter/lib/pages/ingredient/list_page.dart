@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../services/ingredient_service.dart';
 
 /// 食材列表页：搜索 + 分页 + 每项显示名称/单位/营养概览。
 /// 点 + 进入录入新食材。
@@ -23,6 +25,10 @@ class _IngredientListPageState extends State<IngredientListPage> {
   bool _firstLoading = true;
   bool _hasText = false;
 
+  // 单位 / 采购品类 字典(id → name)，详情弹窗用
+  final Map<int, String> _unitNames = {};
+  final Map<int, String> _catNames = {};
+
   static const _pageSize = 20;
 
   @override
@@ -30,6 +36,19 @@ class _IngredientListPageState extends State<IngredientListPage> {
     super.initState();
     _scroll.addListener(_onScroll);
     _reload();
+    _loadDicts();
+  }
+
+  Future<void> _loadDicts() async {
+    try {
+      final results = await Future.wait([
+        IngredientService.listDictByGroup('unit'),
+        IngredientService.listDictByGroup('purchase_category'),
+      ]);
+      _unitNames.addEntries(results[0].map((d) => MapEntry(d.id, d.name)));
+      _catNames.addEntries(results[1].map((d) => MapEntry(d.id, d.name)));
+      if (mounted) setState(() {});
+    } catch (_) {}
   }
 
   @override
@@ -179,22 +198,49 @@ class _IngredientListPageState extends State<IngredientListPage> {
   }
 
   void _showNutritionSheet(_IngredientItem item) {
+    final unit = item.unitId == null ? null : _unitNames[item.unitId];
+    final cat = item.purchaseCategoryId == null ? null : _catNames[item.purchaseCategoryId];
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(item.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          if (unit != null || cat != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              [
+                if (unit != null) '单位：$unit',
+                if (cat != null) '品类：$cat',
+              ].join('  ·  '),
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ],
           const SizedBox(height: 16),
-          ...item.nutritions.entries.map((e) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(children: [
-              Expanded(child: Text(e.key, style: const TextStyle(fontSize: 14))),
-              Text(e.value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
-            ]),
-          )),
+          if (item.nutritions.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('暂无营养数据', style: TextStyle(color: AppColors.textSecondary)),
+            )
+          else ...[
+            const Text('每 100g 营养',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            ...item.nutritions.entries.map((e) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(children: [
+                    Expanded(
+                        child: Text(e.key, style: const TextStyle(fontSize: 14))),
+                    Text(
+                      '${e.value} ${_IngredientItem.unitByCn[e.key] ?? ''}'.trim(),
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+                    ),
+                  ]),
+                )),
+          ],
           const SizedBox(height: 20),
         ]),
       ),
@@ -205,48 +251,74 @@ class _IngredientListPageState extends State<IngredientListPage> {
 class _IngredientItem {
   final int id;
   final String name;
-  final String? unitName;
-  final String? purchaseCategoryName;
-  final Map<String, String> nutritions; // metricName → value
+  final int? unitId;
+  final int? purchaseCategoryId;
+  final Map<String, String> nutritions; // 中文指标名 → 值（按固定顺序）
 
   const _IngredientItem({
     required this.id,
     required this.name,
-    this.unitName,
-    this.purchaseCategoryName,
+    this.unitId,
+    this.purchaseCategoryId,
     required this.nutritions,
   });
 
+  /// 营养指标后端字段名（英文）→ 固定展示顺序。
+  static const _metricOrder = ['calorie', 'protein', 'fat', 'carb', 'sugar', 'gi'];
+
+  /// 中文指标名 → 单位（每100g）。
+  static const unitByCn = {
+    '热量': 'kcal',
+    '蛋白质': 'g',
+    '脂肪': 'g',
+    '碳水': 'g',
+    '糖': 'g',
+    '升糖指数': '',
+  };
+
   factory _IngredientItem.fromJson(Map<String, dynamic> j) {
-    // 营养数据在 nutritions 字段（后端 ingredient 列表可能附带）
+    // 后端列表返回 nutrition（Map<英文指标名, 值>，每100g），非 nutritions 数组。
+    final raw = j['nutrition'];
     final nutritions = <String, String>{};
-    if (j['nutritions'] is List) {
-      for (final n in (j['nutritions'] as List)) {
-        final m = n as Map<String, dynamic>;
-        final name = m['metricName'] as String? ?? m['name'] as String? ?? '';
-        final value = m['value']?.toString() ?? '';
-        if (name.isNotEmpty) nutritions[name] = value;
+    void addCn(String enKey, dynamic v) {
+      if (v == null) return;
+      nutritions[AppConstants.metricNameCn(enKey)] = _fmtNum(v);
+    }
+
+    if (raw is Map) {
+      // 先按固定顺序插入，保证展示稳定
+      for (final en in _metricOrder) {
+        addCn(en, raw[en]);
       }
+      // 再补 _metricOrder 之外可能的指标
+      raw.forEach((k, v) {
+        final key = k.toString();
+        if (!_metricOrder.contains(key)) addCn(key, v);
+      });
     }
     return _IngredientItem(
       id: (j['id'] as num).toInt(),
       name: (j['name'] ?? '') as String,
-      unitName: j['unitName'] as String?,
-      purchaseCategoryName: j['purchaseCategoryName'] as String?,
+      unitId: (j['unitId'] as num?)?.toInt(),
+      purchaseCategoryId: (j['purchaseCategoryId'] as num?)?.toInt(),
       nutritions: nutritions,
     );
   }
 
   String get nutritionSummary {
-    if (nutritions.isEmpty) {
-      return unitName != null ? '单位: $unitName' : '暂无营养数据';
-    }
-    final cal = nutritions['热量'] ?? nutritions['calorie'] ?? '';
-    final protein = nutritions['蛋白质'] ?? nutritions['protein'] ?? '';
+    if (nutritions.isEmpty) return '暂无营养数据';
+    final cal = nutritions['热量'] ?? '';
+    final protein = nutritions['蛋白质'] ?? '';
     final parts = <String>[];
     if (cal.isNotEmpty) parts.add('${cal}kcal');
     if (protein.isNotEmpty) parts.add('${protein}g蛋白');
     final base = parts.isEmpty ? '${nutritions.length}项营养' : parts.join(' · ');
     return '每100g · $base';
+  }
+
+  static String _fmtNum(dynamic v) {
+    final d = v is num ? v.toDouble() : double.tryParse(v.toString());
+    if (d == null) return v.toString();
+    return d == d.roundToDouble() ? d.toInt().toString() : d.toStringAsFixed(1);
   }
 }

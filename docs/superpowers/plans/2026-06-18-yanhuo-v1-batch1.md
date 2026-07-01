@@ -1,4 +1,4 @@
-# 烟火小食单 · V1 第一批 实现计划
+# 咕嘟小食单 · V1 第一批 实现计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** 后端 Java 17 / Spring Boot 3 / MyBatis-Plus / Sa-Token（新增 module 复用）；小程序 uniapp（Vue3）+ uView Plus + Pinia + uni.request 封装；沿用 MinIO/本地图片上传 `/file/upload`。
 
-**Spec:** `docs/superpowers/specs/2026-06-16-yanhuo-xiaoshidan-design.md`（V1 范围第 5 节；本计划覆盖 line 86/90/91/93 的「点评 / 通知通道入口 / 权限边界（简化）/ 切换就餐成员」+ 小程序基础浏览，周计划/采购/库存/通知业务触发留第二批）。
+**Spec:** `docs/superpowers/specs/2026-06-16-gudu-xiaoshidan-design.md`（V1 范围第 5 节；本计划覆盖 line 86/90/91/93 的「点评 / 通知通道入口 / 权限边界（简化）/ 切换就餐成员」+ 小程序基础浏览，周计划/采购/库存/通知业务触发留第二批）。
 
 **已对齐决策：**
 1. 分两批交付，**本计划是第一批**（小程序主线）。
@@ -23,7 +23,7 @@
 ### 后端 `menu-api` 新增
 
 ```
-menu-api/src/main/java/com/yanhuo/xsd/modules/
+menu-api/src/main/java/com/gudu/xsd/modules/
   review/
     Review.java                      实体（点评主表：星级+文字+图片）
     ReviewScore.java                 实体（点评-维度分：review_id+dimension_id+score）
@@ -113,9 +113,9 @@ git commit -m "feat(review): 点评维度字典（复用 sys_dict group=review_d
 
 - [ ] **Step 1: 写失败测试（平均分纯函数）**
 
-`src/test/java/com/yanhuo/xsd/modules/review/ReviewServiceTest.java`:
+`src/test/java/com/gudu/xsd/modules/review/ReviewServiceTest.java`:
 ```java
-package com.yanhuo.xsd.modules.review;
+package com.gudu.xsd.modules.review;
 
 import org.junit.jupiter.api.Test;
 
@@ -182,7 +182,7 @@ CREATE INDEX idx_review_dish ON review(dish_id);
 
 `modules/review/Review.java`:
 ```java
-package com.yanhuo.xsd.modules.review;
+package com.gudu.xsd.modules.review;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -210,7 +210,7 @@ public class Review {
 
 `modules/review/ReviewScore.java`:
 ```java
-package com.yanhuo.xsd.modules.review;
+package com.gudu.xsd.modules.review;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -230,7 +230,7 @@ public class ReviewScore {
 
 `modules/review/ReviewSaveDTO.java`:
 ```java
-package com.yanhuo.xsd.modules.review;
+package com.gudu.xsd.modules.review;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -255,20 +255,20 @@ public class ReviewSaveDTO {
 
 `modules/review/mapper/ReviewMapper.java`:
 ```java
-package com.yanhuo.xsd.modules.review.mapper;
+package com.gudu.xsd.modules.review.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.yanhuo.xsd.modules.review.Review;
+import com.gudu.xsd.modules.review.Review;
 
 public interface ReviewMapper extends BaseMapper<Review> {}
 ```
 
 `modules/review/mapper/ReviewScoreMapper.java`:
 ```java
-package com.yanhuo.xsd.modules.review.mapper;
+package com.gudu.xsd.modules.review.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.yanhuo.xsd.modules.review.ReviewScore;
+import com.gudu.xsd.modules.review.ReviewScore;
 
 public interface ReviewScoreMapper extends BaseMapper<ReviewScore> {}
 ```
@@ -277,12 +277,12 @@ public interface ReviewScoreMapper extends BaseMapper<ReviewScore> {}
 
 `modules/review/ReviewService.java`:
 ```java
-package com.yanhuo.xsd.modules.review;
+package com.gudu.xsd.modules.review;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.yanhuo.xsd.modules.review.mapper.ReviewMapper;
-import com.yanhuo.xsd.modules.review.mapper.ReviewScoreMapper;
+import com.gudu.xsd.modules.review.mapper.ReviewMapper;
+import com.gudu.xsd.modules.review.mapper.ReviewScoreMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -378,9 +378,9 @@ public ReviewService(ReviewMapper reviewMapper, ReviewScoreMapper reviewScoreMap
 
 `modules/review/ReviewController.java`:
 ```java
-package com.yanhuo.xsd.modules.review;
+package com.gudu.xsd.modules.review;
 
-import com.yanhuo.xsd.common.R;
+import com.gudu.xsd.common.R;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -431,7 +431,7 @@ Run: `cd menu-api && ./mvnw spring-boot:run`。先 `POST /member/current?memberI
 - [ ] **Step 9: Commit**
 
 ```bash
-git add menu-api/src/main/java/com/yanhuo/xsd/modules/review/ menu-api/src/test/java/com/yanhuo/xsd/modules/review/ menu-api/sql/V12__review.sql
+git add menu-api/src/main/java/com/gudu/xsd/modules/review/ menu-api/src/test/java/com/gudu/xsd/modules/review/ menu-api/sql/V12__review.sql
 git commit -m "feat(review): 点评模块（星级+文字+图片+多维打分，平均分 TDD）"
 ```
 
@@ -466,7 +466,7 @@ CREATE INDEX idx_notif_member ON notification(member_id, is_read);
 
 `modules/notification/Notification.java`:
 ```java
-package com.yanhuo.xsd.modules.notification;
+package com.gudu.xsd.modules.notification;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -492,10 +492,10 @@ public class Notification {
 
 `modules/notification/mapper/NotificationMapper.java`:
 ```java
-package com.yanhuo.xsd.modules.notification.mapper;
+package com.gudu.xsd.modules.notification.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.yanhuo.xsd.modules.notification.Notification;
+import com.gudu.xsd.modules.notification.Notification;
 
 public interface NotificationMapper extends BaseMapper<Notification> {}
 ```
@@ -504,7 +504,7 @@ public interface NotificationMapper extends BaseMapper<Notification> {}
 
 `modules/notification/NotificationPayload.java`:
 ```java
-package com.yanhuo.xsd.modules.notification;
+package com.gudu.xsd.modules.notification;
 
 /** 通知载荷（与通道实现解耦，业务侧只构造这个）。 */
 public record NotificationPayload(Long memberId, String type, String title, String content) {}
@@ -512,7 +512,7 @@ public record NotificationPayload(Long memberId, String type, String title, Stri
 
 `modules/notification/NotificationChannel.java`:
 ```java
-package com.yanhuo.xsd.modules.notification;
+package com.gudu.xsd.modules.notification;
 
 /** 通知通道策略。新增通道（如邮件/短信）只需实现并注册为 Bean。 */
 public interface NotificationChannel {
@@ -527,9 +527,9 @@ public interface NotificationChannel {
 
 `modules/notification/InAppChannel.java`:
 ```java
-package com.yanhuo.xsd.modules.notification;
+package com.gudu.xsd.modules.notification;
 
-import com.yanhuo.xsd.modules.notification.mapper.NotificationMapper;
+import com.gudu.xsd.modules.notification.mapper.NotificationMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -560,7 +560,7 @@ public class InAppChannel implements NotificationChannel {
 
 `modules/notification/WxSubscribeChannel.java`:
 ```java
-package com.yanhuo.xsd.modules.notification;
+package com.gudu.xsd.modules.notification;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -591,11 +591,11 @@ public class WxSubscribeChannel implements NotificationChannel {
 
 `modules/notification/NotificationService.java`:
 ```java
-package com.yanhuo.xsd.modules.notification;
+package com.gudu.xsd.modules.notification;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
-import com.yanhuo.xsd.modules.notification.mapper.NotificationMapper;
+import com.gudu.xsd.modules.notification.mapper.NotificationMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -655,10 +655,10 @@ public class NotificationService {
 
 `modules/notification/NotificationController.java`:
 ```java
-package com.yanhuo.xsd.modules.notification;
+package com.gudu.xsd.modules.notification;
 
 import cn.dev33.satoken.stp.StpUtil;
-import com.yanhuo.xsd.common.R;
+import com.gudu.xsd.common.R;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -703,7 +703,7 @@ Knife4j 手测：先 `POST /member/current?memberId=1`（下个 Task），再写
 - [ ] **Step 9: Commit**
 
 ```bash
-git add menu-api/src/main/java/com/yanhuo/xsd/modules/notification/ menu-api/sql/V13__notification.sql
+git add menu-api/src/main/java/com/gudu/xsd/modules/notification/ menu-api/sql/V13__notification.sql
 git commit -m "feat(notification): 通知通道 Strategy（站内实现，微信订阅消息留入口）"
 ```
 
@@ -714,12 +714,12 @@ git commit -m "feat(notification): 通知通道 Strategy（站内实现，微信
 > 小程序登录的是 user（掌勺账号），但点评/记录的是 member（家庭成员）。把「当前就餐 memberId」存进 Sa-Token session，点评/通知接口自动读取，小程序免传。
 
 **Files:**
-- Modify: `menu-api/src/main/java/com/yanhuo/xsd/modules/member/MemberController.java`
-- Modify: `menu-api/src/main/java/com/yanhuo/xsd/modules/member/MemberService.java`（若无 list，补上）
+- Modify: `menu-api/src/main/java/com/gudu/xsd/modules/member/MemberController.java`
+- Modify: `menu-api/src/main/java/com/gudu/xsd/modules/member/MemberService.java`（若无 list，补上）
 
 - [ ] **Step 1: 看现有 MemberController**
 
-Run: `cat menu-api/src/main/java/com/yanhuo/xsd/modules/member/MemberController.java`
+Run: `cat menu-api/src/main/java/com/gudu/xsd/modules/member/MemberController.java`
 确认是否已有 `GET /member`（列表）。MVP Task 6 应已建 CRUD。若无 `list()`，在 `MemberService` 补：
 ```java
 public List<Member> list() { return list(); } // ServiceImpl 已有，直接用 controller 调 svc.list()
@@ -760,7 +760,7 @@ Knife4j 登录拿 token → `POST /member/current?memberId=2` → `GET /member/c
 - [ ] **Step 4: Commit**
 
 ```bash
-git add menu-api/src/main/java/com/yanhuo/xsd/modules/member/
+git add menu-api/src/main/java/com/gudu/xsd/modules/member/
 git commit -m "feat(member): 当前就餐成员上下文（Sa-Token session，点评/通知自动取）"
 ```
 
@@ -1380,7 +1380,7 @@ git add -A && git commit -m "feat: V1 第一批联调通过（小程序主线跑
 
 ## 执行交接
 
-Plan complete and saved to `docs/superpowers/plans/2026-06-18-yanhuo-v1-batch1.md`。两种执行方式：
+Plan complete and saved to `docs/superpowers/plans/2026-06-18-gudu-v1-batch1.md`。两种执行方式：
 
 **1. Subagent-Driven（推荐）** — 每个 Task 派全新 subagent，Task 间审查，上下文干净、迭代快。后端 A1–A4 与小程序 B1–B7 可分两路 subagent 并行（A 路出接口 B 路接）。
 

@@ -1,14 +1,14 @@
-# 烟火小食单 · MVP 实现计划
+# 咕嘟小食单 · MVP 实现计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 搭起「烟火小食单」的 Web 后台 MVP——数据地基 + 基础流程跑通，纯手工可用，不接 AI。
+**Goal:** 搭起「咕嘟小食单」的 Web 后台 MVP——数据地基 + 基础流程跑通，纯手工可用，不接 AI。
 
 **Architecture:** 前后端分离。后端：Java 17 + Spring Boot 3 单体（不拆微服务），MyBatis-Plus + MySQL 8 + Redis，Sa-Token 有状态鉴权，Knife4j 接口文档。前端：Vue3 + Element Plus + Pinia 独立工程，Axios 调后端 RESTful API。Docker Compose 编排 MySQL/Redis/MinIO。TDD：纯函数/算法严格 TDD，CRUD 测 Service 关键逻辑 + Knife4j 手测。
 
 **Tech Stack:** Java 17, Spring Boot 3, MyBatis-Plus, MySQL 8, Redis, Sa-Token, Knife4j, JUnit5 + AssertJ; Vue3 + TS + Vite + Element Plus + Pinia + Axios + ECharts; Docker Compose, MinIO.
 
-**Spec:** `docs/superpowers/specs/2026-06-16-yanhuo-xiaoshidan-design.md`
+**Spec:** `docs/superpowers/specs/2026-06-16-gudu-xiaoshidan-design.md`
 
 ---
 
@@ -18,7 +18,7 @@
 ```
 menu-new/
   backend/    # 后端接口：Java Spring Boot 主服务 + Python ai-service（V2 AI/数据）
-  admin/      # Web 管理后台「烟火管理后台」(Vue3 + Element Plus)
+  admin/      # Web 管理后台「咕嘟管理后台」(Vue3 + Element Plus)
   miniapp/    # 小程序「小食单」(uniapp) —— V1 阶段建，MVP 暂不建
   docs/       # 设计文档 + 实现计划
   data/       # MySQL / Redis 持久化卷
@@ -30,7 +30,7 @@ menu-new/
 backend/
   pom.xml
   src/main/resources/application.yml  application-dev.yml
-  src/main/java/com/yanhuo/xsd/
+  src/main/java/com/gudu/xsd/
     YanhuoApplication.java
     common/      R.java BizException.java GlobalExceptionHandler.java PageQuery.java
     config/      SaTokenConfig MybatisPlusConfig RedisConfig CorsConfig Knife4jConfig
@@ -43,7 +43,7 @@ backend/
       menu/      Menu MenuDish MenuMapper MenuService MenuController MenuCalcService(纯函数)
       cookbook/  Favorite CookingRecord CookbookService CookbookController
       backup/    BackupService BackupController
-  src/test/java/com/yanhuo/xsd/  (镜像 main 的测试)
+  src/test/java/com/gudu/xsd/  (镜像 main 的测试)
 ```
 
 ### Web 后台 `admin/`
@@ -69,7 +69,7 @@ docker-compose.yml  .gitignore  README.md
 ### Task 1: 工程骨架与 Docker Compose
 
 **Files:**
-- Create: `backend/pom.xml`, `backend/src/main/java/com/yanhuo/xsd/YanhuoApplication.java`
+- Create: `backend/pom.xml`, `backend/src/main/java/com/gudu/xsd/YanhuoApplication.java`
 - Create: `admin/package.json`, `admin/vite.config.ts`, `admin/src/main.ts`, `admin/src/App.vue`
 - Create: `docker-compose.yml`, `.gitignore`, `README.md`
 
@@ -79,12 +79,12 @@ docker-compose.yml  .gitignore  README.md
 
 `YanhuoApplication.java`:
 ```java
-package com.yanhuo.xsd;
+package com.gudu.xsd;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
-@MapperScan("com.yanhuo.xsd.modules.**.mapper")
+@MapperScan("com.gudu.xsd.modules.**.mapper")
 public class YanhuoApplication {
     public static void main(String[] args) { SpringApplication.run(YanhuoApplication.class, args); }
 }
@@ -101,7 +101,7 @@ public class YanhuoApplication {
 services:
   mysql:
     image: mysql:8.0
-    environment: { MYSQL_ROOT_PASSWORD: root, MYSQL_DATABASE: yanhuo }
+    environment: { MYSQL_ROOT_PASSWORD: root, MYSQL_DATABASE: gudu }
     ports: ["3306:3306"]
     volumes: ["./data/mysql:/var/lib/mysql"]
   redis:
@@ -154,7 +154,7 @@ springdoc: { swagger-ui: { path: /swagger-ui.html } }
 knife4j: { enable: true }
 ```
 
-`application-dev.yml`: 数据源 `jdbc:mysql://localhost:3306/yanhuo`、redis `localhost:6379`。
+`application-dev.yml`: 数据源 `jdbc:mysql://localhost:3306/gudu`、redis `localhost:6379`。
 
 - [ ] **Step 2: 统一响应 R + 异常**
 
@@ -849,7 +849,7 @@ CREATE TABLE cooking_record (
 
 ## 执行交接
 
-Plan complete and saved to `docs/superpowers/plans/2026-06-17-yanhuo-mvp.md`. 两种执行方式：
+Plan complete and saved to `docs/superpowers/plans/2026-06-17-gudu-mvp.md`. 两种执行方式：
 
 **1. Subagent-Driven（推荐）** — 每个 Task 派一个全新 subagent 执行，Task 间我审查，迭代快、上下文干净。
 **2. Inline Execution** — 在当前会话用 executing-plans 批量执行，带检查点审查。

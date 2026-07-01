@@ -225,28 +225,28 @@ onShow(() => {
 .dailylog { padding: 12px; }
 .date-bar { display: flex; align-items: center; background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .date-label { font-size: 14px; color: #888; margin-right: 12px; }
-.date-val { font-size: 15px; color: #FF8C42; font-weight: 600; }
+.date-val { font-size: 15px; color: #E89150; font-weight: 600; }
 .empty { text-align: center; color: #aaa; padding: 40px 0; font-size: 13px; }
 .log-card { background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .log-note { font-size: 13px; color: #666; margin-bottom: 8px; }
 .cards { display: flex; flex-direction: column; gap: 8px; }
 .card { background: #fafafa; border-radius: 6px; padding: 10px; }
 .row1 { display: flex; align-items: center; gap: 8px; }
-.type { font-size: 11px; color: #fff; background: #FF8C42; border-radius: 3px; padding: 1px 5px; }
+.type { font-size: 11px; color: #fff; background: #E89150; border-radius: 3px; padding: 1px 5px; }
 .name { flex: 1; font-size: 14px; color: #333; }
-.amt { font-size: 13px; color: #FF8C42; font-weight: 600; }
+.amt { font-size: 13px; color: #E89150; font-weight: 600; }
 .nutrition { margin-top: 12px; border-top: 1px dashed #eee; padding-top: 10px; }
 .nut-title { font-size: 13px; color: #888; margin-bottom: 8px; }
 .nut-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.nut-item { background: #FFF4EC; border-radius: 4px; padding: 4px 8px; display: flex; gap: 4px; font-size: 12px; }
+.nut-item { background: #FDFAF4; border-radius: 4px; padding: 4px 8px; display: flex; gap: 4px; font-size: 12px; }
 .nut-label { color: #888; }
-.nut-value { color: #FF8C42; font-weight: 600; }
+.nut-value { color: #E89150; font-weight: 600; }
 .nut-empty { font-size: 12px; color: #aaa; }
 .add { background: #fff; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .add-title { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 10px; }
 .seg { display: flex; margin-bottom: 10px; }
 .seg-i { flex: 1; text-align: center; padding: 6px 0; font-size: 13px; color: #888; border: 1px solid #eee; }
-.seg-i.on { color: #FF8C42; border-color: #FF8C42; font-weight: 600; }
+.seg-i.on { color: #E89150; border-color: #E89150; font-weight: 600; }
 .seg-i:first-child { border-radius: 6px 0 0 6px; }
 .seg-i:last-child { border-radius: 0 6px 6px 0; border-left: none; }
 .picker-row { margin-bottom: 10px; }
@@ -254,5 +254,5 @@ onShow(() => {
 .qty-row { display: flex; align-items: center; margin-bottom: 10px; }
 .qty-label { font-size: 13px; color: #888; width: 60px; }
 .qty-input { flex: 1; background: #fafafa; border-radius: 6px; padding: 8px; font-size: 14px; }
-.btn-add { background: #FF8C42; color: #fff; font-size: 14px; border-radius: 6px; }
+.btn-add { background: #E89150; color: #fff; font-size: 14px; border-radius: 6px; }
 </style>

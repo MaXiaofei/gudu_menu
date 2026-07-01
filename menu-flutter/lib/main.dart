@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'core/api_client.dart';
+import 'core/theme_controller.dart';
 import 'stores/auth_store.dart';
 
 Future<void> main() async {
@@ -17,9 +18,14 @@ Future<void> main() async {
     },
   );
 
-  // 启动时从持久化恢复 token，并同步给 ApiClient。
+  // 启动时从持久化恢复 token / 主题偏好，并同步给 ApiClient。
   final authStore = AuthStore();
   await authStore.init();
+  final themeController = await ThemeController.load();
 
-  runApp(MenuApp(authStore: authStore, scaffoldKey: scaffoldKey));
+  runApp(MenuApp(
+    authStore: authStore,
+    themeController: themeController,
+    scaffoldKey: scaffoldKey,
+  ));
 }

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:menu_flutter/app.dart';
 import 'package:menu_flutter/core/constants.dart';
+import 'package:menu_flutter/core/theme_controller.dart';
 import 'package:menu_flutter/pages/home_page.dart';
 import 'package:menu_flutter/pages/login_page.dart';
 import 'package:menu_flutter/stores/auth_store.dart';
@@ -25,6 +26,7 @@ void main() {
 
     await tester.pumpWidget(MenuApp(
       authStore: auth,
+      themeController: ThemeController(),
       scaffoldKey: GlobalKey<ScaffoldMessengerState>(),
     ));
     await tester.pumpAndSettle();
@@ -47,6 +49,7 @@ void main() {
 
     await tester.pumpWidget(MenuApp(
       authStore: auth,
+      themeController: ThemeController(),
       scaffoldKey: GlobalKey<ScaffoldMessengerState>(),
     ));
     await tester.pumpAndSettle();
