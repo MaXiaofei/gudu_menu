@@ -30,7 +30,7 @@ describe('useThemeStore', () => {
       const el = document.documentElement
       const style = el.style
       expect(style.getPropertyValue('--el-color-primary')).toBe('#7A9A5B')
-      expect(style.getPropertyValue('--yh-sidebar')).toBe('#2E3520')
+      expect(style.getPropertyValue('--yh-sidebar')).toBe('#648449')
       expect(style.getPropertyValue('--yh-bg')).toBe('#F7F5EE')
       expect(el.getAttribute('data-theme')).toBe('green')
       expect(store.current).toBe('green')
@@ -43,7 +43,7 @@ describe('useThemeStore', () => {
 
       const style = document.documentElement.style
       expect(style.getPropertyValue('--el-color-primary')).toBe('#E89150')
-      expect(style.getPropertyValue('--yh-sidebar')).toBe('#3A2818')
+      expect(style.getPropertyValue('--yh-sidebar')).toBe('#D17A3C')
       expect(localStorage.getItem('gudu-theme')).toBe('warm')
     })
 

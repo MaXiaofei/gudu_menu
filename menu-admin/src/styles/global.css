@@ -7,7 +7,9 @@
   --el-color-primary-light-8: color-mix(in srgb, var(--el-color-primary) 22%, white);
   --el-color-primary-light-9: color-mix(in srgb, var(--el-color-primary) 14%, white);
   --el-color-primary-dark-2: color-mix(in srgb, var(--el-color-primary) 80%, black);
-  --yh-sidebar: #3A2818;
+  --yh-sidebar: #D17A3C;
+  --yh-sidebar-text: #FFFFFF;
+  --yh-sidebar-active-bg: #E89150;
   --yh-bg: #FDFAF4;
   --yh-panel: #ffffff;
   --el-border-radius-base: 10px;

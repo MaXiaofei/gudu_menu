@@ -125,7 +125,7 @@ async function onLogout() {
   padding: 18px 18px 16px;
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--yh-sidebar-text);
   display: flex;
   align-items: center;
   gap: 9px;
@@ -143,16 +143,17 @@ async function onLogout() {
   background: transparent;
 }
 .side-menu :deep(.el-menu-item) {
-  color: #cdbfb1;
+  color: var(--yh-sidebar-text);
   height: 44px;
 }
 .side-menu :deep(.el-menu-item:hover) {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
 .side-menu :deep(.el-menu-item.is-active) {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--yh-sidebar-active-bg);
   color: #fff;
+  font-weight: 700;
 }
 
 .main {

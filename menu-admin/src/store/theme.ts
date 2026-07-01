@@ -18,6 +18,8 @@ export const useThemeStore = defineStore('theme', () => {
     r.setProperty('--el-color-primary-light-9', `color-mix(in srgb, ${t.primary} 14%, white)`)
     r.setProperty('--el-color-primary-dark-2', `color-mix(in srgb, ${t.primary} 80%, black)`)
     r.setProperty('--yh-sidebar', t.sidebar)
+    r.setProperty('--yh-sidebar-text', t.sidebarText)
+    r.setProperty('--yh-sidebar-active-bg', t.sidebarActiveBg)
     r.setProperty('--yh-bg', t.bg)
     document.documentElement.setAttribute('data-theme', t.key)
     current.value = t.key
