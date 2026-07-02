@@ -27,6 +27,9 @@ public class Pantry {
 
     private Long unitId;
 
+    /** 内部记账基准克数（盘点用 amount+unitId，扣减/余色用 grams）。 */
+    private BigDecimal grams;
+
     private LocalDate expireDate;
 
     private BigDecimal lowThreshold;
