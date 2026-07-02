@@ -32,6 +32,8 @@ class MenuServiceTest {
     private DishMapper dishMapper;
     private DishQueryService dishQueryService;
     private MenuCalcService menuCalc;
+    private com.gudu.xsd.modules.dish.mapper.DishIngredientMapper dishIngredientMapper;
+    private com.gudu.xsd.modules.nutrition.mapper.IngredientMapper ingredientMapper;
     private MenuService svc;
 
     @BeforeEach
@@ -41,9 +43,13 @@ class MenuServiceTest {
         dishMapper = Mockito.mock(DishMapper.class);
         dishQueryService = Mockito.mock(DishQueryService.class);
         menuCalc = Mockito.mock(MenuCalcService.class);
+        dishIngredientMapper = Mockito.mock(com.gudu.xsd.modules.dish.mapper.DishIngredientMapper.class);
+        ingredientMapper = Mockito.mock(com.gudu.xsd.modules.nutrition.mapper.IngredientMapper.class);
         // 用 spy：saveWithDishes 内部调用基类 saveOrUpdate，直接 stub 整个方法
         // （saveOrUpdate 内部走 SqlHelper 需 TableInfo 缓存，非 Spring 环境下会失败）
-        svc = Mockito.spy(new MenuService(menuDishMapper, dishMapper, dishQueryService, menuCalc));
+        svc = Mockito.spy(new MenuService(menuDishMapper, dishMapper, dishQueryService, menuCalc,
+                dishIngredientMapper, ingredientMapper,
+                new com.gudu.xsd.modules.nutrition.UnitConvertService(java.util.Set.of(20L))));
         // ServiceImpl.page()/getById()/removeById 等基类方法走 baseMapper
         injectBaseMapper(svc, menuMapper);
         // 直接 stub saveOrUpdate 本身，绕过其内部 TableInfo 查询
@@ -156,6 +162,9 @@ class MenuServiceTest {
         when(dishMapper.selectById(10L)).thenReturn(dish10);
         when(dishMapper.selectById(20L)).thenReturn(dish20);
 
+        // price 改按用量算（priceByIngredients 查 dish_ingredient）；单测 mock 空列表 → 两道菜价格均为 0
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
+
         Map<Long, BigDecimal> nut10 = Map.of(1L, new BigDecimal("100"));
         when(dishQueryService.nutrition(eq(10L), any())).thenReturn(nut10);
         when(dishQueryService.nutrition(eq(20L), any())).thenReturn(Map.of());
@@ -175,9 +184,10 @@ class MenuServiceTest {
         verify(menuCalc).totalPrice(captor.capture());
         List<MenuCalcService.MenuLine> lines = captor.getValue();
         assertThat(lines).hasSize(2);
-        assertThat(lines.get(0).price()).isEqualByComparingTo("15");
+        // price 改按用量算：mock 无 dish_ingredient → 两道菜 priceByIngredients 均返回 ZERO
+        assertThat(lines.get(0).price()).isEqualByComparingTo("0");
         assertThat(lines.get(0).servingFactor()).isEqualByComparingTo("2");
-        // 第二道菜价格 null 兜底 ZERO、份数 null 兜底 ONE
+        // 第二道菜价格同上为 0、份数 null 兜底 ONE
         assertThat(lines.get(1).price()).isEqualByComparingTo("0");
         assertThat(lines.get(1).servingFactor()).isEqualByComparingTo("1");
     }
