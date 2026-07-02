@@ -37,6 +37,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     private final IngredientMapper ingredientMapper;
     private final NutritionCalcService nutritionCalc;
     private final DictMapper dictMapper;
+    private final com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert;
 
     /** 保存菜品（新增或更新），整体替换步骤 + 菜系/标签/分类关联 + 食材用量。 */
     @Transactional
@@ -67,6 +68,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             for (DishIngredient ing : dto.getIngredients()) {
                 ing.setId(null);
                 ing.setDishId(dishId);
+                ing.setGrams(unitConvert.toGramsFor(ing.getIngredientId(), ing.getAmount(), ing.getUnitId()));
                 dishIngMapper.insert(ing);
             }
         }
@@ -240,7 +242,8 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             List<IngredientNutrition> nuts = ingredientNutritionMapper.selectList(
                     new QueryWrapper<IngredientNutrition>().eq("ingredient_id", di.getIngredientId()));
             for (IngredientNutrition n : nuts) {
-                items.add(new NutritionCalcService.Item(n.getMetricId(), n.getValue(), di.getAmount()));
+                BigDecimal qty = di.getGrams() != null ? di.getGrams() : di.getAmount();
+                items.add(new NutritionCalcService.Item(n.getMetricId(), n.getValue(), qty));
             }
         }
         return nutritionCalc.aggregateDish(items);

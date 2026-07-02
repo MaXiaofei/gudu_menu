@@ -42,7 +42,8 @@ public class DishQueryService {
             List<IngredientNutrition> nuts = ingredientNutritionMapper.selectList(
                     new QueryWrapper<IngredientNutrition>().eq("ingredient_id", di.getIngredientId()));
             for (IngredientNutrition n : nuts) {
-                items.add(new NutritionCalcService.Item(n.getMetricId(), n.getValue(), di.getAmount()));
+                BigDecimal qty = di.getGrams() != null ? di.getGrams() : di.getAmount();
+                items.add(new NutritionCalcService.Item(n.getMetricId(), n.getValue(), qty));
             }
         }
         return nutritionCalc.aggregateDish(items, serving == null ? BigDecimal.ONE : serving);
