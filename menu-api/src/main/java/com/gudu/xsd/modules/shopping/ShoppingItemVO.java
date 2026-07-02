@@ -28,4 +28,7 @@ public class ShoppingItemVO extends ShoppingItem {
 
     /** 采购单位中文名（join sys_dict group=purchase_unit：斤/把/个…），枚举铁律。 */
     private String purchaseUnitName;
+
+    /** 该项用量是否已配置换算（false=未配置，前端标灰提示）。 */
+    private Boolean convertConfigured;
 }

@@ -131,8 +131,10 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             Ingredient ing = ingById.get(di.getIngredientId());
             if (ing == null) continue;
             BigDecimal factor = factorByDish.getOrDefault(di.getDishId(), BigDecimal.ONE);
-            BigDecimal amount = di.getAmount() == null ? BigDecimal.ZERO : di.getAmount();
-            usages.add(new Usage(ing.getId(), amount.multiply(factor), ing.getPurchaseCategoryId()));
+            // 改读 grams（内部克基准）；旧数据迁移后 grams=amount，兼容
+            BigDecimal baseGrams = di.getGrams() != null ? di.getGrams()
+                    : (di.getAmount() != null ? di.getAmount() : BigDecimal.ZERO);
+            usages.add(new Usage(ing.getId(), baseGrams.multiply(factor), ing.getPurchaseCategoryId()));
         }
 
         // 聚合（按 ingredient_id 去重 → referenceGrams）
@@ -388,6 +390,9 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             vo.setUnitName(unitName.get(it.getUnitId()));
             vo.setPurchaseCategoryName(catName.get(it.getPurchaseCategoryId()));
             vo.setPurchaseUnitName(purchaseUnitName.get(it.getPurchaseUnitId()));
+            // 兜底标灰：有 ingredientId 且 referenceGrams 为 null/0 视为未配置换算
+            vo.setConvertConfigured(it.getIngredientId() == null
+                    || (it.getReferenceGrams() != null && it.getReferenceGrams().compareTo(BigDecimal.ZERO) > 0));
             out.add(vo);
         }
         return out;
