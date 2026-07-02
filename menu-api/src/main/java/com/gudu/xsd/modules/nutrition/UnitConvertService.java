@@ -5,6 +5,7 @@ import com.gudu.xsd.modules.dict.SysDict;
 import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientUnitGramMapper;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -29,7 +30,8 @@ public class UnitConvertService {
     private final DictMapper dictMapper;
     private Set<Long> gramUnitIds = new HashSet<>();
 
-    /** 运行期构造（Spring 注入两个 Mapper）。 */
+    /** 运行期构造（Spring 注入两个 Mapper）。@Autowired 指定此构造用于装配（另有测试构造）。 */
+    @Autowired
     public UnitConvertService(IngredientUnitGramMapper unitGramMapper, DictMapper dictMapper) {
         this.unitGramMapper = unitGramMapper;
         this.dictMapper = dictMapper;
