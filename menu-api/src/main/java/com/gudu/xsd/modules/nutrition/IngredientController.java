@@ -29,6 +29,20 @@ public class IngredientController {
         return R.ok(svc.nutritionOf(id));
     }
 
+    /** 某食材的单位换算列表（用户可编辑）。 */
+    @GetMapping("/{id}/unit-grams")
+    public R<List<IngredientUnitGram>> unitGrams(@PathVariable Long id) {
+        return R.ok(svc.listUnitGrams(id));
+    }
+
+    /** 整体替换某食材的单位换算（用户编辑保存）。 */
+    @PutMapping("/{id}/unit-grams")
+    public R<?> saveUnitGrams(@PathVariable Long id,
+                              @RequestBody List<IngredientUnitGram> rows) {
+        svc.replaceUnitGrams(id, rows);
+        return R.ok(null);
+    }
+
     @PostMapping
     public R<?> add(@RequestBody IngredientSaveDTO dto) {
         svc.saveWithNutrition(dto.getIngredient(), dto.getNutritions());

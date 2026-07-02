@@ -40,7 +40,7 @@ class IngredientServiceTest {
         nutMapper = mock(IngredientNutritionMapper.class);
         metricMapper = mock(NutritionMetricMapper.class);
         baseMapper = mock(IngredientMapper.class);
-        svc = new IngredientService(nutMapper, metricMapper);
+        svc = new IngredientService(nutMapper, metricMapper, mock(com.gudu.xsd.modules.nutrition.mapper.IngredientUnitGramMapper.class));
         // ServiceImpl 的 list(qw) 走 getBaseMapper().selectList(qw)；注入 baseMapper
         org.springframework.test.util.ReflectionTestUtils.setField(svc, "baseMapper", baseMapper);
     }

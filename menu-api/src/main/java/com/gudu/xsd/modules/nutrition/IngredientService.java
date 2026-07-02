@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientNutritionMapper;
+import com.gudu.xsd.modules.nutrition.mapper.IngredientUnitGramMapper;
 import com.gudu.xsd.modules.nutrition.mapper.NutritionMetricMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
@@ -24,6 +25,7 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
 
     private final IngredientNutritionMapper nutMapper;
     private final NutritionMetricMapper metricMapper;
+    private final IngredientUnitGramMapper unitGramMapper;
 
     /** 保存食材，并整体替换其营养 EAV（新增/复用同一路径）。 */
     @Transactional
@@ -148,5 +150,31 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         }
         vo.setNutrition(named);
         return vo;
+    }
+
+    // ===================== 单位换算（用户可编辑） =====================
+
+    /** 列出某食材的全部换算（含默认标记，默认行排前）。 */
+    public List<IngredientUnitGram> listUnitGrams(Long ingredientId) {
+        return unitGramMapper.selectList(new QueryWrapper<IngredientUnitGram>()
+                .eq("ingredient_id", ingredientId).orderByDesc("is_default"));
+    }
+
+    /** 整体替换某食材的换算（用户编辑入口）：先删后插，保证 is_default 唯一。 */
+    @Transactional
+    public void replaceUnitGrams(Long ingredientId, List<IngredientUnitGram> rows) {
+        unitGramMapper.delete(new QueryWrapper<IngredientUnitGram>()
+                .eq("ingredient_id", ingredientId));
+        if (rows == null) return;
+        boolean hasDefault = false;
+        for (IngredientUnitGram r : rows) {
+            r.setId(null);
+            r.setIngredientId(ingredientId);
+            if (r.getIsDefault() != null && r.getIsDefault() == 1) {
+                if (hasDefault) r.setIsDefault(0);  // 只允许一个默认
+                else hasDefault = true;
+            }
+            unitGramMapper.insert(r);
+        }
     }
 }
