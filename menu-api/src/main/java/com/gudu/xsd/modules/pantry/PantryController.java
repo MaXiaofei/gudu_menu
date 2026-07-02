@@ -66,7 +66,7 @@ public class PantryController {
     /** 新增库存。 */
     @PostMapping
     public R<Long> add(@RequestBody Pantry pantry) {
-        svc.save(pantry);
+        svc.saveWithGrams(pantry);
         return R.ok(pantry.getId());
     }
 

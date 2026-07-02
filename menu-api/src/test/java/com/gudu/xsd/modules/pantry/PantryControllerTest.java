@@ -121,10 +121,10 @@ class PantryControllerTest {
 
     @Test
     void 新增库存_返回id() throws Exception {
-        given(svc.save(any(Pantry.class))).willAnswer(inv -> {
+        org.mockito.Mockito.doAnswer(inv -> {
             ((Pantry) inv.getArgument(0)).setId(77L);
-            return true;
-        });
+            return null;
+        }).when(svc).saveWithGrams(any(Pantry.class));
 
         String body = "{\"ingredientId\":10,\"amount\":12,\"unitId\":20,\"expireDate\":\"2026-06-22\",\"lowThreshold\":10}";
         mvc.perform(post("/pantry").contentType(MediaType.APPLICATION_JSON).content(body))

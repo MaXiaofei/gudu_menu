@@ -36,6 +36,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
 
     private final IngredientMapper ingredientMapper;
     private DictMapper dictMapper;
+    private com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert;
 
     @Autowired
     public PantryService(IngredientMapper ingredientMapper) {
@@ -48,6 +49,11 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     @Autowired
     public void setDictMapper(DictMapper dictMapper) {
         this.dictMapper = dictMapper;
+    }
+
+    @Autowired
+    public void setUnitConvert(com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert) {
+        this.unitConvert = unitConvert;
     }
 
     // ===================== 纯函数（算法地基） =====================
@@ -154,6 +160,16 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
                 .stream().collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
     }
 
+    /** 单条保存库存（含 grams 换算）。供 controller add 调用，确保走换算。 */
+    @org.springframework.transaction.annotation.Transactional
+    public void saveWithGrams(Pantry pantry) {
+        if (pantry != null) {
+            pantry.setGrams(unitConvert == null ? null
+                    : unitConvert.toGramsFor(pantry.getIngredientId(), pantry.getAmount(), pantry.getUnitId()));
+            save(pantry);
+        }
+    }
+
     // ===================== 扣减 =====================
 
     /** 手动扣减库存：从指定 pantry 项扣除 amount，不低于 0。返回扣减后余量。 */
@@ -228,11 +244,13 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
 
             Pantry p = new Pantry();
             p.setIngredientId(ingredientId);
-            // 兜底：amount 为 null 时默认 1
-            p.setAmount(item.getAmount() != null && item.getAmount().compareTo(BigDecimal.ZERO) > 0
-                    ? item.getAmount() : BigDecimal.ONE);
+            BigDecimal amt = item.getAmount() != null && item.getAmount().compareTo(BigDecimal.ZERO) > 0
+                    ? item.getAmount() : BigDecimal.ONE;
+            p.setAmount(amt);
             p.setUnitId(unitId);
             p.setExpireDate(item.getExpireDate());
+            p.setGrams(unitConvert == null ? null
+                    : unitConvert.toGramsFor(ingredientId, amt, unitId));
             save(p);
             count++;
         }
