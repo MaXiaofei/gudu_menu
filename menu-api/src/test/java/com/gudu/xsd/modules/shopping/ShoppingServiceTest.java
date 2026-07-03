@@ -8,6 +8,8 @@ import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.notification.NotificationService;
+import com.gudu.xsd.modules.pantry.Pantry;
+import com.gudu.xsd.modules.pantry.mapper.PantryMapper;
 import com.gudu.xsd.modules.shopping.mapper.ShoppingItemMapper;
 import com.gudu.xsd.modules.shopping.mapper.ShoppingListMapper;
 import org.junit.jupiter.api.Test;
@@ -19,11 +21,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -42,6 +48,7 @@ class ShoppingServiceTest {
     @Mock MenuDishMapper menuDishMapper;
     @Mock ShoppingAggregator aggregator;
     @Mock NotificationService notificationService;
+    @Mock PantryMapper pantryMapper;
     @Mock ShoppingListMapper shoppingListMapper;
 
     @InjectMocks
@@ -123,5 +130,80 @@ class ShoppingServiceTest {
     void 参数校验_name空抛错() {
         assertThatThrownBy(() -> svc.addItemCustom(3L, "   ", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ===================== Plan B 三色余色 =====================
+
+    /** getDetail 按 pantry 余量给每项标 🔴没有/🟡差X/🟢够；customName 手动加项不标记。 */
+    @Test
+    void getDetail_三色余色_按pantry余量标红黄绿() {
+        // list 1 含 4 项：番茄(ing10,ref200,pantry 无→🔴)、鸡蛋(ing20,ref100,pantry30→🟡差70)、
+        // 盐(ing30,ref50,pantry80→🟢)、老抽(手动加,ing null→灰)
+        ShoppingService spied = spy(svc);
+        ShoppingList list = new ShoppingList();
+        list.setId(1L);
+        doReturn(list).when(spied).getById(1L);
+
+        ShoppingItem tomato = item(101L, 10L, "200");
+        ShoppingItem egg = item(102L, 20L, "100");
+        ShoppingItem salt = item(103L, 30L, "50");
+        ShoppingItem custom = new ShoppingItem();
+        custom.setId(104L);
+        custom.setIngredientId(null);
+        custom.setCustomName("老抽");
+        given(itemMapper.selectList(any())).willReturn(List.of(tomato, egg, salt, custom));
+
+        given(ingredientMapper.selectList(any())).willReturn(List.of(
+                ing(10L, "番茄"), ing(20L, "鸡蛋"), ing(30L, "盐")));
+        // pantry：鸡蛋 30g、盐 80g（番茄无库存 → 🔴）
+        given(pantryMapper.selectList(any())).willReturn(List.of(
+                pantry(20L, "30"), pantry(30L, "80")));
+        given(dictMapper.selectList(any())).willReturn(List.of());
+
+        ShoppingListVO vo = spied.getDetail(1L);
+
+        Map<Long, ShoppingItemVO> byId = vo.getItems().stream()
+                .collect(Collectors.toMap(ShoppingItemVO::getId, i -> i));
+
+        ShoppingItemVO t = byId.get(101L);  // 番茄： pantry 无
+        assertThat(t.getStockStatus()).isEqualTo("RED_NONE");
+        assertThat(t.getShortageGrams()).isEqualByComparingTo("200");
+        assertThat(t.getPantryGrams()).isNull();
+
+        ShoppingItemVO e = byId.get(102L);  // 鸡蛋：30 < 100
+        assertThat(e.getStockStatus()).isEqualTo("YELLOW_SHORT");
+        assertThat(e.getShortageGrams()).isEqualByComparingTo("70");
+        assertThat(e.getPantryGrams()).isEqualByComparingTo("30");
+
+        ShoppingItemVO s = byId.get(103L);  // 盐：80 >= 50
+        assertThat(s.getStockStatus()).isEqualTo("GREEN_ENOUGH");
+        assertThat(s.getShortageGrams()).isEqualByComparingTo("0");
+        assertThat(s.getPantryGrams()).isEqualByComparingTo("80");
+
+        ShoppingItemVO c = byId.get(104L);  // 老抽：手动加，不标记
+        assertThat(c.getStockStatus()).isNull();
+        assertThat(c.getPantryGrams()).isNull();
+    }
+
+    private static ShoppingItem item(long id, long ingId, String refGrams) {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(id);
+        it.setIngredientId(ingId);
+        it.setReferenceGrams(new BigDecimal(refGrams));
+        return it;
+    }
+
+    private static Ingredient ing(long id, String name) {
+        Ingredient i = new Ingredient();
+        i.setId(id);
+        i.setName(name);
+        return i;
+    }
+
+    private static Pantry pantry(long ingId, String grams) {
+        Pantry p = new Pantry();
+        p.setIngredientId(ingId);
+        p.setGrams(new BigDecimal(grams));
+        return p;
     }
 }

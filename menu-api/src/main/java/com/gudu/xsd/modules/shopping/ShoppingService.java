@@ -18,6 +18,8 @@ import com.gudu.xsd.modules.menu.MenuDish;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
+import com.gudu.xsd.modules.pantry.Pantry;
+import com.gudu.xsd.modules.pantry.mapper.PantryMapper;
 import com.gudu.xsd.modules.notification.NotificationPayload;
 import com.gudu.xsd.modules.notification.NotificationService;
 import com.gudu.xsd.modules.shopping.ShoppingAggregator.Usage;
@@ -36,6 +38,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -70,6 +73,9 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     private final MenuDishMapper menuDishMapper;
     private final ShoppingAggregator aggregator;
     private final NotificationService notificationService;
+    private final PantryMapper pantryMapper;
+
+    private final StockClassifier stockClassifier = new StockClassifier();
 
     @Autowired
     public ShoppingService(ShoppingItemMapper itemMapper,
@@ -80,7 +86,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                            DictMapper dictMapper,
                            MenuDishMapper menuDishMapper,
                            ShoppingAggregator aggregator,
-                           NotificationService notificationService) {
+                           NotificationService notificationService,
+                           PantryMapper pantryMapper) {
         this.itemMapper = itemMapper;
         this.mealPlanItemMapper = mealPlanItemMapper;
         this.mealPlanMapper = mealPlanMapper;
@@ -90,6 +97,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         this.menuDishMapper = menuDishMapper;
         this.aggregator = aggregator;
         this.notificationService = notificationService;
+        this.pantryMapper = pantryMapper;
     }
 
     // ===================== 生成（三数据源） =====================
@@ -357,13 +365,15 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         removeById(listId);
     }
 
-    /** 给 item 列表填中文展示名（食材名/单位名/品类名/采购单位名）。 */
+    /** 给 item 列表填中文展示名（食材名/单位名/品类名/采购单位名）+ Plan B 三色余色。 */
     private List<ShoppingItemVO> fillVoNames(List<ShoppingItem> rows) {
         if (rows.isEmpty()) return new ArrayList<>();
         // 食材名
         List<Long> ingIds = rows.stream().map(ShoppingItem::getIngredientId).distinct().collect(Collectors.toList());
         Map<Long, String> ingName = ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ingIds))
                 .stream().collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
+        // Plan B: pantry 按 ingredient_id 聚合 grams（一次性批量查）
+        Map<Long, BigDecimal> pantryGramsByIng = sumPantryGrams(ingIds);
         // 单位 + 品类 + 采购单位字典（一次性查三组）
         List<SysDict> dicts = dictMapper.selectList(
                 new QueryWrapper<SysDict>().in("dict_group", List.of("unit", "purchase_category", "purchase_unit")));
@@ -393,9 +403,30 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             // 兜底标灰：有 ingredientId 且 referenceGrams 为 null/0 视为未配置换算
             vo.setConvertConfigured(it.getIngredientId() == null
                     || (it.getReferenceGrams() != null && it.getReferenceGrams().compareTo(BigDecimal.ZERO) > 0));
+            // Plan B 三色余色：按 ingredient_id 比对 pantry 现有 vs referenceGrams
+            BigDecimal pantryGrams = it.getIngredientId() == null ? null
+                    : pantryGramsByIng.get(it.getIngredientId());
+            StockClassifier.Result stock = stockClassifier.classify(it.getReferenceGrams(), pantryGrams);
+            vo.setPantryGrams(pantryGrams);
+            vo.setStockStatus(stock == null ? null : stock.status().name());
+            vo.setShortageGrams(stock == null ? null : stock.shortageGrams());
             out.add(vo);
         }
         return out;
+    }
+
+    /** Plan B: 查 pantry 按 ingredient_id 聚合 grams（pantry 量小，一次性批量查，只取 grams>0）。 */
+    private Map<Long, BigDecimal> sumPantryGrams(List<Long> ingIds) {
+        List<Long> valid = ingIds.stream().filter(Objects::nonNull).collect(Collectors.toList());
+        if (valid.isEmpty()) return Map.of();
+        List<Pantry> rows = pantryMapper.selectList(new QueryWrapper<Pantry>()
+                .in("ingredient_id", valid).gt("grams", 0));
+        Map<Long, BigDecimal> acc = new HashMap<>();
+        for (Pantry p : rows) {
+            if (p.getIngredientId() == null || p.getGrams() == null) continue;
+            acc.merge(p.getIngredientId(), p.getGrams(), BigDecimal::add);
+        }
+        return acc;
     }
 
     // ===================== 自定义文本生成 =====================
