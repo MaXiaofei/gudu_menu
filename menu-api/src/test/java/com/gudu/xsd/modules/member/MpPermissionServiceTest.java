@@ -24,11 +24,12 @@ class MpPermissionServiceTest {
     }
 
     @Test
-    void 普通成员_默认只能点评和看菜单() {
-        // role=34(普通成员)
+    void 普通成员_默认只能点评看菜单和排菜() {
+        // role=34(普通成员):产品演进后排菜计划(menu.plan)纳入家庭基础功能,
+        // 但录菜(dish.create)仍需掌勺角色——保持最小收紧。
         Set<String> perms = svc.resolvePermissions("34", null);
-        assertThat(perms).contains("review.create", "menu.view");
-        assertThat(perms).doesNotContain("dish.create", "menu.plan");
+        assertThat(perms).contains("review.create", "menu.view", "menu.plan");
+        assertThat(perms).doesNotContain("dish.create");
     }
 
     @Test

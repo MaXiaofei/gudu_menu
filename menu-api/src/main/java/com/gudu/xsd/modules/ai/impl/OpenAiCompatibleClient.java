@@ -235,7 +235,9 @@ public abstract class OpenAiCompatibleClient implements AiClient {
             nutrition.put(5L, scale(toBd(node.path("sugar")), factor));
             // 输出护栏：整餐范围校验 + clamp，防离谱值；异常抛 BizException → 降级 mock
             nutrition = outputGuard.validateNutrition(nutrition, false);
-            return new DishEstimateResponse(req.description(), nutrition, provider(), "ok",
+            // 透传 LLM 给出的估算说明（如份量假设）；缺省回 "ok" 保持兼容
+            String aiNote = node.path("note").asText("ok");
+            return new DishEstimateResponse(req.description(), nutrition, provider(), aiNote,
                     cr.tokensIn, cr.tokensOut);
         } catch (Exception e) {
             log.warn("{} estimateDish 失败，降级 mock: {}", provider(), e.getMessage());

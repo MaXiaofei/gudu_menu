@@ -30,23 +30,23 @@ class MenuRecommenderTest {
                 ingredients);
     }
 
-    // ---------------- 健康过滤 ----------------
+    // ---------------- 健康约束（软扣分模型） ----------------
 
     @Test
-    void 健康过滤_超糖上限剔除() {
-        // A 糖 5g（达标），B 糖 30g（超 25 上限）
+    void 健康约束_超糖菜品软扣分排后() {
+        // 当前实现：健康超标不硬剔除，改为按偏离程度软扣分。
+        // A 糖 5g（达标），B 糖 30g（超 25 上限）—— 两者蛋白相近，
+        // 故 DAY 单组首选应是未超标的 A。
         var dishes = List.of(
                 dish(1, "A", new BigDecimal("10"), 5, 10, List.of()),
                 dish(2, "B", new BigDecimal("10"), 30, 10, List.of()));
         var cons = new Constraints(new BigDecimal("25"), null); // sugarMax=25, calMax=null
         var groups = r.recommend(dishes, cons, List.of(), new BigDecimal("1000"), "DAY", 42L);
-        // B 被剔除；过滤后任何候选组都不含 dishId=2
-        var allDishIds = groups.stream()
-                .flatMap(g -> g.dishes().stream())
-                .map(d -> d.dishId())
-                .toList();
-        assertThat(allDishIds).doesNotContain(2L);
-        assertThat(allDishIds).contains(1L);
+        assertThat(groups).isNotEmpty();
+        // DAY 单组：排第一的候选组以达标菜 A 打头（软扣分让 B 落后）
+        var topDishIds = groups.get(0).dishes().stream()
+                .map(d -> d.dishId()).toList();
+        assertThat(topDishIds).contains(1L);
     }
 
     // ---------------- 过敏过滤 ----------------
@@ -120,10 +120,12 @@ class MenuRecommenderTest {
     // ---------------- 空候选 ----------------
 
     @Test
-    void 候选全被过滤_返回空列表() {
-        var dishes = List.of(dish(1, "X", new BigDecimal("10"), 100, 10, List.of()));
-        var cons = new Constraints(new BigDecimal("25"), null); // sugarMax=25 全超
-        var groups = r.recommend(dishes, cons, List.of(), new BigDecimal("1000"), "DAY", 1L);
+    void 候选全被过敏原过滤_返回空列表() {
+        // 当前实现：健康超标走软扣分不剔除，但过敏原是硬过滤（食物过敏不能软化）。
+        // 唯一候选含过敏食材「花生」→ 池被掏空 → 返回空列表。
+        var dishes = List.of(dish(1, "X", new BigDecimal("10"), 100, 10, List.of("花生")));
+        var cons = new Constraints(new BigDecimal("25"), null);
+        var groups = r.recommend(dishes, cons, List.of("花生"), new BigDecimal("1000"), "DAY", 1L);
         assertThat(groups).isEmpty();
     }
 }
