@@ -212,6 +212,12 @@ class ShoppingListVO {
 }
 
 /// 采购项 VO。
+///
+/// 三色余色字段（Plan B ShoppingController 补全）：
+/// - [pantryGrams] 家中现有克数（customName 手动加项为 null）。
+/// - [stockStatus] 三色状态：`RED_NONE` 没有 / `YELLOW_SHORT` 差 X / `GREEN_ENOUGH` 够；
+///   customName 项或无用量为 null，前端标灰「手动加」。
+/// - [shortageGrams] 差多少克（RED=needGrams、YELLOW=need-have、GREEN=0）。
 class ShoppingItemVO {
   final int id;
   final int? ingredientId;
@@ -223,6 +229,9 @@ class ShoppingItemVO {
   final int? purchaseCategoryId;
   final String? purchaseCategoryName;
   final int purchased;
+  final double? pantryGrams;
+  final String? stockStatus;
+  final double? shortageGrams;
 
   const ShoppingItemVO({
     required this.id,
@@ -235,6 +244,9 @@ class ShoppingItemVO {
     this.purchaseCategoryId,
     this.purchaseCategoryName,
     required this.purchased,
+    this.pantryGrams,
+    this.stockStatus,
+    this.shortageGrams,
   });
 
   factory ShoppingItemVO.fromJson(Map<String, dynamic> j) => ShoppingItemVO(
@@ -248,6 +260,9 @@ class ShoppingItemVO {
         purchaseCategoryId: (j['purchaseCategoryId'] as num?)?.toInt(),
         purchaseCategoryName: j['purchaseCategoryName'] as String?,
         purchased: (j['purchased'] as num?)?.toInt() ?? 0,
+        pantryGrams: (j['pantryGrams'] as num?)?.toDouble(),
+        stockStatus: j['stockStatus'] as String?,
+        shortageGrams: (j['shortageGrams'] as num?)?.toDouble(),
       );
 
   String get displayName => ingredientName ?? customName ?? '#$ingredientId';

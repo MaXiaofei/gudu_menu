@@ -30,6 +30,27 @@ export const importDishByUrl = (url: string) =>
 // 营养指标字典：[{id,name,unit,metricGroup,sort}]，把 nutrition 的 id(→值) 映射成「名字: 值(单位)」
 export const nutritionMetrics = () => request<any[]>({ url: '/nutrition/metric', method: 'GET' })
 
+// ============ Plan A：做菜扣库存链 ============
+
+/** CookController CookResult：deductions/shortages 的 key 是 ingredientId(字符串)。 */
+export interface CookResult {
+  menuId: number | null
+  /** 各食材扣减明细：ingredientId → 克数 */
+  deductions: Record<string, number>
+  /** 欠量：ingredientId → 克数；非空表示库存不够 */
+  shortages: Record<string, number>
+  /** 本次生成的 cooking_record id 列表 */
+  cookingRecordIds: number[]
+}
+
+/** 整集做菜：POST /menu/{id}/cook（聚合食集各菜用量→扣 pantry→每菜写 cooking_record→食集标 DONE） */
+export const cookMenu = (menuId: number) =>
+  request<CookResult>({ url: `/menu/${menuId}/cook`, method: 'POST' })
+
+/** 单菜直做：POST /dish/{id}/cook-now?servings=N（servings 默认 1，不入食集） */
+export const cookDishNow = (dishId: number, servings = 1) =>
+  request<CookResult>({ url: `/dish/${dishId}/cook-now?servings=${servings}`, method: 'POST' })
+
 // ============ 反向找菜（勾选食材 → 推荐能做的菜） ============
 
 // 后端 CookbookService.DishMatch：{ dish:{id,name,...}, matchCount, totalCount, missingIngredients:[name], canMake }

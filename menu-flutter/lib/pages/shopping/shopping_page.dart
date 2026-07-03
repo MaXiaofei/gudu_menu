@@ -676,12 +676,51 @@ class _ShoppingPageState extends State<ShoppingPage> {
         ),
         Text(it.amountText, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         const SizedBox(width: 8),
+        _buildStockBadge(it),
+        const SizedBox(width: 8),
         GestureDetector(
           onTap: () => _confirmDeleteItem(it),
           child: const Icon(Icons.close, size: 16, color: Colors.grey),
         ),
       ]),
     );
+  }
+
+  /// 行尾三色余色徽章（Plan B）。
+  ///
+  /// - `RED_NONE` 🔴 没有（差 shortageGrams g）
+  /// - `YELLOW_SHORT` 🟡 差 shortageGrams g
+  /// - `GREEN_ENOUGH` 🟢 够
+  /// - stockStatus=null（customName 项或无用量）→ 灰色「手动加」
+  Widget _buildStockBadge(ShoppingItemVO it) {
+    final status = it.stockStatus;
+    if (status == 'RED_NONE') {
+      final short = _fmtGrams(it.shortageGrams);
+      return _badge('没有${short.isEmpty ? '' : ' 差$short'}', AppColors.warnRed);
+    }
+    if (status == 'YELLOW_SHORT') {
+      return _badge('差 ${_fmtGrams(it.shortageGrams)}', AppColors.warnOrange);
+    }
+    if (status == 'GREEN_ENOUGH') {
+      return _badge('够', AppColors.success);
+    }
+    // null：customName 手动加项或无用量 → 灰色「手动加」
+    return _badge('手动加', const Color(0xFFBBBBBB));
+  }
+
+  Widget _badge(String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Text(text, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
+      );
+
+  static String _fmtGrams(double? g) {
+    if (g == null) return '';
+    if (g == g.roundToDouble()) return '${g.toInt()}g';
+    return '${g.toStringAsFixed(1)}g';
   }
 
   Future<void> _confirmDeleteItem(ShoppingItemVO it) async {

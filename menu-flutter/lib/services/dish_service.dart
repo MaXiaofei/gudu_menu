@@ -71,4 +71,59 @@ class DishService {
     );
     return (result as num).toInt();
   }
+
+  /// 单菜直做（不入食集）：POST /dish/{id}/cook-now?servings=N
+  /// 扣 pantry + 写 cooking_record，返回 CookResult（含扣减/欠量/记录 id）。
+  static Future<CookResult> cookNow(int dishId, {int servings = 1}) async {
+    final data = await ApiClient.instance.post(
+      '/dish/$dishId/cook-now',
+      query: {'servings': servings},
+    );
+    return CookResult.fromJson(data as Map<String, dynamic>);
+  }
+}
+
+/// 做菜结果（CookController CookResult）。
+///
+/// - `menuId`：整集做菜时为食集 id；单菜直做（cook-now）为 null。
+/// - `deductions`：各食材扣减明细（ingredientId → 克数）。
+/// - `shortages`：欠量 Map（ingredientId → 克数），非空表示库存不够。
+/// - `cookingRecordIds`：本次生成的 cooking_record id 列表。
+class CookResult {
+  final int? menuId;
+  final Map<int, double> deductions;
+  final Map<int, double> shortages;
+  final List<int> cookingRecordIds;
+
+  const CookResult({
+    this.menuId,
+    required this.deductions,
+    required this.shortages,
+    required this.cookingRecordIds,
+  });
+
+  factory CookResult.fromJson(Map<String, dynamic> j) {
+    Map<int, double> parseNumKeyMap(dynamic v) {
+      if (v is! Map) return {};
+      return Map.fromEntries(
+        v.entries.where((e) => e.value != null).map(
+              (e) => MapEntry(
+                int.parse(e.key.toString()),
+                (e.value as num).toDouble(),
+              ),
+            ),
+      );
+    }
+
+    return CookResult(
+      menuId: (j['menuId'] as num?)?.toInt(),
+      deductions: parseNumKeyMap(j['deductions']),
+      shortages: parseNumKeyMap(j['shortages']),
+      cookingRecordIds: ((j['cookingRecordIds'] ?? []) as List)
+          .map((e) => (e as num).toInt())
+          .toList(),
+    );
+  }
+
+  bool get hasShortage => shortages.isNotEmpty;
 }

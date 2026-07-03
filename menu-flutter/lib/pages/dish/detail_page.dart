@@ -109,6 +109,29 @@ class _DishDetailPageState extends State<DishDetailPage> {
     } catch (_) {}
   }
 
+  /// 单菜直做：POST /dish/{id}/cook-now?servings=N。
+  /// 扣 pantry + 写 cooking_record；库存不够时提示缺哪些食材（shortages）。
+  bool _cooking = false;
+  Future<void> _cookNow() async {
+    if (_cooking) return;
+    setState(() => _cooking = true);
+    try {
+      final result = await DishService.cookNow(widget.id, servings: _serving);
+      if (!mounted) return;
+      final msg = result.hasShortage
+          ? '已做菜，库存已扣；缺量：${result.shortages.length} 项'
+          : '已做菜，库存已扣';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('做菜失败')));
+      }
+    }
+    if (mounted) setState(() => _cooking = false);
+  }
+
   /// 构建可点击的缩略图（点一下弹全屏原图）。
   Widget _thumbnailImage(String url,
       {double? width, double? height, BoxFit fit = BoxFit.cover}) {
@@ -251,6 +274,19 @@ class _DishDetailPageState extends State<DishDetailPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success),
+                              onPressed: _cooking ? null : _cookNow,
+                              child: _cooking
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white))
+                                  : const Text('直接做这道菜'),
+                            ),
+                            const SizedBox(height: 12),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.warnOrange),

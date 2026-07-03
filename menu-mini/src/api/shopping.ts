@@ -18,6 +18,12 @@ export interface ShoppingItemVO {
   purchaseCategoryId?: number
   purchaseCategoryName?: string
   purchased?: number // 0 未买 / 1 已买
+  /** Plan B：家中现有克数（customName 手动加项为 null） */
+  pantryGrams?: number | null
+  /** Plan B：三色状态 RED_NONE 没有 / YELLOW_SHORT 差 X / GREEN_ENOUGH 够；customName 项或无用量为 null */
+  stockStatus?: 'RED_NONE' | 'YELLOW_SHORT' | 'GREEN_ENOUGH' | null
+  /** Plan B：差多少克（RED=needGrams、YELLOW=need-have、GREEN=0） */
+  shortageGrams?: number | null
   [k: string]: any
 }
 

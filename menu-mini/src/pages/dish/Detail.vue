@@ -113,6 +113,9 @@
 
     <!-- 底部操作 -->
     <view class="bottom-actions" v-if="dish">
+      <button class="cook-now-btn" :disabled="cooking" @click="onCookNow">
+        {{ cooking ? '做菜中…' : '直接做这道菜' }}
+      </button>
       <button class="yh-btn-ghost half" @click="onMarkDone">标记做过</button>
       <button class="yh-btn-gradient half" @click="goReview">去点评</button>
     </view>
@@ -122,7 +125,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { dishDetail, dishNutrition, markDone, nutritionMetrics } from '@/api/dish'
+import { dishDetail, dishNutrition, markDone, nutritionMetrics, cookDishNow } from '@/api/dish'
 import { useMemberStore } from '@/store/member'
 
 const m = useMemberStore()
@@ -138,6 +141,7 @@ const dishId = ref(0)
 const active = ref(-1)
 const elapsed = ref(0)
 const nutritionExpanded = ref(false)
+const cooking = ref(false)
 
 function difficultyText(d?: number): string {
   if (d == null) return '难度未知'
@@ -209,6 +213,24 @@ async function onMarkDone() {
     await markDone(dishId.value, m.currentId)
     uni.showToast({ title: '已记录', icon: 'success' })
   } catch {}
+}
+
+/** 单菜直做：POST /dish/{id}/cook-now。扣 pantry + 写 cooking_record；库存不够提示缺哪些。 */
+async function onCookNow() {
+  if (cooking.value) return
+  cooking.value = true
+  try {
+    const res = await cookDishNow(dishId.value, serving.value)
+    const shortCnt = res?.shortages ? Object.keys(res.shortages).length : 0
+    uni.showToast({
+      title: shortCnt > 0 ? `已做菜，库存已扣；缺量 ${shortCnt} 项` : '已做菜，库存已扣',
+      icon: 'none',
+    })
+  } catch (e: any) {
+    uni.showToast({ title: e?.msg || '做菜失败', icon: 'none' })
+  } finally {
+    cooking.value = false
+  }
 }
 function goReview() {
   uni.navigateTo({ url: `/pages/dish/Review?dishId=${dishId.value}` })
@@ -446,4 +468,17 @@ function goBack() {
   font-size: 30rpx;
   padding: 0;
 }
+/* 直接做这道菜（Plan A 单菜直做，扣库存链） */
+.cook-now-btn {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  font-size: 30rpx;
+  padding: 0;
+  background: #4FAE6E;
+  color: #FFFFFF;
+  border-radius: 16rpx;
+}
+.cook-now-btn::after { border: none; }
+.cook-now-btn[disabled] { opacity: 0.6; }
 </style>

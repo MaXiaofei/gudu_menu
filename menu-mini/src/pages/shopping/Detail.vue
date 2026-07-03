@@ -105,6 +105,8 @@
                   <text v-if="it.purchaseAmount != null" class="ref-g">· {{ it.purchaseAmount }} {{ it.purchaseUnitName || '' }}</text>
                 </view>
               </view>
+              <!-- Plan B：行尾三色余色徽章 -->
+              <view :class="['stock-badge', badgeClass(it)]">{{ badgeText(it) }}</view>
               <view class="item-actions">
                 <text class="item-edit" @click.stop="openEdit(it)">编辑</text>
                 <text class="item-del" @click.stop="onDelete(it)">删除</text>
@@ -306,6 +308,32 @@ async function onDelete(it: any) {
 function weekText(weekStart?: string): string {
   if (!weekStart) return '#'
   return weekStart + ' 起'
+}
+
+// ============ Plan B：三色余色徽章 ============
+// stockStatus：RED_NONE 没有 / YELLOW_SHORT 差 X / GREEN_ENOUGH 够；null（customName 手动加）→ 灰色「手动加」
+function badgeClass(it: ShoppingItemVO): string {
+  switch (it.stockStatus) {
+    case 'RED_NONE': return 'red'
+    case 'YELLOW_SHORT': return 'yellow'
+    case 'GREEN_ENOUGH': return 'green'
+    default: return 'gray'
+  }
+}
+function fmtGrams(g: number | null | undefined): string {
+  if (g == null) return ''
+  return Number.isInteger(g) ? `${g}g` : g.toFixed(1) + 'g'
+}
+function badgeText(it: ShoppingItemVO): string {
+  switch (it.stockStatus) {
+    case 'RED_NONE': {
+      const s = fmtGrams(it.shortageGrams)
+      return s ? `没有 差${s}` : '没有'
+    }
+    case 'YELLOW_SHORT': return `差 ${fmtGrams(it.shortageGrams)}`
+    case 'GREEN_ENOUGH': return '够'
+    default: return '手动加'
+  }
 }
 function rangeText(d: ShoppingListVO): string {
   if (d.startDate && d.endDate) return `${d.startDate} ~ ${d.endDate}`
@@ -759,6 +787,21 @@ function nextFrame(): Promise<void> {
 .row1 { display: flex; align-items: center; gap: 12rpx; flex-wrap: wrap; }
 .iname { font-size: 15px; color: #4A382A; }
 .ref-g { font-size: 24rpx; color: #9C8C7A; }
+
+/* Plan B：行尾三色余色徽章 */
+.stock-badge {
+  font-size: 18rpx;
+  font-weight: 800;
+  padding: 4rpx 14rpx;
+  border-radius: 99rpx;
+  color: #FFFFFF;
+  margin: 0 12rpx;
+  white-space: nowrap;
+}
+.stock-badge.red { background: #DB5A4E; }
+.stock-badge.yellow { background: #E5A938; }
+.stock-badge.green { background: #4FAE6E; }
+.stock-badge.gray { background: #BBBBBB; }
 
 /* 空态 */
 .empty {
