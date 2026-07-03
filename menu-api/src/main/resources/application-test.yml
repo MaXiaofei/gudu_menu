@@ -1,15 +1,18 @@
 # E2E 集成测试专用 profile：连独立测试库 yanhuo_test + 真 Redis（6379）。
 # @SpringBootTest 用 @ActiveProfiles("test") 激活；不跑 @Scheduled（task.scheduling 仅配置池大小）。
+# 注：@SpringBootTest(RANDOM_PORT) 内嵌 Tomcat 不应用 server.servlet.context-path，
+# 测试期实际走根 context（GuduE2EFlowTest.CTX 留空）。生产 context-path=/gudu 仍生效。
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     # E2E 测试连腾讯云测试库（staging 对外端口 13306）
-    url: jdbc:mysql://49.232.3.201:13306/yanhuo_test?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true
+    # 远程 13306 被安全组拦，本机跑需 SSH 隧道 + DB_HOST=localhost REDIS_HOST=localhost
+    url: jdbc:mysql://${DB_HOST:49.232.3.201}:13306/yanhuo_test?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true
     username: root
     password: ${MYSQL_ROOT_PASSWORD:}
   data:
     redis:
-      host: 49.232.3.201
+      host: ${REDIS_HOST:49.232.3.201}
       port: 16379
   task:
     scheduling:

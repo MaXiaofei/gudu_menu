@@ -58,8 +58,10 @@ class GuduE2EFlowTest {
     private static final long UNIT_G = 20L;             // g
     private static final long CAT_VEGETABLE = 24L;      // 蔬菜
 
-    /** 后端 context-path 前缀（application.yml: server.servlet.context-path=/gudu）。TestRestTemplate 走真 Tomcat，必须带。 */
-    private static final String CTX = "/gudu";
+    /** 后端 context-path 前缀。
+     *  注：@SpringBootTest(RANDOM_PORT) 内嵌 Tomcat 不应用 server.servlet.context-path，
+     *  测试期实际是根 context，故 CTX 留空（请求直接打 /auth/login）。生产部署 context-path=/gudu 仍生效。 */
+    private static final String CTX = "";
 
     /** 每个测试前真登录拿新 token（Sa-Token token-style=uuid，登录即发新券）。 */
     private String loginAdmin() {
@@ -132,13 +134,16 @@ class GuduE2EFlowTest {
         assertThat(r3.get("data").get("duplicates").isArray()).isTrue();
         assertThat(r3.get("data").get("duplicates").size()).isZero();
 
-        // 再挂同菜同日同餐 → 唯一约束 uk_plan_date_meal_dish 触发
+        // 再挂同菜同日同餐 → uk_plan_date_meal_dish 唯一约束触发 + service catch DuplicateKey 软提示
+        // （去重生效但不硬拦：code=0 + 返回非空 duplicates 提示同日同餐已存在）
         JsonNode r4 = post(token, "/mealplan/" + planId + "/item", itemReq);
-        // 唯一约束冲突 → R.fail（code≠0）或 service 层抛错。两种都算「去重生效」。
-        int code4 = r4.get("code").asInt();
-        assertThat(code4)
-                .as("重复挂菜应被去重拦截：code≠0，实际=" + code4 + " msg=" + text(r4, "msg"))
-                .isNotZero();
+        assertThat(r4.get("code").asInt())
+                .as("重复挂菜走软提示应 code=0，实际=" + r4.get("code").asInt() + " msg=" + text(r4, "msg"))
+                .isZero();
+        JsonNode dups4 = r4.get("data").get("duplicates");
+        assertThat(dups4.isArray()).isTrue();
+        assertThat(dups4.size())
+                .as("重复挂菜应返回非空 duplicates 提示").isGreaterThan(0);
     }
 
     /** 场景2（redesign）：从菜品生成采购草稿 → 验证参考克数 → 用户填采购量+采购单位 → 验证保存。 */
@@ -462,6 +467,43 @@ class GuduE2EFlowTest {
             assertThat(data.get("tables").has(t))
                     .as("导出应含表 " + t).isTrue();
         }
+    }
+
+    /** 场景12（V36 Plan A）：建菜单 → 整集做菜 → 每菜写 cooking_record。 */
+    @Test
+    void 做菜_整集做菜扣库存_写record() {
+        String token = loginAdmin();
+
+        // 建菜单关联番茄炒蛋（1 份）
+        Map<String, Object> menu = new HashMap<>();
+        menu.put("name", "E2E做菜测试菜单");
+        menu.put("servingCount", 1);
+        Map<String, Object> md = new HashMap<>();
+        md.put("dishId", DISH_FANQIE_CHAODAN);
+        md.put("servingFactor", 1);
+        Map<String, Object> saveReq = new HashMap<>();
+        saveReq.put("menu", menu);
+        saveReq.put("dishes", java.util.List.of(md));
+
+        JsonNode created = post(token, "/menu", saveReq);
+        assertThat(created.get("code").asInt())
+                .as("建菜单应成功 msg=" + text(created, "msg")).isEqualTo(0);
+        long menuId = created.get("data").asLong();
+        assertThat(menuId).as("应返回菜单 id").isPositive();
+
+        // 整集做菜：聚合番茄炒蛋用量 → 扣 pantry → 写 cooking_record
+        JsonNode cook = post(token, "/menu/" + menuId + "/cook", null);
+        assertThat(cook.get("code").asInt())
+                .as("整集做菜应成功 msg=" + text(cook, "msg")).isEqualTo(0);
+        JsonNode data = cook.get("data");
+        assertThat(data.get("menuId").asLong()).isEqualTo(menuId);
+        // 每菜写一条 cooking_record（番茄炒蛋 1 条）
+        assertThat(data.get("cookingRecordIds").isArray()).isTrue();
+        assertThat(data.get("cookingRecordIds").size())
+                .as("每菜一条 cooking_record").isEqualTo(1);
+
+        // 清理
+        delete(token, "/menu/" + menuId);
     }
 
     // ---------------- HTTP 工具 ----------------
