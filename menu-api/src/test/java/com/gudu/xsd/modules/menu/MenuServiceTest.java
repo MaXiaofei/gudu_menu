@@ -129,17 +129,22 @@ class MenuServiceTest {
 
     // ---------------- detail ----------------
 
-    /** detail：返回菜单 + 关联菜品列表。 */
+    /** detail：返回菜单 + 关联菜品，每项冗余菜名/封面（消前端 N+1）。 */
     @Test
-    void detail_返回菜单和关联菜品() {
+    void detail_返回菜单和关联菜品_并冗余菜名() {
         when(menuMapper.selectById(5L)).thenReturn(menu(5L, 3));
         when(menuDishMapper.selectList(any(Wrapper.class))).thenReturn(
                 List.of(md(1L, BigDecimal.ONE), md(2L, BigDecimal.ONE)));
+        Dish d1 = new Dish(); d1.setId(1L); d1.setName("番茄炒蛋");
+        Dish d2 = new Dish(); d2.setId(2L); d2.setName("土豆丝");
+        when(dishMapper.selectBatchIds(any())).thenReturn(List.of(d1, d2));
 
         MenuDetail detail = svc.detail(5L);
 
         assertThat(detail.menu().getId()).isEqualTo(5L);
-        assertThat(detail.dishes()).extracting(MenuDish::getDishId).containsExactly(1L, 2L);
+        assertThat(detail.dishes()).extracting(MenuService.MenuDishVO::dishId).containsExactly(1L, 2L);
+        assertThat(detail.dishes()).extracting(MenuService.MenuDishVO::dishName)
+                .containsExactly("番茄炒蛋", "土豆丝");
     }
 
     // ---------------- summary ----------------
@@ -161,6 +166,8 @@ class MenuServiceTest {
         dish20.setPrice(null); // 价格 null → 兜底 ZERO
         when(dishMapper.selectById(10L)).thenReturn(dish10);
         when(dishMapper.selectById(20L)).thenReturn(dish20);
+        // detail() 现批量查 dish（消 N+1）；summary 走 detail，需 mock selectBatchIds 防 NPE
+        when(dishMapper.selectBatchIds(any())).thenReturn(List.of());
 
         // price 改按用量算（priceByIngredients 查 dish_ingredient）；单测 mock 空列表 → 两道菜价格均为 0
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of());

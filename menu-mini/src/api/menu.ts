@@ -13,13 +13,17 @@ export interface Menu {
   createTime?: string
 }
 
-/** 食集→菜关联（后端 MenuDish）。 */
+/** 食集→菜关联（后端 MenuDish + 冗余菜名/封面）。 */
 export interface MenuDish {
   id: number
   menuId: number
   dishId: number
   /** 该菜在食集的份数。 */
   servingFactor?: number
+  /** 菜名（后端 detail 冗余返回，避免前端逐菜 GET /dish/{id}）。 */
+  dishName?: string
+  /** 菜封面图。 */
+  coverUrl?: string
 }
 
 /** 食集详情聚合（后端 MenuService.MenuDetail record：{ menu, dishes }）。 */

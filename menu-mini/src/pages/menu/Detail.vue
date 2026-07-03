@@ -35,7 +35,7 @@
             v-for="(d, i) in dishRows"
             :key="i"
           >
-            <text class="dish-name">{{ d.name || `菜 #${d.dishId}` }}</text>
+            <text class="dish-name">{{ d.dishName || `菜 #${d.dishId}` }}</text>
             <view class="dish-right">
               <text class="dish-amount">× {{ fmtFactor(d.servingFactor) }}</text>
               <text class="dish-unit">份</text>
@@ -69,40 +69,24 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getMenuDetail, type MenuDetailVO, type MenuDish } from '@/api/menu'
-import { cookMenu, dishDetail } from '@/api/dish'
+import { cookMenu } from '@/api/dish'
 
 const detail = ref<MenuDetailVO | null>(null)
 const menuId = ref(0)
 const cooking = ref(false)
 
-/** dishes 只带 dishId（无菜名），逐个拉菜名（食集规模小，可接受）。 */
-const dishRows = ref<(MenuDish & { name?: string })[]>([])
+/** 后端 dishes 已冗余带 dishName，直接渲染（无需逐菜 GET /dish/{id}）。 */
+const dishRows = ref<MenuDish[]>([])
 
 onLoad(async (q: any) => {
   menuId.value = Number(q.id)
   try {
     detail.value = await getMenuDetail(menuId.value)
-    // 拉菜名：并发请求（规模小）
-    const rows = await Promise.all(
-      detail.value.dishes.map(async (d) => {
-        const name = await fetchName(d.dishId)
-        return { ...d, name }
-      }),
-    )
-    dishRows.value = rows
+    dishRows.value = detail.value.dishes
   } catch {
     uni.showToast({ title: '加载详情失败', icon: 'none' })
   }
 })
-
-async function fetchName(dishId: number): Promise<string | undefined> {
-  try {
-    const r = await dishDetail(dishId)
-    return r?.dish?.name
-  } catch {
-    return undefined
-  }
-}
 
 function fmtFactor(v?: number): string {
   if (v == null) return '1.0'
@@ -125,6 +109,7 @@ async function onCookMenu() {
     })
     // 做完刷新状态（食集已标 DONE）
     detail.value = await getMenuDetail(menuId.value)
+    dishRows.value = detail.value.dishes
   } catch (e: any) {
     uni.showToast({ title: e?.msg || '做菜失败', icon: 'none' })
   } finally {

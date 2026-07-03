@@ -2,10 +2,9 @@
 ///
 /// 后端 `GET /menu/{id}` 返回 `MenuDetail` record：`{ menu, dishes }`：
 /// - menu：食集本身（name/servingCount/status/...）。
-/// - dishes：关联菜列表（MenuDish：id/menuId/dishId/servingFactor）。
+/// - dishes：关联菜列表（MenuDish：id/menuId/dishId/servingFactor/dishName/coverUrl）。
 ///
-/// 注意：dishes 只带 dishId，不带菜名/封面；详情页需再拉一次 `GET /dish/{dishId}`
-/// 拿菜名（菜单规模小，逐个拉可接受；后端暂无批量接口）。
+/// dishes 冗余带菜名/封面（后端 detail 批量查），前端无需再逐菜 GET /dish/{id}。
 class Menu {
   final int id;
   final String name;
@@ -36,19 +35,25 @@ class Menu {
   bool get isDone => status == 'DONE';
 }
 
-/// 食集→菜关联（后端 MenuDish）。
+/// 食集→菜关联（后端 MenuDish + 冗余菜名/封面）。
 class MenuDish {
   final int id;
   final int menuId;
   final int dishId;
-  /// 该菜在食集中的份数（后端 servingFactor）。
+  /// 该菜在食集中份数（后端 servingFactor）。
   final double? servingFactor;
+  /// 菜名（后端 detail 冗余返回，避免前端逐菜 GET /dish/{id}）。
+  final String? dishName;
+  /// 菜封面图。
+  final String? coverUrl;
 
   const MenuDish({
     required this.id,
     required this.menuId,
     required this.dishId,
     this.servingFactor,
+    this.dishName,
+    this.coverUrl,
   });
 
   factory MenuDish.fromJson(Map<String, dynamic> j) => MenuDish(
@@ -56,6 +61,8 @@ class MenuDish {
         menuId: (j['menuId'] as num).toInt(),
         dishId: (j['dishId'] as num).toInt(),
         servingFactor: (j['servingFactor'] as num?)?.toDouble(),
+        dishName: j['dishName'] as String?,
+        coverUrl: j['coverUrl'] as String?,
       );
 }
 

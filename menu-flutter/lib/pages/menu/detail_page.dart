@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import '../../models/menu.dart';
-import '../../services/dish_service.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/loading_empty.dart';
 
@@ -13,8 +12,8 @@ import '../../widgets/loading_empty.dart';
 /// 整集做菜（Plan A）：POST /menu/{id}/cook → 聚合各菜用量 → 扣 pantry
 /// → 每菜写 cooking_record → 食集标 DONE；欠量时提示缺几项。
 ///
-/// 菜名策略：后端 `/menu/{id}` 的 dishes 只带 dishId（无菜名），逐个拉
-/// `GET /dish/{dishId}` 取名（食集规模小，可接受；后端暂无批量接口）。
+/// 菜名：后端 `/menu/{id}` 的 dishes 冗余带 dishName/coverUrl，直接渲染，
+/// 无需再逐菜 GET /dish/{id} 取名（评审 N+1 gap 已修）。
 class MenuDetailPage extends StatefulWidget {
   final int id;
   const MenuDetailPage({super.key, required this.id});
@@ -133,6 +132,7 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
         const _SectionTitle('包含菜品'),
         ..._detail!.dishes.map((d) => _DishRow(
               dishId: d.dishId,
+              dishName: d.dishName,
               servingFactor: d.servingFactor,
             )),
         const SizedBox(height: 24),
@@ -141,38 +141,12 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
   }
 }
 
-/// 菜品行：异步拉菜名（dishes 只带 dishId）。
-class _DishRow extends StatefulWidget {
+/// 菜品行：直接用后端冗余的菜名（dishes 带 dishName）。
+class _DishRow extends StatelessWidget {
   final int dishId;
+  final String? dishName;
   final double? servingFactor;
-  const _DishRow({required this.dishId, this.servingFactor});
-  @override
-  State<_DishRow> createState() => _DishRowState();
-}
-
-class _DishRowState extends State<_DishRow> {
-  String _name = '';
-  bool _loaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadName();
-  }
-
-  Future<void> _loadName() async {
-    try {
-      final d = await DishService.detail(widget.dishId);
-      if (mounted) {
-        setState(() {
-          _name = d.dish.name;
-          _loaded = true;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loaded = true);
-    }
-  }
+  const _DishRow({required this.dishId, this.dishName, this.servingFactor});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -183,13 +157,14 @@ class _DishRowState extends State<_DishRow> {
           children: [
             Expanded(
               child: Text(
-                _loaded ? (_name.isEmpty ? '菜 #${widget.dishId}' : _name)
-                    : '加载中…',
+                (dishName == null || dishName!.isEmpty)
+                    ? '菜 #$dishId'
+                    : dishName!,
                 style: const TextStyle(fontSize: 14),
               ),
             ),
             Text(
-              '× ${widget.servingFactor?.toStringAsFixed(1) ?? '1.0'} 份',
+              '× ${servingFactor?.toStringAsFixed(1) ?? '1.0'} 份',
               style: const TextStyle(
                   fontSize: 13, color: AppColors.textSecondary),
             ),

@@ -60,11 +60,23 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         }
     }
 
-    /** 详情：菜单 + 关联菜品列表。 */
+    /** 详情：菜单 + 关联菜品列表（每项冗余菜名/封面，避免前端逐菜 GET /dish/{id} 取名 N+1）。 */
     public MenuDetail detail(Long id) {
         Menu menu = getById(id);
-        List<MenuDish> dishes = menuDishMapper.selectList(
+        List<MenuDish> mds = menuDishMapper.selectList(
                 new QueryWrapper<MenuDish>().eq("menu_id", id).orderByAsc("id"));
+        if (mds.isEmpty()) return new MenuDetail(menu, List.of());
+        // 一次批量查所有菜名/封面，消除前端 N+1（评审 gap）。
+        List<Long> dishIds = mds.stream().map(MenuDish::getDishId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, Dish> dishById = dishIds.isEmpty() ? Map.of()
+                : dishMapper.selectBatchIds(dishIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(Dish::getId, d -> d, (a, b) -> a));
+        List<MenuDishVO> dishes = mds.stream().map(md -> {
+            Dish d = dishById.get(md.getDishId());
+            return new MenuDishVO(md.getId(), md.getMenuId(), md.getDishId(), md.getServingFactor(),
+                    d != null ? d.getName() : null, d != null ? d.getCoverUrl() : null);
+        }).toList();
         return new MenuDetail(menu, dishes);
     }
 
@@ -72,12 +84,11 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     public MenuSummary summary(Long id) {
         MenuDetail md = detail(id);
         List<MenuCalcService.MenuLine> lines = new ArrayList<>();
-        for (MenuDish d : md.dishes()) {
-            Dish dish = dishMapper.selectById(d.getDishId());
+        for (MenuDishVO d : md.dishes()) {
             // 价格改按食材用量算（评审§12）：Σ(dish_ingredient.grams × 每克单价)
-            BigDecimal price = (dish != null) ? priceByIngredients(dish.getId()) : BigDecimal.ZERO;
-            Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.getDishId(), BigDecimal.ONE);
-            BigDecimal factor = (d.getServingFactor() != null) ? d.getServingFactor() : BigDecimal.ONE;
+            BigDecimal price = priceByIngredients(d.dishId());
+            Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.dishId(), BigDecimal.ONE);
+            BigDecimal factor = (d.servingFactor() != null) ? d.servingFactor() : BigDecimal.ONE;
             lines.add(new MenuCalcService.MenuLine(price, nut, factor));
         }
         return new MenuSummary(menuCalc.totalPrice(lines), menuCalc.totalNutrition(lines));
@@ -107,7 +118,11 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         return sum;
     }
 
-    public record MenuDetail(Menu menu, List<MenuDish> dishes) {}
+    /** MenuDish 视图：冗余菜名/封面，避免前端逐菜 GET /dish/{id} 取名（评审 N+1）。 */
+    public record MenuDishVO(Long id, Long menuId, Long dishId, BigDecimal servingFactor,
+                             String dishName, String coverUrl) {}
+
+    public record MenuDetail(Menu menu, List<MenuDishVO> dishes) {}
 
     public record MenuSummary(BigDecimal totalPrice, Map<Long, BigDecimal> totalNutrition) {}
 }
