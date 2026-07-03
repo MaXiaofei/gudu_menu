@@ -37,6 +37,12 @@
 			}
 		},
 		{
+			"path": "pages/menu/Detail",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/misc/Home",
 			"style": {
 				"navigationStyle": "custom"

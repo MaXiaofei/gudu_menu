@@ -99,6 +99,11 @@ class _HomePageState extends State<HomePage> {
             _entryCard('库存', '📦', '/pantry', const Color(0xFF5B8C5A)),
             _entryCard('采购', '🛒', '/shopping', const Color(0xFFD4843A)),
           ]),
+          const SizedBox(height: 10),
+          _buildGridRow([
+            _entryCard('食集', '🍱', '/menu', const Color(0xFF4FAE6E)),
+            _entryCard('饮食记录', '📝', '/dailylog', AppColors.saveGreen),
+          ]),
 
           const SizedBox(height: 20),
 
