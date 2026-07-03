@@ -25,6 +25,12 @@ public class Menu {
     /** 份数 / 人数。 */
     private Integer servingCount;
 
+    /** 状态：ACTIVE 进行中 / DONE 已完成。V36 加。 */
+    private String status;
+
+    /** 完成时间（做菜扣库存成功后写）。V36 加。 */
+    private LocalDateTime finishedAt;
+
     private LocalDateTime createTime;
 
     @TableLogic
