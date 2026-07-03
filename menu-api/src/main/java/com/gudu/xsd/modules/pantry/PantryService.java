@@ -38,6 +38,9 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     private DictMapper dictMapper;
     private com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert;
 
+    /** FIFO 扣减规划（无状态纯函数，内联持有）。 */
+    private final PantryDeductionPlanner deductionPlanner = new PantryDeductionPlanner();
+
     @Autowired
     public PantryService(IngredientMapper ingredientMapper) {
         // 测试 new PantryService(null)：传 ingredientMapper，dictMapper 运行期由 ApplicationContext 注入。
@@ -196,6 +199,52 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         p.setAmount(remain);
         updateById(p);
         return remain;
+    }
+
+    // ===================== 按食材 FIFO 扣减（做菜用） =====================
+
+    /**
+     * 按食材 FIFO 扣减：查该食材所有 grams>0 的批次（过期日升序、null 最后、id 升序），
+     * 逐批扣到 0 为止，扣不动的记 shortage 返回（pantry 不记负）。
+     *
+     * @return DeductResult 含实扣克数、欠量、各批次明细
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public DeductResult deductByIngredient(Long ingredientId, BigDecimal needGrams) {
+        if (ingredientId == null) {
+            throw new BizException("食材 id 不能为空");
+        }
+        if (needGrams == null || needGrams.signum() <= 0) {
+            return new DeductResult(ingredientId, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
+        }
+        List<Pantry> batches = list(new QueryWrapper<Pantry>()
+                .eq("ingredient_id", ingredientId)
+                .gt("grams", 0)
+                .last("ORDER BY expire_date IS NULL, expire_date ASC, id ASC"));
+        PantryDeductionPlanner.DeductPlan plan = deductionPlanner.plan(batches, needGrams);
+        for (PantryDeductionPlanner.BatchDeduction op : plan.ops()) {
+            Pantry p = getById(op.pantryId());
+            if (p == null) continue;
+            p.setGrams(op.remainGrams());
+            if (op.newAmount() != null) {
+                p.setAmount(op.newAmount());
+            }
+            updateById(p);
+        }
+        BigDecimal shortage = plan.shortageGrams();
+        BigDecimal deducted = needGrams.subtract(shortage);
+        List<DeductResult.BatchOut> outs = plan.ops().stream()
+                .map(op -> new DeductResult.BatchOut(op.pantryId(), op.deductGrams(), op.remainGrams()))
+                .collect(Collectors.toList());
+        return new DeductResult(ingredientId, deducted, shortage, outs);
+    }
+
+    /** 单食材扣减结果。 */
+    public record DeductResult(Long ingredientId,
+                               BigDecimal deductedGrams,
+                               BigDecimal shortageGrams,
+                               List<BatchOut> batches) {
+        public record BatchOut(Long pantryId, BigDecimal deductedGrams, BigDecimal remainGrams) {}
     }
 
     // ===================== 批量添加 =====================
