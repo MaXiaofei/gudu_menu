@@ -1,31 +1,26 @@
 <template>
   <view class="page">
-    <!-- 顶栏：大标题 -->
+    <!-- 顶栏：菜谱 + 筛选（对齐原型 cookbook-search） -->
     <view class="topbar">
-      <view class="title-wrap">
-        <view class="title-bar"></view>
-        <text class="title">菜库</text>
+      <text class="title">菜谱</text>
+      <view class="filter-btn" @click="showFilter = !showFilter">
+        <text>{{ showFilter ? '收起' : '筛选' }}</text>
+        <text v-if="activeFilterCount" class="badge">{{ activeFilterCount }}</text>
       </view>
     </view>
 
-    <!-- 搜索框（常驻显示） -->
+    <!-- 搜索框（白底橙边，对齐原型聚焦态） -->
     <view class="search-box">
       <text class="s-ico">🔍</text>
       <input
         class="s-input"
         v-model="keyword"
-        placeholder="搜菜名"
+        placeholder="搜菜名 / 食材"
         placeholder-class="s-ph"
         confirm-type="search"
         @confirm="reload"
       />
       <text v-if="keyword" class="s-clear" @click="clearKeyword">✕</text>
-    </view>
-
-    <!-- 筛选折叠 -->
-    <view class="filter-toggle" @click="showFilter = !showFilter">
-      <text>{{ showFilter ? '收起筛选' : '筛选' }}</text>
-      <text v-if="activeFilterCount" class="badge">{{ activeFilterCount }}</text>
     </view>
 
     <!-- 分类标签横滑 -->
@@ -41,6 +36,12 @@
         </view>
       </view>
     </scroll-view>
+
+    <!-- 排序行（对齐原型：X 道 + 排序） -->
+    <view class="sort-row">
+      <text class="sort-count">找到 {{ dishes.length }} 道{{ keyword ? `「${keyword}」` : '' }}</text>
+      <text class="sort-pick">综合 ▾</text>
+    </view>
 
     <view v-if="showFilter" class="yh-card filter-panel">
       <view class="f-title">营养上限（每份不超）</view>
@@ -341,58 +342,47 @@ reload()
   min-height: 100vh;
 }
 
-/* 顶栏 */
+/* 顶栏：菜谱 + 筛选（对齐原型） */
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(env(safe-area-inset-top) + 16px) 4px 8px;
-}
-.title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.title-bar {
-  width: 8rpx;
-  height: 36rpx;
-  background: #E89150;
-  border-radius: 4rpx;
+  padding: calc(env(safe-area-inset-top) + 16px) 8rpx 4px;
 }
 .title {
-  font-size: 24px;
-  font-weight: bold;
+  font-size: 22px;
+  font-weight: 800;
   color: #4A382A;
 }
-.top-actions {
+.filter-btn {
   display: flex;
-  gap: 12px;
-}
-.ico-btn {
-  font-size: 22px;
-  padding: 6px;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #D17A3C;
 }
 
-/* 搜索框 */
+/* 搜索框：白底橙边（对齐原型聚焦态） */
 .search-box {
   display: flex;
   align-items: center;
   gap: 8px;
   background: #FFFFFF;
-  border-radius: 28rpx;
+  border: 3rpx solid #E89150;
+  border-radius: 24rpx;
   padding: 12rpx 24rpx;
-  margin: 12rpx 0;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+  margin: 16rpx 0 8rpx;
 }
-.s-ico { font-size: 16px; color: #9C8C7A; }
+.s-ico { font-size: 16px; color: #D17A3C; }
 .s-input { flex: 1; font-size: 14px; color: #4A382A; }
 .s-ph { color: #9C8C7A; }
 .s-clear { font-size: 14px; color: #9C8C7A; padding: 0 4px; }
 
-/* 分类横滑 */
+/* 分类横滑（选中=深棕底白字，对齐原型） */
 .cat-scroll {
   white-space: nowrap;
-  margin: 8rpx 0 4rpx;
+  margin: 4rpx 0;
 }
 .cat-row {
   display: inline-flex;
@@ -402,17 +392,29 @@ reload()
 .cat-chip {
   display: inline-block;
   padding: 10rpx 28rpx;
-  border-radius: 30rpx;
+  border-radius: 16rpx;
   font-size: 26rpx;
-  color: #9C8C7A;
+  color: #6E5C49;
   background: #FFFFFF;
-  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.04);
+  border: 1px solid #F0E6D6;
 }
 .cat-chip.on {
-  background: rgba(232, 145, 80, 0.12);
-  color: #E89150;
-  font-weight: 600;
+  background: #4A382A;
+  color: #FFFFFF;
+  font-weight: 700;
+  border-color: #4A382A;
 }
+
+/* 排序行 */
+.sort-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 8rpx 12rpx;
+  font-size: 22rpx;
+}
+.sort-count { color: #9C8C7A; }
+.sort-pick { color: #D17A3C; font-weight: 700; }
 
 /* 筛选 */
 .filter-toggle {
