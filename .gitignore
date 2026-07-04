@@ -10,3 +10,6 @@ data/
 .claude/
 .env*
 !.env.example
+
+# brainstorming visual companion
+.superpowers/
