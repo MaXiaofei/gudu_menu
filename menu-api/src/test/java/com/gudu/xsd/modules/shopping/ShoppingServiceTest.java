@@ -9,6 +9,7 @@ import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.notification.NotificationService;
 import com.gudu.xsd.modules.pantry.Pantry;
+import com.gudu.xsd.modules.pantry.PantryService;
 import com.gudu.xsd.modules.pantry.mapper.PantryMapper;
 import com.gudu.xsd.modules.shopping.mapper.ShoppingItemMapper;
 import com.gudu.xsd.modules.shopping.mapper.ShoppingListMapper;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -49,6 +51,7 @@ class ShoppingServiceTest {
     @Mock ShoppingAggregator aggregator;
     @Mock NotificationService notificationService;
     @Mock PantryMapper pantryMapper;
+    @Mock PantryService pantryService;
     @Mock ShoppingListMapper shoppingListMapper;
 
     @InjectMocks
@@ -198,6 +201,71 @@ class ShoppingServiceTest {
         i.setId(id);
         i.setName(name);
         return i;
+    }
+
+    // ===================== 采购回写（togglePurchased 0→1 入库 pantry） =====================
+
+    @Test
+    void 勾选已买_0到1_有食材有量_回写pantry() {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(1L);
+        it.setIngredientId(10L);
+        it.setPurchaseAmount(new BigDecimal("2"));
+        it.setPurchaseUnitId(40L);
+        it.setReferenceGrams(new BigDecimal("1000"));
+        it.setPurchased(0);
+        given(itemMapper.selectById(1L)).willReturn(it);
+
+        svc.togglePurchased(1L);
+
+        assertThat(it.getPurchased()).isEqualTo(1);
+        verify(pantryService).stockUpByIngredient(10L, new BigDecimal("2"), 40L, new BigDecimal("1000"));
+    }
+
+    @Test
+    void 勾选已买_0到1_无量_用参考克数兜底回写() {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(2L);
+        it.setIngredientId(20L);
+        it.setReferenceGrams(new BigDecimal("500"));
+        it.setPurchased(0);
+        given(itemMapper.selectById(2L)).willReturn(it);
+
+        svc.togglePurchased(2L);
+
+        assertThat(it.getPurchased()).isEqualTo(1);
+        verify(pantryService).stockUpByIngredient(20L, null, null, new BigDecimal("500"));
+    }
+
+    @Test
+    void 勾选已买_无食材_不回写pantry() {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(3L);
+        it.setIngredientId(null);
+        it.setCustomName("老抽");
+        it.setPurchased(0);
+        given(itemMapper.selectById(3L)).willReturn(it);
+
+        svc.togglePurchased(3L);
+
+        assertThat(it.getPurchased()).isEqualTo(1);
+        verify(pantryService, never()).stockUpByIngredient(any(), any(), any(), any());
+    }
+
+    @Test
+    void 取消勾选_1到0_不反向扣减() {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(4L);
+        it.setIngredientId(10L);
+        it.setPurchaseAmount(new BigDecimal("2"));
+        it.setPurchaseUnitId(40L);
+        it.setPurchased(1);
+        given(itemMapper.selectById(4L)).willReturn(it);
+
+        svc.togglePurchased(4L);
+
+        assertThat(it.getPurchased()).isEqualTo(0);
+        verify(pantryService, never()).stockUpByIngredient(any(), any(), any(), any());
     }
 
     private static Pantry pantry(long ingId, String grams) {

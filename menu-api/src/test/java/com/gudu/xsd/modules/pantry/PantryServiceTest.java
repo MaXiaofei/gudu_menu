@@ -1,16 +1,20 @@
 package com.gudu.xsd.modules.pantry;
 
+import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.modules.nutrition.UnitConvertService;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 食材库存纯函数测试：临期判定 isExpiring / 不足判定 isLow。
- * 同 MealPlanServiceTest 范式：测试 new PantryService(null)，
- * Service 持有公开 Mapper 字段（@Autowired 主构造对齐测试的单参构造签名）。
+ * 食材库存测试：临期/不足纯函数 + 采购回写 planStockUp（换算/兜底/校验）。
+ * 同 MealPlanServiceTest 范式：测试 new PantryService(null)，纯函数不碰 Mapper；
+ * planStockUp 涉及换算时用 setUnitConvert 注入 mock UnitConvertService。
  */
 class PantryServiceTest {
 
@@ -38,5 +42,37 @@ class PantryServiceTest {
         assertThat(svc.isLow(new BigDecimal("5"), new BigDecimal("10"))).isTrue();
         assertThat(svc.isLow(new BigDecimal("10"), new BigDecimal("10"))).isFalse(); // 等于不算不足
         assertThat(svc.isLow(new BigDecimal("15"), new BigDecimal("10"))).isFalse();
+    }
+
+    // ===================== 采购回写（planStockUp 纯函数） =====================
+
+    @Test
+    void 采购回写_amount_unitId非空_换算克数入库() {
+        UnitConvertService uc = Mockito.mock(UnitConvertService.class);
+        Mockito.when(uc.toGramsFor(11L, new BigDecimal("2"), 5L)).thenReturn(new BigDecimal("1000"));
+        svc.setUnitConvert(uc);
+
+        Pantry p = svc.planStockUp(11L, new BigDecimal("2"), 5L, null);
+
+        assertThat(p.getIngredientId()).isEqualTo(11L);
+        assertThat(p.getAmount()).isEqualByComparingTo("2");
+        assertThat(p.getUnitId()).isEqualTo(5L);
+        assertThat(p.getGrams()).isEqualByComparingTo("1000");
+    }
+
+    @Test
+    void 采购回写_amount_unitId为空_用参考克数兜底() {
+        Pantry p = svc.planStockUp(11L, null, null, new BigDecimal("500"));
+
+        assertThat(p.getGrams()).isEqualByComparingTo("500");
+        assertThat(p.getAmount()).isEqualByComparingTo("500");
+        assertThat(p.getUnitId()).isNull();
+    }
+
+    @Test
+    void 采购回写_都为空_抛异常() {
+        assertThatThrownBy(() -> svc.planStockUp(11L, null, null, null))
+                .isInstanceOf(BizException.class)
+                .hasMessageContaining("无可入库");
     }
 }

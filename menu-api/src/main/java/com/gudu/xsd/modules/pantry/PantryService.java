@@ -173,6 +173,47 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         }
     }
 
+    // ===================== 采购回写（勾选入库） =====================
+
+    /**
+     * 采购回写纯函数：按食材构造入库批次 Pantry（不落库），便于单测换算/兜底逻辑。
+     *
+     * 优先用 amount + unitId 走 {@link #unitConvert} 换算克数；
+     * amount/unitId 任一为空时，退回 gramsFallback（采购项的参考克数 referenceGrams），按克入账；
+     * 两者都空 → 抛 BizException（上层据 ingredientId 判定后调，正常不会触发）。
+     */
+    public Pantry planStockUp(Long ingredientId, BigDecimal amount, Long unitId, BigDecimal gramsFallback) {
+        if (ingredientId == null) {
+            throw new BizException("食材 id 不能为空");
+        }
+        boolean hasAmountUnit = amount != null && amount.signum() > 0 && unitId != null;
+        boolean hasFallback = gramsFallback != null && gramsFallback.signum() > 0;
+        Pantry p = new Pantry();
+        p.setIngredientId(ingredientId);
+        if (hasAmountUnit) {
+            p.setAmount(amount);
+            p.setUnitId(unitId);
+            p.setGrams(unitConvert == null ? null
+                    : unitConvert.toGramsFor(ingredientId, amount, unitId));
+        } else if (hasFallback) {
+            // 兜底：直接用参考克数（采购项 referenceGrams），amount/grams 同值，unitId 留空（克）
+            p.setAmount(gramsFallback);
+            p.setGrams(gramsFallback);
+        } else {
+            throw new BizException("无可入库的数量（amount+unitId 或参考克数至少填一项）");
+        }
+        return p;
+    }
+
+    /**
+     * 采购回写：按食材入库新批次。采购清单勾选 0→1 时由 {@code ShoppingService.togglePurchased} 调。
+     * 只新增不反向扣减（1→0 不回退，库存已消耗）。
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void stockUpByIngredient(Long ingredientId, BigDecimal amount, Long unitId, BigDecimal gramsFallback) {
+        save(planStockUp(ingredientId, amount, unitId, gramsFallback));
+    }
+
     // ===================== 扣减 =====================
 
     /** 手动扣减库存：从指定 pantry 项扣除 amount，不低于 0。返回扣减后余量。 */

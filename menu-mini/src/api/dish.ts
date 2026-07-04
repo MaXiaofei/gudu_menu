@@ -15,9 +15,7 @@ export const dishDetail = (id: number) =>
 export const dishNutrition = (id: number, serving = 1) =>
   request<Record<string, any>>({ url: `/dish/${id}/nutrition?serving=${serving}`, method: 'GET' })
 
-// 标记做过：memberId 必填（MVP cookbook 接口要求）
-export const markDone = (dishId: number, memberId: number, note?: string) =>
-  request({ url: `/cookbook/done/${dishId}?memberId=${memberId}&note=${encodeURIComponent(note || '')}`, method: 'POST' })
+// markDone 已废弃：cookDishNow 承担"做菜即标记"，做过列表走 Dish search done。
 
 // 录入新菜：后端 POST /dish @RequestBody DishSaveDTO { dish, steps, cuisineIds, tagIds, categoryIds, ingredients }
 // V1 第一批：仅 dish + steps（关联/食材 YAGNI 留第二批）

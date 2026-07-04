@@ -2,20 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/image_helper.dart';
 import '../../core/theme.dart';
 import '../../models/dish.dart';
 import '../../models/nutrition_metric.dart';
 import '../../services/dish_service.dart';
-import '../../stores/member_store.dart';
 import '../../widgets/image_viewer.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/nutrition_grid.dart';
 
 /// 菜品详情（复刻 menu-mini/src/pages/dish/Detail.vue）。
-/// 封面 + 营养区 + 做法步骤（**步骤计时器**）+ 标记做过/去点评。
+/// 封面 + 营养区 + 做法步骤（**步骤计时器**）+ 直接做这道菜/去点评。
 ///
 /// 图片策略：
 /// - 列表/详情默认加载缩略图（/thumbnail/xxx.jpg），节省流量 + 加载快。
@@ -91,22 +89,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _markDone() async {
-    final memberId = context.read<MemberStore>().currentId;
-    if (memberId == 0) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请先选择就餐成员')));
-      return;
-    }
-    try {
-      await DishService.markDone(widget.id, memberId);
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('已记录')));
-      }
-    } catch (_) {}
   }
 
   /// 单菜直做：POST /dish/{id}/cook-now?servings=N。
@@ -285,13 +267,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2, color: Colors.white))
                                   : const Text('直接做这道菜'),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.warnOrange),
-                              onPressed: _markDone,
-                              child: const Text('标记做过'),
                             ),
                             const SizedBox(height: 12),
                             OutlinedButton(

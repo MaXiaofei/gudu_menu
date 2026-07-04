@@ -33,18 +33,8 @@ public class CookbookController {
         return R.ok(svc.listFavorites(memberId));
     }
 
-    @PostMapping("/done/{dishId}")
-    public R<?> markDone(@PathVariable Long dishId,
-                         @RequestParam Long memberId,
-                         @RequestParam(required = false) String note) {
-        svc.markDone(memberId, dishId, note);
-        return R.ok(null);
-    }
-
-    @GetMapping("/done")
-    public R<List<Dish>> done(@RequestParam Long memberId) {
-        return R.ok(svc.listDone(memberId));
-    }
+    // markDone(POST /done/{dishId}) + done(GET /done) 已废弃：cookDishNow 承担"做菜即标记"，
+    // 「做过」列表走 DishService.search({done:true})（EXISTS cooking_record）。
 
     /**
      * 反向找菜：勾选「我有的食材」→ 推荐能做的菜（全匹配优先，部分匹配标注缺啥）。

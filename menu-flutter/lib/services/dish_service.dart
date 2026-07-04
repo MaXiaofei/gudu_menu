@@ -39,13 +39,7 @@ class DishService {
         MapEntry(k.toString(), v == null ? 0 : (v as num)));
   }
 
-  /// 标记做过：POST /cookbook/done/{dishId}?memberId=。
-  static Future<void> markDone(int dishId, int memberId) async {
-    await ApiClient.instance.post(
-      '/cookbook/done/$dishId',
-      query: {'memberId': memberId},
-    );
-  }
+  // markDone 已废弃：cookDishNow（cookNow）承担"做菜即标记"，做过列表走 Dish search done。
 
   /// 营养指标字典：GET /nutrition/metric。
   static Future<List<NutritionMetric>> metrics() async {

@@ -116,7 +116,6 @@
       <button class="cook-now-btn" :disabled="cooking" @click="onCookNow">
         {{ cooking ? '做菜中…' : '直接做这道菜' }}
       </button>
-      <button class="yh-btn-ghost half" @click="onMarkDone">标记做过</button>
       <button class="yh-btn-gradient half" @click="goReview">去点评</button>
     </view>
   </view>
@@ -125,7 +124,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { dishDetail, dishNutrition, markDone, nutritionMetrics, cookDishNow } from '@/api/dish'
+import { dishDetail, dishNutrition, nutritionMetrics, cookDishNow } from '@/api/dish'
 import { useMemberStore } from '@/store/member'
 
 const m = useMemberStore()
@@ -204,17 +203,6 @@ function imgUrl(u: string): string {
   // 后端返回相对根的路径（如 /gudu/uploads/xxx），H5 经 vite proxy 透传到后端；真机直连已含 host
   return u.startsWith('http') || u.startsWith('/gudu') ? u : '/gudu' + u
 }
-async function onMarkDone() {
-  if (!m.currentId) {
-    uni.showToast({ title: '请先选择就餐成员', icon: 'none' })
-    return
-  }
-  try {
-    await markDone(dishId.value, m.currentId)
-    uni.showToast({ title: '已记录', icon: 'success' })
-  } catch {}
-}
-
 /** 单菜直做：POST /dish/{id}/cook-now。扣 pantry + 写 cooking_record；库存不够提示缺哪些。 */
 async function onCookNow() {
   if (cooking.value) return

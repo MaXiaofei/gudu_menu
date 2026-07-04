@@ -101,17 +101,6 @@ void main() {
     });
   });
 
-  group('DishService.markDone', () {
-    test('POST /cookbook/done/{dishId}?memberId=', () async {
-      final captor = installMock((_) => okResponse(null));
-
-      await DishService.markDone(11, 22);
-
-      expect(captor.last!.path, '/cookbook/done/11');
-      expect(captor.last!.queryParameters['memberId'], 22);
-    });
-  });
-
   group('DishService.metrics', () {
     test('GET /nutrition/metric → List<NutritionMetric>', () async {
       final captor = installMock((_) => okResponse([

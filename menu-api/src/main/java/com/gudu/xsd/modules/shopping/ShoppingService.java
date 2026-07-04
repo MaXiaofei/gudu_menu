@@ -19,6 +19,7 @@ import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.pantry.Pantry;
+import com.gudu.xsd.modules.pantry.PantryService;
 import com.gudu.xsd.modules.pantry.mapper.PantryMapper;
 import com.gudu.xsd.modules.notification.NotificationPayload;
 import com.gudu.xsd.modules.notification.NotificationService;
@@ -74,6 +75,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     private final ShoppingAggregator aggregator;
     private final NotificationService notificationService;
     private final PantryMapper pantryMapper;
+    private final PantryService pantryService;
 
     private final StockClassifier stockClassifier = new StockClassifier();
 
@@ -87,7 +89,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                            MenuDishMapper menuDishMapper,
                            ShoppingAggregator aggregator,
                            NotificationService notificationService,
-                           PantryMapper pantryMapper) {
+                           PantryMapper pantryMapper,
+                           PantryService pantryService) {
         this.itemMapper = itemMapper;
         this.mealPlanItemMapper = mealPlanItemMapper;
         this.mealPlanMapper = mealPlanMapper;
@@ -98,6 +101,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         this.aggregator = aggregator;
         this.notificationService = notificationService;
         this.pantryMapper = pantryMapper;
+        this.pantryService = pantryService;
     }
 
     // ===================== 生成（三数据源） =====================
@@ -345,13 +349,29 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         return item.getId();
     }
 
-    /** 勾选/取消勾选某明细已买。 */
+    /**
+     * 勾选/取消勾选某明细已买。
+     *
+     * <p>采购回写：仅 0→1（勾选已买）时按食材入库 pantry（优先 purchaseAmount+purchaseUnitId 换算，
+     * 兜底 referenceGrams）；1→0（取消）不反向扣减（库存可能已消耗，避免误扣）。
+     * ingredientId 为空（手动加项）或无可入库数量时静默跳过，仅标 purchased。
+     */
+    @Transactional
     public void togglePurchased(Long itemId) {
         ShoppingItem it = itemMapper.selectById(itemId);
         if (it == null) return;
         int cur = it.getPurchased() == null ? 0 : it.getPurchased();
-        it.setPurchased(cur == 1 ? 0 : 1);
+        int next = cur == 1 ? 0 : 1;
+        it.setPurchased(next);
         itemMapper.updateById(it);
+        if (cur == 0 && it.getIngredientId() != null) {
+            try {
+                pantryService.stockUpByIngredient(it.getIngredientId(),
+                        it.getPurchaseAmount(), it.getPurchaseUnitId(), it.getReferenceGrams());
+            } catch (BizException e) {
+                // 无可入库数量（amount/unitId/grams 都空）→ 静默跳过（仅标 purchased）
+            }
+        }
     }
 
     /** 删除某明细。 */

@@ -15,12 +15,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 反向找菜纯逻辑测试：rankDishes 按「全匹配优先、部分匹配次之、缺得越多越靠后」排序。
- * 同 PantryServiceTest 范式：测试 new CookbookService(null,null,null,null)，纯函数不碰 Mapper。
+ * 同 PantryServiceTest 范式：测试 new CookbookService(null,null,null)，纯函数不碰 Mapper。
  */
 class CookbookServiceTest {
 
-    // 4 个依赖：favorite / cookingRecord / dish / dishIngredient。纯函数 rankDishes 不碰它们。
-    private final CookbookService svc = new CookbookService(null, null, null, null);
+    // 3 个依赖：favorite / dish / dishIngredient。纯函数 rankDishes 不碰它们。
+    private final CookbookService svc = new CookbookService(null, null, null);
 
     private DishIngredient di(Long dishId, Long ingId) {
         DishIngredient d = new DishIngredient();
