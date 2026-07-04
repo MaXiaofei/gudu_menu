@@ -145,6 +145,8 @@
 
     <!-- 悬浮 + 按钮 -->
     <view class="fab" @click="onCreate">+</view>
+    <view style="height: 180rpx;"></view>
+    <CustomTabBar />
   </view>
 </template>
 
@@ -153,6 +155,7 @@ import { ref, reactive, computed } from 'vue'
 import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
 import { searchDishes, searchDishesByNutrition } from '@/api/dish'
 import { request } from '@/utils/request'
+import CustomTabBar from '@/components/CustomTabBar.vue'
 
 const dishes = ref<any[]>([])
 const keyword = ref('')

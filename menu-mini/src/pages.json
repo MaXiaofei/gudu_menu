@@ -122,22 +122,15 @@
 	},
 	"tabBar": {
 		"color": "#9C8C7A",
-		"selectedColor": "#E89150",
+		"selectedColor": "#D17A3C",
 		"backgroundColor": "#FFFFFF",
 		"borderStyle": "white",
 		"list": [
-			{
-				"pagePath": "pages/index/Index",
-				"text": "首页"
-			},
-			{
-				"pagePath": "pages/dish/List",
-				"text": "菜库"
-			},
-			{
-				"pagePath": "pages/misc/Home",
-				"text": "更多"
-			}
+			{ "pagePath": "pages/dish/List", "text": "菜谱" },
+			{ "pagePath": "pages/menu/Home", "text": "食集" },
+			{ "pagePath": "pages/index/Index", "text": "智荐" },
+			{ "pagePath": "pages/pantry/List", "text": "我家余量" },
+			{ "pagePath": "pages/profile/Settings", "text": "我的" }
 		]
 	}
 }

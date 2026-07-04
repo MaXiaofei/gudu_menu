@@ -21,6 +21,8 @@
         </view>
       </view>
     </view>
+    <view style="height: 180rpx;"></view>
+    <CustomTabBar />
   </view>
 </template>
 
@@ -28,6 +30,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listPantry, listExpiring, listLow, type PantryVO } from '@/api/pantry'
+import CustomTabBar from '@/components/CustomTabBar.vue'
 
 const tab = ref<'all' | 'expiring' | 'low'>('all')
 const list = ref<PantryVO[]>([])

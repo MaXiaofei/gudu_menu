@@ -45,6 +45,8 @@
 
     <!-- 新建食集按钮（仍跳排菜日历，待新建页落地） -->
     <button class="yh-btn-gradient new-btn" @click="onNewMenu">+ 新建食集</button>
+    <view style="height: 180rpx;"></view>
+    <CustomTabBar />
   </view>
 </template>
 
@@ -52,6 +54,7 @@
 import { ref } from 'vue'
 import { onShow, onReachBottom } from '@dcloudio/uni-app'
 import { listMenus, type Menu } from '@/api/menu'
+import CustomTabBar from '@/components/CustomTabBar.vue'
 
 const menus = ref<Menu[]>([])
 const loading = ref(false)

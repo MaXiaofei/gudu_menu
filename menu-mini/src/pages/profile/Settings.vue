@@ -32,6 +32,8 @@
     </view>
 
     <button class="btn-primary logout" @click="onLogout">退出登录</button>
+    <view style="height: 180rpx;"></view>
+    <CustomTabBar />
   </view>
 </template>
 
@@ -40,6 +42,7 @@ import { computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/store/member'
 import { useAuthStore } from '@/store/auth'
+import CustomTabBar from '@/components/CustomTabBar.vue'
 
 const m = useMemberStore()
 const auth = useAuthStore()

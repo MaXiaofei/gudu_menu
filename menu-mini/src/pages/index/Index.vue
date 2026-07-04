@@ -1,61 +1,84 @@
 <template>
   <view class="page">
-    <!-- 问候区（对齐 Flutter GreetingHeader） -->
-    <view class="greeting">
-      <view class="g-row">
-        <text class="g-hi">{{ greeting }}，{{ memberName }}</text>
-        <view class="g-switch" @click="onSwitchMember">
-          <text class="g-chip">{{ currentMemberName }} ▾</text>
+    <!-- 顶：日期 + 今天吃点什么？ + 头像 -->
+    <view class="hero">
+      <view class="hero-info">
+        <text class="hero-date">{{ dateStr }}</text>
+        <text class="hero-title">今天吃点什么？</text>
+      </view>
+      <view class="avatar" @click="onSwitchMember">
+        <text class="avatar-emoji">🧑</text>
+      </view>
+    </view>
+
+    <!-- 主推荐：临期驱动渐变卡 -->
+    <view class="rec-main" v-if="mainRec">
+      <text class="rec-flag">⏰ 临期提醒 · 优先用掉</text>
+      <text class="rec-expire">{{ mainRec.expireHint }}</text>
+      <view class="rec-dish" @click="goDetail(mainRec)">
+        <view class="rec-emoji-wrap"><text class="rec-emoji">{{ mainRec.emoji }}</text></view>
+        <view class="rec-dish-info">
+          <text class="rec-dish-name">{{ mainRec.name }}</text>
+          <text class="rec-dish-meta">{{ mainRec.meta }}</text>
         </view>
       </view>
-      <text class="g-quote">{{ todayQuote }}</text>
+      <view class="rec-btns">
+        <view class="rec-btn rec-btn-pri" @click="cookNow(mainRec)">✨ 今天做</view>
+        <view class="rec-btn rec-btn-ghost" @click="addMenu(mainRec)">🍱 加食集</view>
+      </view>
     </view>
 
-    <!-- 今日推荐渐变卡（对齐 Flutter AppCard + primaryVertical） -->
-    <view class="rec-card" @click="onRecommend">
-      <view class="rec-top" :style="{ background: 'linear-gradient(180deg, #E89150, #D17A3C)' }">
-        <view class="rec-head">
-          <text class="rec-flame">🔥</text>
-          <text class="rec-label">今日推荐</text>
+    <!-- 副推荐横滑 -->
+    <scroll-view scroll-x class="sub-scroll" :show-scrollbar="false" v-if="subRecs.length">
+      <view class="sub-row">
+        <view class="sub-card" v-for="(r, i) in subRecs" :key="i" @click="goDetail(r)">
+          <text class="sub-tag" :class="r.tagClass">{{ r.tag }}</text>
+          <view class="sub-dish">
+            <text class="sub-emoji">{{ r.emoji }}</text>
+            <text class="sub-name">{{ r.name }}</text>
+          </view>
+          <text class="sub-meta">{{ r.meta }}</text>
         </view>
-        <text class="rec-title">今天给全家做点啥？</text>
-        <text class="rec-sub">{{ recommending ? 'AI 想菜中…' : '打开 AI 帮你换换灵感 →' }}</text>
+      </view>
+    </scroll-view>
+
+    <!-- 找菜四宫格 -->
+    <view class="sec-label">找菜</view>
+    <view class="find-grid">
+      <view class="find-cell" @click="goSearch">
+        <view class="find-ico">🔍</view>
+        <text class="find-name">搜菜名</text>
+      </view>
+      <view class="find-cell" @click="go('/pages/cookbook/FindByIngredients')">
+        <view class="find-ico">🥕</view>
+        <text class="find-name">按食材找</text>
+      </view>
+      <view class="find-cell" @click="go('/pages/dish/List')">
+        <view class="find-ico">📖</view>
+        <text class="find-name">逛菜谱库</text>
+      </view>
+      <view class="find-cell" @click="go('/pages/ai/Recommend')">
+        <view class="find-ico">✨</view>
+        <text class="find-name">AI 帮我</text>
       </view>
     </view>
 
-    <!-- 功能宫格（对齐 Flutter 2×3） -->
-    <view class="block-title">
-      <view class="tbar"></view>
-      <text>常用功能</text>
-    </view>
-    <view class="grid">
-      <view class="grid-cell" @click="go('/pages/dish/List')">
-        <view class="cell-ico" style="background: rgba(255,159,90,0.15); color:#E89150;">📖</view>
-        <text class="cell-name">菜库</text>
+    <!-- 最近做过 -->
+    <block v-if="recent.length">
+      <view class="sec-label">最近做过</view>
+      <view class="recent-row">
+        <view class="recent-card" v-for="(r, i) in recent" :key="i" @click="goDetail(r)">
+          <text class="recent-emoji">{{ r.emoji }}</text>
+          <view class="recent-info">
+            <text class="recent-name">{{ r.name }}</text>
+            <text class="recent-time">{{ r.time }}</text>
+          </view>
+        </view>
       </view>
-      <view class="grid-cell" @click="go('/pages/pantry/List')">
-        <view class="cell-ico" style="background: rgba(111,191,142,0.15); color:#6FBF8E;">🧊</view>
-        <text class="cell-name">食材库存</text>
-      </view>
-      <view class="grid-cell" @click="go('/pages/mealplan/Calendar')">
-        <view class="cell-ico" style="background: rgba(107,168,232,0.15); color:#6BA8E8;">📅</view>
-        <text class="cell-name">周计划</text>
-      </view>
-      <view class="grid-cell" @click="go('/pages/shopping/List')">
-        <view class="cell-ico" style="background: rgba(232,163,61,0.15); color:#E5A938;">🛒</view>
-        <text class="cell-name">采购清单</text>
-      </view>
-      <view class="grid-cell" @click="go('/pages/dailylog/Index')">
-        <view class="cell-ico" style="background: rgba(176,123,216,0.15); color:#B07BD8;">📝</view>
-        <text class="cell-name">饮食记录</text>
-      </view>
-      <view class="grid-cell" @click="go('/pages/ai/Recommend')">
-        <view class="cell-ico" style="background: rgba(224,123,123,0.15); color:#E07B7B;">✨</view>
-        <text class="cell-name">AI 帮我</text>
-      </view>
-    </view>
+    </block>
 
-    <view style="height: 80rpx;"></view>
+    <view style="height: 200rpx;"></view>
+    <CustomTabBar />
   </view>
 </template>
 
@@ -63,57 +86,86 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/store/member'
-import { listMembers, getCurrentMember, setCurrentMember } from '@/api/member'
+import { listMembers, setCurrentMember } from '@/api/member'
 import { aiRecommendMenu } from '@/api/ai'
+import CustomTabBar from '@/components/CustomTabBar.vue'
 
 const m = useMemberStore()
-const memberName = computed(() => {
-  const cur = m.members.find((x: any) => x.id === m.currentId)
-  return cur?.name || '掌勺人'
+const mainRec = ref<any>(null)
+const subRecs = ref<any[]>([])
+const recent = ref<any[]>([])
+
+const dateStr = computed(() => {
+  const d = new Date()
+  const week = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+  const meal = d.getHours() < 15 ? '午餐' : '晚餐'
+  return `${d.getMonth() + 1}/${d.getDate()} 周${week} · ${meal}`
 })
 
-// 右上角成员切换 chip：明确反映「当前为谁」/「未选」
-const currentMemberName = computed(() => {
-  const cur = m.members.find((x: any) => x.id === m.currentId)
-  return cur?.name || '选就餐人'
-})
+// 食物 emoji 兜底（菜名无 emoji 字段时按关键字推一个，对齐原型 emoji 风格）
+function pickEmoji(name: string, idx = 0): string {
+  if (!name) return ['🍅', '🐟', '🥬', '🍖', '🍲'][idx % 5]
+  if (/蛋/.test(name)) return '🍳'
+  if (/鸡|鸭|鹅/.test(name)) return '🍗'
+  if (/鱼|虾|蟹|贝|鲈|带鱼|三文鱼/.test(name)) return '🐟'
+  if (/牛|羊|猪|肉|排骨|里脊/.test(name)) return '🍖'
+  if (/汤|煲|炖/.test(name)) return '🍲'
+  if (/面|粉|米线/.test(name)) return '🍜'
+  if (/沙拉|凉拌|菜|蔬|菠|芹|生|瓜|青菜/.test(name)) return '🥬'
+  if (/豆腐|豆干|豆/.test(name)) return '🥘'
+  return ['🍅', '🐟', '🥬', '🍖', '🍲'][(name.length + idx) % 5]
+}
 
-const greeting = computed(() => {
-  const h = new Date().getHours()
-  if (h < 6) return '夜深了'
-  if (h < 11) return '早安'
-  if (h < 14) return '午安'
-  if (h < 18) return '下午好'
-  return '晚上好'
-})
-
-// Flutter 版金句（完全对齐 home_page.dart _quotes）
-const quotes = [
-  '三餐四季，不过一锅咕嘟慢炖',
-  '是谁来自山川湖海，却囿于昼夜、厨房与爱',
-  '炖一锅咕嘟慢炖，饮几杯人生起落',
-  '四方食事，不过一碗咕嘟',
-  '人生忽如寄，莫辜负茶、汤和好天气',
-  '把日子炖成一锅汤，小火慢熬才有味道',
-  '总有一顿饭，让你想起家的方向',
-  '味道是时间的信使，一口回到从前',
-  '酸甜苦辣过后，碗里剩的都是温柔',
-  '风吹炉火，人间值得',
-  '每一缕油烟升起的地方，都藏着深情',
-  '此心安处，便是家宴',
-  '让食材在锅里讲一个温暖的故事',
-  '日落归山海，饭菜归家常',
+const SUB_TAGS = [
+  { tag: '🍂 季节鲜', tagClass: 'tag-green' },
+  { tag: '🔁 你常做', tagClass: 'tag-yellow' },
+  { tag: '💡 好评高', tagClass: 'tag-orange' },
 ]
-// Flutter：按天取一条（不轮播全部）
-const todayQuote = computed(() => {
-  const day = Math.floor((Date.now() - new Date(2026, 0, 1).getTime()) / 86400000)
-  return quotes[((day % quotes.length) + quotes.length) % quotes.length]
-})
 
-const recommending = ref(false)
+function toRec(d: any, idx = 0) {
+  return {
+    dishId: d.dishId || d.id,
+    name: d.name,
+    emoji: pickEmoji(d.name, idx),
+    meta: idx === 0
+      ? '家里够 · 简单快手'
+      : (d.servingFactor && d.servingFactor !== 1 ? `×${d.servingFactor} 份` : '推荐试试'),
+    expireHint: idx === 0 ? '你家「鸡蛋」还剩 3 天' : '',
+    tag: SUB_TAGS[(idx - 1 + SUB_TAGS.length) % SUB_TAGS.length].tag,
+    tagClass: SUB_TAGS[(idx - 1 + SUB_TAGS.length) % SUB_TAGS.length].tagClass,
+    time: '昨天',
+  }
+}
+
+async function loadHome() {
+  // 主推 + 副推：AI 推荐方案（当前 mock，待接 GLM）；空则不显主推卡（降级）
+  try {
+    const groups = await aiRecommendMenu({ scope: 'DAY' })
+    const dishes = groups && groups[0] ? (groups[0].dishes || []) : []
+    if (dishes.length) {
+      mainRec.value = toRec(dishes[0], 0)
+      subRecs.value = dishes.slice(1, 4).map((d: any, i: number) => toRec(d, i + 1))
+    }
+  } catch {}
+  // 最近做过：待接 cooking_record 列表（暂留空，有数据再展示）
+}
 
 function go(url: string) {
   uni.navigateTo({ url, fail: () => uni.switchTab({ url }) })
+}
+function goSearch() {
+  uni.switchTab({ url: '/pages/dish/List' })
+}
+function goDetail(r: any) {
+  if (r.dishId) uni.navigateTo({ url: `/pages/dish/Detail?id=${r.dishId}` })
+}
+function cookNow(r: any) {
+  // 单菜直做：进菜谱详情（含"直接做"按钮，走 Plan A cook-now 扣库存）
+  if (r.dishId) uni.navigateTo({ url: `/pages/dish/Detail?id=${r.dishId}` })
+}
+function addMenu(_r: any) {
+  // 加食集：跳食集页选目标食集
+  uni.switchTab({ url: '/pages/menu/Home', fail: () => uni.navigateTo({ url: '/pages/menu/Home' }) })
 }
 
 async function onSwitchMember() {
@@ -134,157 +186,147 @@ async function onSwitchMember() {
   } catch {}
 }
 
-async function onRecommend() {
-  if (recommending.value) return
-  recommending.value = true
-  try {
-    const groups = await aiRecommendMenu({ scope: 'DAY' })
-    if (groups && groups.length) {
-      const first = groups[0]
-      const names = (first.dishes || []).map((d: any) => d.name).join('、')
-      uni.showModal({
-        title: '今晚吃这些？',
-        content: names || '暂无推荐',
-        confirmText: '看看菜谱',
-        cancelText: '换一个',
-        success: (r) => {
-          if (r.confirm && first.dishes && first.dishes[0]) {
-            uni.navigateTo({ url: `/pages/dish/Detail?id=${first.dishes[0].dishId}` })
-          }
-        },
-      })
-    } else {
-      uni.showToast({ title: '暂无推荐', icon: 'none' })
-    }
-  } catch (e: any) {
-    uni.showToast({ title: e?.message || '推荐失败', icon: 'none' })
-  } finally {
-    recommending.value = false
-  }
-}
-
-onShow(() => { m.load() })
+onShow(() => {
+  m.load()
+  loadHome()
+})
 </script>
 
 <style scoped>
 .page {
   background: #FDFAF4;
   min-height: 100vh;
-  padding: 0 36rpx calc(env(safe-area-inset-bottom) + 40rpx);
+  padding: 0 28rpx 40rpx;
 }
 
-/* 问候区（对齐 Flutter GreetingHeader） */
-.greeting {
-  padding: calc(env(safe-area-inset-top) + 48rpx) 0 0;
-}
-.g-row {
+/* hero */
+.hero {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + 36rpx) 8rpx 0;
 }
-.g-hi {
-  font-size: 48rpx;
-  font-weight: bold;
-  color: #4A382A;
+.hero-info { display: flex; flex-direction: column; gap: 4rpx; }
+.hero-date { font-size: 22rpx; color: #9C8C7A; }
+.hero-title { font-size: 42rpx; font-weight: 800; color: #4A382A; }
+.avatar {
+  width: 72rpx; height: 72rpx; border-radius: 50%;
+  background: #F6D9BE;
+  display: flex; align-items: center; justify-content: center;
 }
-.g-switch {
-  background: rgba(232, 145, 80, 0.12);
+.avatar-emoji { font-size: 36rpx; }
+
+/* 主推渐变卡 */
+.rec-main {
+  margin-top: 28rpx;
+  background: linear-gradient(135deg, #E89150, #D17A3C);
   border-radius: 32rpx;
-  padding: 8rpx 24rpx;
+  padding: 32rpx;
+  box-shadow: 0 14rpx 36rpx rgba(169, 101, 30, 0.18);
+  color: #fff;
 }
-.g-chip {
-  font-size: 26rpx;
-  color: #E89150;
-  font-weight: 500;
-}
-.g-quote {
-  display: block;
+.rec-flag { font-size: 20rpx; opacity: 0.9; letter-spacing: 1px; display: block; }
+.rec-expire {
+  display: inline-block;
   margin-top: 16rpx;
-  font-size: 26rpx;
+  font-size: 22rpx;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+}
+.rec-dish {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 20rpx;
+}
+.rec-emoji-wrap {
+  width: 92rpx; height: 92rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.25);
+  display: flex; align-items: center; justify-content: center;
+}
+.rec-emoji { font-size: 48rpx; }
+.rec-dish-info { flex: 1; display: flex; flex-direction: column; gap: 4rpx; }
+.rec-dish-name { font-size: 32rpx; font-weight: 800; }
+.rec-dish-meta { font-size: 20rpx; opacity: 0.9; }
+.rec-btns { display: flex; gap: 12rpx; margin-top: 22rpx; }
+.rec-btn {
+  flex: 1; text-align: center;
+  font-size: 24rpx; font-weight: 800;
+  padding: 16rpx 0; border-radius: 18rpx;
+}
+.rec-btn-pri { background: #fff; color: #D17A3C; }
+.rec-btn-ghost { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* 副推横滑 */
+.sub-scroll { margin-top: 24rpx; white-space: nowrap; }
+.sub-row { display: inline-flex; gap: 16rpx; padding: 4rpx; }
+.sub-card {
+  display: inline-block;
+  width: 260rpx;
+  background: #fff;
+  border: 1px solid #F0E6D6;
+  border-radius: 24rpx;
+  padding: 20rpx;
+  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.04);
+  vertical-align: top;
+}
+.sub-tag { display: block; font-size: 18rpx; font-weight: 800; }
+.tag-green { color: #4FAE6E; }
+.tag-yellow { color: #E5A938; }
+.tag-orange { color: #E89150; }
+.sub-dish { display: flex; align-items: center; gap: 14rpx; margin-top: 12rpx; }
+.sub-emoji { font-size: 36rpx; }
+.sub-name { font-size: 26rpx; font-weight: 800; color: #4A382A; }
+.sub-meta { display: block; font-size: 18rpx; color: #9C8C7A; margin-top: 8rpx; }
+
+/* section 标签 */
+.sec-label {
+  font-size: 20rpx;
+  font-weight: 800;
   color: #9C8C7A;
-  line-height: 1.6;
+  letter-spacing: 1px;
+  margin: 32rpx 8rpx 14rpx;
 }
 
-/* 今日推荐卡（对齐 Flutter primaryVertical 渐变） */
-.rec-card {
-  margin-top: 40rpx;
-  border-radius: 36rpx;
-  overflow: hidden;
-  box-shadow: 0 8rpx 24rpx rgba(232, 145, 80, 0.25);
-}
-.rec-top {
-  padding: 44rpx 40rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
-}
-.rec-head {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-}
-.rec-flame { font-size: 28rpx; }
-.rec-label {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.9);
-}
-.rec-title {
-  font-size: 40rpx;
-  font-weight: bold;
-  color: #FFFFFF;
-}
-.rec-sub {
-  font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-/* 宫格标题 */
-.block-title {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin: 48rpx 0 24rpx;
-}
-.tbar {
-  width: 8rpx;
-  height: 36rpx;
-  background: #E89150;
-  border-radius: 4rpx;
-}
-.block-title text {
-  font-size: 34rpx;
-  font-weight: bold;
-  color: #4A382A;
-}
-
-/* 宫格 */
-.grid {
+/* 找菜四宫格 */
+.find-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 24rpx;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
 }
-.grid-cell {
-  background: #FFFFFF;
-  border-radius: 28rpx;
-  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.05);
-  padding: 32rpx 0;
+.find-cell {
+  background: #fff;
+  border: 1px solid #F0E6D6;
+  border-radius: 24rpx;
+  padding: 22rpx;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 18rpx;
+}
+.find-ico {
+  width: 60rpx; height: 60rpx;
+  border-radius: 16rpx;
+  background: #FBF0DD;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30rpx;
+}
+.find-name { font-size: 26rpx; font-weight: 700; color: #4A382A; }
+
+/* 最近做过 */
+.recent-row { display: flex; gap: 14rpx; }
+.recent-card {
+  flex: 1;
+  background: #FBF0DD;
+  border-radius: 20rpx;
+  padding: 16rpx;
+  display: flex;
   align-items: center;
   gap: 14rpx;
 }
-.cell-ico {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 28rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 44rpx;
-}
-.cell-name {
-  font-size: 26rpx;
-  color: #4A382A;
-  font-weight: 500;
-}
+.recent-emoji { font-size: 32rpx; }
+.recent-info { display: flex; flex-direction: column; gap: 2rpx; }
+.recent-name { font-size: 22rpx; color: #6E5C49; font-weight: 700; }
+.recent-time { font-size: 18rpx; color: #9C8C7A; }
 </style>
