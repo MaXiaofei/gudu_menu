@@ -131,11 +131,37 @@
           <view v-else class="prep-loading">加载备菜失败</view>
         </template>
 
-        <!-- Tab 2：采购（占位） -->
-        <view v-else-if="tabIndex === 2" class="placeholder">
-          <text class="placeholder-title">采购清单</text>
-          <text class="placeholder-desc">前往首页「采购清单」入口管理</text>
-        </view>
+        <!-- Tab 2：采购（Plan E） -->
+        <template v-else-if="tabIndex === 2">
+          <view v-if="shopLoading" class="prep-loading">加载采购中…</view>
+          <view v-else-if="!shopVO" class="shop-empty">
+            <text class="shop-empty-title">尚未生成采购清单</text>
+            <button class="shop-gen-btn" @click="generateShop">🛒 按食集生成</button>
+          </view>
+          <view v-else class="yh-card shop-card">
+            <view
+              v-for="it in shopVO.items"
+              :key="it.id"
+              :class="['shop-row', { bought: effShop(it) === 1 }]"
+              @click="toggleShop(it)"
+            >
+              <text :class="['shop-check', effShop(it) === 1 ? 'on' : 'off']">
+                {{ effShop(it) === 1 ? '✓' : '○' }}
+              </text>
+              <view class="shop-main">
+                <text class="shop-name">{{ shopItemName(it) }}</text>
+                <text v-if="shopItemAmount(it)" class="shop-amt">{{ shopItemAmount(it) }}</text>
+              </view>
+              <text
+                v-if="it.ingredientId != null && it.stockStatus"
+                :class="['shop-stock', stockClass(it.stockStatus)]"
+              >{{ stockLabel(it.stockStatus, it.shortageGrams ?? 0) }}</text>
+            </view>
+            <view v-if="shopVO.items.length === 0" class="shop-row">
+              <text class="shop-name" style="color: #9C8C7A;">本食集暂无采购项</text>
+            </view>
+          </view>
+        </template>
 
         <!-- Tab 3：一起吃（占位） -->
         <view v-else class="placeholder">
@@ -168,6 +194,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getMenuDetail, type MenuDetailVO } from '@/api/menu'
 import { cookMenu } from '@/api/dish'
 import { getMenuPrep, updatePrepStatus, type MenuPrepVO, type PrepItem, type PrepStatus } from '@/api/prep'
+import { getMenuShopping, generate as generateShopping, togglePurchased, type ShoppingListVO, type ShoppingItemVO } from '@/api/shopping'
 
 const tabs = ['菜', '备菜', '采购', '一起吃']
 const tabIndex = ref(0)
@@ -181,6 +208,11 @@ const prep = ref<MenuPrepVO | null>(null)
 const prepLoading = ref(false)
 const condimentExpanded = ref(false)
 
+// 采购（Plan E）：惰性加载，切到采购 Tab 才拉
+const shopVO = ref<ShoppingListVO | null>(null)
+const shopLoading = ref(false)
+const purchOverride = ref<Record<number, number>>({}) // 乐观：itemId → purchased(0/1)
+
 const progressPct = computed(() => {
   if (!prep.value || prep.value.totalCount === 0) return 0
   return Math.round((prep.value.readyCount / prep.value.totalCount) * 100)
@@ -189,6 +221,8 @@ const progressPct = computed(() => {
 watch(tabIndex, async (i) => {
   // 切到备菜 Tab：首次惰性加载（加载过就不重复，切回保留状态）
   if (i === 1 && !prep.value && !prepLoading.value) await loadPrep()
+  // 切到采购 Tab：首次惰性加载（Plan E）
+  if (i === 2 && !shopVO.value && !shopLoading.value) await loadShop()
 })
 
 onLoad(async (q: any) => {
@@ -269,6 +303,78 @@ async function updatePrep(it: PrepItem, next: PrepStatus) {
 function recomputeReady() {
   if (!prep.value) return
   prep.value.readyCount = prep.value.items.filter((x) => x.status === 'READY').length
+}
+
+// ===== 采购（Plan E） =====
+
+/** 实际 purchased（乐观 override 优先）。 */
+function effShop(it: ShoppingItemVO): number {
+  return purchOverride.value[it.id] ?? it.purchased ?? 0
+}
+
+function shopItemName(it: ShoppingItemVO): string {
+  return it.ingredientName || it.customName || `#${it.ingredientId}`
+}
+
+function shopItemAmount(it: ShoppingItemVO): string {
+  if (it.purchaseAmount != null) return `${fmtAmount(it.purchaseAmount)} ${it.purchaseUnitName || ''}`
+  if (it.referenceGrams != null) return `约 ${Math.round(it.referenceGrams)}g`
+  return ''
+}
+
+function fmtAmount(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(1)
+}
+
+// 三色徽章（对齐 shopping/Detail.vue：RED 没有 / YELLOW 差X / GREEN 够）
+function stockClass(s: NonNullable<ShoppingItemVO['stockStatus']>): string {
+  return { RED_NONE: 'red', YELLOW_SHORT: 'yellow', GREEN_ENOUGH: 'green' }[s]
+}
+
+function fmtGrams(g: number | null | undefined): string {
+  if (g == null) return ''
+  return Number.isInteger(g) ? `${g}g` : g.toFixed(1) + 'g'
+}
+
+function stockLabel(s: NonNullable<ShoppingItemVO['stockStatus']>, shortage: number): string {
+  switch (s) {
+    case 'RED_NONE': return shortage ? `没有 差${fmtGrams(shortage)}` : '没有'
+    case 'YELLOW_SHORT': return `差 ${fmtGrams(shortage)}`
+    case 'GREEN_ENOUGH': return '够'
+  }
+}
+
+async function loadShop() {
+  shopLoading.value = true
+  try {
+    shopVO.value = await getMenuShopping(menuId.value)
+  } catch {
+    uni.showToast({ title: '加载采购失败', icon: 'none' })
+  } finally {
+    shopLoading.value = false
+  }
+}
+
+async function generateShop() {
+  try {
+    await generateShopping({ sourceType: 'menu', sourceId: menuId.value })
+    await loadShop()
+  } catch (e: any) {
+    uni.showToast({ title: e?.msg || '生成失败', icon: 'none' })
+  }
+}
+
+/** 勾选/取消：乐观 override，失败回滚。 */
+async function toggleShop(it: ShoppingItemVO) {
+  const cur = effShop(it)
+  const next = cur === 1 ? 0 : 1
+  purchOverride.value[it.id] = next
+  try {
+    await togglePurchased(it.id)
+  } catch {
+    delete purchOverride.value[it.id]
+    uni.showToast({ title: '更新失败', icon: 'none' })
+  }
 }
 
 /** 整集做菜：POST /menu/{id}/cook。 */
@@ -533,6 +639,69 @@ function goBack() {
   font-size: 26rpx;
   color: #9C8C7A;
 }
+
+/* 采购（Plan E） */
+.shop-empty {
+  padding: 120rpx 60rpx;
+  text-align: center;
+}
+.shop-empty-title {
+  display: block;
+  font-size: 28rpx;
+  color: #9C8C7A;
+  margin-bottom: 32rpx;
+}
+.shop-gen-btn {
+  display: inline-block;
+  padding: 0 48rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 28rpx;
+  background: #E89150;
+  color: #FFFFFF;
+  border-radius: 16rpx;
+}
+.shop-gen-btn::after { border: none; }
+
+.shop-card { padding: 8rpx 32rpx; margin: 24rpx 28rpx 0; }
+.shop-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid #F0E6D6;
+}
+.shop-row:last-child { border-bottom: none; }
+.shop-row.bought .shop-name {
+  color: #9C8C7A;
+  text-decoration: line-through;
+}
+.shop-check {
+  flex-shrink: 0;
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 40rpx;
+  text-align: center;
+  border-radius: 50%;
+  font-size: 26rpx;
+}
+.shop-check.on { background: rgba(79, 174, 110, 0.12); color: #4FAE6E; }
+.shop-check.off { border: 2rpx solid #E0D5C0; color: #C4B5A2; }
+.shop-main { flex: 1; overflow: hidden; }
+.shop-name { font-size: 28rpx; color: #4A382A; font-weight: 500; }
+.shop-amt { display: block; margin-top: 4rpx; font-size: 22rpx; color: #9C8C7A; }
+/* 三色徽章配色对齐 shopping/Detail.vue（实底白字） */
+.shop-stock {
+  flex-shrink: 0;
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+.shop-stock.red { background: #DB5A4E; }
+.shop-stock.yellow { background: #E5A938; }
+.shop-stock.green { background: #4FAE6E; }
 
 .prep-loading, .loading {
   flex: 1;

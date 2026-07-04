@@ -234,6 +234,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     private ShoppingList newList(String sourceType, Long sourceId) {
         ShoppingList list = new ShoppingList();
         list.setSourcePlanId("plan".equals(sourceType) ? sourceId : null);
+        list.setSourceMenuId("menu".equals(sourceType) ? sourceId : null);  // Plan E: 食集溯源
         list.setTimeRange(sourceType);
         // menu/dish 来源没有固定周区间，用当天；plan 来源取该计划的周区间
         if ("plan".equals(sourceType) && sourceId != null) {
@@ -289,6 +290,19 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         vo.setGrouped(grouped);
         vo.setCategoryNames(catNames);
         return vo;
+    }
+
+    /**
+     * 按食集查最新采购清单（含 items + 三色 + 分区）。Plan E。
+     * 未生成（source_menu_id 无命中）返回 null，前端据此显「生成采购清单」按钮。
+     */
+    public ShoppingListVO getByMenu(Long menuId) {
+        if (menuId == null) return null;
+        List<ShoppingList> rows = list(new QueryWrapper<ShoppingList>()
+                .eq("source_menu_id", menuId)
+                .orderByDesc("created_at").last("LIMIT 1"));
+        if (rows.isEmpty()) return null;
+        return getDetail(rows.get(0).getId());
     }
 
     /** 分页查采购清单（后台管理，不含 items，按创建时间倒序）。 */

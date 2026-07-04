@@ -70,6 +70,10 @@ export const createShopping = () =>
 export const getDetail = (listId: number) =>
   request<ShoppingListVO>({ url: `/shopping/${listId}`, method: 'GET' })
 
+// 按食集查采购清单（含 items + 三色）；未生成返回 null（前端据此显"生成"按钮）。Plan E。
+export const getMenuShopping = (menuId: number) =>
+  request<ShoppingListVO | null>({ url: `/shopping/by-menu/${menuId}`, method: 'GET' })
+
 // 采购清单分页列表（小程序拉全量）
 export const listShopping = () =>
   request<{ records: ShoppingList[]; total: number }>({

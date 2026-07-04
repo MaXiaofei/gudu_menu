@@ -5,11 +5,12 @@ import '../../models/menu.dart';
 import '../../models/prep.dart';
 import '../../services/menu_service.dart';
 import '../../services/prep_service.dart';
+import '../../services/shopping_service.dart';
 import '../../widgets/loading_empty.dart';
 
 /// 食集详情（对应 menu-mini/src/pages/menu/Detail.vue）。
 ///
-/// 四 Tab：菜（菜品列表）/ 备菜（Plan C）/ 采购（占位）/ 一起吃（占位）。
+/// 四 Tab：菜（菜品列表）/ 备菜（Plan C）/ 采购（Plan E）/ 一起吃（占位）。
 /// 用 IndexedStack 持有各 Tab state（备菜 Tab 切走再切回不丢进度/状态）。
 ///
 /// 底部「整集做菜」（Plan A）：POST /menu/{id}/cook → 聚合用量→扣 pantry →
@@ -84,8 +85,7 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
                     children: [
                       _DishesTab(detail: _detail!),
                       _PrepTab(menuId: widget.id),
-                      const _Placeholder(
-                          title: '采购清单', desc: '前往首页「采购清单」入口管理'),
+                      _ShoppingTab(menuId: widget.id),
                       const _Placeholder(title: '一起吃', desc: '协同点菜 · 即将上线'),
                     ],
                   ),
@@ -495,6 +495,227 @@ class _PrepItemRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Tab 2：采购清单（Plan E）。GET /shopping/by-menu/{menuId}（未生成→显"生成"按钮）；
+/// 勾选已购走 PUT /shopping/item/{id}/purchased（0→1 后端回写 pantry，Plan D）。
+class _ShoppingTab extends StatefulWidget {
+  final int menuId;
+  const _ShoppingTab({required this.menuId});
+  @override
+  State<_ShoppingTab> createState() => _ShoppingTabState();
+}
+
+class _ShoppingTabState extends State<_ShoppingTab> {
+  ShoppingListVO? _vo;
+  bool _loading = true;
+  String? _err;
+  final Map<int, int> _purchOverride = {}; // 乐观：itemId → purchased(0/1)
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _err = null;
+    });
+    try {
+      _vo = await ShoppingService.getByMenu(widget.menuId);
+    } catch (_) {
+      _err = '加载采购清单失败';
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _generate() async {
+    try {
+      await ShoppingService.generateFrom('menu', sourceId: widget.menuId);
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('生成失败')));
+      }
+    }
+  }
+
+  /// 勾选/取消勾选：乐观更新 _purchOverride，失败回滚。
+  Future<void> _toggle(ShoppingItemVO it) async {
+    final cur = _eff(it);
+    final next = cur == 1 ? 0 : 1;
+    setState(() => _purchOverride[it.id] = next);
+    try {
+      await ShoppingService.togglePurchased(it.id);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _purchOverride.remove(it.id));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('更新失败')));
+      }
+    }
+  }
+
+  int _eff(ShoppingItemVO it) => _purchOverride[it.id] ?? it.purchased;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const LoadingView();
+    if (_err != null) return _RetryView(onRetry: _load, msg: _err!);
+    final vo = _vo;
+    if (vo == null) {
+      // 未生成：显"按食集生成"按钮。
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('尚未生成采购清单',
+                  style:
+                      TextStyle(fontSize: 16, color: AppColors.textSecondary)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _generate,
+                icon: const Icon(Icons.shopping_cart_outlined),
+                label: const Text('按食集生成'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        children: [
+          ...vo.items.map((it) => _itemCard(it)),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _itemCard(ShoppingItemVO it) {
+    final bought = _eff(it) == 1;
+    return GestureDetector(
+      onTap: () => _toggle(it),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: AppColors.divider))),
+        child: Row(
+          children: [
+            Icon(
+              bought ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: bought ? AppColors.success : AppColors.textHint,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(it.displayName,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        decoration:
+                            bought ? TextDecoration.lineThrough : null,
+                        color: bought
+                            ? AppColors.textHint
+                            : AppColors.textPrimary,
+                      )),
+                  if (it.amountText.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(it.amountText,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                    ),
+                ],
+              ),
+            ),
+            if (it.ingredientId != null && it.stockStatus != null)
+              _stockBadge(it.stockStatus!, it.shortageGrams ?? 0,
+                  it.pantryGrams),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stockBadge(String status, double shortage, double? pantry) {
+    final color = _stockColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(_stockLabel(status, shortage, pantry),
+          style: TextStyle(
+              fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+    );
+  }
+
+  Color _stockColor(String status) {
+    switch (status) {
+      case 'RED_NONE':
+        return Colors.red.shade600;
+      case 'YELLOW_SHORT':
+        return AppColors.warning;
+      case 'GREEN_ENOUGH':
+        return AppColors.success;
+      default:
+        return AppColors.textHint;
+    }
+  }
+
+  String _stockLabel(String status, double shortage, double? pantry) {
+    switch (status) {
+      case 'RED_NONE':
+        return '没有';
+      case 'YELLOW_SHORT':
+        return '差 ${shortage.toInt()}g';
+      case 'GREEN_ENOUGH':
+        return '够·${pantry?.toInt() ?? 0}g';
+      default:
+        return '';
+    }
+  }
+}
+
+/// 加载失败重试视图。
+class _RetryView extends StatelessWidget {
+  final VoidCallback onRetry;
+  final String msg;
+  const _RetryView({required this.onRetry, required this.msg});
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(msg,
+                  style: const TextStyle(
+                      fontSize: 14, color: AppColors.textSecondary)),
+              const SizedBox(height: 16),
+              OutlinedButton(onPressed: onRetry, child: const Text('重试')),
+            ],
+          ),
+        ),
+      );
 }
 
 /// 占位 Tab（采购 / 一起吃）。

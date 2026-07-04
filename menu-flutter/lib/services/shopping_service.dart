@@ -38,6 +38,13 @@ class ShoppingService {
     return ShoppingListVO.fromJson(data as Map<String, dynamic>);
   }
 
+  /// 按食集查采购清单：GET /shopping/by-menu/{menuId}（未生成返回 null）。Plan E。
+  static Future<ShoppingListVO?> getByMenu(int menuId) async {
+    final data = await ApiClient.instance.get('/shopping/by-menu/$menuId');
+    if (data == null) return null;
+    return ShoppingListVO.fromJson(data as Map<String, dynamic>);
+  }
+
   /// 生成（自定义文本）：POST /shopping/generate → id
   static Future<int> generate(Map<String, dynamic> req) async {
     final result = await ApiClient.instance.post('/shopping/generate', body: req);

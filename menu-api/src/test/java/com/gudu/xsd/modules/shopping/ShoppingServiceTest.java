@@ -1,5 +1,6 @@
 package com.gudu.xsd.modules.shopping;
 
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.mealplan.mapper.MealPlanItemMapper;
@@ -266,6 +267,47 @@ class ShoppingServiceTest {
 
         assertThat(it.getPurchased()).isEqualTo(0);
         verify(pantryService, never()).stockUpByIngredient(any(), any(), any(), any());
+    }
+
+    // ===================== Plan E: sourceMenuId 溯源 + 按食集查 =====================
+
+    /** §9 铁律：menu 来源 generate 必须把 sourceMenuId 落库（之前 newList 丢了 sourceId）。 */
+    @Test
+    void generate_menu来源_存sourceMenuId() {
+        given(menuDishMapper.selectList(any())).willReturn(List.of());  // 无菜品 → 空 usages
+        given(aggregator.aggregate(any())).willReturn(List.of());       // 无聚合行
+        ShoppingService spied = spy(svc);
+        doReturn(true).when(spied).save(any(ShoppingList.class));
+
+        spied.generate("menu", 1L, null);
+
+        ArgumentCaptor<ShoppingList> cap = ArgumentCaptor.forClass(ShoppingList.class);
+        verify(spied).save(cap.capture());
+        assertThat(cap.getValue().getSourceMenuId()).isEqualTo(1L);   // §9 核心
+        assertThat(cap.getValue().getSourcePlanId()).isNull();
+    }
+
+    @Test
+    void getByMenu_命中_返回getDetail() {
+        ShoppingService spied = spy(svc);
+        ShoppingList sl = new ShoppingList();
+        sl.setId(5L);
+        sl.setSourceMenuId(1L);
+        doReturn(List.of(sl)).when(spied).list(any(Wrapper.class));
+        ShoppingListVO vo = new ShoppingListVO();
+        doReturn(vo).when(spied).getDetail(5L);
+
+        ShoppingListVO r = spied.getByMenu(1L);
+
+        assertThat(r).isSameAs(vo);
+    }
+
+    @Test
+    void getByMenu_未命中_返回null() {
+        ShoppingService spied = spy(svc);
+        doReturn(List.of()).when(spied).list(any(Wrapper.class));
+
+        assertThat(spied.getByMenu(999L)).isNull();
     }
 
     private static Pantry pantry(long ingId, String grams) {

@@ -70,6 +70,12 @@ public class ShoppingController {
         return R.ok(svc.getDetail(listId));
     }
 
+    /** 按食集查采购清单（含 items + 三色）；未生成 data=null（前端据此显"生成"按钮）。Plan E。 */
+    @GetMapping("/by-menu/{menuId}")
+    public R<ShoppingListVO> getByMenu(@PathVariable Long menuId) {
+        return R.ok(svc.getByMenu(menuId));
+    }
+
     /** 采购清单分页列表（后台管理用）。 */
     @GetMapping
     public R<IPage<ShoppingList>> list(PageQuery q) {
