@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../services/review_service.dart';
 import '../../services/upload_service.dart';
 
@@ -140,6 +140,7 @@ class _ReviewPageState extends State<ReviewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('写点评')),
       body: SingleChildScrollView(
@@ -151,8 +152,8 @@ class _ReviewPageState extends State<ReviewPage> {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, Color(0xFFE6762A)],
+                gradient: LinearGradient(
+                  colors: [t.primary, const Color(0xFFE6762A)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -160,20 +161,22 @@ class _ReviewPageState extends State<ReviewPage> {
               ),
               child: Column(
                 children: [
-                  const Text('给这道菜打个分',
-                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text('给这道菜打个分',
+                      style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(5, (i) {
-                      return GestureDetector(
+                      return InkWell(
                         onTap: () => setState(() => _starRating = i + 1),
-                        child: Container(
+                        borderRadius: BorderRadius.circular(AppTokens.rSm),
+                        hoverColor: t.primary.withValues(alpha: 0.08),
+                        child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Icon(
                             i < _starRating ? Icons.star : Icons.star_border,
                             size: 36,
-                            color: Colors.white,
+                            color: t.card,
                           ),
                         ),
                       );
@@ -181,11 +184,11 @@ class _ReviewPageState extends State<ReviewPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(_ratingHint,
-                      style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                      style: TextStyle(color: t.card.withValues(alpha: 0.7), fontSize: 12)),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // 文字点评
             _sectionLabel('说点啥'),
@@ -193,28 +196,28 @@ class _ReviewPageState extends State<ReviewPage> {
             TextField(
               controller: _textCtrl,
               maxLines: 4,
-              style: const TextStyle(fontSize: 15),
+              style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
                 hintText: '味道如何？难不难？想再做一次吗？',
                 filled: true,
-                fillColor: const Color(0xFFFAFAFA),
+                fillColor: t.bg,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                  borderRadius: BorderRadius.circular(AppTokens.rMd),
+                  borderSide: BorderSide(color: t.border),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  borderRadius: BorderRadius.circular(AppTokens.rMd),
+                  borderSide: BorderSide(color: t.primary, width: 1.5),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // 图片
             _sectionLabel('传点图'),
             const SizedBox(height: 8),
             _buildImageSection(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // 分项打分
             if (_dims.isNotEmpty) ...[
@@ -250,23 +253,25 @@ class _ReviewPageState extends State<ReviewPage> {
   }
 
   Widget _sectionLabel(String text) {
+    final t = AppTokens.of(context);
     return Row(children: [
       Container(
         width: 4, height: 18,
         decoration: BoxDecoration(
-            color: AppColors.primary, borderRadius: BorderRadius.circular(2)),
+            color: t.primary, borderRadius: BorderRadius.circular(2)),
       ),
       const SizedBox(width: 8),
       Text(text,
-          style: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2D2A26))),
+          style: TextStyle(
+              fontSize: 14, fontWeight: FontWeight.bold, color: t.title)),
     ]);
   }
 
   Widget _buildImageSection() {
+    final t = AppTokens.of(context);
     return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+      spacing: 8,
+      runSpacing: 8,
       children: [
         // 已有图片（压缩预览）
         ..._imgFiles.asMap().entries.map((e) {
@@ -274,19 +279,21 @@ class _ReviewPageState extends State<ReviewPage> {
             clipBehavior: Clip.none,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppTokens.rSm),
                 child: Image.file(e.value, width: 80, height: 80, fit: BoxFit.cover),
               ),
               Positioned(
-                top: -6, right: -6,
-                child: GestureDetector(
+                top: -8, right: -8,
+                child: InkWell(
                   onTap: () => _removeImage(e.key),
+                  borderRadius: BorderRadius.circular(AppTokens.rPill),
+                  hoverColor: t.primary.withValues(alpha: 0.08),
                   child: Container(
                     width: 22, height: 22,
                     decoration: BoxDecoration(
-                      color: Colors.black54, borderRadius: BorderRadius.circular(11),
+                      color: Colors.black54, borderRadius: BorderRadius.circular(AppTokens.rPill),
                     ),
-                    child: const Icon(Icons.close, size: 14, color: Colors.white),
+                    child: const Icon(Icons.close, size: 12, color: Colors.white),
                   ),
                 ),
               ),
@@ -295,22 +302,24 @@ class _ReviewPageState extends State<ReviewPage> {
         }),
         // 添加按钮（最多 6 张）
         if (_imgFiles.length < 6)
-          GestureDetector(
+          InkWell(
             onTap: _pickImages,
+            borderRadius: BorderRadius.circular(AppTokens.rSm),
+            hoverColor: t.primary.withValues(alpha: 0.08),
             child: Container(
               width: 80, height: 80,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFDDDDDD)),
-                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(AppTokens.rSm),
+                border: Border.all(color: t.border),
+                color: t.bg,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_photo_alternate_outlined,
-                      size: 24, color: Colors.grey.shade500),
+                      size: 24, color: t.caption),
                   Text('${_imgFiles.length}/6',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      style: TextStyle(fontSize: 12, color: t.caption)),
                 ],
               ),
             ),
@@ -320,11 +329,12 @@ class _ReviewPageState extends State<ReviewPage> {
   }
 
   Widget _buildDimensionScores() {
+    final t = AppTokens.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
+        color: t.card,
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+        border: Border.all(color: t.border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -335,15 +345,17 @@ class _ReviewPageState extends State<ReviewPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(d.name, style: const TextStyle(fontSize: 14, color: Color(0xFF333333))),
+                Text(d.name, style: TextStyle(fontSize: 14, color: t.title)),
                 Row(
                   children: List.generate(5, (i) {
-                    return GestureDetector(
+                    return InkWell(
                       onTap: () => setState(() => _dimScores[d.id] = i + 1),
+                      borderRadius: BorderRadius.circular(AppTokens.rSm),
+                      hoverColor: t.primary.withValues(alpha: 0.08),
                       child: Icon(
                         i < score ? Icons.star : Icons.star_border,
                         size: 24,
-                        color: i < score ? AppColors.primary : const Color(0xFFDDDDDD),
+                        color: i < score ? t.primary : t.border,
                       ),
                     );
                   }),

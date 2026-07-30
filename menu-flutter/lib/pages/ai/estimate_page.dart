@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 
 /// AI 估营养：输入菜品描述 → AI 估算总营养。
 class AiEstimatePage extends StatefulWidget {
@@ -23,8 +23,8 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
   };
   static const _icons = {'1': '🔥', '2': '🥩', '3': '🥑', '4': '🍚', '5': '🍬', '6': '📊'};
   static const _colors = {
-    '1': AppColors.warnRed, '2': AppColors.warnRed, '3': AppColors.saveGreen,
-    '4': AppColors.warnOrange, '5': AppColors.warnOrange, '6': Color(0xFF7B68EE),
+    '1': AppTokens.error, '2': AppTokens.error, '3': AppTokens.success,
+    '4': AppTokens.warning, '5': AppTokens.warning, '6': AppTokens.info,
   };
 
   Future<void> _estimate() async {
@@ -55,43 +55,44 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('AI 估营养')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTokens.sp16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // 说明卡
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTokens.sp16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF3A7BD5), Color(0xFF7B68EE)]),
-              borderRadius: BorderRadius.circular(14),
+              gradient: LinearGradient(colors: [t.primary, t.primaryDeep]),
+              borderRadius: BorderRadius.circular(AppTokens.rMd),
             ),
-            child: const Column(children: [
-              Text('🔍 描述一道菜或一餐', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
-              SizedBox(height: 6),
-              Text('AI 估算总热量和营养', style: TextStyle(color: Colors.white70, fontSize: 13)),
+            child: Column(children: [
+              Text('🔍 描述一道菜或一餐', style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: AppTokens.sp4),
+              Text('AI 估算总热量和营养', style: TextStyle(color: t.card.withValues(alpha: 0.7), fontSize: 12)),
             ]),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppTokens.sp16),
 
           // 输入框
           TextField(
             controller: _descCtrl,
             maxLines: 4,
-            style: const TextStyle(fontSize: 15),
+            style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               hintText: '如：番茄炒蛋一份，加了两个鸡蛋',
-              filled: true, fillColor: const Color(0xFFFAFAFA),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              filled: true, fillColor: t.bg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppTokens.sp12),
 
           // 份数
           Row(children: [
             const Text('份数', style: TextStyle(fontSize: 14)),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppTokens.sp12),
             SizedBox(
               width: 80,
               child: TextField(
@@ -99,9 +100,9 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
                 decoration: InputDecoration(
-                  isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  filled: true, fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: AppTokens.sp8),
+                  filled: true, fillColor: t.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
                 ),
                 onChanged: (v) => _servings = v,
               ),
@@ -122,13 +123,13 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
           // 错误
           if (_error != null)
             Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(_error!, style: const TextStyle(color: AppColors.warnRed, fontSize: 14)),
+              padding: const EdgeInsets.only(top: AppTokens.sp12),
+              child: Text(_error!, style: const TextStyle(color: AppTokens.error, fontSize: 14)),
             ),
 
           // 结果
           if (_result != null) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: AppTokens.sp16),
             _buildResult(),
           ],
         ]),
@@ -137,41 +138,42 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
   }
 
   Widget _buildResult() {
+    final t = AppTokens.of(context);
     final nutrition = _result!['nutrition'] as Map<String, dynamic>? ?? {};
     final source = _result!['source'] as String? ?? '';
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
-        Container(width: 4, height: 20, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(width: 8),
-        const Text('估算结果', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        Container(width: 4, height: 20, decoration: BoxDecoration(color: t.primary, borderRadius: BorderRadius.circular(AppTokens.rXs))),
+        const SizedBox(width: AppTokens.sp8),
+        const Text('估算结果', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Spacer(),
-        Text(source, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(source, style: TextStyle(fontSize: 12, color: t.caption)),
       ]),
-      const SizedBox(height: 12),
+      const SizedBox(height: AppTokens.sp12),
       GridView.count(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
+        mainAxisSpacing: AppTokens.sp8,
+        crossAxisSpacing: AppTokens.sp8,
         childAspectRatio: 2.2,
         children: _labels.entries.map((e) {
           final val = nutrition[e.key];
           final displayVal = val != null ? (val is num ? val.toStringAsFixed(val.toDouble() == val.toInt() ? 0 : 1) : val) : '-';
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: AppTokens.sp8),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 4, offset: const Offset(0, 1))],
+              color: t.card,
+              borderRadius: BorderRadius.circular(AppTokens.rMd),
+              boxShadow: t.elevationSm,
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
               Row(children: [
                 Text(_icons[e.key]!, style: const TextStyle(fontSize: 16)),
-                const SizedBox(width: 6),
-                Text(e.value, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const SizedBox(width: AppTokens.sp4),
+                Text(e.value, style: TextStyle(fontSize: 12, color: t.caption)),
               ]),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppTokens.sp4),
               Text('$displayVal', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _colors[e.key])),
             ]),
           );

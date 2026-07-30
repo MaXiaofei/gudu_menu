@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/image_helper.dart';
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../models/dish.dart';
 import '../../models/nutrition_metric.dart';
 import '../../services/dish_service.dart';
@@ -17,7 +17,7 @@ import '../../widgets/nutrition_grid.dart';
 ///
 /// 图片策略：
 /// - 列表/详情默认加载缩略图（/thumbnail/xxx.jpg），节省流量 + 加载快。
-/// - 点击图片弹出全屏查看器，加载原图（/original/xxx.jpg），支持双指缩放。
+/// - 点击图片弹出全屏可查看器，加载原图（/original/xxx.jpg），支持双指缩放。
 class DishDetailPage extends StatefulWidget {
   final int id;
   const DishDetailPage({super.key, required this.id});
@@ -117,6 +117,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
   /// 构建可点击的缩略图（点一下弹全屏原图）。
   Widget _thumbnailImage(String url,
       {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    final t = AppTokens.of(context);
     final urls = ImageHelper.resolve(url);
     return GestureDetector(
       onTap: () => _openViewer(url),
@@ -131,11 +132,11 @@ class _DishDetailPageState extends State<DishDetailPage> {
           return Container(
             width: width,
             height: height,
-            color: const Color(0xFFF5F0E8),
+            color: t.bg,
             child: const Center(
               child: SizedBox(
-                width: 20,
-                height: 20,
+                width: 16,
+                height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
@@ -146,7 +147,9 @@ class _DishDetailPageState extends State<DishDetailPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Scaffold(
         appBar: AppBar(title: const Text('菜品详情')),
         body: _loading
             ? const LoadingView()
@@ -162,26 +165,27 @@ class _DishDetailPageState extends State<DishDetailPage> {
                           height: 220,
                         ),
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppTokens.sp16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(_detail!.dish.name,
-                                style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
+                                style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: t.title)),
+                            const SizedBox(height: AppTokens.sp8),
                             Text(
                               '备料 ${_detail!.dish.prepTime ?? 0}分 · 烹饪 ${_detail!.dish.cookTime ?? 0}分 · 难度 ${_detail!.dish.difficulty ?? '-'}/5',
-                              style: const TextStyle(
-                                  fontSize: 12, color: AppColors.textSecondary),
+                              style: TextStyle(
+                                  fontSize: 12, color: t.caption),
                             ),
                             if ((_detail!.dish.note ?? '').isNotEmpty) ...[
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppTokens.sp8),
                               Text(_detail!.dish.note!,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 12,
-                                      color: AppColors.textHint)),
+                                      color: t.body)),
                             ],
                           ],
                         ),
@@ -197,23 +201,23 @@ class _DishDetailPageState extends State<DishDetailPage> {
                         final active = _activeStep == i;
                         return Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          decoration: const BoxDecoration(
+                              horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
+                          decoration: BoxDecoration(
                               border: Border(
                                   top: BorderSide(
-                                      color: AppColors.divider))),
+                                      color: t.border))),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  Text('步骤 ${i + 1}'),
+                                  Text('步骤 ${i + 1}', style: TextStyle(color: t.title)),
                                   const Spacer(),
                                   ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: active
-                                          ? AppColors.warnRed
-                                          : AppColors.primary,
+                                          ? AppTokens.error
+                                          : t.primary,
                                       minimumSize: const Size(64, 32),
                                     ),
                                     onPressed: () => _toggleTimer(i),
@@ -221,13 +225,13 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              Text(s.text),
+                              const SizedBox(height: AppTokens.sp8),
+                              Text(s.text, style: TextStyle(color: t.body)),
                               if (s.imageList.isNotEmpty) ...[
-                                const SizedBox(height: 8),
+                                const SizedBox(height: AppTokens.sp8),
                                 Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
+                                  spacing: AppTokens.sp8,
+                                  runSpacing: AppTokens.sp8,
                                   children: s.imageList
                                       .map((img) => _thumbnailImage(
                                             img,
@@ -238,10 +242,10 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                 ),
                               ],
                               if (active) ...[
-                                const SizedBox(height: 8),
+                                const SizedBox(height: AppTokens.sp8),
                                 Text('⏱ ${_elapsed}s',
-                                    style: const TextStyle(
-                                        color: AppColors.primary,
+                                    style: TextStyle(
+                                        color: t.primary,
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold)),
                               ],
@@ -249,16 +253,16 @@ class _DishDetailPageState extends State<DishDetailPage> {
                           ),
                         );
                       }),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppTokens.sp16),
                       Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
+                            horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.success),
+                                  backgroundColor: AppTokens.success),
                               onPressed: _cooking ? null : _cookNow,
                               child: _cooking
                                   ? const SizedBox(
@@ -268,7 +272,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                           strokeWidth: 2, color: Colors.white))
                                   : const Text('直接做这道菜'),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppTokens.sp12),
                             OutlinedButton(
                               onPressed: () =>
                                   context.push('/dish/${widget.id}/review'),
@@ -277,19 +281,23 @@ class _DishDetailPageState extends State<DishDetailPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppTokens.sp24),
                     ],
                   ),
       );
+  }
 }
 
 class _SectionTitle extends StatelessWidget {
   final String text;
   const _SectionTitle(this.text);
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(16),
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Padding(
+        padding: const EdgeInsets.all(AppTokens.sp16),
         child: Text(text,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: t.title)),
       );
+  }
 }

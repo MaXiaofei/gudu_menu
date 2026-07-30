@@ -15,6 +15,13 @@
       <text>还没加过食材，做完菜或采购后会自动入库</text>
     </view>
     <template v-else>
+      <!-- 闭环提示：缺/空食材 → 去采购（对齐原型 pantry-page） -->
+      <view v-if="cnt.miss > 0" class="loop-hint" @click="goShopping">
+        <text class="loop-ico">♨️</text>
+        <text class="loop-txt">{{ cnt.miss }} 样扣到空，要去采购补吗？</text>
+        <text class="loop-btn">去采购</text>
+      </view>
+
       <!-- 三色汇总条 -->
       <view class="summary">
         <view class="seg seg-ok">🟢 够 {{ cnt.ok }}</view>
@@ -170,6 +177,11 @@ async function load() {
   }
 }
 
+/** 闭环：缺/空食材 → 去采购清单 */
+function goShopping() {
+  uni.navigateTo({ url: '/pages/shopping/Detail', fail: () => uni.switchTab({ url: '/pages/menu/Home' }) })
+}
+
 onShow(() => { load() })
 </script>
 
@@ -191,6 +203,26 @@ onShow(() => { load() })
 .crumb { font-size: 22rpx; color: #9C8C7A; }
 .title { font-size: 44rpx; font-weight: 800; color: #4A382A; }
 .search-ico { font-size: 36rpx; }
+
+/* 闭环提示（缺→去采购） */
+.loop-hint {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 0 8rpx 20rpx;
+  background: #FFF7EC;
+  border: 1px solid #E5A938;
+  border-radius: 20rpx;
+  padding: 16rpx 22rpx;
+}
+.loop-ico { font-size: 30rpx; }
+.loop-txt { flex: 1; font-size: 22rpx; color: #B8762E; line-height: 1.4; }
+.loop-btn {
+  font-size: 22rpx; font-weight: 800; color: #D17A3C;
+  border: 2rpx solid #E89150;
+  padding: 8rpx 18rpx;
+  border-radius: 14rpx;
+}
 
 /* 三色汇总 */
 .summary {
@@ -224,8 +256,11 @@ onShow(() => { load() })
   border-radius: 28rpx;
   background: #fff;
   border: 2rpx solid #F0E6D6;
-  color: #9C8C7A;
+  color: #6E5C49;
 }
+.chip.c-miss { color: #DB5A4E; }
+.chip.c-low { color: #E5A938; }
+.chip.c-ok { color: #4FAE6E; }
 .chip.on { background: #4A382A; color: #fff; border-color: #4A382A; }
 .chip.c-miss.on { background: #DB5A4E; border-color: #DB5A4E; }
 .chip.c-low.on { background: #E5A938; border-color: #E5A938; }

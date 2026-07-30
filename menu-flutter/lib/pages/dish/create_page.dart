@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../services/dish_service.dart';
 import '../../services/upload_service.dart';
 
@@ -283,14 +283,15 @@ class _CreateDishPageState extends State<CreateDishPage>
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('录入新菜'),
         bottom: TabBar(
           controller: _tabCtrl,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
+          indicatorColor: t.card,
+          labelColor: t.card,
+          unselectedLabelColor: t.card.withValues(alpha: 0.7),
           tabs: const [
             Tab(text: '手动录入'),
             Tab(text: '链接导入'),
@@ -339,7 +340,7 @@ class _CreateDishPageState extends State<CreateDishPage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildCoverImage(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           _buildNameField(),
           const SizedBox(height: 16),
           _buildTimeRow(),
@@ -380,15 +381,18 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   Widget _buildCoverImage() {
-    return GestureDetector(
+    final t = AppTokens.of(context);
+    return InkWell(
       onTap: _coverFile == null ? _onPickCover : null,
+      borderRadius: BorderRadius.circular(AppTokens.rMd),
+      hoverColor: t.primary.withValues(alpha: 0.08),
       child: Container(
         height: 200,
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F0E8),
-          borderRadius: BorderRadius.circular(12),
+          color: t.secondary,
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
           border: _coverFile == null
-              ? Border.all(color: const Color(0xFFDDD5C8), style: BorderStyle.solid, width: 1.5)
+              ? Border.all(color: t.border, style: BorderStyle.solid, width: 1.5)
               : null,
         ),
         clipBehavior: Clip.antiAlias,
@@ -438,13 +442,13 @@ class _CreateDishPageState extends State<CreateDishPage>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_a_photo_outlined,
-                      size: 40, color: Colors.brown.shade300),
+                      size: 40, color: t.caption),
                   const SizedBox(height: 8),
                   Text(
                     '添加封面图',
                     style: TextStyle(
-                      color: Colors.brown.shade300,
-                      fontSize: 15,
+                      color: t.caption,
+                      fontSize: 14,
                     ),
                   ),
                 ],
@@ -454,22 +458,23 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   Widget _coverActionChip(IconData icon, String label, VoidCallback onTap) {
+    final t = AppTokens.of(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(AppTokens.rPill),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(230),
-          borderRadius: BorderRadius.circular(20),
+          color: t.card.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(AppTokens.rPill),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: AppColors.primary),
+            Icon(icon, size: 16, color: t.primary),
             const SizedBox(width: 4),
             Text(label,
-                style: const TextStyle(fontSize: 13, color: AppColors.primary)),
+                style: TextStyle(fontSize: 12, color: t.primary, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -477,6 +482,7 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   Widget _buildNameField() {
+    final t = AppTokens.of(context);
     return TextField(
       controller: _nameCtrl,
       style: const TextStyle(fontSize: 16),
@@ -485,18 +491,18 @@ class _CreateDishPageState extends State<CreateDishPage>
         hintText: '如：番茄炒蛋',
         prefixIcon: const Icon(Icons.restaurant_menu_outlined),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
+        fillColor: t.bg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.primary, width: 1.5),
         ),
       ),
     );
@@ -526,64 +532,68 @@ class _CreateDishPageState extends State<CreateDishPage>
 
   Widget _numberField(
       TextEditingController ctrl, String label, IconData icon) {
+    final t = AppTokens.of(context);
     return TextField(
       controller: ctrl,
       keyboardType: TextInputType.number,
-      style: const TextStyle(fontSize: 15),
+      style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
+        fillColor: t.bg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.primary, width: 1.5),
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       ),
     );
   }
 
   Widget _buildDifficultySelector() {
+    final t = AppTokens.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('难度',
-            style: TextStyle(fontSize: 14, color: AppColors.textHint)),
+        Text('难度',
+            style: TextStyle(fontSize: 14, color: t.body)),
         const SizedBox(height: 8),
         Row(
           children: List.generate(5, (i) {
             final active = i < _difficulty;
-            return GestureDetector(
+            return InkWell(
               onTap: () => setState(() => _difficulty = i + 1),
+              borderRadius: BorderRadius.circular(AppTokens.rPill),
+              hoverColor: t.primary.withValues(alpha: 0.08),
               child: Container(
                 width: 44,
                 height: 44,
-                margin: const EdgeInsets.only(right: 10),
+                margin: const EdgeInsets.only(right: 12),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: active
-                      ? AppColors.primary.withAlpha(30)
-                      : const Color(0xFFF0F0F0),
+                      ? t.primary.withAlpha(30)
+                      : t.secondary,
                   border: Border.all(
                     color:
-                        active ? AppColors.primary : const Color(0xFFE0E0E0),
+                        active ? t.primary : t.border,
                     width: 1.5,
                   ),
                 ),
                 child: Icon(
                   Icons.local_fire_department,
                   size: 20,
-                  color: active ? AppColors.primary : const Color(0xFFCCCCCC),
+                  color: active ? t.primary : t.caption,
                 ),
               ),
             );
@@ -594,6 +604,7 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   Widget _buildPriceField() {
+    final t = AppTokens.of(context);
     return TextField(
       controller: _priceCtrl,
       keyboardType: TextInputType.number,
@@ -603,20 +614,21 @@ class _CreateDishPageState extends State<CreateDishPage>
         hintText: '可选',
         prefixIcon: const Icon(Icons.attach_money_outlined),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
+        fillColor: t.bg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.primary, width: 1.5),
         ),
       ),
     );
   }
 
   Widget _buildNoteField() {
+    final t = AppTokens.of(context);
     return TextField(
       controller: _noteCtrl,
       maxLines: 2,
@@ -626,41 +638,42 @@ class _CreateDishPageState extends State<CreateDishPage>
         hintText: '可选，如：家常做法、少油版',
         prefixIcon: const Icon(Icons.notes_outlined),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
+        fillColor: t.bg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          borderSide: BorderSide(color: t.primary, width: 1.5),
         ),
       ),
     );
   }
 
   Widget _buildSectionDivider(String title) {
+    final t = AppTokens.of(context);
     return Row(
       children: [
         Container(
           width: 4,
           height: 20,
           decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(2),
+            color: t.primary,
+            borderRadius: BorderRadius.circular(AppTokens.rXs),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 17,
+          style: TextStyle(
+            fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF2D2A26),
+            color: t.title,
           ),
         ),
       ],
@@ -668,13 +681,15 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   Widget _buildStepCard(int index, _StepData step) {
+    final t = AppTokens.of(context);
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFEEEEEE)),
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+        side: BorderSide(color: t.border),
       ),
+      color: t.card,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -687,15 +702,15 @@ class _CreateDishPageState extends State<CreateDishPage>
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(14),
+                    color: t.primary,
+                    borderRadius: BorderRadius.circular(AppTokens.rPill),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     '${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
+                    style: TextStyle(
+                      color: t.card,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -703,20 +718,22 @@ class _CreateDishPageState extends State<CreateDishPage>
                 const SizedBox(width: 8),
                 Text(
                   '步骤 ${index + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2D2A26),
+                    color: t.title,
                   ),
                 ),
                 const Spacer(),
-                GestureDetector(
+                InkWell(
                   onTap: () => _removeStep(index),
-                  child: const Icon(Icons.close, size: 20, color: Colors.grey),
+                  borderRadius: BorderRadius.circular(AppTokens.rPill),
+                  hoverColor: t.primary.withValues(alpha: 0.08),
+                  child: Icon(Icons.close, size: 20, color: t.caption),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             // 描述
             TextField(
               controller: step.textCtrl,
@@ -725,22 +742,22 @@ class _CreateDishPageState extends State<CreateDishPage>
               decoration: InputDecoration(
                 hintText: '描述这一步怎么做…',
                 filled: true,
-                fillColor: const Color(0xFFFAFAFA),
+                fillColor: t.bg,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                  borderRadius: BorderRadius.circular(AppTokens.rSm),
+                  borderSide: BorderSide(color: t.border),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                  borderRadius: BorderRadius.circular(AppTokens.rSm),
+                  borderSide: BorderSide(color: t.border),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTokens.rSm),
                   borderSide:
-                      const BorderSide(color: AppColors.primary, width: 1.5),
+                      BorderSide(color: t.primary, width: 1.5),
                 ),
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               ),
             ),
             const SizedBox(height: 8),
@@ -753,11 +770,12 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   Widget _buildStepImage(_StepData step) {
+    final t = AppTokens.of(context);
     if (step.imageFile != null) {
       return Stack(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppTokens.rSm),
             child: Image.file(
               step.imageFile!,
               height: 100,
@@ -768,30 +786,34 @@ class _CreateDishPageState extends State<CreateDishPage>
           Positioned(
             top: 4,
             right: 4,
-            child: GestureDetector(
+            child: InkWell(
               onTap: () => _onRemoveStepImage(step),
+              borderRadius: BorderRadius.circular(AppTokens.rPill),
+              hoverColor: t.primary.withValues(alpha: 0.08),
               child: Container(
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
                   color: Colors.black54,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTokens.rPill),
                 ),
-                child: const Icon(Icons.close, size: 16, color: Colors.white),
+                child: Icon(Icons.close, size: 16, color: t.card),
               ),
             ),
           ),
         ],
       );
     }
-    return GestureDetector(
+    return InkWell(
       onTap: () => _onPickStepImage(step),
+      borderRadius: BorderRadius.circular(AppTokens.rSm),
+      hoverColor: t.primary.withValues(alpha: 0.08),
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppTokens.rSm),
           border: Border.all(
-            color: const Color(0xFFDDDDDD),
+            color: t.border,
             style: BorderStyle.solid,
           ),
         ),
@@ -799,11 +821,11 @@ class _CreateDishPageState extends State<CreateDishPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.add_photo_alternate_outlined,
-                size: 18, color: Colors.grey.shade500),
-            const SizedBox(width: 6),
+                size: 18, color: t.caption),
+            const SizedBox(width: 8),
             Text(
               '添加图片（可选）',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 12, color: t.caption),
             ),
           ],
         ),
@@ -812,6 +834,7 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   Widget _buildAddStepButton() {
+    final t = AppTokens.of(context);
     return SizedBox(
       height: 44,
       child: OutlinedButton.icon(
@@ -819,12 +842,12 @@ class _CreateDishPageState extends State<CreateDishPage>
         icon: const Icon(Icons.add, size: 18),
         label: const Text('添加步骤'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: t.primary,
           side: BorderSide(
-            color: AppColors.primary.withAlpha(100),
+            color: t.primary.withAlpha(100),
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppTokens.rMd),
           ),
         ),
       ),
@@ -834,6 +857,7 @@ class _CreateDishPageState extends State<CreateDishPage>
   // ========== 链接导入 Tab ==========
 
   Widget _buildUrlImport() {
+    final t = AppTokens.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -841,32 +865,32 @@ class _CreateDishPageState extends State<CreateDishPage>
           const SizedBox(height: 24),
           // 说明卡片
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFFFDF8F0),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFF0E0C0)),
+              color: t.highlight,
+              borderRadius: BorderRadius.circular(AppTokens.rLg),
+              border: Border.all(color: t.border),
             ),
             child: Column(
               children: [
                 Icon(Icons.download_for_offline_outlined,
-                    size: 48, color: AppColors.primary.withAlpha(200)),
+                    size: 48, color: t.primary.withAlpha(200)),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   '从其他 App 导入菜谱',
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D2A26),
+                    color: t.title,
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
+                const SizedBox(height: 8),
+                Text(
                   '粘贴下厨房、美食杰、豆果的菜谱链接，\n自动解析菜名、步骤和图片',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF999999),
+                    fontSize: 12,
+                    color: t.caption,
                     height: 1.5,
                   ),
                 ),
@@ -874,7 +898,7 @@ class _CreateDishPageState extends State<CreateDishPage>
                 // 支持的平台标签
                 Wrap(
                   spacing: 8,
-                  runSpacing: 6,
+                  runSpacing: 8,
                   alignment: WrapAlignment.center,
                   children: [
                     _platformChip('下厨房'),
@@ -889,25 +913,25 @@ class _CreateDishPageState extends State<CreateDishPage>
           // URL 输入
           TextField(
             controller: _urlCtrl,
-            style: const TextStyle(fontSize: 15),
+            style: const TextStyle(fontSize: 14),
             keyboardType: TextInputType.url,
             decoration: InputDecoration(
               hintText: '粘贴菜谱链接…',
               prefixIcon: const Icon(Icons.link),
               filled: true,
-              fillColor: const Color(0xFFFAFAFA),
+              fillColor: t.bg,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+                borderSide: BorderSide(color: t.border),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+                borderSide: BorderSide(color: t.border),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
                 borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.5),
+                    BorderSide(color: t.primary, width: 1.5),
               ),
               suffixIcon: _urlCtrl.text.isNotEmpty
                   ? IconButton(
@@ -948,18 +972,19 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   Widget _platformChip(String name) {
+    final t = AppTokens.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8D8B8)),
+        color: t.card,
+        borderRadius: BorderRadius.circular(AppTokens.rPill),
+        border: Border.all(color: t.border),
       ),
       child: Text(
         name,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
-          color: Color(0xFFB8956A),
+          color: t.accent,
         ),
       ),
     );

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../services/ingredient_service.dart';
 import '../../services/pantry_service.dart';
+import '../../widgets/loading_empty.dart';
 
 /// 批量行数据
 class _BatchRow {
@@ -174,6 +175,7 @@ class _PantryListPageState extends State<PantryListPage>
   }
 
   void _showFormSheet({required bool isEdit, PantryVO? item}) {
+    final t = AppTokens.of(context);
     _nameCtrl.text = item?.ingredientName ?? item?.displayName ?? '';
     _amountCtrl.text = item != null ? item.amount.toString() : '';
     _expireCtrl.text = item?.expireDate ?? '';
@@ -189,7 +191,7 @@ class _PantryListPageState extends State<PantryListPage>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
           padding: EdgeInsets.only(
-            left: 16, right: 16, top: 20,
+            left: 16, right: 16, top: 16,
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
           ),
           child: Column(
@@ -197,19 +199,19 @@ class _PantryListPageState extends State<PantryListPage>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(isEdit ? '编辑库存' : '添加库存',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 14),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: t.title)),
+              const SizedBox(height: 12),
               // 食材输入框（替代 chip 列表）
               TextField(
                 controller: _nameCtrl,
                 autofocus: true,
-                style: const TextStyle(fontSize: 15),
+                style: const TextStyle(fontSize: 14),
                 decoration: InputDecoration(
                   labelText: isEdit ? '食材名' : '食材名（输入或选择）',
                   hintText: '如：牛奶、排骨',
                   prefixIcon: const Icon(Icons.search, size: 20),
-                  filled: true, fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  filled: true, fillColor: t.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
                 ),
                 onChanged: (v) {
                   setSheetState(() {
@@ -230,14 +232,14 @@ class _PantryListPageState extends State<PantryListPage>
                 Container(
                   margin: const EdgeInsets.only(top: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE0E0E0)),
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(AppTokens.rSm),
+                    border: Border.all(color: t.border),
                   ),
                   child: Column(children: _matchedIngredients.map((ing) {
                     return ListTile(
                       dense: true,
-                      title: Text(ing.name, style: const TextStyle(fontSize: 14)),
+                      title: Text(ing.name, style: const TextStyle(fontSize: 12)),
                       onTap: () {
                         _nameCtrl.text = ing.name;
                         setSheetState(() {
@@ -251,7 +253,7 @@ class _PantryListPageState extends State<PantryListPage>
                 Padding(
                   padding: const EdgeInsets.only(top: 4, left: 4),
                   child: Text('未匹配到已有食材，将创建新食材"${_nameCtrl.text.trim()}"',
-                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      style: const TextStyle(fontSize: 11, color: AppTokens.error)),
                 ),
               const SizedBox(height: 12),
               // 数量
@@ -261,8 +263,8 @@ class _PantryListPageState extends State<PantryListPage>
                 decoration: InputDecoration(
                   labelText: '数量',
                   hintText: '如 500',
-                  filled: true, fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  filled: true, fillColor: t.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -289,8 +291,8 @@ class _PantryListPageState extends State<PantryListPage>
                       }
                     },
                   ),
-                  filled: true, fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  filled: true, fillColor: t.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -301,8 +303,8 @@ class _PantryListPageState extends State<PantryListPage>
                 decoration: InputDecoration(
                   labelText: '低库存阈值（可选）',
                   hintText: '低于此量显示红色警告',
-                  filled: true, fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  filled: true, fillColor: t.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -347,7 +349,7 @@ class _PantryListPageState extends State<PantryListPage>
                       _snack(ctx, '保存失败');
                     }
                   },
-                  child: Text(isEdit ? '保存修改' : '添加', style: const TextStyle(fontSize: 15)),
+                  child: Text(isEdit ? '保存修改' : '添加', style: const TextStyle(fontSize: 14)),
                 ),
               ),
             ],
@@ -360,6 +362,7 @@ class _PantryListPageState extends State<PantryListPage>
   // ===== 批量添加 =====
 
   void _showBatchSheet() {
+    final t = AppTokens.of(context);
     if (_batchRows.isEmpty) {
       _batchRows.add(_BatchRow());
     }
@@ -387,16 +390,16 @@ class _PantryListPageState extends State<PantryListPage>
                     _batchRows.clear();
                     setSheetState(() {});
                   },
-                  child: const Text('清空', style: TextStyle(color: AppColors.warnRed)),
+                  child: const Text('清空', style: TextStyle(color: AppTokens.error)),
                 ),
               ]),
               const SizedBox(height: 4),
               // 表头
               Row(children: [
-                const Expanded(flex: 3, child: Text('名称', style: TextStyle(fontSize: 12, color: AppColors.textSecondary))),
-                const Expanded(flex: 2, child: Text('数量', style: TextStyle(fontSize: 12, color: AppColors.textSecondary))),
-                const Expanded(flex: 1, child: Text('单位', style: TextStyle(fontSize: 12, color: AppColors.textSecondary))),
-                const Expanded(flex: 2, child: Text('过期日', style: TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+                Expanded(flex: 3, child: Text('名称', style: TextStyle(fontSize: 12, color: t.caption))),
+                Expanded(flex: 2, child: Text('数量', style: TextStyle(fontSize: 12, color: t.caption))),
+                Expanded(flex: 1, child: Text('单位', style: TextStyle(fontSize: 12, color: t.caption))),
+                Expanded(flex: 2, child: Text('过期日', style: TextStyle(fontSize: 12, color: t.caption))),
                 const SizedBox(width: 32),
               ]),
               const SizedBox(height: 4),
@@ -407,7 +410,7 @@ class _PantryListPageState extends State<PantryListPage>
                   itemBuilder: (_, i) {
                     final r = _batchRows[i];
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.only(bottom: 4),
                       child: Row(children: [
                         Expanded(
                           flex: 3,
@@ -415,17 +418,17 @@ class _PantryListPageState extends State<PantryListPage>
                             onChanged: (_) => setSheetState(() => r.suggestUnit()),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Expanded(
                           flex: 2,
                           child: _batchField(r.qty, '500', null),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Expanded(
                           flex: 1,
                           child: _batchUnitChip(r, () => setSheetState(() {})),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Expanded(
                           flex: 2,
                           child: _batchField(r.expire, '7/5', Icons.calendar_today),
@@ -436,7 +439,7 @@ class _PantryListPageState extends State<PantryListPage>
                             _batchRows.removeAt(i);
                             setSheetState(() {});
                           },
-                          child: const Icon(Icons.close, size: 18, color: Colors.grey),
+                          child: Icon(Icons.close, size: 18, color: t.caption),
                         ),
                       ]),
                     );
@@ -455,9 +458,9 @@ class _PantryListPageState extends State<PantryListPage>
                 child: ElevatedButton(
                   onPressed: _batchSaving ? null : () => _submitBatch(ctx),
                   child: _batchSaving
-                      ? const SizedBox(width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('一键入库', style: TextStyle(fontSize: 15)),
+                      ? SizedBox(width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: t.card))
+                      : const Text('一键入库', style: TextStyle(fontSize: 14)),
                 ),
               ),
             ],
@@ -468,6 +471,7 @@ class _PantryListPageState extends State<PantryListPage>
   }
 
   Widget _batchUnitChip(_BatchRow r, VoidCallback onRefresh) {
+    final t = AppTokens.of(context);
     return GestureDetector(
       onTap: () {
         final ctrl = TextEditingController(text: r.unit);
@@ -489,18 +493,18 @@ class _PantryListPageState extends State<PantryListPage>
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: r.unit.isNotEmpty ? AppColors.primary.withAlpha(15) : const Color(0xFFF8F8F8),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: r.unit.isNotEmpty ? AppColors.primary.withAlpha(60) : const Color(0xFFE0E0E0)),
+          color: r.unit.isNotEmpty ? t.primary.withAlpha(15) : t.bg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: r.unit.isNotEmpty ? t.primary.withAlpha(60) : t.border),
         ),
         child: Text(
           r.unit.isNotEmpty ? r.unit : '?',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
-            color: r.unit.isNotEmpty ? AppColors.primary : Colors.grey.shade400,
+            color: r.unit.isNotEmpty ? t.primary : t.caption,
             fontWeight: r.unit.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
@@ -510,18 +514,19 @@ class _PantryListPageState extends State<PantryListPage>
 
   Widget _batchField(TextEditingController ctrl, String hint, IconData? icon,
       {ValueChanged<String>? onChanged}) {
+    final t = AppTokens.of(context);
     return TextField(
       controller: ctrl,
       onChanged: onChanged,
-      style: const TextStyle(fontSize: 13),
+      style: const TextStyle(fontSize: 12),
       decoration: InputDecoration(
         hintText: hint,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        filled: true, fillColor: const Color(0xFFF8F8F8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        filled: true, fillColor: t.bg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: t.border),
         ),
         prefixIcon: icon != null ? Icon(icon, size: 16) : null,
       ),
@@ -596,7 +601,7 @@ class _PantryListPageState extends State<PantryListPage>
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除', style: TextStyle(color: AppColors.warnRed)),
+            child: const Text('删除', style: TextStyle(color: AppTokens.error)),
           ),
         ],
       ),
@@ -615,6 +620,7 @@ class _PantryListPageState extends State<PantryListPage>
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('食材库存'),
@@ -627,8 +633,8 @@ class _PantryListPageState extends State<PantryListPage>
         ],
         bottom: TabBar(
           controller: _tabCtrl,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
+          indicatorColor: t.card,
+          labelColor: t.card,
           unselectedLabelColor: Colors.white60,
           tabs: const [
             Tab(text: '全部'),
@@ -638,12 +644,12 @@ class _PantryListPageState extends State<PantryListPage>
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _items.isEmpty
               ? Center(
                   child: Text(
                     _emptyText,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                    style: TextStyle(color: t.caption, fontSize: 12),
                   ),
                 )
               : RefreshIndicator(
@@ -699,6 +705,7 @@ class _PantryListPageState extends State<PantryListPage>
   }
 
   void _showDeductSheet(PantryVO item) {
+    final t = AppTokens.of(context);
     final ctrl = TextEditingController(text: '1');
     showModalBottomSheet(
       context: context,
@@ -706,14 +713,14 @@ class _PantryListPageState extends State<PantryListPage>
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(left: 16, right: 16, top: 20,
+        padding: EdgeInsets.only(left: 16, right: 16, top: 16,
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('使用 ${item.displayName}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('使用 ${item.displayName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: t.title)),
           const SizedBox(height: 4),
           Text('当前库存：${item.displayAmount}',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-          const SizedBox(height: 14),
+              style: TextStyle(fontSize: 12, color: t.caption)),
+          const SizedBox(height: 12),
           TextField(
             controller: ctrl,
             autofocus: true,
@@ -721,11 +728,11 @@ class _PantryListPageState extends State<PantryListPage>
             decoration: InputDecoration(
               hintText: '用了多少？',
               suffixText: item.unitName ?? '',
-              filled: true, fillColor: const Color(0xFFFAFAFA),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              filled: true, fillColor: t.bg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           SizedBox(
             height: 44,
             child: ElevatedButton(
@@ -738,7 +745,7 @@ class _PantryListPageState extends State<PantryListPage>
                   _load();
                 } catch (_) { _snack(ctx, '扣减失败'); }
               },
-              child: const Text('确认使用', style: TextStyle(fontSize: 15)),
+              child: const Text('确认使用', style: TextStyle(fontSize: 14)),
             ),
           ),
         ]),
@@ -750,10 +757,10 @@ class _PantryListPageState extends State<PantryListPage>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: color.withAlpha(15),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
           border: Border.all(color: color.withAlpha(60)),
         ),
         child: Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
@@ -762,31 +769,32 @@ class _PantryListPageState extends State<PantryListPage>
   }
 
   Widget _buildCard(PantryVO item) {
+    final t = AppTokens.of(context);
     final low = item.isLow;
     final expiring = item.isExpiring();
     final expired = item.isExpired;
     Color? borderColor;
     if (low) {
-      borderColor = AppColors.warnRed;
+      borderColor = AppTokens.error;
     } else if (expiring || expired) {
-      borderColor = AppColors.warnOrange;
+      borderColor = AppTokens.warning;
     }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
         side: borderColor != null
             ? BorderSide(color: borderColor, width: 1.5)
-            : const BorderSide(color: Color(0xFFEEEEEE)),
+            : BorderSide(color: t.border),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
         onTap: () => _showEditSheet(item),
         onLongPress: () => _deleteItem(item),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -794,15 +802,15 @@ class _PantryListPageState extends State<PantryListPage>
                 children: [
                   Expanded(
                     child: Text(item.displayName,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.title)),
                   ),
                   Text(item.displayAmount,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600, color: t.primary)),
                   const SizedBox(width: 8),
-                  _miniBtn('−', AppColors.warnRed, () => _quickDeduct(item)),
+                  _miniBtn('−', AppTokens.error, () => _quickDeduct(item)),
                   const SizedBox(width: 4),
-                  _miniBtn('使用', AppColors.primary, () => _showDeductSheet(item)),
+                  _miniBtn('使用', t.primary, () => _showDeductSheet(item)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -813,7 +821,7 @@ class _PantryListPageState extends State<PantryListPage>
                     item.lowThreshold != null && item.lowThreshold! > 0
                         ? '阈值 ${_fmt(item.lowThreshold!)}'
                         : '无阈值',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 11, color: t.caption),
                   ),
                   const SizedBox(width: 12),
                   // 过期日
@@ -822,10 +830,10 @@ class _PantryListPageState extends State<PantryListPage>
                     style: TextStyle(
                       fontSize: 11,
                       color: expired
-                          ? AppColors.warnRed
+                          ? AppTokens.error
                           : expiring
-                              ? AppColors.warnOrange
-                              : AppColors.textSecondary,
+                              ? AppTokens.warning
+                              : t.caption,
                       fontWeight: (expired || expiring) ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),

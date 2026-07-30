@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../core/theme.dart';
+import '../core/app_theme.dart';
 import '../stores/auth_store.dart';
 import '../stores/member_store.dart';
 import '../widgets/app_card.dart';
@@ -12,14 +12,15 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     final auth = context.watch<AuthStore>();
     final member = context.watch<MemberStore>();
     return Scaffold(
-      backgroundColor: AppColors.cream,
+      backgroundColor: t.bg,
       appBar: AppBar(title: const Text('设置')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp32),
           children: [
             // 用户头部卡
             AppCard(
@@ -28,29 +29,29 @@ class ProfilePage extends StatelessWidget {
                   Container(
                     width: 56,
                     height: 56,
-                    decoration: const BoxDecoration(
-                      gradient: AppGradients.primary,
+                    decoration: BoxDecoration(
+                      gradient: t.primaryGradient,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.person, color: Colors.white),
+                    child: Icon(Icons.person, color: t.card),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: AppTokens.sp12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(auth.nickname.isNotEmpty ? auth.nickname : '掌勺人',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary)),
-                        const SizedBox(height: 4),
+                                color: t.title)),
+                        const SizedBox(height: AppTokens.sp4),
                         Text(
                           member.currentName.isNotEmpty
                               ? '当前就餐：${member.currentName}'
                               : '未选择就餐成员',
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.textSecondary),
+                          style: TextStyle(
+                              fontSize: 12, color: t.caption),
                         ),
                       ],
                     ),
@@ -58,7 +59,7 @@ class ProfilePage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTokens.sp16),
             // 功能项
             AppCard(
               padding: EdgeInsets.zero,
@@ -85,17 +86,17 @@ class ProfilePage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppTokens.sp16),
             // 退出登录
             AppCard(
               padding: EdgeInsets.zero,
               child: ListTile(
                 leading: const Icon(Icons.logout,
-                    color: AppColors.warnRed),
+                    color: AppTokens.error),
                 title: const Text('退出登录',
-                    style: TextStyle(color: AppColors.warnRed)),
-                trailing: const Icon(Icons.chevron_right,
-                    color: AppColors.textSecondary),
+                    style: TextStyle(color: AppTokens.error)),
+                trailing: Icon(Icons.chevron_right,
+                    color: t.caption),
                 onTap: () => auth.logout(),
               ),
             ),
@@ -120,19 +121,22 @@ class _SettingTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => ListTile(
-        leading: Icon(icon, color: AppColors.primary),
-        title: Text(label),
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return ListTile(
+        leading: Icon(icon, color: t.primary),
+        title: Text(label, style: TextStyle(color: t.title)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (value != null)
               Text(value!,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 13)),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                  style: TextStyle(
+                      color: t.caption, fontSize: 12)),
+            Icon(Icons.chevron_right, color: t.caption),
           ],
         ),
         onTap: onTap,
       );
+  }
 }

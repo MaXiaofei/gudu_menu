@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme.dart';
+import '../core/app_theme.dart';
 
 /// 暖橙渐变主按钮（登录、主推卡片 CTA 等用）。
 class GradientButton extends StatelessWidget {
@@ -16,15 +16,18 @@ class GradientButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Opacity(
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    final radius = BorderRadius.circular(AppTokens.rMd);
+    return Opacity(
         opacity: onPressed == null ? 0.5 : 1,
         child: Container(
           decoration: BoxDecoration(
-            gradient: AppGradients.primary,
-            borderRadius: BorderRadius.circular(14),
+            gradient: t.primaryGradient,
+            borderRadius: radius,
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
+                color: t.shadowMd,
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -34,19 +37,21 @@ class GradientButton extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: onPressed,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: radius,
+              hoverColor: t.primaryDeep.withValues(alpha: 0.15),
+              splashColor: t.primaryDeep.withValues(alpha: 0.25),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (icon != null) ...[
-                      Icon(icon, color: Colors.white, size: 20),
+                      Icon(icon, color: t.card, size: 20),
                       const SizedBox(width: 8),
                     ],
                     Text(label,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: t.card,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         )),
@@ -57,4 +62,5 @@ class GradientButton extends StatelessWidget {
           ),
         ),
       );
+  }
 }

@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>咕嘟小食单 · Design Tokens（从原型提取）</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;background:var(--color-bg);color:var(--color-title);padding:30px 24px 100px;line-height:1.5;transition:background .3s,color .3s}
+
+  /* ===== 主题（同 design-themes.html）===== */
+  [data-theme="cream"]{
+    --color-primary:#E89150;--color-primary-deep:#D17A3C;--color-primary-soft:#F6D9BE;
+    --color-secondary:#FBF0DD;--color-accent:#B8762E;
+    --color-bg:#FDFAF4;--color-card:#FFFFFF;--color-border:#F0E6D6;
+    --color-title:#4A382A;--color-body:#6E5C49;--color-caption:#9C8C7A;--color-highlight:#FFF7EC;
+    --color-shadow-rgb:169,101,30;
+  }
+  [data-theme="matcha"]{
+    --color-primary:#7A9A5B;--color-primary-deep:#648449;--color-primary-soft:#D8E2C8;
+    --color-secondary:#E8E4D5;--color-accent:#6B8A4D;
+    --color-bg:#F7F5EE;--color-card:#FFFFFF;--color-border:#E5E2D5;
+    --color-title:#2E3520;--color-body:#6B7660;--color-caption:#9CA58F;--color-highlight:#FBF9EC;
+    --color-shadow-rgb:122,154,91;
+  }
+  body{
+    --color-success:#4FAE6E;--color-success-soft:#F0F8EE;--color-success-deep:#3E8C58;
+    --color-warning:#E5A938;--color-warning-soft:#FFF7EC;--color-warning-deep:#B8762E;
+    --color-error:#DB5A4E;--color-error-soft:#FBD9D5;--color-error-deep:#B8382B;
+    --color-info:#4FA0D0;--color-info-soft:#E8F3FA;--color-info-deep:#3E7FA6;
+    --radius-xs:4px;--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-xl:22px;--radius-pill:999px;
+    --sh-sm:0 1px 3px rgba(var(--color-shadow-rgb),.08);
+    --sh-md:0 6px 18px rgba(var(--color-shadow-rgb),.10);
+    --sh-lg:0 14px 36px rgba(var(--color-shadow-rgb),.14);
+    --sh-fab:0 4px 12px rgba(var(--color-shadow-rgb),.40);
+  }
+
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:28px;margin:0 0 4px;letter-spacing:-.5px}
+  .sub{color:var(--color-caption);margin:0 0 16px;font-size:14px}
+
+  .switch{display:inline-flex;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-pill);padding:5px;gap:4px;margin-bottom:26px;box-shadow:var(--sh-sm)}
+  .switch button{border:none;background:transparent;padding:9px 20px;font-size:13px;font-weight:700;color:var(--color-body);border-radius:var(--radius-pill);cursor:pointer;font-family:inherit}
+  .switch button.on{background:var(--color-primary);color:#fff;box-shadow:var(--sh-sm)}
+
+  section{background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-xl);padding:22px 24px;margin:0 0 18px;box-shadow:var(--sh-sm)}
+  section>h2{font-size:17px;margin:0 0 4px}
+  section>.desc{color:var(--color-caption);font-size:13px;margin:0 0 16px}
+  .grp-title{font-size:11px;color:var(--color-caption);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;font-weight:700}
+  .new{display:inline-block;font-size:9px;font-weight:800;color:var(--color-primary);background:var(--color-primary-soft);padding:1px 6px;border-radius:5px;margin-left:6px;vertical-align:middle;letter-spacing:.5px}
+
+  /* color grid */
+  .row{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+  .col{flex:1;min-width:110px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--color-border)}
+  .col .sw{height:58px}
+  .col .meta{padding:7px 10px;font-size:11px;color:var(--color-body);background:var(--color-card)}
+  .col .meta b{display:block;font-size:12px;color:var(--color-title)}
+  .col .meta span{opacity:.65}
+  .col .meta code{font-size:10px;color:var(--color-caption);font-family:ui-monospace,Menlo,monospace}
+
+  /* primitive palette */
+  .palette{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:12px}
+  .palette .cell{aspect-ratio:1.4;border-radius:6px;position:relative;border:1px solid rgba(0,0,0,.04)}
+  .palette .cell span{position:absolute;bottom:3px;left:5px;font-size:9px;font-weight:700;color:rgba(0,0,0,.55)}
+  .palette .cell.dark span{color:rgba(255,255,255,.8)}
+
+  /* typography */
+  .type-row{display:flex;align-items:baseline;gap:16px;padding:6px 0;border-bottom:1px dashed var(--color-border)}
+  .type-row:last-child{border:none}
+  .type-row .tag{font-size:11px;color:var(--color-caption);width:120px;flex-shrink:0;font-family:ui-monospace,Menlo,monospace}
+
+  /* radius / shadow / spacing */
+  .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  @media(max-width:680px){.form-grid{grid-template-columns:repeat(2,1fr)}}
+  .form-cell{display:flex;flex-direction:column;align-items:center;gap:7px;font-size:11px;color:var(--color-caption)}
+  .r-demo{width:60px;height:60px;background:var(--color-primary-soft);border:1px solid var(--color-border)}
+  .sh-demo{width:70px;height:50px;background:var(--color-card);border-radius:var(--radius-md)}
+  .sp-bar{height:13px;background:var(--color-primary);border-radius:3px}
+
+  /* component preview */
+  .chip{font-size:12px;font-weight:700;padding:4px 12px;border-radius:var(--radius-pill)}
+  .chip.success{background:var(--color-success-soft);color:var(--color-success-deep)}
+  .chip.warning{background:var(--color-warning-soft);color:var(--color-warning-deep)}
+  .chip.error{background:var(--color-error-soft);color:var(--color-error-deep)}
+  .chip.info{background:var(--color-info-soft);color:var(--color-info-deep)}
+
+  .callout{border-radius:10px;padding:9px 11px;font-size:11px;line-height:1.5;margin-bottom:8px;display:flex;gap:8px;align-items:flex-start}
+  .callout.success{background:var(--color-success-soft);border:1px solid var(--color-success)}
+  .callout.warning{background:var(--color-warning-soft);border:1px solid var(--color-warning);color:var(--color-warning-deep)}
+  .callout.error{background:var(--color-error-soft);border:1px solid var(--color-error);color:var(--color-error-deep)}
+  .callout.info{background:var(--color-info-soft);border:1px solid var(--color-info)}
+
+  .note{font-size:12px;color:var(--color-caption);margin-top:10px;padding:9px 12px;background:var(--color-bg);border-radius:var(--radius-sm);font-family:ui-monospace,Menlo,monospace}
+  .legend{font-size:11px;color:var(--color-caption);margin:8px 0}
+
+  .hero-grad{background:linear-gradient(135deg,var(--color-primary),var(--color-primary-deep));color:#fff;border-radius:var(--radius-lg);padding:16px;box-shadow:var(--sh-md)}
+  .hero-grad h3{margin:0 0 4px;font-size:16px}
+  .hero-grad p{margin:0;font-size:12px;opacity:.9}
+</style>
+</head>
+<body data-theme="cream">
+<div class="wrap">
+  <h1>咕嘟小食单 · Design Tokens</h1>
+  <p class="sub">从 18 个 HTML 原型中提取 · 与 <a href="design-themes.html" style="color:var(--color-primary)">design-themes.html</a> 对齐 · 标记 <span class="new">NEW</span> 为本次新增</p>
+  <div class="switch">
+    <button class="on" onclick="setTheme('cream')">奶油轻食 · 暖橙</button>
+    <button onclick="setTheme('matcha')">抹茶禅意 · 草绿</button>
+  </div>
+
+  <!-- ========== 颜色：主题 ========== -->
+  <section>
+    <h2>Color · 主题色（theme-aware）</h2>
+    <p class="desc">两套主题各自的色板 · 业务代码通过 <code>--color-primary</code> 等 CSS 变量引用。</p>
+    <div class="grp-title">品牌色</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:var(--color-primary)"></div><div class="meta"><b>primary</b><code>--color-primary</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-primary-deep)"></div><div class="meta"><b>primary-deep</b><code>--color-primary-deep</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-primary-soft)"></div><div class="meta"><b>primary-soft</b><code>--color-primary-soft</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-secondary)"></div><div class="meta"><b>secondary</b><code>--color-secondary</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-accent)"></div><div class="meta"><b>accent</b><code>--color-accent</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-highlight)"></div><div class="meta"><b>highlight<span class="new">NEW</span></b><code>--color-highlight</code></div></div>
+    </div>
+    <div class="grp-title">中性色</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:var(--color-bg)"></div><div class="meta"><b>bg 页面底</b><code>--color-bg</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-card);border-bottom:1px solid var(--color-border)"></div><div class="meta"><b>card 卡片</b><code>--color-card</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-border)"></div><div class="meta"><b>border</b><code>--color-border</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-title)"></div><div class="meta"><b>title</b><code>--color-title</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-body)"></div><div class="meta"><b>body</b><code>--color-body</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-caption)"></div><div class="meta"><b>caption</b><code>--color-caption</code></div></div>
+    </div>
+  </section>
+
+  <!-- ========== 颜色：功能 ========== -->
+  <section>
+    <h2>Color · 功能色（semantic）</h2>
+    <p class="desc">新增 soft/deep 变体：原型中 5 处以上使用场景，用于 callout / chip / 状态卡。</p>
+    <div class="grp-title">基础功能色（已有）</div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:var(--color-success)"></div><div class="meta"><b>success</b><code>#4FAE6E</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-warning)"></div><div class="meta"><b>warning</b><code>#E5A938</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-error)"></div><div class="meta"><b>error</b><code>#DB5A4E</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-info)"></div><div class="meta"><b>info</b><code>#4FA0D0</code></div></div>
+    </div>
+    <div class="grp-title">Soft / Deep 变体 <span class="new">NEW</span></div>
+    <div class="row">
+      <div class="col"><div class="sw" style="background:var(--color-success-soft)"></div><div class="meta"><b>success-soft</b><code>#F0F8EE</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-success);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">deep</div><div class="meta"><b>success-deep</b><code>#3E8C58</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-warning-soft)"></div><div class="meta"><b>warning-soft</b><code>#FFF7EC</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-warning);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">deep</div><div class="meta"><b>warning-deep</b><code>#B8762E</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-error-soft)"></div><div class="meta"><b>error-soft</b><code>#FBD9D5</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-error-deep)"></div><div class="meta"><b>error-deep</b><code>#B8382B</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-info-soft)"></div><div class="meta"><b>info-soft</b><code>#E8F3FA</code></div></div>
+      <div class="col"><div class="sw" style="background:var(--color-info-deep)"></div><div class="meta"><b>info-deep</b><code>#3E7FA6</code></div></div>
+    </div>
+    <div class="grp-title">Callout 组合示例</div>
+    <div class="callout success"><span>✅</span><div>扣 8 样 · 余量已更新</div></div>
+    <div class="callout warning"><span>⏰</span><div>临期提醒：鸡蛋还剩 3 天</div></div>
+    <div class="callout error"><span>⚠️</span><div>缺：鱼片 / 豆腐 / 香菜</div></div>
+    <div class="callout info"><span>ℹ️</span><div>已加入本周食集</div></div>
+  </section>
+
+  <!-- ========== 颜色：原始色板 ========== -->
+  <section>
+    <h2>Color · 原始色板（primitive）</h2>
+    <p class="desc">仅供语义 token 参考，业务代码不应直接使用。</p>
+    <div class="grp-title">奶油主题 · Orange</div>
+    <div class="palette">
+      <div class="cell" style="background:#FFF7EC"><span>50</span></div>
+      <div class="cell" style="background:#FBF0DD"><span>100</span></div>
+      <div class="cell" style="background:#F6D9BE"><span>200</span></div>
+      <div class="cell" style="background:#E89150"><span class="dark">400</span></div>
+      <div class="cell" style="background:#D17A3C"><span class="dark">600</span></div>
+      <div class="cell" style="background:#B8762E"><span class="dark">800</span></div>
+    </div>
+    <div class="grp-title">Neutral</div>
+    <div class="palette">
+      <div class="cell" style="background:#FFFFFF;border-color:#eee"><span>0</span></div>
+      <div class="cell" style="background:#FDFAF4"><span>50</span></div>
+      <div class="cell" style="background:#F0E6D6"><span>100</span></div>
+      <div class="cell" style="background:#9C8C7A"><span class="dark">400</span></div>
+      <div class="cell" style="background:#6E5C49"><span class="dark">600</span></div>
+      <div class="cell" style="background:#4A382A"><span class="dark">800</span></div>
+    </div>
+    <div class="grp-title">Red / Green / Yellow / Blue（共享）</div>
+    <div class="palette">
+      <div class="cell" style="background:#FBD9D5"><span>R.50</span></div>
+      <div class="cell" style="background:#DB5A4E"><span class="dark">R.400</span></div>
+      <div class="cell" style="background:#B8382B"><span class="dark">R.700</span></div>
+      <div class="cell" style="background:#F0F8EE"><span>G.50</span></div>
+      <div class="cell" style="background:#4FAE6E"><span class="dark">G.400</span></div>
+      <div class="cell" style="background:#3E8C58"><span class="dark">G.700</span></div>
+    </div>
+    <div class="palette">
+      <div class="cell" style="background:#E5A938"><span class="dark">Y.400</span></div>
+      <div class="cell" style="background:#E8F3FA"><span>B.50</span></div>
+      <div class="cell" style="background:#4FA0D0"><span class="dark">B.400</span></div>
+      <div class="cell" style="background:#3E7FA6"><span class="dark">B.700</span></div>
+    </div>
+  </section>
+
+  <!-- ========== 渐变 ========== -->
+  <section>
+    <h2>Gradient · 渐变</h2>
+    <div class="hero-grad">
+      <h3>hero-primary <span style="background:rgba(255,255,255,.2);padding:1px 6px;border-radius:5px;font-size:10px;margin-left:6px">NEW</span></h3>
+      <p><code>linear-gradient(135deg, var(--color-primary), var(--color-primary-deep))</code></p>
+      <p style="margin-top:8px;font-size:10px;opacity:.7">原型使用：home-aisho 主推荐卡、dailylog 头部。</p>
+    </div>
+  </section>
+
+  <!-- ========== 字号 ========== -->
+  <section>
+    <h2>Typography · 字号阶梯</h2>
+    <p class="desc">11 档 · 原型实测高频值；新增 9 / 10 / 11 / 18 档（原型中 109 / 150 / 119 / 28 次使用）。</p>
+    <div class="type-row"><span class="tag">display 40/800</span><span style="font-size:40px;font-weight:800">今日咕嘟</span></div>
+    <div class="type-row"><span class="tag">h1 32/800</span><span style="font-size:32px;font-weight:800">页面大标题</span></div>
+    <div class="type-row"><span class="tag">h2 24/700</span><span style="font-size:24px;font-weight:700">区块标题</span></div>
+    <div class="type-row"><span class="tag">h3 20/700</span><span style="font-size:20px;font-weight:700">卡片标题</span></div>
+    <div class="type-row"><span class="tag">subtitle 18/700 <span class="new">NEW</span></span><span style="font-size:18px;font-weight:700">副标题 · 今天吃点什么？</span></div>
+    <div class="type-row"><span class="tag">lg 16/600</span><span style="font-size:16px;font-weight:600">正文 · 番茄牛腩煲</span></div>
+    <div class="type-row"><span class="tag">md 14/400</span><span style="font-size:14px;color:var(--color-body)">辅助正文 · 35 分钟 · 385 kcal</span></div>
+    <div class="type-row"><span class="tag">sm 12/400</span><span style="font-size:12px;color:var(--color-body)">次级正文 · 食材列表项描述</span></div>
+    <div class="type-row"><span class="tag">xs 11/700 <span class="new">NEW</span></span><span style="font-size:11px;font-weight:700;color:var(--color-caption);letter-spacing:.5px">SECTION LABEL · 找菜</span></div>
+    <div class="type-row"><span class="tag">tiny 10/800 <span class="new">NEW</span></span><span style="font-size:10px;font-weight:800">⏰ 临期提醒 · 优先用掉</span></div>
+    <div class="type-row"><span class="tag">micro 9/800 <span class="new">NEW</span></span><span style="font-size:9px;font-weight:800;color:var(--color-caption)">📖 菜谱 · 🍱 食集 · ✨ 智荐</span></div>
+  </section>
+
+  <!-- ========== 圆角 ========== -->
+  <section>
+    <h2>Radius · 圆角阶梯</h2>
+    <p class="desc">原型实测：2/4/5/6/7/8/9/10/11/12/14/16/22/99 · 收敛为 7 档主阶梯。</p>
+    <div class="form-grid">
+      <div class="form-cell"><div class="r-demo" style="border-radius:4px"></div>xs 4</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:8px"></div>sm 8</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:12px"></div>md 12 <span class="new">NEW</span></div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:16px"></div>lg 16</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:22px"></div>xl 22</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:999px"></div>pill 999</div>
+      <div class="form-cell"><div class="r-demo" style="border-radius:50%"></div>circle</div>
+    </div>
+    <p class="legend">原型高频：12px（45 次 · 卡片/输入框主档）· 8px（44 次 · chip/小方块）· 22px（25 次 · 大卡）· 99px（59 次 · pill 按钮/tab）</p>
+  </section>
+
+  <!-- ========== 阴影 ========== -->
+  <section>
+    <h2>Shadow · 阴影阶梯</h2>
+    <p class="desc">色调跟随主题（通过 <code>--color-shadow-rgb</code> rgb 变量）。</p>
+    <div class="form-grid">
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:var(--sh-sm)"></div>sm</div>
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:var(--sh-md)"></div>md</div>
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:var(--sh-lg)"></div>lg</div>
+      <div class="form-cell"><div class="sh-demo" style="box-shadow:var(--sh-fab);border-radius:50%;width:50px;height:50px"></div>fab <span class="new">NEW</span></div>
+    </div>
+  </section>
+
+  <!-- ========== 间距 ========== -->
+  <section>
+    <h2>Spacing · 间距阶梯</h2>
+    <p class="desc">4px 基数；补齐 2/5/6/7/9/10 等原型高频值。</p>
+    <div class="form-grid">
+      <div class="form-cell"><div class="sp-bar" style="width:2px"></div>xxs 2</div>
+      <div class="form-cell"><div class="sp-bar" style="width:4px"></div>xs 4</div>
+      <div class="form-cell"><div class="sp-bar" style="width:8px"></div>sm 8</div>
+      <div class="form-cell"><div class="sp-bar" style="width:12px"></div>md 12</div>
+      <div class="form-cell"><div class="sp-bar" style="width:16px"></div>lg 16</div>
+      <div class="form-cell"><div class="sp-bar" style="width:24px"></div>xl 24</div>
+      <div class="form-cell"><div class="sp-bar" style="width:32px"></div>xxl 32</div>
+      <div class="form-cell"><div class="sp-bar" style="width:48px"></div>xxxl 48</div>
+    </div>
+    <p class="legend">原型高频 gap：9px(49) · 8px(38) · 10px(22) · 7px(12) · 6px(12) · 4px(7) · 14px(7)</p>
+  </section>
+
+  <!-- ========== Layout ========== -->
+  <section>
+    <h2>Layout · 全局布局</h2>
+    <p class="desc">来自 home-aisho / app-shell 原型的固定尺寸。</p>
+    <div class="form-grid">
+      <div class="form-cell"><div style="width:56px;height:56px;background:var(--color-primary-soft);border:1px solid var(--color-border);border-radius:var(--radius-md)"></div>tabBar 高 56</div>
+      <div class="form-cell"><div style="width:40px;height:40px;background:var(--color-primary);border-radius:50%;box-shadow:var(--sh-fab)"></div>fab 40px</div>
+      <div class="form-cell"><div style="width:20px;height:20px;background:var(--color-caption);border-radius:4px"></div>tab icon 20</div>
+      <div class="form-cell"><div style="width:9px;height:9px;background:var(--color-caption);border-radius:50%"></div>tab label 9px</div>
+    </div>
+  </section>
+
+  <!-- ========== Chips ========== -->
+  <section>
+    <h2>组件 · 功能 Chip</h2>
+    <p class="desc">组合语义色 soft + deep 的常见用法。</p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <span class="chip success">扣 8 样</span>
+      <span class="chip warning">临期 · 3 天</span>
+      <span class="chip error">缺 3 样</span>
+      <span class="chip info">已加入食集</span>
+    </div>
+  </section>
+
+  <p class="note">数据源：<code>.superpowers/brainstorm/44829-1783002708/</code> (13 screens) + <code>41263-1782996859/</code> (5 screens) · 规范文件：<code>tokens.json</code> · 旧版：<a href="design-themes.html" style="color:var(--color-primary)">design-themes.html</a></p>
+</div>
+<script>
+function setTheme(t){
+  document.body.setAttribute('data-theme',t);
+  document.querySelectorAll('.switch button').forEach(b=>b.classList.remove('on'));
+  event.currentTarget.classList.add('on');
+}
+</script>
+</body>
+</html>

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../models/nutrition_metric.dart';
 import '../../services/dailylog_service.dart';
 import '../../services/dish_service.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/loading_empty.dart';
 
 /// 每日饮食记录。
 ///
@@ -121,6 +122,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
   // ===== 录入 =====
 
   void _showAddSheet() {
+    final t = AppTokens.of(context);
     _nameCtrl.clear();
     _amountCtrl.clear();
     showModalBottomSheet(
@@ -135,7 +137,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
           List<_DishLite> searchResults = [];
           return Padding(
             padding: EdgeInsets.only(
-              left: 16, right: 16, top: 20,
+              left: 16, right: 16, top: 24,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
             ),
             child: Column(
@@ -158,13 +160,13 @@ class _DailyLogPageState extends State<DailyLogPage> {
                     decoration: InputDecoration(
                       hintText: '吃了什么？如 番茄炒蛋',
                       prefixIcon: const Icon(Icons.restaurant),
-                      filled: true, fillColor: const Color(0xFFFAFAFA),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true, fillColor: t.bg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Row(children: [
-                    const Text('份数', style: TextStyle(fontSize: 13)),
+                    const Text('份数', style: TextStyle(fontSize: 12)),
                     const SizedBox(width: 8),
                     SizedBox(
                       width: 80,
@@ -173,34 +175,35 @@ class _DailyLogPageState extends State<DailyLogPage> {
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           hintText: '1',
-                          filled: true, fillColor: const Color(0xFFFAFAFA),
+                          filled: true, fillColor: t.bg,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text('份', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text('份', style: TextStyle(fontSize: 12, color: t.caption)),
                   ]),
                   const SizedBox(height: 12),
                   // 菜库热门快捷选
                   if (_dishes.isNotEmpty)
                     Wrap(
-                      spacing: 6, runSpacing: 6,
+                      spacing: 8, runSpacing: 8,
                       children: _dishes.take(8).map((d) {
-                        return GestureDetector(
+                        return InkWell(
                           onTap: () {
                             _nameCtrl.text = d.name;
                             Navigator.pop(ctx);
                             _doAddDish(d.id, d.name, 1);
                           },
+                          borderRadius: BorderRadius.circular(AppTokens.rMd),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withAlpha(15),
-                              borderRadius: BorderRadius.circular(12),
+                              color: t.primary.withAlpha(15),
+                              borderRadius: BorderRadius.circular(AppTokens.rMd),
                             ),
-                            child: Text(d.name, style: const TextStyle(fontSize: 12, color: AppColors.primary)),
+                            child: Text(d.name, style: TextStyle(fontSize: 12, color: t.primary)),
                           ),
                         );
                       }).toList(),
@@ -210,7 +213,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                     height: 44,
                     child: ElevatedButton(
                       onPressed: () { Navigator.pop(ctx); _submitQuickAdd(); },
-                      child: const Text('快速记录', style: TextStyle(fontSize: 15)),
+                      child: const Text('快速记录', style: TextStyle(fontSize: 14)),
                     ),
                   ),
                 ] else ...[
@@ -219,8 +222,8 @@ class _DailyLogPageState extends State<DailyLogPage> {
                     decoration: InputDecoration(
                       hintText: '搜索菜品…',
                       prefixIcon: const Icon(Icons.search),
-                      filled: true, fillColor: const Color(0xFFFAFAFA),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true, fillColor: t.bg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
                     ),
                     onChanged: (v) async {
                       final kw = v.trim();
@@ -240,9 +243,9 @@ class _DailyLogPageState extends State<DailyLogPage> {
                   SizedBox(
                     height: 240,
                     child: searchResults.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text('输入菜名搜索',
-                                style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                                style: TextStyle(color: t.caption, fontSize: 12)),
                           )
                         : ListView.builder(
                             itemCount: searchResults.length,
@@ -269,16 +272,18 @@ class _DailyLogPageState extends State<DailyLogPage> {
   }
 
   Widget _sheetTab(String label, bool active, VoidCallback onTap) {
-    return GestureDetector(
+    final t = AppTokens.of(context);
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTokens.rLg),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? AppColors.primary : const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(16),
+          color: active ? t.primary : t.bg,
+          borderRadius: BorderRadius.circular(AppTokens.rLg),
         ),
         child: Text(label,
-            style: TextStyle(fontSize: 12, color: active ? Colors.white : const Color(0xFF666666))),
+            style: TextStyle(fontSize: 12, color: active ? t.card : t.body)),
       ),
     );
   }
@@ -354,6 +359,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     final memberName = context.watch<MemberStore>().currentName;
 
     return Scaffold(
@@ -364,26 +370,26 @@ class _DailyLogPageState extends State<DailyLogPage> {
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Text('精准', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                Text('精准', style: TextStyle(fontSize: 12, color: t.card.withValues(alpha: 0.7))),
                 Switch(
                   value: _preciseMode,
                   onChanged: (v) => setState(() => _preciseMode = v),
-                  activeTrackColor: Colors.white38,
+                  activeTrackColor: t.primarySoft,
                 ),
               ]),
             ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : Column(
               children: [
                 _buildDateBar(),
                 if (memberName.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: Text('当前成员：$memberName',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        style: TextStyle(fontSize: 12, color: t.caption)),
                   ),
                 if (_isToday && _preciseMode && _target != null)
                   _buildPreciseCard()
@@ -395,11 +401,11 @@ class _DailyLogPageState extends State<DailyLogPage> {
                       ? Center(
                           child: Text(
                             _isToday ? '今天还没记录，点下方 + 记一餐' : '当天暂无记录',
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                            style: TextStyle(color: t.caption, fontSize: 14),
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: _log!.items.length,
                           itemBuilder: (_, i) {
                             final it = _log!.items[i];
@@ -407,17 +413,17 @@ class _DailyLogPageState extends State<DailyLogPage> {
                               leading: CircleAvatar(
                                 radius: 16,
                                 backgroundColor:
-                                    it.isDish ? AppColors.primary.withAlpha(30) : AppColors.warnOrange.withAlpha(30),
+                                    it.isDish ? t.primary.withAlpha(30) : AppTokens.warning.withAlpha(30),
                                 child: Icon(
                                   it.isDish ? Icons.restaurant : Icons.eco,
                                   size: 16,
-                                  color: it.isDish ? AppColors.primary : AppColors.warnOrange,
+                                  color: it.isDish ? t.primary : AppTokens.warning,
                                 ),
                               ),
                               title: Text(it.displayName, style: const TextStyle(fontSize: 14)),
                               subtitle: Text(
                                 '${it.amount.toStringAsFixed(it.isDish ? 0 : 0)}${it.isDish ? " 份" : " g"}',
-                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                style: TextStyle(fontSize: 12, color: t.caption),
                               ),
                               dense: true,
                             );
@@ -437,6 +443,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
   }
 
   Widget _buildDateBar() {
+    final t = AppTokens.of(context);
     final isToday = _isToday;
     return GestureDetector(
       onHorizontalDragEnd: (details) {
@@ -448,28 +455,32 @@ class _DailyLogPageState extends State<DailyLogPage> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        color: const Color(0xFFFAF8F5),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        color: t.bg,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton(icon: const Icon(Icons.chevron_left), onPressed: _prevDay, iconSize: 26),
-            GestureDetector(
+            InkWell(
               onTap: _pickDate,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text('${_date.month}月${_date.day}日',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(
-                  isToday ? '今天 · 左右滑动切换' : _weekLabel(_date.weekday),
-                  style: TextStyle(fontSize: 12, color: isToday ? AppColors.primary : AppColors.textSecondary),
-                ),
-              ]),
+              borderRadius: BorderRadius.circular(AppTokens.rSm),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('${_date.month}月${_date.day}日',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                    isToday ? '今天 · 左右滑动切换' : _weekLabel(_date.weekday),
+                    style: TextStyle(fontSize: 12, color: isToday ? t.primary : t.caption),
+                  ),
+                ]),
+              ),
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
               onPressed: isToday ? null : _nextDay,
               iconSize: 26,
-              color: isToday ? Colors.grey.shade300 : null,
+              color: isToday ? t.border : null,
             ),
           ],
         ),
@@ -479,23 +490,25 @@ class _DailyLogPageState extends State<DailyLogPage> {
 
   // ===== 轻量摘要 =====
   Widget _buildLightSummary() {
+    final t = AppTokens.of(context);
     final items = _log?.items ?? [];
     if (items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(12),
-        child: Text('今天还没记录', style: TextStyle(color: AppColors.textSecondary)),
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text('今天还没记录', style: TextStyle(color: t.caption)),
       );
     }
     final cal = _totalCalorie();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text('今天 ${items.length} 项 · ${cal > 0 ? "约 $cal kcal" : ""}',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.body)),
     );
   }
 
   // ===== 精准卡片 =====
   Widget _buildPreciseCard() {
+    final t = AppTokens.of(context);
     if (_target == null) return const SizedBox.shrink();
     final actualCal = _totalCalorie();
     final remaining = _target!.calorieTarget - actualCal;
@@ -504,16 +517,17 @@ class _DailyLogPageState extends State<DailyLogPage> {
         : 0.0;
 
     final ringColor = ratio > 1.0
-        ? AppColors.warnRed
+        ? AppTokens.error
         : ratio > 0.85
-            ? AppColors.warnOrange
-            : AppColors.saveGreen;
+            ? AppTokens.warning
+            : AppTokens.success;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: t.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(children: [
           // 热量环
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -525,59 +539,60 @@ class _DailyLogPageState extends State<DailyLogPage> {
                   child: CircularProgressIndicator(
                     value: ratio.clamp(0.0, 1.0),
                     strokeWidth: 6,
-                    backgroundColor: Colors.grey.shade200,
+                    backgroundColor: t.border,
                     valueColor: AlwaysStoppedAnimation(ringColor),
                   ),
                 ),
                 Text('${(ratio * 100).toInt()}%',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: ringColor)),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: ringColor)),
               ]),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 24),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('热量预算', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              Text('热量预算', style: TextStyle(fontSize: 12, color: t.caption)),
               Text('$actualCal / ${_target!.calorieTarget} kcal',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               Text(
                 remaining >= 0 ? '剩余 $remaining kcal' : '超出 ${-remaining} kcal',
                 style: TextStyle(
-                    fontSize: 13,
-                    color: remaining >= 0 ? AppColors.saveGreen : AppColors.warnRed,
+                    fontSize: 12,
+                    color: remaining >= 0 ? AppTokens.success : AppTokens.error,
                     fontWeight: FontWeight.w600),
               ),
               Text('${_target!.goalLabel} · BMR ${_target!.bmr}',
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  style: TextStyle(fontSize: 11, color: t.caption)),
             ]),
           ]),
-          const SizedBox(height: 14),
-          _bar('🥩 蛋白质', _nutVal('protein'), _target!.proteinTarget, AppColors.warnRed),
-          const SizedBox(height: 6),
-          _bar('🍚 碳水', _nutVal('carb'), _target!.carbTarget, AppColors.warnOrange),
-          const SizedBox(height: 6),
-          _bar('🥑 脂肪', _nutVal('fat'), _target!.fatTarget, AppColors.saveGreen),
+          const SizedBox(height: 12),
+          _bar('🥩 蛋白质', _nutVal('protein'), _target!.proteinTarget, AppTokens.error),
+          const SizedBox(height: 8),
+          _bar('🍚 碳水', _nutVal('carb'), _target!.carbTarget, AppTokens.warning),
+          const SizedBox(height: 8),
+          _bar('🥑 脂肪', _nutVal('fat'), _target!.fatTarget, AppTokens.success),
         ]),
       ),
     );
   }
 
   Widget _bar(String label, int actual, int target, Color color) {
+    final t = AppTokens.of(context);
     final ratio = target > 0 ? (actual / target).clamp(0.0, 1.2) : 0.0;
-    final c = ratio > 1.0 ? AppColors.warnRed : ratio > 0.85 ? AppColors.warnOrange : color;
+    final c = ratio > 1.0 ? AppTokens.error : ratio > 0.85 ? AppTokens.warning : color;
     return Row(children: [
       SizedBox(width: 66, child: Text(label, style: const TextStyle(fontSize: 12))),
       Expanded(
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(3),
+          borderRadius: BorderRadius.circular(AppTokens.rXs),
           child: LinearProgressIndicator(
-            value: ratio.clamp(0.0, 1.0), minHeight: 7,
-            backgroundColor: Colors.grey.shade200,
+            value: ratio.clamp(0.0, 1.0), minHeight: 8,
+            backgroundColor: t.border,
             valueColor: AlwaysStoppedAnimation(c),
           ),
         ),
       ),
-      const SizedBox(width: 6),
+      const SizedBox(width: 8),
       SizedBox(width: 72, child: Text('$actual/$target g',
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade600))),
+          style: TextStyle(fontSize: 11, color: t.caption))),
     ]);
   }
 

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../models/nutrition_metric.dart';
 import '../../services/ai_service.dart';
 import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
+import '../../widgets/loading_empty.dart';
 
 /// 录入食材：
 /// - 食材名 + AI 补全营养按钮
@@ -167,6 +168,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('录入食材')),
       body: SingleChildScrollView(
@@ -186,14 +188,14 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                       hintText: '如：番茄',
                       prefixIcon: const Icon(Icons.eco_outlined),
                       filled: true,
-                      fillColor: const Color(0xFFFAFAFA),
+                      fillColor: t.bg,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                        borderRadius: BorderRadius.circular(AppTokens.rMd),
+                        borderSide: BorderSide(color: t.border),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                        borderRadius: BorderRadius.circular(AppTokens.rMd),
+                        borderSide: BorderSide(color: t.primary, width: 1.5),
                       ),
                     ),
                   ),
@@ -204,9 +206,9 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                   child: ElevatedButton(
                     onPressed: _aiLoading ? null : _onAiFill,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.warnOrange,
+                      backgroundColor: AppTokens.warning,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppTokens.rMd),
                       ),
                     ),
                     child: _aiLoading
@@ -224,7 +226,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // 计量单位（Tag 列表点选）
             _sectionLabel('计量单位'),
@@ -245,14 +247,14 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                   autofocus: true,
                   decoration: InputDecoration(
                     hintText: '输入自定义单位，如：扎、捆',
-                    filled: true, fillColor: const Color(0xFFFAFAFA),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    filled: true, fillColor: t.bg,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     isDense: true,
                   ),
                 ),
               ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // 采购分类（Tag 列表点选）
             _sectionLabel('采购分类'),
@@ -273,9 +275,9 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                   autofocus: true,
                   decoration: InputDecoration(
                     hintText: '输入自定义分类',
-                    filled: true, fillColor: const Color(0xFFFAFAFA),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    filled: true, fillColor: t.bg,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     isDense: true,
                   ),
                 ),
@@ -288,8 +290,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
             if (_metrics.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text('营养指标字典加载中…',
-                    style: TextStyle(color: AppColors.textSecondary)),
+                child: LoadingView(),
               )
             else
               _buildNutritionGrid(),
@@ -319,18 +320,19 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
   }
 
   Widget _sectionLabel(String text) {
+    final t = AppTokens.of(context);
     return Row(
       children: [
         Container(
           width: 4, height: 18,
           decoration: BoxDecoration(
-            color: AppColors.primary, borderRadius: BorderRadius.circular(2),
+            color: t.primary, borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(width: 8),
         Text(text,
-            style: const TextStyle(
-                fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2D2A26))),
+            style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.bold, color: t.title)),
       ],
     );
   }
@@ -345,46 +347,51 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
     required String emptyText,
   }) {
     if (items.isEmpty) {
+      final t = AppTokens.of(context);
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(emptyText,
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+            style: TextStyle(color: t.caption, fontSize: 12)),
       );
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Wrap(spacing: 8, runSpacing: 8, children: [
         ...items.map((item) {
+          final t = AppTokens.of(context);
           final selected = selectedId == item.id;
           return GestureDetector(
             onTap: () { onSelected(item.id); onCustomTap(); }, // 选已有项时关闭自定义
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: selected ? AppColors.primary.withAlpha(25) : const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(20),
+                color: selected ? t.primary.withAlpha(25) : t.bg,
+                borderRadius: BorderRadius.circular(AppTokens.rPill),
                 border: Border.all(
-                    color: selected ? AppColors.primary : const Color(0xFFE0E0E0), width: 1.5),
+                    color: selected ? t.primary : t.border, width: 1.5),
               ),
-              child: Text(item.name, style: TextStyle(fontSize: 13,
+              child: Text(item.name, style: TextStyle(fontSize: 12,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  color: selected ? AppColors.primary : const Color(0xFF444444))),
+                  color: selected ? t.primary : t.title)),
             ),
           );
         }),
         // +自定义
         GestureDetector(
           onTap: onCustomTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: showCustom ? AppColors.primary.withAlpha(15) : const Color(0xFFF8F8F8),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: showCustom ? AppColors.primary : const Color(0xFFDDDDDD), width: 1.2),
-            ),
-            child: Text(showCustom ? '自定义 ✓' : '+ 自定义', style: TextStyle(fontSize: 13,
-                color: showCustom ? AppColors.primary : AppColors.textSecondary)),
-          ),
+          child: Builder(builder: (context) {
+            final t = AppTokens.of(context);
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: showCustom ? t.primary.withAlpha(15) : t.bg,
+                borderRadius: BorderRadius.circular(AppTokens.rPill),
+                border: Border.all(
+                    color: showCustom ? t.primary : t.border, width: 1.2),
+              ),
+              child: Text(showCustom ? '自定义 ✓' : '+ 自定义', style: TextStyle(fontSize: 12,
+                  color: showCustom ? t.primary : t.caption)),
+            );
+          }),
         ),
       ]),
     ]);
@@ -393,7 +400,8 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
   /// 营养指标网格（2 列，每项英文名 → 中文映射）。
   Widget _buildNutritionGrid() {
     return LayoutBuilder(
-      builder: (_, constraints) {
+      builder: (context, constraints) {
+        final t = AppTokens.of(context);
         return Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -412,13 +420,13 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                   labelText: label,
                   hintText: unit.isNotEmpty ? '单位: $unit' : '',
                   filled: true,
-                  fillColor: const Color(0xFFFAFAFA),
+                  fillColor: t.bg,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                    borderRadius: BorderRadius.circular(AppTokens.rSm),
+                    borderSide: BorderSide(color: t.border),
                   ),
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   isDense: true,
                 ),
               ),

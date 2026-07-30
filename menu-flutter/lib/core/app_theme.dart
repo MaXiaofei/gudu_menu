@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 咕嘟小食单 · 双主题设计系统（与 design/design-themes.html 1:1 对齐）。
+/// 咕嘟小食单 · 双主题设计系统（与 docs/design/design-themes.html 1:1 对齐）。
 ///
 /// 定稿：原始深色中性色版。
 ///   · 奶油轻食（暖橙，默认）：primary #E89150 / title #4A382A / body #6E5C49
@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 /// 功能色两套共享：success #4FAE6E / warning #E5A938 / error #DB5A4E / info #4FA0D0。
 ///
 /// 新组件取 token：`final t = AppTokens.of(context);` 后用 `t.primary` 等，
-/// 切主题时自动跟随。历史页面仍用 [AppColors]（固定为 cream 值）。
+/// 切主题时自动跟随。
 class AppTokens extends ThemeExtension<AppTokens> {
   const AppTokens({
     required this.primary,
@@ -22,6 +22,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.title,
     required this.body,
     required this.caption,
+    required this.highlight,
     required this.shadowBase,
   });
 
@@ -36,6 +37,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Color title;
   final Color body;
   final Color caption;
+  final Color highlight; // 高亮底（warning callout 等）
   final Color shadowBase; // 阴影基色（对应 CSS 的 --sh RGB）
 
   // —— 功能色（两套共享，与主题无关）——
@@ -44,13 +46,17 @@ class AppTokens extends ThemeExtension<AppTokens> {
   static const Color error = Color(0xFFDB5A4E);
   static const Color info = Color(0xFF4FA0D0);
 
-  // —— 圆角 token ——
+  /// 圆角阶梯（7 档，对齐 DESIGN.md §4）
+  /// 实际值：4 / 8 / 12 / 16 / 22 / 999
+  static const double rXs = 4;
   static const double rSm = 8;
-  static const double rMd = 14;
-  static const double rLg = 22;
+  static const double rMd = 12;  // 修正：14 → 12（原型 45 次使用 12px）
+  static const double rLg = 16;
+  static const double rXl = 22;
   static const double rPill = 999;
 
-  // —— 间距 token ——
+  /// 间距阶梯（8 档，对齐 DESIGN.md §6）
+  static const double sp2 = 2;
   static const double sp4 = 4;
   static const double sp8 = 8;
   static const double sp12 = 12;
@@ -74,6 +80,13 @@ class AppTokens extends ThemeExtension<AppTokens> {
         BoxShadow(color: shadowLg, offset: const Offset(0, 14), blurRadius: 36),
       ];
 
+  /// 主色渐变（登录按钮、头像底等用），与 cream/matcha 跟随。
+  LinearGradient get primaryGradient => LinearGradient(
+        colors: [primary, primaryDeep],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+
   /// 奶油轻食（暖橙，默认）。
   static const cream = AppTokens(
     primary: Color(0xFFE89150),
@@ -87,6 +100,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     title: Color(0xFF4A382A),
     body: Color(0xFF6E5C49),
     caption: Color(0xFF9C8C7A),
+    highlight: Color(0xFFFFF7EC),
     shadowBase: Color(0xFFA9651E), // 169,101,30
   );
 
@@ -103,6 +117,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     title: Color(0xFF2E3520),
     body: Color(0xFF6B7660),
     caption: Color(0xFF9CA58F),
+    highlight: Color(0xFFFBF9EC),
     shadowBase: Color(0xFF7A9A5B), // 122,154,91
   );
 
@@ -123,6 +138,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? title,
     Color? body,
     Color? caption,
+    Color? highlight,
     Color? shadowBase,
   }) =>
       AppTokens(
@@ -137,6 +153,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
         title: title ?? this.title,
         body: body ?? this.body,
         caption: caption ?? this.caption,
+        highlight: highlight ?? this.highlight,
         shadowBase: shadowBase ?? this.shadowBase,
       );
 
@@ -155,6 +172,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       title: Color.lerp(title, other.title, t)!,
       body: Color.lerp(body, other.body, t)!,
       caption: Color.lerp(caption, other.caption, t)!,
+      highlight: Color.lerp(highlight, other.highlight, t)!,
       shadowBase: Color.lerp(shadowBase, other.shadowBase, t)!,
     );
   }
@@ -181,6 +199,10 @@ ThemeData buildBrandTheme(AppTokens t) {
     canvasColor: t.bg,
     cardColor: t.card,
     dividerColor: t.border,
+    // 交互状态（DESIGN.md §7：150ms fast transition）
+    hoverColor: t.primary.withValues(alpha: 0.08),
+    splashColor: t.primary.withValues(alpha: 0.12),
+    highlightColor: t.primary.withValues(alpha: 0.10),
     extensions: [t],
     appBarTheme: AppBarTheme(
       backgroundColor: t.primary,
@@ -215,7 +237,7 @@ ThemeData buildBrandTheme(AppTokens t) {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: t.bg,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTokens.rMd),
         borderSide: BorderSide(color: t.border, width: 1.5),

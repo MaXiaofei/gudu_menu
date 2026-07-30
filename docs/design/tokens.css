@@ -1,0 +1,240 @@
+/**
+ * 咕嘟小食单 · Design Tokens · 单一真相源 (CSS 变量)
+ *
+ * 规范：docs/design/DESIGN.md
+ * 机器可读：docs/design/tokens.json
+ * 预览：docs/design/tokens.html
+ *
+ * 命名约定（与 DESIGN.md 对齐）：
+ *   --color-*   颜色（主题感知 / 语义 / 功能）
+ *   --space-*   间距（4px 基数）
+ *   --radius-*  圆角
+ *   --shadow-*  阴影
+ *   --font-*    字号 / 字重 / 字族
+ *   --motion-*  动效时长 / 缓动
+ *   --grad-*    渐变
+ *
+ * 使用规则：业务代码禁止硬编码 hex / px，必须引用本文件变量。
+ */
+
+/* ============================================================
+ * 1. 主题色（theme-aware）
+ * 通过 html[data-theme="cream|matcha"] 切换
+ * 默认 :root = cream
+ * ============================================================ */
+:root,
+[data-theme="cream"] {
+  /* 品牌色 */
+  --color-primary:       #E89150;
+  --color-primary-deep:  #D17A3C;
+  --color-primary-soft:  #F6D9BE;
+  --color-secondary:     #FBF0DD;
+  --color-accent:        #B8762E;
+
+  /* 中性色 */
+  --color-bg:            #FDFAF4;
+  --color-card:          #FFFFFF;
+  --color-border:        #F0E6D6;
+  --color-title:         #4A382A;
+  --color-body:          #6E5C49;
+  --color-caption:       #9C8C7A;
+  --color-highlight:     #FFF7EC;
+
+  /* 阴影 rgb 分量（用于 rgba(var(--color-shadow-rgb), α) 插值） */
+  --color-shadow-rgb:    169, 101, 30;
+
+  /* 主色 rgb（用于 fab shadow 等需要透明度的场景） */
+  --color-primary-rgb:   232, 145, 80;
+}
+
+[data-theme="matcha"] {
+  --color-primary:       #7A9A5B;
+  --color-primary-deep:  #648449;
+  --color-primary-soft:  #D8E2C8;
+  --color-secondary:     #E8E4D5;
+  --color-accent:        #6B8A4D;
+
+  --color-bg:            #F7F5EE;
+  --color-card:          #FFFFFF;
+  --color-border:        #E5E2D5;
+  --color-title:         #2E3520;
+  --color-body:          #6B7660;
+  --color-caption:       #9CA58F;
+  --color-highlight:     #FBF9EC;
+
+  --color-shadow-rgb:    122, 154, 91;
+  --color-primary-rgb:   122, 154, 91;
+}
+
+/* ============================================================
+ * 2. 功能色（两套主题共享）
+ * soft/deep 变体为固定搭配：soft 做底、deep 做文字
+ * ============================================================ */
+:root {
+  --color-success:       #4FAE6E;
+  --color-success-soft:  #F0F8EE;
+  --color-success-deep:  #3E8C58;
+
+  --color-warning:       #E5A938;
+  --color-warning-soft:  #FFF7EC;
+  --color-warning-deep:  #B8762E;
+
+  --color-error:         #DB5A4E;
+  --color-error-soft:    #FBD9D5;
+  --color-error-deep:    #B8382B;
+
+  --color-info:          #4FA0D0;
+  --color-info-soft:     #E8F3FA;
+  --color-info-deep:     #3E7FA6;
+
+  /* 保留旧名作兼容别名（旧 html 预览页仍在用），新代码禁止使用 */
+  --primary:       var(--color-primary);
+  --primary-deep:  var(--color-primary-deep);
+  --primary-soft:  var(--color-primary-soft);
+  --secondary:     var(--color-secondary);
+  --accent:        var(--color-accent);
+  --bg:            var(--color-bg);
+  --card:          var(--color-card);
+  --border:        var(--color-border);
+  --title:         var(--color-title);
+  --body:          var(--color-body);
+  --caption:       var(--color-caption);
+  --highlight:     var(--color-highlight);
+  --sh:            var(--color-shadow-rgb);
+  --success:       var(--color-success);
+  --success-soft:  var(--color-success-soft);
+  --success-deep:  var(--color-success-deep);
+  --warning:       var(--color-warning);
+  --warning-soft:  var(--color-warning-soft);
+  --warning-deep:  var(--color-warning-deep);
+  --error:         var(--color-error);
+  --error-soft:    var(--color-error-soft);
+  --error-deep:    var(--color-error-deep);
+  --info:          var(--color-info);
+  --info-soft:     var(--color-info-soft);
+  --info-deep:     var(--color-info-deep);
+}
+
+/* ============================================================
+ * 3. 渐变
+ * ============================================================ */
+:root {
+  --grad-hero: linear-gradient(135deg, var(--color-primary), var(--color-primary-deep));
+}
+
+/* ============================================================
+ * 4. 字号阶梯（11 档）
+ * 值 = font-size；字重 / 行高以 -weight / -lh 后缀
+ * ============================================================ */
+:root {
+  --font-family-sans: -apple-system, "PingFang SC", "Segoe UI", Roboto, sans-serif;
+
+  --font-display:    40px;  --font-display-weight: 800;  --font-display-lh: 1.2;
+  --font-h1:         32px;  --font-h1-weight:        800;  --font-h1-lh:        1.25;
+  --font-h2:         24px;  --font-h2-weight:        700;  --font-h2-lh:        1.3;
+  --font-h3:         20px;  --font-h3-weight:        700;  --font-h3-lh:        1.3;
+  --font-subtitle:   18px;  --font-subtitle-weight:  700;  --font-subtitle-lh:  1.35;
+  --font-lg:         16px;  --font-lg-weight:        600;  --font-lg-lh:        1.4;
+  --font-md:         14px;  --font-md-weight:        400;  --font-md-lh:        1.5;
+  --font-sm:         12px;  --font-sm-weight:        400;  --font-sm-lh:        1.5;
+  --font-xs:         11px;  --font-xs-weight:        700;  --font-xs-lh:        1.4;
+  --font-tiny:       10px;  --font-tiny-weight:      800;  --font-tiny-lh:      1.4;
+  --font-micro:       9px;  --font-micro-weight:     800;  --font-micro-lh:     1.4;
+
+  /* 字重语义别名 */
+  --font-weight-regular: 400;
+  --font-weight-medium:  500;
+  --font-weight-semi:    600;
+  --font-weight-bold:    700;
+  --font-weight-heavy:   800;
+}
+
+/* ============================================================
+ * 5. 圆角（7 档 + circle）
+ * ============================================================ */
+:root {
+  --radius-xs:      4px;
+  --radius-sm:      8px;
+  --radius-md:     12px;   /* 主档 · 卡片 / 输入框 */
+  --radius-lg:     16px;
+  --radius-xl:     22px;
+  --radius-pill:  999px;
+  --radius-circle: 50%;
+}
+
+/* ============================================================
+ * 6. 阴影（4 档 · 颜色主题感知）
+ * ============================================================ */
+:root {
+  --shadow-sm:   0  1px  3px rgba(var(--color-shadow-rgb), .08);
+  --shadow-md:   0  6px 18px rgba(var(--color-shadow-rgb), .10);
+  --shadow-lg:   0 14px 36px rgba(var(--color-shadow-rgb), .14);
+  --shadow-fab:  0  4px 12px rgba(var(--color-primary-rgb), .40);
+}
+
+/* ============================================================
+ * 7. 间距（8 档 · 4px 基数）
+ * ============================================================ */
+:root {
+  --space-xxs:   2px;
+  --space-xs:    4px;
+  --space-sm:    8px;
+  --space-md:   12px;
+  --space-lg:   16px;
+  --space-xl:   24px;
+  --space-xxl:  32px;
+  --space-xxxl: 48px;
+}
+
+/* ============================================================
+ * 8. 动效
+ * ============================================================ */
+:root {
+  --motion-fast:   150ms;
+  --motion-normal: 250ms;
+  --motion-slow:   400ms;
+
+  --easing-default:    cubic-bezier(.4, 0, .2, 1);
+  --easing-decelerate: cubic-bezier(0,  0, .2, 1);
+  --easing-accelerate: cubic-bezier(.4, 0, 1,  1);
+}
+
+/* ============================================================
+ * 9. 布局常量
+ * ============================================================ */
+:root {
+  --layout-page-max-width:  1000px;
+  --layout-mobile-viewport:  340px;
+
+  --layout-tabbar-height:    56px;
+  --layout-tabbar-icon:      20px;
+  --layout-tabbar-label:      9px;
+  --layout-fab-size:         40px;
+  --layout-fab-overflow:    -16px;
+
+  --layout-section-padding:  22px 24px;
+  --layout-section-gap:      18px;
+  --layout-card-padding:     13px 15px 17px;
+  --layout-listitem-height:  56px;
+}
+
+/* ============================================================
+ * 10. 边框
+ * ============================================================ */
+:root {
+  --border-hairline: 1px;
+  --border-default:  1.5px;
+  --border-strong:   2px;
+}
+
+/* ============================================================
+ * 11. z-index 层级
+ * ============================================================ */
+:root {
+  --z-base:     0;
+  --z-dropdown: 100;
+  --z-sticky:   200;
+  --z-fab:      300;
+  --z-modal:    1000;
+  --z-toast:    1100;
+}

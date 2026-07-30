@@ -37,10 +37,10 @@
       </view>
     </scroll-view>
 
-    <!-- 排序行（对齐原型：X 道 + 排序） -->
+    <!-- 排序行（对齐原型：X 道含「关键字」+ 做过最多） -->
     <view class="sort-row">
-      <text class="sort-count">找到 {{ dishes.length }} 道{{ keyword ? `「${keyword}」` : '' }}</text>
-      <text class="sort-pick">综合 ▾</text>
+      <text class="sort-count">{{ dishes.length }} 道含{{ keyword ? `「${keyword}」` : '全部' }}</text>
+      <text class="sort-pick">做过最多 ▾</text>
     </view>
 
     <view v-if="showFilter" class="yh-card filter-panel">
@@ -113,10 +113,10 @@
         class="dish-row"
         @click="goDetail(d.id)"
       >
-        <!-- 左圆形头像 -->
+        <!-- 左圆角方块头像（对齐原型：emoji on #FBF0DD） -->
         <view class="dish-avatar">
           <image v-if="d.coverUrl" class="avatar-img" :src="imgUrl(d.coverUrl)" mode="aspectFill" />
-          <text v-else class="avatar-ph">🍽</text>
+          <text v-else class="avatar-ph">{{ dishEmoji(d.name) }}</text>
         </view>
         <!-- 右侧三行信息 -->
         <view class="dish-info">
@@ -125,14 +125,12 @@
             <text class="dish-name">{{ d.name }}</text>
             <text v-if="d.source === 'IMPORT'" class="dish-src">🌐</text>
           </view>
-          <!-- 第2行：做过·时间·评分（灰字点分隔） -->
+          <!-- 第2行：做过·时间·热量（灰字，对齐原型 meta） -->
           <view class="dish-r2">
-            <text v-if="totalMinutes(d)" class="dish-meta">{{ totalMinutes(d) }}分钟</text>
-            <text v-if="totalMinutes(d) && d.difficulty" class="dish-dot"> · </text>
-            <text v-if="d.difficulty" class="dish-meta">{{ difficultyText(d.difficulty) }}</text>
+            <text class="dish-meta">{{ cookText(d) }} · {{ totalMinutes(d) || '?' }} 分{{ d.calories ? ' · ' + d.calories + ' kcal' : '' }}</text>
           </view>
-          <!-- 第3行：菜系+分类+标签（横排占一行） -->
-          <view class="dish-r3">
+          <!-- 第3行：家里够 X/Y 样（余色，待后端覆盖率接口；暂用标签降级） -->
+          <view class="dish-r3" v-if="(d.cuisineNames&&d.cuisineNames.length)||(d.categoryNames&&d.categoryNames.length)||(d.tagNames&&d.tagNames.length)">
             <text v-for="(c, i) in (d.cuisineNames || [])" :key="'c'+i" class="dish-tag">{{ c }}</text>
             <text v-for="(c, i) in (d.categoryNames || [])" :key="'cat'+i" class="dish-tag">{{ c }}</text>
             <text v-for="(t, i) in (d.tagNames || [])" :key="'t'+i" class="dish-tag">{{ t }}</text>
@@ -303,6 +301,26 @@ function difficultyText(d?: number): string {
   if (d === 2) return '中等'
   return '有难度'
 }
+/** 做过次数文案（对齐原型 "做过 6 次" / "没做过"） */
+function cookText(d: any): string {
+  const n = Number(d.cookCount) || 0
+  return n > 0 ? `做过 ${n} 次` : '没做过'
+}
+/** 食材 emoji 兜底（对齐原型：番茄炒蛋→🍅，番茄牛腩→🐂） */
+function dishEmoji(name: string): string {
+  if (!name) return '🍽'
+  if (/番茄|西红柿/.test(name)) return '🍅'
+  if (/牛|牛腩/.test(name)) return '🐂'
+  if (/鱼/.test(name)) return '🐟'
+  if (/蛋/.test(name)) return '🥚'
+  if (/面/.test(name)) return '🍜'
+  if (/鸡|鸭/.test(name)) return '🍗'
+  if (/肉|排骨|里脊/.test(name)) return '🍖'
+  if (/菠|菜|蔬/.test(name)) return '🥬'
+  if (/豆腐|豆/.test(name)) return '🥘'
+  if (/汤/.test(name)) return '🍲'
+  return '🍽'
+}
 function imgUrl(u: string): string {
   if (!u) return ''
   // 后端返回相对根的路径（如 /gudu/uploads/xxx），H5 经 vite proxy 透传到后端；真机直连已含 host
@@ -459,27 +477,27 @@ reload()
 }
 .dish-row {
   display: flex;
-  align-items: flex-start;
-  gap: 24rpx;
+  align-items: center;
+  gap: 20rpx;
   background: #FFFFFF;
-  border-radius: 28rpx;
-  padding: 24rpx;
-  margin-bottom: 16rpx;
-  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.05);
+  border: 1px solid #F0E6D6;
+  border-radius: 24rpx;
+  padding: 20rpx;
+  margin-bottom: 14rpx;
 }
 .dish-avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 50%;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 22rpx;
   overflow: hidden;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #F6D9BE, #F6D9BE);
+  background: #FBF0DD;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .avatar-img { width: 100%; height: 100%; }
-.avatar-ph { font-size: 48rpx; color: rgba(255, 255, 255, 0.8); }
+.avatar-ph { font-size: 44rpx; }
 .dish-info {
   flex: 1;
   display: flex;

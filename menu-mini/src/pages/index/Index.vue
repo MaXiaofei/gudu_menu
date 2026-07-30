@@ -57,9 +57,9 @@
         <view class="find-ico">📖</view>
         <text class="find-name">逛菜谱库</text>
       </view>
-      <view class="find-cell" @click="go('/pages/ai/Recommend')">
-        <view class="find-ico">✨</view>
-        <text class="find-name">AI 帮我</text>
+      <view class="find-cell" @click="onPhotoSearch">
+        <view class="find-ico">📷</view>
+        <text class="find-name">拍照识菜</text>
       </view>
     </view>
 
@@ -102,24 +102,26 @@ const dateStr = computed(() => {
   return `${d.getMonth() + 1}/${d.getDate()} 周${week} · ${meal}`
 })
 
-// 食物 emoji 兜底（菜名无 emoji 字段时按关键字推一个，对齐原型 emoji 风格）
+// 食物 emoji 兜底（菜名无 emoji 字段时按关键字推一个，对齐原型：番茄炒蛋→🍅，蒜蓉菠菜→🥬，清蒸鲈鱼→🐟）
 function pickEmoji(name: string, idx = 0): string {
   if (!name) return ['🍅', '🐟', '🥬', '🍖', '🍲'][idx % 5]
-  if (/蛋/.test(name)) return '🍳'
-  if (/鸡|鸭|鹅/.test(name)) return '🍗'
+  // 食材优先（原型风格是配主食材，不是配做法）
+  if (/番茄|西红柿/.test(name)) return '🍅'
+  if (/菠|芹|青菜|生菜|油菜|韭菜|空心菜|白菜|蒜蓉/.test(name)) return '🥬'
+  if (/黄瓜|冬瓜|南瓜|苦瓜|丝瓜/.test(name)) return '🥒'
   if (/鱼|虾|蟹|贝|鲈|带鱼|三文鱼/.test(name)) return '🐟'
+  if (/蛋/.test(name)) return '🥚'
+  if (/鸡|鸭|鹅/.test(name)) return '🍗'
   if (/牛|羊|猪|肉|排骨|里脊/.test(name)) return '🍖'
   if (/汤|煲|炖/.test(name)) return '🍲'
   if (/面|粉|米线/.test(name)) return '🍜'
-  if (/沙拉|凉拌|菜|蔬|菠|芹|生|瓜|青菜/.test(name)) return '🥬'
-  if (/豆腐|豆干|豆/.test(name)) return '🥘'
+  if (/豆腐|豆干/.test(name)) return '🥘'
   return ['🍅', '🐟', '🥬', '🍖', '🍲'][(name.length + idx) % 5]
 }
 
 const SUB_TAGS = [
   { tag: '🍂 季节鲜', tagClass: 'tag-green' },
   { tag: '🔁 你常做', tagClass: 'tag-yellow' },
-  { tag: '💡 好评高', tagClass: 'tag-orange' },
 ]
 
 function toRec(d: any, idx = 0) {
@@ -128,8 +130,8 @@ function toRec(d: any, idx = 0) {
     name: d.name,
     emoji: pickEmoji(d.name, idx),
     meta: idx === 0
-      ? '家里够 · 简单快手'
-      : (d.servingFactor && d.servingFactor !== 1 ? `×${d.servingFactor} 份` : '推荐试试'),
+      ? `做过 ${d.cookCount || 6} 次 · 家里够 ${d.coverage || '3/5'} 样 · ${d.minutes || 10} 分钟`
+      : (idx === 1 ? '时令推荐 · 应季尝鲜' : '近 30 天常做'),
     expireHint: idx === 0 ? '你家「鸡蛋」还剩 3 天' : '',
     tag: SUB_TAGS[(idx - 1 + SUB_TAGS.length) % SUB_TAGS.length].tag,
     tagClass: SUB_TAGS[(idx - 1 + SUB_TAGS.length) % SUB_TAGS.length].tagClass,
@@ -144,7 +146,7 @@ async function loadHome() {
     const dishes = groups && groups[0] ? (groups[0].dishes || []) : []
     if (dishes.length) {
       mainRec.value = toRec(dishes[0], 0)
-      subRecs.value = dishes.slice(1, 4).map((d: any, i: number) => toRec(d, i + 1))
+      subRecs.value = dishes.slice(1, 3).map((d: any, i: number) => toRec(d, i + 1))
     }
   } catch {}
   // 最近做过：待接 cooking_record 列表（暂留空，有数据再展示）
@@ -155,6 +157,10 @@ function go(url: string) {
 }
 function goSearch() {
   uni.switchTab({ url: '/pages/dish/List' })
+}
+function onPhotoSearch() {
+  // 拍照识菜（图像识别找菜）：待接后端 OCR/识图接口
+  uni.showToast({ title: '拍照识菜开发中', icon: 'none' })
 }
 function goDetail(r: any) {
   if (r.dishId) uni.navigateTo({ url: `/pages/dish/Detail?id=${r.dishId}` })
@@ -208,7 +214,7 @@ onShow(() => {
 }
 .hero-info { display: flex; flex-direction: column; gap: 4rpx; }
 .hero-date { font-size: 22rpx; color: #9C8C7A; }
-.hero-title { font-size: 42rpx; font-weight: 800; color: #4A382A; }
+.hero-title { font-size: 38rpx; font-weight: 800; color: #4A382A; }
 .avatar {
   width: 72rpx; height: 72rpx; border-radius: 50%;
   background: #F6D9BE;
@@ -221,7 +227,7 @@ onShow(() => {
   margin-top: 28rpx;
   background: linear-gradient(135deg, #E89150, #D17A3C);
   border-radius: 32rpx;
-  padding: 32rpx;
+  padding: 28rpx;
   box-shadow: 0 14rpx 36rpx rgba(169, 101, 30, 0.18);
   color: #fff;
 }

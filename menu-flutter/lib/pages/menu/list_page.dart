@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../models/menu.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/loading_empty.dart';
@@ -77,12 +77,14 @@ class _MenuListPageState extends State<MenuListPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Scaffold(
         appBar: AppBar(title: const Text('食集')),
         body: _firstLoading
             ? const LoadingView()
             : RefreshIndicator(
-                color: AppColors.primary,
+                color: t.primary,
                 onRefresh: _reload,
                 child: _menus.isEmpty
                     ? const EmptyView(text: '暂无食集')
@@ -96,8 +98,8 @@ class _MenuListPageState extends State<MenuListPage> {
                               child: Center(
                                 child: Text(
                                   _hasMore ? '上拉加载更多' : '没有更多了',
-                                  style: const TextStyle(
-                                      color: AppColors.textSecondary,
+                                  style: TextStyle(
+                                      color: t.caption,
                                       fontSize: 13),
                                 ),
                               ),
@@ -108,6 +110,7 @@ class _MenuListPageState extends State<MenuListPage> {
                       ),
               ),
       );
+  }
 }
 
 class _MenuTile extends StatelessWidget {
@@ -115,16 +118,19 @@ class _MenuTile extends StatelessWidget {
   const _MenuTile({required this.menu});
 
   @override
-  Widget build(BuildContext context) => ListTile(
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return ListTile(
         title: Text(menu.name),
         subtitle: Text(
           '份数 ${menu.servingCount ?? 1}'
           '${menu.isDone ? ' · 已完成' : ''}',
-          style: const TextStyle(
-              color: AppColors.textSecondary, fontSize: 13),
+          style: TextStyle(
+              color: t.caption, fontSize: 13),
         ),
-        trailing: const Icon(Icons.chevron_right,
-            color: AppColors.textSecondary),
+        trailing: Icon(Icons.chevron_right,
+            color: t.caption),
         onTap: () => context.push('/menu/${menu.id}'),
       );
+  }
 }

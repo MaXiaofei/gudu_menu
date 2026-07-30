@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
 import '../../services/mealplan_service.dart';
 import '../../services/shopping_service.dart';
+import '../../widgets/loading_empty.dart';
 
 /// 排菜计划页：竖向日期列表，每天按动态餐段展开。
 /// 支持翻周导航、份数选择、一键生成采购单。
@@ -167,28 +168,29 @@ class _MealPlanPageState extends State<MealPlanPage> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.rLg))),
       builder: (ctx) => _buildPickerSheet(ctx),
     );
   }
 
   Widget _buildPickerSheet(BuildContext sheetCtx) {
+    final t = AppTokens.of(context);
     String servings = '1';
     return StatefulBuilder(
       builder: (ctx, setSheetState) {
         return Padding(
           padding: EdgeInsets.only(
-              left: 16, right: 16, top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
+              left: AppTokens.sp16, right: AppTokens.sp16, top: AppTokens.sp16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + AppTokens.sp16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('$_pickMeal · 选菜', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppTokens.sp12),
             TextField(
               decoration: InputDecoration(
                 hintText: '搜索菜品…',
                 prefixIcon: const Icon(Icons.search),
-                filled: true, fillColor: const Color(0xFFFAFAFA),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                filled: true, fillColor: t.bg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
               ),
               onChanged: (v) async {
                 if (v.trim().isEmpty) { setSheetState(() => _dishSearchResults = []); return; }
@@ -200,14 +202,14 @@ class _MealPlanPageState extends State<MealPlanPage> {
                 } catch (_) {}
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppTokens.sp8),
             // 份数选择
             Row(children: [
-              const Text('份数', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 8),
+              const Text('份数', style: TextStyle(fontSize: 12)),
+              const SizedBox(width: AppTokens.sp8),
               for (final s in ['1', '2', '3'])
                 Padding(
-                  padding: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.only(right: AppTokens.sp4),
                   child: ChoiceChip(
                     label: Text('×$s'),
                     selected: servings == s,
@@ -215,11 +217,11 @@ class _MealPlanPageState extends State<MealPlanPage> {
                   ),
                 ),
             ]),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppTokens.sp8),
             SizedBox(
               height: 220,
               child: _dishSearchResults.isEmpty
-                  ? const Center(child: Text('搜索菜品', style: TextStyle(color: AppColors.textSecondary)))
+                  ? Center(child: Text('搜索菜品', style: TextStyle(color: t.caption)))
                   : ListView.builder(
                       itemCount: _dishSearchResults.length,
                       itemBuilder: (_, i) {
@@ -350,7 +352,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _detail == null
               ? _buildEmpty()
               : _buildPlan(),
@@ -363,10 +365,11 @@ class _MealPlanPageState extends State<MealPlanPage> {
   }
 
   Widget _buildEmpty() {
+    final t = AppTokens.of(context);
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('还没有排菜计划', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
-        const SizedBox(height: 16),
+        Text('还没有排菜计划', style: TextStyle(color: t.caption, fontSize: 14)),
+        const SizedBox(height: AppTokens.sp16),
         ElevatedButton.icon(
           onPressed: _createWeek,
           icon: const Icon(Icons.add, size: 18),
@@ -377,6 +380,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
   }
 
   Widget _buildPlan() {
+    final t = AppTokens.of(context);
     final dates = _weekDates();
     final byDate = _detail!.itemsByDate();
 
@@ -388,8 +392,8 @@ class _MealPlanPageState extends State<MealPlanPage> {
     if (showIdx.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('本周还没排菜', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
-          const SizedBox(height: 16),
+          Text('本周还没排菜', style: TextStyle(color: t.caption, fontSize: 14)),
+          const SizedBox(height: AppTokens.sp16),
           ElevatedButton.icon(
             onPressed: _openAddByDate,
             icon: const Icon(Icons.add, size: 18),
@@ -399,7 +403,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppTokens.sp12),
       itemCount: showIdx.length,
       itemBuilder: (_, k) {
         final i = showIdx[k];
@@ -418,18 +422,18 @@ class _MealPlanPageState extends State<MealPlanPage> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.rLg))),
       builder: (ctx) => StatefulBuilder(
         builder: (_, ss) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+          padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text('选日期', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppTokens.sp8),
               Wrap(
-                spacing: 8, runSpacing: 8,
+                spacing: AppTokens.sp8, runSpacing: AppTokens.sp8,
                 children: [
                   for (var i = 0; i < dates.length; i++)
                     ChoiceChip(
@@ -439,11 +443,11 @@ class _MealPlanPageState extends State<MealPlanPage> {
                     ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTokens.sp16),
               const Text('选餐次', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppTokens.sp8),
               Wrap(
-                spacing: 8, runSpacing: 8,
+                spacing: AppTokens.sp8, runSpacing: AppTokens.sp8,
                 children: _meals
                     .map((m) => ChoiceChip(
                           label: Text(m),
@@ -452,7 +456,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
                         ))
                     .toList(),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppTokens.sp16),
               SizedBox(
                 height: 44,
                 child: ElevatedButton(
@@ -475,38 +479,39 @@ class _MealPlanPageState extends State<MealPlanPage> {
       d.length >= 10 ? '${d.substring(5, 7)}/${d.substring(8, 10)}' : d;
 
   Widget _buildDayCard(String date, int dayIndex, List<MealPlanItem> items) {
+    final t = AppTokens.of(context);
     final md = date.length >= 10 ? '${date.substring(5, 7)}/${date.substring(8, 10)}' : date;
     final nut = _dayNutrition[date];
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: AppTokens.sp8),
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFFEEEEEE))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd),
+          side: BorderSide(color: t.border)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppTokens.sp12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Text('${_weekdays[dayIndex]} $md', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text('${_weekdays[dayIndex]} $md', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             const Spacer(),
-            Text('${items.length}菜', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text('${items.length}菜', style: TextStyle(fontSize: 12, color: t.caption)),
           ]),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppTokens.sp8),
           ..._meals.map((meal) => _buildMealSlot(date, meal, items)),
           // 每日营养小计
           if (nut != null && (nut.calorie > 0 || nut.protein > 0)) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppTokens.sp8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8F5F0),
-                borderRadius: BorderRadius.circular(8),
+                color: t.highlight,
+                borderRadius: BorderRadius.circular(AppTokens.rSm),
               ),
               child: Row(children: [
-                const Text('营养小计', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                Text('营养小计', style: TextStyle(fontSize: 12, color: t.caption)),
                 const Spacer(),
-                Text('🔥 ${nut.calorie}kcal', style: const TextStyle(fontSize: 11, color: AppColors.warnRed, fontWeight: FontWeight.w600)),
-                const SizedBox(width: 10),
-                Text('🥩 ${nut.protein}g', style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                Text('🔥 ${nut.calorie}kcal', style: const TextStyle(fontSize: 12, color: AppTokens.error, fontWeight: FontWeight.w600)),
+                const SizedBox(width: AppTokens.sp8),
+                Text('🥩 ${nut.protein}g', style: TextStyle(fontSize: 12, color: t.primary, fontWeight: FontWeight.w600)),
               ]),
             ),
           ],
@@ -516,42 +521,53 @@ class _MealPlanPageState extends State<MealPlanPage> {
   }
 
   Widget _buildMealSlot(String date, String meal, List<MealPlanItem> dayItems) {
+    final t = AppTokens.of(context);
     final slotItems = dayItems.where((it) => it.meal == meal).toList();
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: AppTokens.sp4),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         SizedBox(
           width: 56,
-          child: Text(meal, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          child: Text(meal, style: TextStyle(fontSize: 12, color: t.caption)),
         ),
         Expanded(
-          child: Wrap(spacing: 6, runSpacing: 4, children: [
+          child: Wrap(spacing: AppTokens.sp4, runSpacing: AppTokens.sp4, children: [
             ...slotItems.map((it) {
               final name = it.dishName ?? _dishName(it.dishId);
-              return GestureDetector(
-                onLongPress: () => _doRemove(it),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withAlpha(15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$name${it.servingFactor != null && it.servingFactor != 1 ? " ×${_fmtFactor(it.servingFactor!)}" : ""}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.primary),
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onLongPress: () => _doRemove(it),
+                  borderRadius: BorderRadius.circular(AppTokens.rMd),
+                  hoverColor: t.primary.withValues(alpha: 0.08),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: t.primary.withAlpha(15),
+                      borderRadius: BorderRadius.circular(AppTokens.rMd),
+                    ),
+                    child: Text(
+                      '$name${it.servingFactor != null && it.servingFactor != 1 ? " ×${_fmtFactor(it.servingFactor!)}" : ""}',
+                      style: TextStyle(fontSize: 12, color: t.primary),
+                    ),
                   ),
                 ),
               );
             }),
-            GestureDetector(
-              onTap: () => _openPicker(date, meal),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFDDDDDD)),
-                  borderRadius: BorderRadius.circular(10),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _openPicker(date, meal),
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+                hoverColor: t.primary.withValues(alpha: 0.08),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: 3),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: t.border),
+                    borderRadius: BorderRadius.circular(AppTokens.rMd),
+                  ),
+                  child: Text('+', style: TextStyle(fontSize: 12, color: t.caption)),
                 ),
-                child: const Text('+', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ),
             ),
           ]),

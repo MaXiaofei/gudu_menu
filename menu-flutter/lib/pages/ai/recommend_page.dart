@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../services/dailylog_service.dart';
 import '../../services/mealplan_service.dart';
 import '../../stores/member_store.dart';
@@ -62,6 +62,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('智能荐菜')),
       body: SingleChildScrollView(
@@ -71,12 +72,12 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [Color(0xFF7B68EE), Color(0xFF9B6FE8)]),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppTokens.rMd),
             ),
-            child: const Column(children: [
-              Text('📋 智能荐菜', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
-              SizedBox(height: 6),
-              Text('根据预算和健康约束推荐菜品组合', style: TextStyle(color: Colors.white70, fontSize: 13)),
+            child: Column(children: [
+              Text('📋 智能荐菜', style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('根据预算和健康约束推荐菜品组合', style: TextStyle(color: Colors.white70, fontSize: 12)),
             ]),
           ),
           const SizedBox(height: 16),
@@ -86,7 +87,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F0E8), borderRadius: BorderRadius.circular(8),
+                color: t.bg, borderRadius: BorderRadius.circular(AppTokens.rSm),
               ),
               child: Row(children: [
                 _scopeChip('一天', 'DAY'), _scopeChip('一周', 'WEEK'),
@@ -99,14 +100,14 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: '预算(元)', isDense: true,
-                  filled: true, fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  filled: true, fillColor: t.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
                 ),
                 onChanged: (v) => _budget = v,
               ),
             ),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           // 筛选条件
           Row(children: [
@@ -116,21 +117,21 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: '最长烹饪(分)', isDense: true,
-                  filled: true, fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  filled: true, fillColor: t.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
                 ),
                 onChanged: (v) => _maxMinutes = v,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: TextField(
                 controller: TextEditingController(text: _maxDifficulty),
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: '难度上限(1-5)', isDense: true,
-                  filled: true, fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  filled: true, fillColor: t.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
                 ),
                 onChanged: (v) => _maxDifficulty = v,
               ),
@@ -143,7 +144,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             child: ElevatedButton.icon(
               onPressed: _loading ? null : _recommend,
               icon: _loading
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.card))
                   : const Icon(Icons.auto_awesome, size: 18),
               label: const Text('推荐菜单'),
             ),
@@ -154,17 +155,17 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             Padding(
               padding: const EdgeInsets.only(top: 16),
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3F0), borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFFFFF3F0), borderRadius: BorderRadius.circular(AppTokens.rMd),
                 ),
-                child: Text(_error!, style: const TextStyle(color: AppColors.warnRed, fontSize: 14)),
+                child: Text(_error!, style: const TextStyle(color: AppTokens.error, fontSize: 12)),
               ),
             ),
 
           // 结果
           if (_groups != null && _groups!.isNotEmpty) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             ..._groups!.asMap().entries.map((e) => _buildGroupCard(e.key + 1, e.value as Map<String, dynamic>)),
             if (!_hasHealthProfile) ...[
               const SizedBox(height: 12),
@@ -172,15 +173,15 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFFBF0),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppTokens.rMd),
                   border: Border.all(color: const Color(0xFFE8D8B8)),
                 ),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('⚠️', style: TextStyle(fontSize: 14)),
+                  const Text('⚠️', style: TextStyle(fontSize: 12)),
                   const SizedBox(width: 8),
                   Expanded(child: Text(
                     '当前成员未设置健康约束（糖上限/热量上限/过敏原），推荐未做健康过滤。建议在成员档案中完善。',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF9B8060)),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFF9B8060)),
                   )),
                 ]),
               ),
@@ -230,73 +231,77 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
   }
 
   Widget _scopeChip(String label, String value) {
+    final t = AppTokens.of(context);
     final active = _scope == value;
-    return GestureDetector(
+    return InkWell(
       onTap: () => setState(() => _scope = value),
+      borderRadius: BorderRadius.circular(AppTokens.rSm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          color: active ? t.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTokens.rSm),
         ),
-        child: Text(label, style: TextStyle(fontSize: 13, color: active ? Colors.white : AppColors.textSecondary)),
+        child: Text(label, style: TextStyle(fontSize: 12, color: active ? t.card : t.caption)),
       ),
     );
   }
 
   Widget _buildGroupCard(int index, Map<String, dynamic> group) {
+    final t = AppTokens.of(context);
     final dishes = (group['dishes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final reasons = (group['reasons'] as List?)?.cast<String>() ?? [];
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFFEEEEEE))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd),
+          side: BorderSide(color: t.border)),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             CircleAvatar(
-              radius: 14, backgroundColor: AppColors.primary,
-              child: Text('$index', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              radius: 12, backgroundColor: t.primary,
+              child: Text('$index', style: TextStyle(color: t.card, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
-            const Text('推荐组合', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text('推荐组合', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: t.title)),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           // 菜品 chips（可点击跳详情）
           Wrap(
-            spacing: 8, runSpacing: 6,
+            spacing: 8, runSpacing: 4,
             children: dishes.map((d) {
               final dishId = d['dishId'] as int?;
               final name = d['name'] as String? ?? '';
-              return GestureDetector(
+              return InkWell(
                 onTap: () {
                   if (dishId != null) context.push('/dish/$dishId');
                 },
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withAlpha(15), borderRadius: BorderRadius.circular(12),
+                    color: t.primary.withAlpha(15), borderRadius: BorderRadius.circular(AppTokens.rMd),
                   ),
-                  child: Text(name, style: TextStyle(fontSize: 13, color: AppColors.primary,
-                      decoration: TextDecoration.underline, decorationColor: AppColors.primary.withAlpha(50))),
+                  child: Text(name, style: TextStyle(fontSize: 12, color: t.primary,
+                      decoration: TextDecoration.underline, decorationColor: t.primary.withAlpha(50))),
                 ),
               );
             }).toList(),
           ),
           if (reasons.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             ...reasons.map((r) => Padding(
-              padding: const EdgeInsets.only(top: 3),
+              padding: const EdgeInsets.only(top: 4),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('·', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                const SizedBox(width: 6),
-                Expanded(child: Text(r, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+                Text('·', style: TextStyle(fontSize: 12, color: t.caption)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(r, style: TextStyle(fontSize: 12, color: t.caption))),
               ]),
             )),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(

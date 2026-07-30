@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme.dart';
+import '../core/app_theme.dart';
 
 /// 全屏图片查看器。
 ///
@@ -50,11 +50,15 @@ class _ImageViewerState extends State<ImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    // 全屏图片查看器：深色底（用 title token 的深色变体，非纯黑）。
+    // 前景用 card token（双主题均为白），保证 token 链完整。
+    final darkBg = t.title; // cream=#4A382A / matcha=#2E3520，非纯黑
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: darkBg,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: darkBg,
+        foregroundColor: t.card,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -77,7 +81,6 @@ class _ImageViewerState extends State<ImageViewer> {
                     ),
                     loadingBuilder: (_, child, progress) {
                       if (progress == null) return child;
-                      // 原图还在加载时不闪，继续显示缩略图
                       return Image.network(
                         widget.thumbnailUrl,
                         fit: BoxFit.contain,
@@ -89,15 +92,36 @@ class _ImageViewerState extends State<ImageViewer> {
                     fit: BoxFit.contain,
                     loadingBuilder: (_, child, progress) {
                       if (progress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                        ),
+                      return Center(
+                        child: _ImageViewSkeleton(t: t),
                       );
                     },
                   ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 图片加载骨架屏（DESIGN.md §1：禁止 spinner）。
+class _ImageViewSkeleton extends StatelessWidget {
+  final AppTokens t;
+  const _ImageViewSkeleton({required this.t});
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 0.8),
+      duration: const Duration(milliseconds: 1200),
+      builder: (_, v, child) => Opacity(opacity: v, child: child),
+      child: Container(
+        width: 120,
+        height: 120,
+        decoration: BoxDecoration(
+          color: t.card.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+        ),
+        child: Icon(Icons.image_outlined, color: t.card.withValues(alpha: 0.5), size: 40),
       ),
     );
   }

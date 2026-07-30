@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../models/menu.dart';
 import '../../models/prep.dart';
 import '../../services/menu_service.dart';
@@ -95,10 +95,10 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
       bottomNavigationBar: ready
           ? SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp12),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
+                    backgroundColor: AppTokens.success,
                     minimumSize: const Size.fromHeight(48),
                   ),
                   onPressed:
@@ -118,10 +118,12 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
     );
   }
 
-  Widget _buildTabBar() => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.cardBg,
-          border: Border(bottom: BorderSide(color: AppColors.divider)),
+  Widget _buildTabBar() {
+    final t = AppTokens.of(context);
+    return Container(
+        decoration: BoxDecoration(
+          color: t.card,
+          border: Border(bottom: BorderSide(color: t.border)),
         ),
         child: Row(
           children: [
@@ -129,19 +131,21 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
           ],
         ),
       );
+  }
 
   Widget _tabItem(int idx, String label) {
+    final t = AppTokens.of(context);
     final selected = _tabIndex == idx;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _tabIndex = idx),
         behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: AppTokens.sp12),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: selected ? AppColors.primary : Colors.transparent,
+                color: selected ? t.primary : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -152,7 +156,7 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              color: selected ? AppColors.primary : AppColors.textHint,
+              color: selected ? t.primary : t.body,
             ),
           ),
         ),
@@ -168,11 +172,12 @@ class _DishesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     final m = detail.menu;
     return ListView(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppTokens.sp16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -180,20 +185,20 @@ class _DishesTab extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(m.name,
-                        style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold, color: t.title)),
                   ),
                   if (m.isDone)
-                    const _StatusChip('已完成', AppColors.success)
+                    const _StatusChip('已完成', AppTokens.success)
                   else
-                    const _StatusChip('进行中', AppColors.warning),
+                    const _StatusChip('进行中', AppTokens.warning),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppTokens.sp8),
               Text(
                 '份数 ${m.servingCount ?? 1} · 关联 ${detail.dishes.length} 道菜',
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.textSecondary),
+                style: TextStyle(
+                    fontSize: 12, color: t.caption),
               ),
             ],
           ),
@@ -204,7 +209,7 @@ class _DishesTab extends StatelessWidget {
               dishName: d.dishName,
               servingFactor: d.servingFactor,
             )),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppTokens.sp24),
       ],
     );
   }
@@ -246,6 +251,7 @@ class _PrepTabState extends State<_PrepTab> {
 
   /// 长按：弹「化冻 / 腌制 / 重置」三选一。
   Future<void> _longPress(PrepItem item) async {
+    final t = AppTokens.of(context);
     final next = await showModalBottomSheet<PrepStatus>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -253,18 +259,17 @@ class _PrepTabState extends State<_PrepTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.ac_unit, color: AppColors.info),
+              leading: const Icon(Icons.ac_unit, color: AppTokens.info),
               title: const Text('化冻中'),
               onTap: () => Navigator.pop(ctx, PrepStatus.thawing),
             ),
             ListTile(
-              leading: const Icon(Icons.schedule, color: AppColors.warning),
+              leading: const Icon(Icons.schedule, color: AppTokens.warning),
               title: const Text('腌制中'),
               onTap: () => Navigator.pop(ctx, PrepStatus.marinating),
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.refresh, color: AppColors.textSecondary),
+              leading: Icon(Icons.refresh, color: t.caption),
               title: const Text('重置为待备'),
               onTap: () => Navigator.pop(ctx, PrepStatus.pending),
             ),
@@ -331,7 +336,7 @@ class _PrepTabState extends State<_PrepTab> {
               onLongPress: () => _longPress(it),
             )),
         if (p.condiments.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: AppTokens.sp8),
           _buildCondimentHeader(p.condiments.length),
           if (_condimentExpanded)
             ...p.condiments.map((it) => _PrepItemRow(
@@ -341,37 +346,38 @@ class _PrepTabState extends State<_PrepTab> {
                   onLongPress: () => _longPress(it),
                 )),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: AppTokens.sp24),
       ],
     );
   }
 
   Widget _buildProgress(MenuPrep p) {
+    final t = AppTokens.of(context);
     final ratio = p.totalCount == 0 ? 0.0 : p.readyCount / p.totalCount;
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppTokens.sp16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('备料进度',
+              Text('备料进度',
                   style:
-                      TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: t.title)),
               const Spacer(),
               Text('已备 ${p.readyCount} / 共 ${p.totalCount} 样',
-                  style: const TextStyle(
-                      fontSize: 13, color: AppColors.textSecondary)),
+                  style: TextStyle(
+                      fontSize: 12, color: t.caption)),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppTokens.sp8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppTokens.rXs),
             child: LinearProgressIndicator(
               value: ratio,
               minHeight: 8,
-              backgroundColor: AppColors.border,
-              color: AppColors.success,
+              backgroundColor: t.border,
+              color: AppTokens.success,
             ),
           ),
         ],
@@ -379,27 +385,31 @@ class _PrepTabState extends State<_PrepTab> {
     );
   }
 
-  Widget _buildCondimentHeader(int count) => GestureDetector(
+  Widget _buildCondimentHeader(int count) {
+    final t = AppTokens.of(context);
+    return Material(
+      color: t.secondary,
+      child: InkWell(
         onTap: () => setState(() => _condimentExpanded = !_condimentExpanded),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: AppColors.secondary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
           child: Row(
             children: [
               const Text('🧂', style: TextStyle(fontSize: 16)),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppTokens.sp8),
               Text('调料 $count 样 · 无需备料',
-                  style: const TextStyle(
-                      fontSize: 13, color: AppColors.textHint)),
+                  style: TextStyle(
+                      fontSize: 12, color: t.body)),
               const Spacer(),
               Icon(
                   _condimentExpanded ? Icons.expand_less : Icons.expand_more,
-                  color: AppColors.textSecondary),
+                  color: t.caption),
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// 备菜列表行：状态 chip + 食材名 + 用量 + 共用高亮 + 来自哪些菜。
@@ -417,80 +427,84 @@ class _PrepItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     final s = item.status;
     final chipColor = switch (s) {
-      PrepStatus.ready => AppColors.success,
-      PrepStatus.thawing => AppColors.info,
-      PrepStatus.marinating => AppColors.warning,
-      PrepStatus.pending => AppColors.textSecondary,
+      PrepStatus.ready => AppTokens.success,
+      PrepStatus.thawing => AppTokens.info,
+      PrepStatus.marinating => AppTokens.warning,
+      PrepStatus.pending => t.caption,
     };
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          border: const Border(top: BorderSide(color: AppColors.divider)),
-          // 共用项淡橙底（聚焦"一次备够"）
-          color: item.shared ? const Color(0xFFFFF8EC) : null,
-        ),
-        child: Row(
-          children: [
-            // 状态 chip（PENDING 白底灰边；其它浅色底 + 状态色边/字）
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: s == PrepStatus.pending ? null : chipColor.withAlpha(20),
-                border: Border.all(
-                    color: s == PrepStatus.pending
-                        ? AppColors.border
-                        : chipColor),
-                borderRadius: BorderRadius.circular(12),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        hoverColor: t.primary.withValues(alpha: 0.08),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: t.border)),
+            // 共用项淡橙底（聚焦"一次备够"）
+            color: item.shared ? t.highlight : null,
+          ),
+          child: Row(
+            children: [
+              // 状态 chip（PENDING 白底灰边；其它浅色底 + 状态色边/字）
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
+                decoration: BoxDecoration(
+                  color: s == PrepStatus.pending ? null : chipColor.withAlpha(20),
+                  border: Border.all(
+                      color: s == PrepStatus.pending
+                          ? t.border
+                          : chipColor),
+                  borderRadius: BorderRadius.circular(AppTokens.rMd),
+                ),
+                child: Text(s.label,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: chipColor,
+                        fontWeight: FontWeight.w600)),
               ),
-              child: Text(s.label,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: chipColor,
-                      fontWeight: FontWeight.w600)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(item.ingredientName,
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w500)),
-                      ),
-                      if (item.shared) ...[
-                        const SizedBox(width: 6),
-                        const Text('🔥', style: TextStyle(fontSize: 12)),
+              const SizedBox(width: AppTokens.sp12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(item.ingredientName,
+                              style: TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w500, color: t.title)),
+                        ),
+                        if (item.shared) ...[
+                          const SizedBox(width: AppTokens.sp4),
+                          const Text('🔥', style: TextStyle(fontSize: 12)),
+                        ],
                       ],
-                    ],
-                  ),
-                  if (item.dishNames.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        item.dishNames.length >= 2
-                            ? '${item.dishCount} 道菜共用 · ${item.dishNames.join("、")}'
-                            : item.dishNames.first,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textSecondary),
-                        overflow: TextOverflow.ellipsis,
-                      ),
                     ),
-                ],
+                    if (item.dishNames.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          item.dishNames.length >= 2
+                              ? '${item.dishCount} 道菜共用 · ${item.dishNames.join("、")}'
+                              : item.dishNames.first,
+                          style: TextStyle(
+                              fontSize: 12, color: t.caption),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            Text('${item.totalGrams.toStringAsFixed(0)}g',
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary)),
-          ],
+              Text('${item.totalGrams.toStringAsFixed(0)}g',
+                  style: TextStyle(
+                      fontSize: 12, color: t.caption)),
+            ],
+          ),
         ),
       ),
     );
@@ -563,6 +577,7 @@ class _ShoppingTabState extends State<_ShoppingTab> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     if (_loading) return const LoadingView();
     if (_err != null) return _RetryView(onRetry: _load, msg: _err!);
     final vo = _vo;
@@ -570,21 +585,21 @@ class _ShoppingTabState extends State<_ShoppingTab> {
       // 未生成：显"按食集生成"按钮。
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(AppTokens.sp32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('尚未生成采购清单',
+              Text('尚未生成采购清单',
                   style:
-                      TextStyle(fontSize: 16, color: AppColors.textSecondary)),
-              const SizedBox(height: 16),
+                      TextStyle(fontSize: 14, color: t.caption)),
+              const SizedBox(height: AppTokens.sp16),
               ElevatedButton.icon(
                 onPressed: _generate,
                 icon: const Icon(Icons.shopping_cart_outlined),
                 label: const Text('按食集生成'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  backgroundColor: t.primary,
+                  foregroundColor: t.card,
                 ),
               ),
             ],
@@ -597,57 +612,61 @@ class _ShoppingTabState extends State<_ShoppingTab> {
       child: ListView(
         children: [
           ...vo.items.map((it) => _itemCard(it)),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppTokens.sp24),
         ],
       ),
     );
   }
 
   Widget _itemCard(ShoppingItemVO it) {
+    final t = AppTokens.of(context);
     final bought = _eff(it) == 1;
-    return GestureDetector(
-      onTap: () => _toggle(it),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: AppColors.divider))),
-        child: Row(
-          children: [
-            Icon(
-              bought ? Icons.check_circle : Icons.radio_button_unchecked,
-              color: bought ? AppColors.success : AppColors.textHint,
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(it.displayName,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        decoration:
-                            bought ? TextDecoration.lineThrough : null,
-                        color: bought
-                            ? AppColors.textHint
-                            : AppColors.textPrimary,
-                      )),
-                  if (it.amountText.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(it.amountText,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary)),
-                    ),
-                ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _toggle(it),
+        hoverColor: t.primary.withValues(alpha: 0.08),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
+          decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: t.border))),
+          child: Row(
+            children: [
+              Icon(
+                bought ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: bought ? AppTokens.success : t.body,
+                size: 22,
               ),
-            ),
-            if (it.ingredientId != null && it.stockStatus != null)
-              _stockBadge(it.stockStatus!, it.shortageGrams ?? 0,
-                  it.pantryGrams),
-          ],
+              const SizedBox(width: AppTokens.sp12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(it.displayName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          decoration:
+                              bought ? TextDecoration.lineThrough : null,
+                          color: bought
+                              ? t.body
+                              : t.title,
+                        )),
+                    if (it.amountText.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(it.amountText,
+                            style: TextStyle(
+                                fontSize: 12, color: t.caption)),
+                      ),
+                  ],
+                ),
+              ),
+              if (it.ingredientId != null && it.stockStatus != null)
+                _stockBadge(it.stockStatus!, it.shortageGrams ?? 0,
+                    it.pantryGrams),
+            ],
+          ),
         ),
       ),
     );
@@ -656,28 +675,29 @@ class _ShoppingTabState extends State<_ShoppingTab> {
   Widget _stockBadge(String status, double shortage, double? pantry) {
     final color = _stockColor(status);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
       decoration: BoxDecoration(
         color: color.withAlpha(20),
         border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
       ),
       child: Text(_stockLabel(status, shortage, pantry),
           style: TextStyle(
-              fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+              fontSize: 12, color: color, fontWeight: FontWeight.w600)),
     );
   }
 
   Color _stockColor(String status) {
+    final t = AppTokens.of(context);
     switch (status) {
       case 'RED_NONE':
-        return Colors.red.shade600;
+        return AppTokens.error;
       case 'YELLOW_SHORT':
-        return AppColors.warning;
+        return AppTokens.warning;
       case 'GREEN_ENOUGH':
-        return AppColors.success;
+        return AppTokens.success;
       default:
-        return AppColors.textHint;
+        return t.caption;
     }
   }
 
@@ -701,21 +721,24 @@ class _RetryView extends StatelessWidget {
   final String msg;
   const _RetryView({required this.onRetry, required this.msg});
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(AppTokens.sp32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(msg,
-                  style: const TextStyle(
-                      fontSize: 14, color: AppColors.textSecondary)),
-              const SizedBox(height: 16),
+                  style: TextStyle(
+                      fontSize: 14, color: t.caption)),
+              const SizedBox(height: AppTokens.sp16),
               OutlinedButton(onPressed: onRetry, child: const Text('重试')),
             ],
           ),
         ),
       );
+  }
 }
 
 /// 占位 Tab（采购 / 一起吃）。
@@ -725,25 +748,28 @@ class _Placeholder extends StatelessWidget {
   const _Placeholder({required this.title, required this.desc});
 
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(AppTokens.sp32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary)),
-              const SizedBox(height: 8),
+                      color: t.title)),
+              const SizedBox(height: AppTokens.sp8),
               Text(desc,
-                  style: const TextStyle(
-                      fontSize: 13, color: AppColors.textSecondary)),
+                  style: TextStyle(
+                      fontSize: 12, color: t.caption)),
             ],
           ),
         ),
       );
+  }
 }
 
 /// 菜品行：直接用后端冗余的菜名（dishes 带 dishName）。
@@ -754,10 +780,12 @@ class _DishRow extends StatelessWidget {
   const _DishRow({required this.dishId, this.dishName, this.servingFactor});
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: AppColors.divider))),
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
+        decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: t.border))),
         child: Row(
           children: [
             Expanded(
@@ -765,29 +793,33 @@ class _DishRow extends StatelessWidget {
                 (dishName == null || dishName!.isEmpty)
                     ? '菜 #$dishId'
                     : dishName!,
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(fontSize: 14, color: t.title),
               ),
             ),
             Text(
               '× ${servingFactor?.toStringAsFixed(1) ?? '1.0'} 份',
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(
+                  fontSize: 12, color: t.caption),
             ),
           ],
         ),
       );
+  }
 }
 
 class _SectionTitle extends StatelessWidget {
   final String text;
   const _SectionTitle(this.text);
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(16),
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Padding(
+        padding: const EdgeInsets.all(AppTokens.sp16),
         child: Text(text,
-            style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold)),
+            style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.bold, color: t.title)),
       );
+  }
 }
 
 class _StatusChip extends StatelessWidget {
@@ -796,10 +828,10 @@ class _StatusChip extends StatelessWidget {
   const _StatusChip(this.text, this.color);
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
         decoration: BoxDecoration(
           color: color.withAlpha(20),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
         ),
         child: Text(text,
             style: TextStyle(

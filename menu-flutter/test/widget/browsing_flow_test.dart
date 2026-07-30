@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:menu_flutter/core/app_theme.dart';
 import 'package:menu_flutter/pages/dish/list_page.dart';
 import '../helpers/mock_http.dart';
+
+/// 给 widget 测试注入 AppTokens 主题。
+Widget _themed(Widget child) => MaterialApp(
+      theme: ThemeData(extensions: const [AppTokens.cream]),
+      home: child,
+    );
 
 /// 菜库浏览端到端（widget 级）：
 /// DishListPage.initState → _reload → DishService.search → ApiClient → mock →
@@ -25,7 +32,7 @@ void main() {
       return okResponse({});
     });
 
-    await tester.pumpWidget(const MaterialApp(home: DishListPage()));
+    await tester.pumpWidget(_themed(const DishListPage()));
     await tester.pump();
     // 让 _reload 的异步链路完成（mock 瞬时返回）→ setState 移除 spinner
     await tester.pump(const Duration(milliseconds: 50));
@@ -43,7 +50,7 @@ void main() {
       return okResponse({});
     });
 
-    await tester.pumpWidget(const MaterialApp(home: DishListPage()));
+    await tester.pumpWidget(_themed(const DishListPage()));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 

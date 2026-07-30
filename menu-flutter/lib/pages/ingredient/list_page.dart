@@ -3,8 +3,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../services/ingredient_service.dart';
+import '../../widgets/loading_empty.dart';
 
 /// 食材列表页：搜索 + 分页 + 每项显示名称/单位/营养概览。
 /// 点 + 进入录入新食材。
@@ -106,11 +107,12 @@ class _IngredientListPageState extends State<IngredientListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('食材库')),
       body: Column(children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppTokens.sp12),
           child: TextField(
             controller: _keywordCtrl,
             decoration: InputDecoration(
@@ -126,8 +128,8 @@ class _IngredientListPageState extends State<IngredientListPage> {
                       },
                     )
                   : null,
-              filled: true, fillColor: const Color(0xFFFAFAFA),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              filled: true, fillColor: t.bg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
             ),
             onChanged: (v) => setState(() => _hasText = v.isNotEmpty),
             onSubmitted: (_) => _reload(),
@@ -135,23 +137,23 @@ class _IngredientListPageState extends State<IngredientListPage> {
         ),
         Expanded(
           child: _firstLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const LoadingView()
               : RefreshIndicator(
-                  color: AppColors.primary,
+                  color: t.primary,
                   onRefresh: _reload,
                   child: _items.isEmpty
-                      ? const Center(child: Text('暂无食材', style: TextStyle(color: AppColors.textSecondary)))
+                      ? Center(child: Text('暂无食材', style: TextStyle(color: t.caption)))
                       : ListView.builder(
                           controller: _scroll,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12),
                           itemCount: _items.length + 1,
                           itemBuilder: (_, i) {
                             if (i == _items.length) {
                               return Padding(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(AppTokens.sp16),
                                 child: Center(child: Text(
                                   _hasMore ? '上拉加载更多' : '没有更多了',
-                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                                  style: TextStyle(color: t.caption, fontSize: 12),
                                 )),
                               );
                             }
@@ -172,23 +174,24 @@ class _IngredientListPageState extends State<IngredientListPage> {
   }
 
   Widget _buildCard(_IngredientItem item) {
+    final t = AppTokens.of(context);
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: AppTokens.sp8),
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: Color(0xFFEEEEEE))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd),
+          side: BorderSide(color: t.border)),
       child: ListTile(
         leading: CircleAvatar(
           radius: 18,
-          backgroundColor: const Color(0xFF8B5E3C).withAlpha(20),
-          child: const Icon(Icons.eco_outlined, size: 18, color: Color(0xFF8B5E3C)),
+          backgroundColor: t.primary.withAlpha(20),
+          child: Icon(Icons.eco_outlined, size: 18, color: t.primary),
         ),
-        title: Text(item.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        title: Text(item.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.title)),
         subtitle: Text(
           item.nutritionSummary,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 12, color: t.caption),
         ),
-        trailing: const Icon(Icons.chevron_right, size: 18, color: AppColors.textSecondary),
+        trailing: Icon(Icons.chevron_right, size: 18, color: t.caption),
         onTap: () {
           // 后续可跳食材详情，暂时只显示营养
           _showNutritionSheet(item);
@@ -198,50 +201,51 @@ class _IngredientListPageState extends State<IngredientListPage> {
   }
 
   void _showNutritionSheet(_IngredientItem item) {
+    final t = AppTokens.of(context);
     final unit = item.unitId == null ? null : _unitNames[item.unitId];
     final cat = item.purchaseCategoryId == null ? null : _catNames[item.purchaseCategoryId];
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.rLg))),
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(item.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(item.name, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: t.title)),
           if (unit != null || cat != null) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: AppTokens.sp4),
             Text(
               [
                 if (unit != null) '单位：$unit',
                 if (cat != null) '品类：$cat',
               ].join('  ·  '),
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 12, color: t.caption),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: AppTokens.sp16),
           if (item.nutritions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('暂无营养数据', style: TextStyle(color: AppColors.textSecondary)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppTokens.sp12),
+              child: Text('暂无营养数据', style: TextStyle(color: t.caption)),
             )
           else ...[
-            const Text('每 100g 营养',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+            Text('每 100g 营养',
+                style: TextStyle(fontSize: 12, color: t.caption, fontWeight: FontWeight.w600)),
+            const SizedBox(height: AppTokens.sp8),
             ...item.nutritions.entries.map((e) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  padding: const EdgeInsets.symmetric(vertical: AppTokens.sp4),
                   child: Row(children: [
                     Expanded(
-                        child: Text(e.key, style: const TextStyle(fontSize: 14))),
+                        child: Text(e.key, style: TextStyle(fontSize: 14, color: t.body))),
                     Text(
                       '${e.value} ${_IngredientItem.unitByCn[e.key] ?? ''}'.trim(),
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600, color: t.primary),
                     ),
                   ]),
                 )),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: AppTokens.sp16),
         ]),
       ),
     );

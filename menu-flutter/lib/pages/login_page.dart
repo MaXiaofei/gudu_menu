@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../core/theme.dart';
+import '../core/app_theme.dart';
 import '../stores/auth_store.dart';
 
 /// 登录页（复刻 menu-mini/src/pages/login/Login.vue）。
@@ -31,40 +31,42 @@ class _LoginPageState extends State<LoginPage> {
           .showSnackBar(const SnackBar(content: Text('请输入用户名和密码')));
       return;
     }
-    // 登录成功后 AuthStore.isLoggedIn 变 true，refreshListenable 触发 redirect 到 /
+    // 登录成功后 AuthStore 变更触发 redirect 到首页
     await context.read<AuthStore>().login(u, p);
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Scaffold(
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppTokens.sp24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 60),
-                const Text(
+                const SizedBox(height: 48),
+                Text(
                   '小食单',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: t.primary,
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: AppTokens.sp32),
                 TextField(
                   controller: _username,
                   decoration: const InputDecoration(labelText: '用户名'),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTokens.sp16),
                 TextField(
                   controller: _password,
                   obscureText: true,
                   decoration: const InputDecoration(labelText: '密码'),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTokens.sp24),
                 Consumer<AuthStore>(
                   builder: (_, auth, __) => ElevatedButton(
                     onPressed: auth.loading ? null : _login,
@@ -83,4 +85,5 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       );
+  }
 }

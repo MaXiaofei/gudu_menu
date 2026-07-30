@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../core/api_client.dart';
 import '../../services/shopping_service.dart';
+import '../../widgets/loading_empty.dart';
 
 /// 采购清单页。
 ///
@@ -157,12 +158,13 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   Widget _buildListView() {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('采购清单')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _lists.isEmpty
-              ? const Center(child: Text('暂无采购单', style: TextStyle(color: AppColors.textSecondary)))
+              ? Center(child: Text('暂无采购单', style: TextStyle(color: t.caption)))
               : RefreshIndicator(
                   onRefresh: _loadLists,
                   child: ListView.builder(
@@ -173,12 +175,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                       if (i == _lists.length) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                            child: SizedBox(
-                              width: 20, height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
+                          child: LoadingView(),
                         );
                       }
                       final l = _lists[i];
@@ -201,6 +198,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   Widget _buildListCard(ShoppingList l) {
+    final t = AppTokens.of(context);
     final seq = (l.id % 100) + 1;
     final time = l.createdAt ?? '';
     final displayTime = time.length >= 16 ? time.substring(5, 16) : time;
@@ -208,18 +206,18 @@ class _ShoppingPageState extends State<ShoppingPage> {
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: Color(0xFFEEEEEE))),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          side: BorderSide(color: t.border)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withAlpha(25),
-          child: Text('#$seq', style: const TextStyle(color: AppColors.primary, fontSize: 13)),
+          backgroundColor: t.primary.withAlpha(25),
+          child: Text('#$seq', style: TextStyle(color: t.primary, fontSize: 12)),
         ),
         title: Text('采购单 · ${l.sourceLabel} · 第$seq 单',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         subtitle: Text(l.dateRange.isNotEmpty ? l.dateRange : displayTime,
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, color: t.caption)),
+        trailing: Icon(Icons.chevron_right, color: t.caption),
         onTap: () => _openDetail(l.id),
         onLongPress: () => _confirmDeleteList(l.id),
       ),
@@ -236,7 +234,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除', style: TextStyle(color: AppColors.warnRed))),
+              child: const Text('删除', style: TextStyle(color: AppTokens.error))),
         ],
       ),
     );
@@ -253,6 +251,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
   // ===== UI: 详情/生成视图 =====
 
   Widget _buildDetailView() {
+    final t = AppTokens.of(context);
     final d = _detail!;
     return Scaffold(
       appBar: AppBar(
@@ -263,7 +262,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
         ],
       ),
       body: _detailLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : Column(
               children: [
                 // 生成区
@@ -271,8 +270,8 @@ class _ShoppingPageState extends State<ShoppingPage> {
                 // 详情
                 Expanded(
                   child: d.items.isEmpty
-                      ? const Center(child: Text('暂无采购项，上方生成或下方添加',
-                          style: TextStyle(color: AppColors.textSecondary)))
+                      ? Center(child: Text('暂无采购项，上方生成或下方添加',
+                          style: TextStyle(color: t.caption)))
                       : ListView(
                           padding: const EdgeInsets.all(12),
                           children: [
@@ -307,25 +306,26 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   Widget _buildGenerateSection() {
+    final t = AppTokens.of(context);
     return Container(
       margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDF8F0),
-        borderRadius: BorderRadius.circular(12),
+        color: t.highlight,
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('从哪里生成', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
+        const Text('从哪里生成', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
         Row(children: [
           _genTab('plan', '周计划'),
           _genTab('dish', '菜品'),
           _genTab('menu', '菜单'),
           _genTab('custom', '自定义'),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         if (_genDataLoading)
-          const Padding(padding: EdgeInsets.all(12), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
+          const Padding(padding: EdgeInsets.all(12), child: LoadingView())
         else if (_genType == 'plan')
           _buildPlanPicker()
         else if (_genType == 'dish')
@@ -338,14 +338,14 @@ class _ShoppingPageState extends State<ShoppingPage> {
             maxLines: 5,
             decoration: InputDecoration(
               hintText: '输入采购内容，每行一项：\n土豆 3斤\n排骨 2斤\n生抽 1瓶',
-              filled: true, fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true, fillColor: t.card,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
             ),
           ),
           const SizedBox(height: 8),
         ],
         SizedBox(
-          height: 40,
+          height: 44,
           child: ElevatedButton(
             onPressed: _genLoading ? null : _doGenerate,
             child: _genLoading
@@ -405,6 +405,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   Widget _genTab(String type, String label) {
+    final t = AppTokens.of(context);
     final active = _genType == type;
     return Expanded(
       child: GestureDetector(
@@ -412,11 +413,11 @@ class _ShoppingPageState extends State<ShoppingPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: active ? AppColors.primary : const Color(0xFFFFFBF5),
-            borderRadius: BorderRadius.circular(8),
+            color: active ? t.primary : t.card,
+            borderRadius: BorderRadius.circular(AppTokens.rSm),
           ),
           child: Text(label, textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: active ? Colors.white : const Color(0xFF9B958C),
+              style: TextStyle(fontSize: 12, color: active ? t.card : t.caption,
                   fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
         ),
       ),
@@ -426,6 +427,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
   // ===== 生成 picker =====
 
   Widget _buildPlanPicker() {
+    final t = AppTokens.of(context);
     if (_plans.isEmpty) return _emptyHint('暂无周计划');
     return SizedBox(
       height: 44,
@@ -440,26 +442,26 @@ class _ShoppingPageState extends State<ShoppingPage> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedPlanId = sel ? null : p['id'] as int),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: sel ? AppColors.primary : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: sel ? AppColors.primary : const Color(0xFFE0E0E0)),
+                  color: sel ? t.primary : t.card,
+                  borderRadius: BorderRadius.circular(AppTokens.rMd),
+                  border: Border.all(color: sel ? t.primary : t.border),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Text(p['name'] ?? '${p['weekStart']}起',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
-                          color: sel ? Colors.white : const Color(0xFF444444))),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                          color: sel ? t.card : t.title)),
                   if (p['itemCount'] != null) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: sel ? Colors.white24 : AppColors.primary.withAlpha(20),
-                        borderRadius: BorderRadius.circular(8),
+                        color: sel ? Colors.white24 : t.primary.withAlpha(20),
+                        borderRadius: BorderRadius.circular(AppTokens.rSm),
                       ),
                       child: Text('${p['itemCount']}菜',
-                          style: TextStyle(fontSize: 10, color: sel ? Colors.white70 : AppColors.primary)),
+                          style: TextStyle(fontSize: 10, color: sel ? Colors.white70 : t.primary)),
                     ),
                   ],
                 ]),
@@ -472,6 +474,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   Widget _buildDishPicker() {
+    final t = AppTokens.of(context);
     final filtered = _dishSearch.isEmpty
         ? _dishes
         : _dishes.where((d) => (d['name'] ?? '').toString().contains(_dishSearch)).toList();
@@ -482,9 +485,9 @@ class _ShoppingPageState extends State<ShoppingPage> {
           child: TextField(
             decoration: InputDecoration(
               hintText: '搜索菜品…',
-              isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              filled: true, fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE0E0E0))),
+              isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              filled: true, fillColor: t.card,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm), borderSide: BorderSide(color: t.border)),
               prefixIcon: const Icon(Icons.search, size: 18),
               suffixIcon: _dishSearch.isNotEmpty
                   ? GestureDetector(onTap: () => setState(() => _dishSearch = ''), child: const Icon(Icons.close, size: 18))
@@ -495,15 +498,15 @@ class _ShoppingPageState extends State<ShoppingPage> {
         ),
       if (_selectedDishIds.isNotEmpty)
         Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.only(bottom: 8),
           child: Text('已选 ${_selectedDishIds.length} 道菜',
-              style: const TextStyle(fontSize: 12, color: AppColors.primary)),
+              style: TextStyle(fontSize: 12, color: t.primary)),
         ),
       SizedBox(
         height: 120,
         child: filtered.isEmpty
             ? Center(child: Text(_dishes.isEmpty ? '暂无菜品' : '无匹配菜品',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)))
+                style: TextStyle(color: t.caption, fontSize: 12)))
             : ListView.builder(
                 itemCount: filtered.take(50).length,
                 itemBuilder: (_, i) {
@@ -514,7 +517,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
-                    title: Text(d['name'] ?? '', style: const TextStyle(fontSize: 13)),
+                    title: Text(d['name'] ?? '', style: const TextStyle(fontSize: 12)),
                     value: sel,
                     onChanged: (v) => setState(() {
                       if (v == true) { _selectedDishIds.add(id); } else { _selectedDishIds.remove(id); }
@@ -527,6 +530,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   Widget _buildMenuPicker() {
+    final t = AppTokens.of(context);
     if (_menus.isEmpty) return _emptyHint('暂无菜单');
     return SizedBox(
       height: 44,
@@ -541,15 +545,15 @@ class _ShoppingPageState extends State<ShoppingPage> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedMenuId = sel ? null : m['id'] as int),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: sel ? AppColors.primary : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: sel ? AppColors.primary : const Color(0xFFE0E0E0)),
+                  color: sel ? t.primary : t.card,
+                  borderRadius: BorderRadius.circular(AppTokens.rMd),
+                  border: Border.all(color: sel ? t.primary : t.border),
                 ),
                 child: Text(m['name'] ?? '菜单 #${m['id']}',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
-                        color: sel ? Colors.white : const Color(0xFF444444))),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                        color: sel ? t.card : t.title)),
               ),
             ),
           );
@@ -558,40 +562,44 @@ class _ShoppingPageState extends State<ShoppingPage> {
     );
   }
 
-  Widget _emptyHint(String text) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Text(text, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-  );
+  Widget _emptyHint(String text) {
+    final t = AppTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(text, style: TextStyle(color: t.caption, fontSize: 12)),
+    );
+  }
 
   void _showAddSheet() {
+    final t = AppTokens.of(context);
     _addNameCtrl.clear();
     _addAmountCtrl.clear();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.rLg))),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-            left: 16, right: 16, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
+            left: 16, right: 16, top: 16, bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Text('手动添加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           TextField(
             controller: _addNameCtrl,
             decoration: InputDecoration(
-                hintText: '食材名', filled: true, fillColor: const Color(0xFFFAFAFA),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                hintText: '食材名', filled: true, fillColor: t.bg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd))),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _addAmountCtrl,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-                hintText: '数量（可留空）', filled: true, fillColor: const Color(0xFFFAFAFA),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                hintText: '数量（可留空）', filled: true, fillColor: t.bg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd))),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           SizedBox(
             height: 44,
             child: ElevatedButton(
@@ -610,7 +618,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                   ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('添加失败: $e')));
                 }
               },
-              child: const Text('添加', style: TextStyle(fontSize: 15)),
+              child: const Text('添加', style: TextStyle(fontSize: 14)),
             ),
           ),
         ]),
@@ -619,34 +627,37 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   Widget _buildDetailHeader(ShoppingListVO d) {
+    final t = AppTokens.of(context);
     return Row(children: [
       Container(
         width: 4, height: 18,
-        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2)),
+        decoration: BoxDecoration(color: t.primary, borderRadius: BorderRadius.circular(2)),
       ),
       const SizedBox(width: 8),
       Text('${d.sourceLabel} · #${d.id}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
       const Spacer(),
-      Text(d.dateRange, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+      Text(d.dateRange, style: TextStyle(fontSize: 12, color: t.caption)),
     ]);
   }
 
   Widget _buildCategorySection(
       String catKey, String catName, List<ShoppingItemVO> items) {
+    final t = AppTokens.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 12),
-      Text(catName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+      Text(catName, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.primary)),
       const SizedBox(height: 4),
       ...items.map((it) => _buildItemTile(it)),
     ]);
   }
 
   Widget _buildItemTile(ShoppingItemVO it) {
+    final t = AppTokens.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFF2EDE4)))),
+      decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: t.border))),
       child: Row(children: [
         GestureDetector(
           onTap: () async {
@@ -656,31 +667,31 @@ class _ShoppingPageState extends State<ShoppingPage> {
           child: Container(
             width: 22, height: 22,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: it.isPurchased ? AppColors.primary : const Color(0xFFDDDDDD)),
-              color: it.isPurchased ? AppColors.primary : null,
+              borderRadius: BorderRadius.circular(AppTokens.rXs),
+              border: Border.all(color: it.isPurchased ? t.primary : t.border),
+              color: it.isPurchased ? t.primary : null,
             ),
-            child: it.isPurchased ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+            child: it.isPurchased ? Icon(Icons.check, size: 14, color: t.card) : null,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             it.displayName,
             style: TextStyle(
               fontSize: 14,
-              color: it.isPurchased ? Colors.grey : const Color(0xFF2D2A26),
+              color: it.isPurchased ? t.caption : t.title,
               decoration: it.isPurchased ? TextDecoration.lineThrough : null,
             ),
           ),
         ),
-        Text(it.amountText, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(it.amountText, style: TextStyle(fontSize: 12, color: t.caption)),
         const SizedBox(width: 8),
         _buildStockBadge(it),
         const SizedBox(width: 8),
         GestureDetector(
           onTap: () => _confirmDeleteItem(it),
-          child: const Icon(Icons.close, size: 16, color: Colors.grey),
+          child: Icon(Icons.close, size: 16, color: t.caption),
         ),
       ]),
     );
@@ -693,29 +704,33 @@ class _ShoppingPageState extends State<ShoppingPage> {
   /// - `GREEN_ENOUGH` 🟢 够
   /// - stockStatus=null（customName 项或无用量）→ 灰色「手动加」
   Widget _buildStockBadge(ShoppingItemVO it) {
+    final t = AppTokens.of(context);
     final status = it.stockStatus;
     if (status == 'RED_NONE') {
       final short = _fmtGrams(it.shortageGrams);
-      return _badge('没有${short.isEmpty ? '' : ' 差$short'}', AppColors.warnRed);
+      return _badge('没有${short.isEmpty ? '' : ' 差$short'}', AppTokens.error);
     }
     if (status == 'YELLOW_SHORT') {
-      return _badge('差 ${_fmtGrams(it.shortageGrams)}', AppColors.warnOrange);
+      return _badge('差 ${_fmtGrams(it.shortageGrams)}', AppTokens.warning);
     }
     if (status == 'GREEN_ENOUGH') {
-      return _badge('够', AppColors.success);
+      return _badge('够', AppTokens.success);
     }
     // null：customName 手动加项或无用量 → 灰色「手动加」
-    return _badge('手动加', const Color(0xFFBBBBBB));
+    return _badge('手动加', t.caption);
   }
 
-  Widget _badge(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+  Widget _badge(String text, Color color) {
+    final t = AppTokens.of(context);
+    return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(99),
+          borderRadius: BorderRadius.circular(AppTokens.rPill),
         ),
-        child: Text(text, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
+        child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: t.card)),
       );
+  }
 
   static String _fmtGrams(double? g) {
     if (g == null) return '';
@@ -733,7 +748,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除', style: TextStyle(color: AppColors.warnRed))),
+              child: const Text('删除', style: TextStyle(color: AppTokens.error))),
         ],
       ),
     );

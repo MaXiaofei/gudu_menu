@@ -1,52 +1,80 @@
 <template>
   <view class="find">
-    <!-- ① 选「我有的食材」：默认拉库存，可切换查全部 -->
-    <view class="toolbar">
-      <view :class="['src-tab', src === 'pantry' && 'on']" @click="switchSrc('pantry')">从库存选</view>
-      <view :class="['src-tab', src === 'all' && 'on']" @click="switchSrc('all')">从全部食材选</view>
-      <u-button size="mini" type="primary" :disabled="!selected.size" @click="search">
-        找菜 ({{ selected.size }})
-      </u-button>
+    <!-- 顶栏：‹ 按食材找 重置（对齐原型 cookbook-search 右屏） -->
+    <view class="topbar">
+      <text class="back" @click="onBack">‹</text>
+      <text class="topbar-title">按食材找</text>
+      <text class="topbar-action" @click="onReset">重置</text>
     </view>
 
-    <u-search v-model="keyword" placeholder="搜食材名" @search="filterList" @clear="filterList" />
+    <!-- 标题区 -->
+    <view class="head">
+      <text class="head-title">勾选你家有的食材</text>
+      <text class="head-sub">从我家余量自动带入，可加减</text>
+    </view>
 
+    <!-- 来源切换（库存 / 全部食材） -->
+    <view class="src-row">
+      <view :class="['src-tab', src === 'pantry' && 'on']" @click="switchSrc('pantry')">从库存</view>
+      <view :class="['src-tab', src === 'all' && 'on']" @click="switchSrc('all')">全部食材</view>
+    </view>
+
+    <!-- 食材勾选 chips -->
     <view v-if="loadingSrc" class="empty">加载食材中…</view>
-    <view v-else-if="!filteredList.length" class="empty">没有匹配的食材</view>
-
-    <!-- 食材多选：tap 勾选/取消 -->
+    <view v-else-if="!filteredList.length" class="empty">没有食材</view>
     <view v-else class="chips">
       <view
-        v-for="ing in filteredList"
+        v-for="ing in showList"
         :key="ing.id"
         :class="['chip', selected.has(ing.id) && 'on']"
         @click="toggle(ing.id)"
       >
-        {{ ing.name }}
+        {{ ingEmoji(ing.name) }} {{ ing.name }}<text v-if="selected.has(ing.id)"> ✓</text>
       </view>
+      <view v-if="!showAllChips && filteredList.length > 12" class="chip more" @click="showAllChips = true">+ 更多</view>
     </view>
 
-    <!-- ② 结果：分「能做」「还差一点」两组 -->
-    <view v-if="searched" class="result">
-      <view class="section-title">能做的菜（食材齐全）</view>
-      <view v-if="!canMake.length" class="empty small">暂无完全能做的菜</view>
-      <view v-for="m in canMake" :key="m.dish.id" class="card canMake" @click="goDetail(m.dish.id)">
-        <view class="card-name">{{ m.dish.name }}</view>
-        <view class="card-meta">
-          用料 {{ m.totalCount }} 种 · {{ minutes(m.dish) }}分钟
-          <text class="tag-ok">可做</text>
+    <!-- 找菜按钮 -->
+    <view class="find-btn-row">
+      <button class="find-btn" :class="{ off: !selected.size }" @click="search">
+        找菜{{ selected.size ? `（已选 ${selected.size}）` : '' }}
+      </button>
+    </view>
+
+    <!-- 结果 -->
+    <block v-if="searched">
+      <view class="sort-row">
+        <text class="sort-label">按「家里够几样」排序</text>
+        <text class="sort-pick">缺的在上 ▾</text>
+      </view>
+
+      <view v-if="!matches.length" class="empty">没找到能做的菜，换个组合试试</view>
+      <view v-else class="match-list">
+        <view
+          v-for="m in sortedMatches"
+          :key="m.dish.id"
+          :class="['match-card', selectedDishes.has(m.dish.id) && 'sel']"
+          @click="toggleDish(m.dish.id, $event)"
+        >
+          <view class="match-head">
+            <text class="match-emoji">{{ dishEmoji(m.dish.name) }}</text>
+            <text class="match-name">{{ m.dish.name }}</text>
+            <text :class="['match-pill', pillClass(m)]">{{ pillText(m) }}</text>
+          </view>
+          <text :class="['match-note', noteClass(m)]">{{ noteText(m) }}</text>
         </view>
       </view>
+    </block>
 
-      <view class="section-title">还差一点（缺 1-2 种）</view>
-      <view v-if="!partial.length" class="empty small">没有相近的菜</view>
-      <view v-for="m in partial" :key="m.dish.id" class="card partial" @click="goDetail(m.dish.id)">
-        <view class="card-name">{{ m.dish.name }}</view>
-        <view class="card-meta">还缺 {{ m.missingIngredients.length }} 种 · {{ minutes(m.dish) }}分钟</view>
-        <view class="missing">缺：{{ m.missingIngredients.join('、') }}</view>
-      </view>
+    <!-- 底部固定：多选一起加食集 -->
+    <view v-if="searched && matches.length" class="bottom-bar">
+      <button class="add-menu-btn" :class="{ off: !selectedDishes.size }" @click="onAddMenu">
+        把这 {{ selectedDishes.size }} 道一起加食集
+      </button>
+      <text class="bottom-hint">多选模式：一次加几道到目标食集</text>
     </view>
-    <u-loadmore v-if="searched" status="nomore" />
+
+    <view style="height: 280rpx;"></view>
   </view>
 </template>
 
@@ -60,29 +88,28 @@ import { findDishesByIngredients, type DishMatch } from '@/api/dish'
 type Src = 'pantry' | 'all'
 
 const src = ref<Src>('pantry')
-const keyword = ref('')
 const loadingSrc = ref(false)
 const searched = ref(false)
+const showAllChips = ref(false)
 
-// 全量食材池（按当前 src 加载），name + id
 const pool = ref<{ id: number; name: string }[]>([])
-// 勾选集合
 const selected = ref<Set<number>>(new Set())
-// 接口返回
 const matches = ref<DishMatch[]>([])
+const selectedDishes = ref<Set<number>>(new Set())
 
-const canMake = computed(() => matches.value.filter((m) => m.canMake))
-const partial = computed(() => matches.value.filter((m) => !m.canMake))
+const filteredList = computed(() => pool.value)
+const showList = computed(() => (showAllChips.value ? filteredList.value : filteredList.value.slice(0, 12)))
 
-const filteredList = computed(() => {
-  const kw = keyword.value.trim()
-  if (!kw) return pool.value
-  return pool.value.filter((i) => i.name.includes(kw))
+/** 缺的在上：缺失数降序，全够的垫底 */
+const sortedMatches = computed(() => {
+  return [...matches.value].sort((a, b) => {
+    const ma = a.totalCount - a.matchCount
+    const mb = b.totalCount - b.matchCount
+    return mb - ma
+  })
 })
 
-onShow(() => {
-  loadSource()
-})
+onShow(() => { loadSource() })
 
 async function loadSource() {
   loadingSrc.value = true
@@ -94,7 +121,7 @@ async function loadSource() {
       const all = await listAllIngredients()
       pool.value = all.map((i: any) => ({ id: i.id, name: i.name }))
     }
-    // 切源后默认全选库存/全选（让用户快速减法）
+    // 默认全选库存/全部（让用户快速减法）
     selected.value = new Set(pool.value.map((i) => i.id))
   } catch {
     pool.value = []
@@ -109,12 +136,8 @@ function switchSrc(s: Src) {
   src.value = s
   searched.value = false
   matches.value = []
+  showAllChips.value = false
   loadSource()
-}
-
-// u-search 仅做本地过滤
-function filterList() {
-  // computed 自动响应，这里无需做事
 }
 
 function toggle(id: number) {
@@ -122,6 +145,18 @@ function toggle(id: number) {
   if (s.has(id)) s.delete(id)
   else s.add(id)
   selected.value = s
+}
+
+function toggleDish(id: number, e: any) {
+  // 长按（app.h5 鼠标右键/ touch 长按）进详情；普通点击切换选中
+  if (e && (e.type === 'longpress' || e.type === 'contextmenu')) {
+    uni.navigateTo({ url: `/pages/dish/Detail?id=${id}` })
+    return
+  }
+  const s = new Set(selectedDishes.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  selectedDishes.value = s
 }
 
 async function search() {
@@ -134,44 +169,174 @@ async function search() {
   try {
     matches.value = await findDishesByIngredients(ids)
     searched.value = true
-    if (!matches.value.length) {
-      uni.showToast({ title: '没找到能做的菜', icon: 'none' })
-    }
+    selectedDishes.value = new Set()
+    if (!matches.value.length) uni.showToast({ title: '没找到能做的菜', icon: 'none' })
   } finally {
     uni.hideLoading()
   }
 }
 
-function minutes(d: any): number {
-  return Number(d?.prepTime || 0) + Number(d?.cookTime || 0)
+function onReset() {
+  selected.value = new Set()
+  searched.value = false
+  matches.value = []
+  selectedDishes.value = new Set()
 }
 
-function goDetail(id: number) {
-  try {
-    uni.navigateTo({ url: `/pages/dish/Detail?id=${id}`, fail: () => uni.showToast({ title: '详情页未就绪', icon: 'none' }) })
-  } catch {
-    uni.showToast({ title: '详情页未就绪', icon: 'none' })
+function onBack() {
+  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/index/Index' }) })
+}
+
+function onAddMenu() {
+  if (!selectedDishes.value.size) {
+    uni.showToast({ title: '先勾选要加的菜', icon: 'none' })
+    return
   }
+  // 加食集：跳食集页选目标（批量加食集接口待后端落地后改为直传 dishIds）
+  uni.switchTab({ url: '/pages/menu/Home' })
+  uni.showToast({ title: `选中 ${selectedDishes.value.size} 道，请选目标食集`, icon: 'none' })
+}
+
+/** 食材 emoji 兜底 */
+function ingEmoji(name?: string): string {
+  if (!name) return '🥘'
+  const map: Record<string, string> = {
+    '蛋': '🥚', '鱼': '🐟', '虾': '🦐', '鸡': '🐔', '牛': '🐂', '猪': '🥓', '羊': '🍖',
+    '葱': '🧅', '姜': '🫚', '蒜': '🧄', '番茄': '🍅', '西红柿': '🍅', '土豆': '🥔',
+    '萝卜': '🥕', '黄瓜': '🥒', '菜': '🥬', '奶': '🥛', '油': '🫒', '米': '🍚', '面': '🍜',
+    '豆腐': '🥘', '豆': '🫘', '椒': '🌶', '果': '🥑', '蘑菇': '🍄',
+  }
+  for (const k in map) if (name.includes(k)) return map[k]
+  return '🥘'
+}
+
+/** 菜 emoji 兜底 */
+function dishEmoji(name?: string): string {
+  if (!name) return '🍽'
+  if (/番茄|西红柿/.test(name)) return '🍅'
+  if (/鱼/.test(name)) return '🐟'
+  if (/蛋/.test(name)) return '🥚'
+  if (/面/.test(name)) return '🍜'
+  if (/肉|排骨/.test(name)) return '🍖'
+  if (/菜|蔬|菠/.test(name)) return '🥬'
+  return '🍽'
+}
+
+function pillClass(m: DishMatch): string {
+  if (m.canMake) return 'pill-ok'
+  const miss = m.totalCount - m.matchCount
+  return miss >= 3 ? 'pill-red' : 'pill-yellow'
+}
+function pillText(m: DishMatch): string {
+  if (m.canMake) return `够 ${m.matchCount}/${m.totalCount}`
+  return `差 ${m.totalCount - m.matchCount}`
+}
+function noteClass(m: DishMatch): string {
+  if (m.canMake) return 'note-ok'
+  const miss = m.totalCount - m.matchCount
+  return miss >= 3 ? 'note-red' : 'note-yellow'
+}
+function noteText(m: DishMatch): string {
+  if (m.canMake) return '家里全够，不用买'
+  return `缺：${m.missingIngredients.join(' / ')}`
 }
 </script>
 
 <style scoped>
-.find { padding: 20rpx; }
-.toolbar { display: flex; align-items: center; gap: 16rpx; margin-bottom: 16rpx; flex-wrap: wrap; }
-.src-tab { font-size: 26rpx; color: #666; padding: 8rpx 20rpx; border: 1rpx solid #ddd; border-radius: 30rpx; }
-.src-tab.on { color: #fff; background: #E89150; border-color: #E89150; }
-.chips { display: flex; flex-wrap: wrap; gap: 16rpx; margin: 20rpx 0; }
-.chip { font-size: 26rpx; color: #333; padding: 12rpx 24rpx; border: 1rpx solid #ddd; border-radius: 30rpx; background: #f7f7f7; }
-.chip.on { color: #fff; background: #E89150; border-color: #E89150; }
-.empty { text-align: center; color: #999; padding: 60rpx 0; }
-.empty.small { padding: 24rpx 0; font-size: 26rpx; }
-.result { margin-top: 20rpx; }
-.section-title { font-size: 30rpx; font-weight: 600; color: #333; margin: 30rpx 0 16rpx; }
-.card { padding: 24rpx; border-radius: 16rpx; margin-bottom: 16rpx; background: #fff; box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05); }
-.card.canMake { border-left: 8rpx solid #4FAE6E; }
-.card.partial { border-left: 8rpx solid #E89150; }
-.card-name { font-size: 32rpx; font-weight: 600; color: #222; }
-.card-meta { font-size: 26rpx; color: #888; margin-top: 8rpx; }
-.tag-ok { color: #4FAE6E; font-size: 24rpx; margin-left: 12rpx; }
-.missing { font-size: 26rpx; color: #E89150; margin-top: 8rpx; }
+.find {
+  min-height: 100vh;
+  background: #FDFAF4;
+  padding: 0 28rpx calc(env(safe-area-inset-bottom) + 40rpx);
+}
+
+/* 顶栏 */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 32rpx) 8rpx 12rpx;
+}
+.back { font-size: 40rpx; color: #6E5C49; width: 48rpx; line-height: 1; }
+.topbar-title { font-size: 28rpx; color: #9C8C7A; }
+.topbar-action { font-size: 24rpx; color: #D17A3C; font-weight: 800; }
+
+/* 标题区 */
+.head { padding: 16rpx 8rpx 8rpx; }
+.head-title { display: block; font-size: 30rpx; font-weight: 800; color: #4A382A; }
+.head-sub { display: block; font-size: 22rpx; color: #9C8C7A; margin-top: 4rpx; }
+
+/* 来源切换 */
+.src-row { display: flex; gap: 12rpx; padding: 8rpx 8rpx 12rpx; }
+.src-tab {
+  font-size: 22rpx; padding: 8rpx 22rpx; border-radius: 28rpx;
+  border: 2rpx solid #F0E6D6; background: #fff; color: #6E5C49;
+}
+.src-tab.on { background: #E89150; color: #fff; border-color: #E89150; font-weight: 700; }
+
+/* 食材勾选 */
+.chips { display: flex; flex-wrap: wrap; gap: 12rpx; padding: 0 8rpx 12rpx; }
+.chip {
+  font-size: 22rpx; font-weight: 700;
+  padding: 10rpx 20rpx; border-radius: 16rpx;
+  background: #fff; border: 2rpx solid #F0E6D6; color: #6E5C49;
+}
+.chip.on { background: #E89150; color: #fff; border-color: #E89150; }
+.chip.more { color: #9C8C7A; font-weight: 600; border-style: dashed; }
+
+/* 找菜按钮 */
+.find-btn-row { padding: 4rpx 8rpx 12rpx; }
+.find-btn {
+  width: 100%; height: 80rpx; line-height: 80rpx;
+  background: #E89150; color: #fff; font-size: 28rpx; font-weight: 800;
+  border-radius: 20rpx; border: none;
+}
+.find-btn.off { background: #F0E6D6; color: #9C8C7A; }
+
+/* 排序行 */
+.sort-row {
+  display: flex; justify-content: space-between;
+  padding: 16rpx 8rpx 12rpx; font-size: 22rpx;
+}
+.sort-label { color: #9C8C7A; }
+.sort-pick { color: #D17A3C; font-weight: 800; }
+
+/* 匹配结果 */
+.match-list { padding: 0 8rpx; }
+.match-card {
+  background: #fff; border: 1px solid #F0E6D6; border-radius: 24rpx;
+  padding: 20rpx; margin-bottom: 14rpx;
+}
+.match-card.sel { border-color: #E89150; background: #FFF7EC; }
+.match-head { display: flex; align-items: center; gap: 16rpx; }
+.match-emoji { font-size: 36rpx; }
+.match-name { flex: 1; font-size: 28rpx; font-weight: 800; color: #4A382A; }
+.match-pill {
+  font-size: 20rpx; font-weight: 800;
+  padding: 4rpx 16rpx; border-radius: 99rpx; color: #fff;
+}
+.pill-ok { background: #4FAE6E; }
+.pill-yellow { background: #E5A938; }
+.pill-red { background: #DB5A4E; }
+
+.match-note { display: block; font-size: 20rpx; margin-top: 8rpx; padding-left: 52rpx; }
+.note-ok { color: #4FAE6E; }
+.note-yellow { color: #B8762E; }
+.note-red { color: #B8382B; }
+
+/* 底部固定 */
+.bottom-bar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: #fff; border-top: 1px solid #F0E6D6;
+  padding: 18rpx 28rpx calc(env(safe-area-inset-bottom) + 18rpx);
+  z-index: 50;
+}
+.add-menu-btn {
+  width: 100%; height: 88rpx; line-height: 88rpx;
+  background: #E89150; color: #fff; font-size: 28rpx; font-weight: 800;
+  border-radius: 24rpx; border: none;
+}
+.add-menu-btn.off { background: #F0E6D6; color: #9C8C7A; }
+.bottom-hint { display: block; text-align: center; font-size: 20rpx; color: #9C8C7A; margin-top: 8rpx; }
+
+.empty { text-align: center; color: #9C8C7A; padding: 80rpx 0; font-size: 26rpx; }
+
+button::after { border: none; }
 </style>

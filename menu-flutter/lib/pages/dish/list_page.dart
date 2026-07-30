@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/image_helper.dart';
-import '../../core/theme.dart';
+import '../../core/app_theme.dart';
 import '../../models/dish.dart';
 import '../../services/dish_service.dart';
 import '../../widgets/loading_empty.dart';
@@ -86,7 +86,9 @@ class _DishListPageState extends State<DishListPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Scaffold(
         appBar: AppBar(title: const Text('菜库')),
         body: Column(
           children: [
@@ -116,7 +118,7 @@ class _DishListPageState extends State<DishListPage> {
               child: _firstLoading
                   ? const LoadingView()
                   : RefreshIndicator(
-                      color: AppColors.primary,
+                      color: t.primary,
                       onRefresh: _reload,
                       child: _dishes.isEmpty
                           ? const EmptyView(text: '暂无菜品')
@@ -130,9 +132,9 @@ class _DishListPageState extends State<DishListPage> {
                                     child: Center(
                                       child: Text(
                                         _hasMore ? '上拉加载更多' : '没有更多了',
-                                        style: const TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 13),
+                                        style: TextStyle(
+                                            color: t.caption,
+                                            fontSize: 12),
                                       ),
                                     ),
                                   );
@@ -146,6 +148,7 @@ class _DishListPageState extends State<DishListPage> {
           ],
         ),
       );
+  }
 }
 
 /// 列表项：封面缩略图 + 菜名 + 时间/难度。
@@ -155,6 +158,7 @@ class _DishTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     final hasCover =
         dish.coverUrl != null && dish.coverUrl!.isNotEmpty;
     final thumbUrl = hasCover
@@ -163,7 +167,7 @@ class _DishTile extends StatelessWidget {
 
     return ListTile(
       leading: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppTokens.rSm),
         child: SizedBox(
           width: 56,
           height: 56,
@@ -171,29 +175,29 @@ class _DishTile extends StatelessWidget {
               ? Image.network(
                   thumbUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _placeholder(),
+                  errorBuilder: (_, __, ___) => _placeholder(t),
                   loadingBuilder: (_, child, progress) {
                     if (progress == null) return child;
-                    return _placeholder();
+                    return _placeholder(t);
                   },
                 )
-              : _placeholder(),
+              : _placeholder(t),
         ),
       ),
       title: Text(dish.name),
       subtitle: Text(
         '${dish.cookTime ?? 0}分钟 · 难度${dish.difficulty ?? '-'}',
-        style: const TextStyle(
-            color: AppColors.textSecondary, fontSize: 13),
+        style: TextStyle(
+            color: t.caption, fontSize: 12),
       ),
-      trailing: const Icon(Icons.chevron_right,
-          color: AppColors.textSecondary),
+      trailing: Icon(Icons.chevron_right,
+          color: t.caption),
       onTap: () => context.push('/dish/${dish.id}'),
     );
   }
 
-  Widget _placeholder() => Container(
-        color: const Color(0xFFF5F0E8),
-        child: const Icon(Icons.restaurant, color: Color(0xFFCCCCCC), size: 24),
+  Widget _placeholder(AppTokens t) => Container(
+        color: t.bg,
+        child: Icon(Icons.restaurant, color: t.border, size: 24),
       );
 }
