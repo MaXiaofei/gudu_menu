@@ -5,24 +5,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:menu_flutter/app.dart';
 import 'package:menu_flutter/core/api_client.dart';
 import 'package:menu_flutter/core/theme_controller.dart';
-import 'package:menu_flutter/pages/home_page.dart';
+import 'package:menu_flutter/pages/dish/list_page.dart';
 import 'package:menu_flutter/pages/login_page.dart';
 import 'package:menu_flutter/stores/auth_store.dart';
 import '../helpers/mock_http.dart';
 
 /// 端到端登录流程（widget 级，无需设备）：
 /// 启动(未登录) → 登录页 → 输入密码 → 点登录 → mock 返回 token →
-/// AuthStore 登录态变更 → router 重定向 → 首页渲染。
+/// AuthStore 登录态变更 → router 重定向 → 菜谱页渲染。
 ///
 /// 覆盖全链路：LoginPage UI → AuthStore.login → AuthService.login →
-/// ApiClient 拦截器解包 → 状态持久化 → go_router refreshListenable → HomePage。
+/// ApiClient 拦截器解包 → 状态持久化 → go_router refreshListenable → DishListPage。
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('完整登录流程：输入密码 → 登录成功 → 跳转首页', (tester) async {
-    // 按路径路由 mock：登录接口返回 token，其余首页请求返回空数据
+  testWidgets('完整登录流程：输入密码 → 登录成功 → 跳转菜谱页', (tester) async {
+    // 按路径路由 mock：登录接口返回 token，其余菜谱页请求返回空数据
     installMock((options) {
       if (options.path == '/auth/login') {
         return okResponse({'token': 'jwt-from-mock', 'nickname': '测试大厨'});
@@ -42,7 +42,7 @@ void main() {
 
     // 1. 初始：登录页
     expect(find.byType(LoginPage), findsOneWidget);
-    expect(find.byType(HomePage), findsNothing);
+    expect(find.byType(DishListPage), findsNothing);
 
     // 2. 输入密码（用户名已预填 admin）
     await tester.enterText(find.byType(TextField).at(1), '123456');
@@ -52,14 +52,14 @@ void main() {
     await tester.tap(find.text('登录'));
     await tester.pumpAndSettle();
 
-    // 4. 登录成功 → token 持久化 + ApiClient 同步 → 重定向到首页
+    // 4. 登录成功 → token 持久化 + ApiClient 同步 → 重定向到菜谱页
     expect(auth.isLoggedIn, isTrue);
     expect(auth.token, 'jwt-from-mock');
     expect(auth.nickname, '测试大厨');
     expect(ApiClient.instance.token, 'jwt-from-mock');
 
     expect(find.byType(LoginPage), findsNothing);
-    expect(find.byType(HomePage), findsOneWidget);
+    expect(find.byType(DishListPage), findsOneWidget);
 
     // 持久化确认（跨重启恢复登录态）
     final sp = await SharedPreferences.getInstance();
@@ -95,7 +95,7 @@ void main() {
     // 登录失败：仍停留登录页，未登录
     expect(auth.isLoggedIn, isFalse);
     expect(find.byType(LoginPage), findsOneWidget);
-    expect(find.byType(HomePage), findsNothing);
+    expect(find.byType(DishListPage), findsNothing);
     // 拦截器弹出了业务错误 toast
     expect(toasted, '用户名或密码错误');
   });

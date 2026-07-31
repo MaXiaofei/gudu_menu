@@ -12,7 +12,6 @@ import '../pages/dish/list_page.dart';
 import '../pages/dish/review_page.dart';
 import '../pages/menu/detail_page.dart';
 import '../pages/menu/list_page.dart';
-import '../pages/home_page.dart';
 import '../pages/ingredient/create_page.dart';
 import '../pages/ingredient/list_page.dart';
 import '../pages/login_page.dart';
@@ -23,17 +22,16 @@ import '../stores/auth_store.dart';
 GoRouter createRouter(AuthStore auth) {
   return GoRouter(
     refreshListenable: auth,
-    initialLocation: '/',
+    initialLocation: '/dish',
     redirect: (context, state) {
       final loggedIn = auth.isLoggedIn;
       final atLogin = state.matchedLocation == '/login';
       if (!loggedIn && !atLogin) return '/login';
-      if (loggedIn && atLogin) return '/';
+      if (loggedIn && atLogin) return '/dish';
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
-      GoRoute(path: '/', builder: (_, __) => const HomePage()),
       GoRoute(path: '/dish', builder: (_, __) => const DishListPage()),
       // 点评
       GoRoute(
