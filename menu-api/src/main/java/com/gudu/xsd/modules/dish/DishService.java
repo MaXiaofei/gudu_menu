@@ -158,6 +158,18 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             w.exists("SELECT 1 FROM favorite f WHERE f.dish_id = dish.id AND f.member_id = " + curMember);
         }
 
+        // 食材筛选：按包含指定食材的菜谱过滤（交集：必须包含所有选中食材）
+        if (q.getIngredientIds() != null && !q.getIngredientIds().isEmpty()) {
+            int ingCount = q.getIngredientIds().size();
+            String ingIds = q.getIngredientIds().stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(","));
+            // 该菜品必须包含所有选中的食材
+            w.exists("SELECT 1 FROM dish_ingredient di WHERE di.dish_id = dish.id " +
+                    "AND di.ingredient_id IN (" + ingIds + ") " +
+                    "GROUP BY di.dish_id HAVING COUNT(DISTINCT di.ingredient_id) = " + ingCount);
+        }
+
         // 无营养约束：原 SQL 分页。
         Map<Long, BigDecimal> limits = q.getNutritionLimits();
         if (limits == null || limits.isEmpty()) {

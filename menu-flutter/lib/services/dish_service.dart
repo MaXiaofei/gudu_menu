@@ -6,13 +6,17 @@ import '../models/page.dart';
 /// 菜品服务（对应 menu-mini/src/api/dish.ts + DishController）。
 class DishService {
   /// 多维搜索分页：GET /dish/search。
+  /// [ingredientIds] 食材筛选（交集：必须包含所有选中食材）。
   static Future<PageData<Dish>> search({
     String? keyword,
+    List<int>? ingredientIds,
     int pageNum = 1,
     int pageSize = 20,
   }) async {
     final data = await ApiClient.instance.get('/dish/search', query: {
       if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
+      if (ingredientIds != null && ingredientIds.isNotEmpty)
+        'ingredientIds': ingredientIds.join(','),
       'pageNum': pageNum,
       'pageSize': pageSize,
     });

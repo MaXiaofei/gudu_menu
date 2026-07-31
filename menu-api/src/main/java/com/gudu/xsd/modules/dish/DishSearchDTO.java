@@ -41,4 +41,7 @@ public class DishSearchDTO extends PageQuery {
 
     /** 仅看收藏的菜。 */
     private Boolean star;
+
+    /** 食材筛选：按包含指定食材的菜谱过滤（交集：必须包含所有选中食材）。 */
+    private List<Long> ingredientIds;
 }

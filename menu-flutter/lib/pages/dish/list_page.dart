@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api_client.dart';
 import '../../core/image_helper.dart';
 import '../../core/app_theme.dart';
 import '../../models/dish.dart';
@@ -29,11 +30,33 @@ class _DishListPageState extends State<DishListPage> {
   bool _firstLoading = true;
   bool _hasText = false;
 
+  // 食材筛选
+  List<int> _selectedIngredientIds = [];
+  List<Map<String, dynamic>> _availableIngredients = [];
+
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    _loadIngredients();
     _reload();
+  }
+
+  Future<void> _loadIngredients() async {
+    try {
+      final data = await ApiClient.instance.get('/ingredient', query: {
+        'pageNum': 1,
+        'pageSize': 200,
+      });
+      if (data is Map && data['records'] is List) {
+        final items = (data['records'] as List)
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+        if (mounted) {
+          setState(() => _availableIngredients = items);
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -57,6 +80,7 @@ class _DishListPageState extends State<DishListPage> {
     try {
       final r = await DishService.search(
         keyword: _keywordCtrl.text.trim(),
+        ingredientIds: _selectedIngredientIds.isEmpty ? null : _selectedIngredientIds,
         pageNum: pageNum,
         pageSize: _pageSize,
       );
@@ -114,6 +138,8 @@ class _DishListPageState extends State<DishListPage> {
                 onSubmitted: (_) => _reload(),
               ),
             ),
+            // 食材筛选区域
+            if (_availableIngredients.isNotEmpty) _buildIngredientSection(t),
             Expanded(
               child: _firstLoading
                   ? const LoadingView()
@@ -148,6 +174,67 @@ class _DishListPageState extends State<DishListPage> {
           ],
         ),
       );
+  }
+
+  Widget _buildIngredientSection(AppTokens t) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.kitchen, size: 16, color: t.caption),
+              const SizedBox(width: 4),
+              Text(
+                '按食材筛选',
+                style: TextStyle(fontSize: 12, color: t.caption),
+              ),
+              const Spacer(),
+              if (_selectedIngredientIds.isNotEmpty)
+                TextButton(
+                  onPressed: () {
+                    setState(() => _selectedIngredientIds = []);
+                    _reload();
+                  },
+                  child: const Text('清除'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _availableIngredients.take(20).map((ing) {
+              final id = ing['id'] as int;
+              final name = ing['name'] as String? ?? '';
+              final selected = _selectedIngredientIds.contains(id);
+              return FilterChip(
+                label: Text(name, style: const TextStyle(fontSize: 12)),
+                selected: selected,
+                onSelected: (checked) {
+                  setState(() {
+                    if (checked) {
+                      _selectedIngredientIds.add(id);
+                    } else {
+                      _selectedIngredientIds.remove(id);
+                    }
+                  });
+                  _reload();
+                },
+                selectedColor: t.primarySoft,
+                checkmarkColor: t.primary,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
   }
 }
 
