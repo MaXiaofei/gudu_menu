@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>咕嘟小食单 · 功能清单</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .filter-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+        select, button {
+            padding: 8px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        select:hover, button:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+        button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .stats {
+            padding: 20px 30px;
+            background: #e7f3ff;
+            border-bottom: 1px solid #d0e7ff;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            flex: 1;
+            min-width: 150px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .content {
+            padding: 30px;
+        }
+        .platform-section {
+            margin-bottom: 40px;
+        }
+        .platform-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+        }
+        .platform-icon {
+            font-size: 32px;
+        }
+        .platform-title {
+            flex: 1;
+        }
+        .platform-title h2 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .platform-title p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .module {
+            margin-bottom: 25px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .module-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .module-icon {
+            font-size: 24px;
+        }
+        .module-title {
+            flex: 1;
+            font-size: 18px;
+            font-weight: 700;
+            color: #212529;
+        }
+        .feature-list {
+            padding: 15px 20px;
+        }
+        .feature {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            align-items: start;
+            gap: 12px;
+            transition: all 0.2s;
+        }
+        .feature:hover {
+            background: #e9ecef;
+            transform: translateX(4px);
+        }
+        .feature:last-child {
+            margin-bottom: 0;
+        }
+        .feature-status {
+            min-width: 60px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .status-done {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-partial {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-planned {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .status-notstarted {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .feature-content {
+            flex: 1;
+        }
+        .feature-name {
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 4px;
+        }
+        .feature-desc {
+            font-size: 13px;
+            color: #6c757d;
+            line-height: 1.5;
+        }
+        .feature-priority {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #e9ecef;
+            color: #495057;
+        }
+        .priority-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .priority-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .priority-low {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .hidden {
+            display: none;
+        }
+        footer {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍲 咕嘟小食单 · 功能清单</h1>
+            <p>家庭菜谱与膳食管理系统 · 三端功能总览</p>
+        </header>
+
+        <div class="controls">
+            <div class="filter-group">
+                <label>平台:</label>
+                <button class="platform-filter active" data-platform="all">全部</button>
+                <button class="platform-filter" data-platform="admin">🖥️ 管理后台</button>
+                <button class="platform-filter" data-platform="mini">📱 小程序</button>
+                <button class="platform-filter" data-platform="flutter">📱 Flutter APP</button>
+            </div>
+            <div class="filter-group">
+                <label>状态:</label>
+                <select id="status-filter">
+                    <option value="all">全部状态</option>
+                    <option value="done">✅ 已完成</option>
+                    <option value="partial">🟡 部分完成</option>
+                    <option value="planned">🔵 已规划</option>
+                    <option value="notstarted">⭕ 未开始</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>优先级:</label>
+                <select id="priority-filter">
+                    <option value="all">全部优先级</option>
+                    <option value="high">🔴 高优先级</option>
+                    <option value="medium">🟡 中优先级</option>
+                    <option value="low">🔵 低优先级</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>总功能数</h3>
+                <div class="value" id="total-count">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>已完成</h3>
+                <div class="value" id="done-count">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>部分完成</h3>
+                <div class="value" id="partial-count">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>完成率</h3>
+                <div class="value" id="completion-rate">0%</div>
+            </div>
+        </div>
+
+        <div class="content" id="content">
+            <!-- 内容将通过 JavaScript 动态生成 -->
+        </div>
+
+        <footer>
+            <p>最后更新: 2026-07-29 · 基于原型设计 + PRD 文档整理</p>
+            <p style="margin-top: 8px; font-size: 12px;">原型目录: .superpowers/brainstorm/ · PRD: docs/superpowers/</p>
+        </footer>
+    </div>
+
+    <script>
+        // 功能数据
+        const features = [
+            // ========== 管理后台 (admin) ==========
+            {
+                platform: 'admin',
+                module: '登录鉴权',
+                moduleIcon: '🔐',
+                name: '主账号登录',
+                desc: 'Sa-Token 有状态鉴权，JWT token 管理',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '配置中心',
+                moduleIcon: '⚙️',
+                name: '字典管理',
+                desc: '菜系/标签/分类/单位/营养指标/健康指标等字典增删改',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '成员管理',
+                moduleIcon: '👥',
+                name: '家庭成员 CRUD',
+                desc: '成员档案：身高体重、过敏忌口、特殊人群标签、营养约束',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '食材管理',
+                moduleIcon: '🥬',
+                name: '食材库管理',
+                desc: '食材 CRUD + 营养数据(EAV) + 价格 + 采购品类 + 基础库存',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '食材管理',
+                moduleIcon: '🥬',
+                name: '单位换算配置',
+                desc: '食材单位换算表（称重单位/计数单位）',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'admin',
+                module: '菜谱管理',
+                moduleIcon: '📖',
+                name: '菜品库 CRUD',
+                desc: '菜名/做法/步骤/封面/备料时间/烹饪时间/难度/价格',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '菜谱管理',
+                moduleIcon: '📖',
+                name: '食材用量关联',
+                desc: '菜品-食材多对多关联（带用量重量），营养信息聚合展示',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '菜谱管理',
+                moduleIcon: '📖',
+                name: '菜谱导入',
+                desc: '网页链接解析（下厨房/美食杰）+ 批量 JSON 导入',
+                status: 'planned',
+                priority: 'medium'
+            },
+            {
+                platform: 'admin',
+                module: '菜谱管理',
+                moduleIcon: '📖',
+                name: '菜谱版本历史',
+                desc: '改动保留历史版本，可删单个/多个历史',
+                status: 'planned',
+                priority: 'low'
+            },
+            {
+                platform: 'admin',
+                module: '食集管理',
+                moduleIcon: '🍱',
+                name: '食集 CRUD',
+                desc: '菜单管理：手动排菜单，菜品价→菜单总价',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '食集管理',
+                moduleIcon: '🍱',
+                name: '按份数/人数算量',
+                desc: '按份数/人数算总量与营养',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '排菜计划',
+                moduleIcon: '📅',
+                name: '周历排菜',
+                desc: '拖拽式周历排菜：菜拖到具体某天/某餐（早中晚加餐）',
+                status: 'planned',
+                priority: 'medium'
+            },
+            {
+                platform: 'admin',
+                module: '排菜计划',
+                moduleIcon: '📅',
+                name: '菜单模板',
+                desc: '常用一周菜单存模板，一键套用',
+                status: 'planned',
+                priority: 'low'
+            },
+            {
+                platform: 'admin',
+                module: '库存管理',
+                moduleIcon: '🏠',
+                name: '库存余量管理',
+                desc: '食材余量、临期/不足提醒、库存盘点',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '采购管理',
+                moduleIcon: '🛒',
+                name: '采购清单生成',
+                desc: '从周计划按时间范围自动生成 + 去重合并 + 按品类分区',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: '采购管理',
+                moduleIcon: '🛒',
+                name: '采购清单导出',
+                desc: 'CSV/纯文本导出（去超市、发微信）',
+                status: 'planned',
+                priority: 'low'
+            },
+            {
+                platform: 'admin',
+                module: '饮食日志',
+                moduleIcon: '📝',
+                name: '每日饮食记录',
+                desc: '记录每天实际吃了什么、摄入量（为 V2 AI 分析攒数据）',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'admin',
+                module: '数据备份',
+                moduleIcon: '💾',
+                name: '全量数据导出/导入',
+                desc: '数据备份/恢复，防丢',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'admin',
+                module: 'AI 日志',
+                moduleIcon: '🤖',
+                name: 'AI 调用日志',
+                desc: 'AI 服务调用记录、费用统计',
+                status: 'done',
+                priority: 'medium'
+            },
+
+            // ========== 小程序 (mini) ==========
+            {
+                platform: 'mini',
+                module: '登录',
+                moduleIcon: '🔐',
+                name: '微信登录',
+                desc: '微信小程序授权登录，主账号绑定',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '菜库浏览',
+                moduleIcon: '📖',
+                name: '菜谱列表',
+                desc: '搜索 + 分页 + 多维筛选（菜系/标签/营养/时间/难度）',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '菜库浏览',
+                moduleIcon: '📖',
+                name: '按食材找菜',
+                desc: '勾选冰箱现有食材，推荐能做的菜（清库存）',
+                status: 'partial',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '菜谱详情',
+                moduleIcon: '📖',
+                name: '菜谱详情页',
+                desc: '步骤/图片/营养信息/食材用量/按份数缩放',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '菜谱详情',
+                moduleIcon: '📖',
+                name: '收藏/做过标记',
+                desc: '收藏菜谱、标记已做过',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'mini',
+                module: '菜谱录入',
+                moduleIcon: '➕',
+                name: '录入新菜',
+                desc: '家庭成员贡献菜库，文字+图片步骤',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '菜谱点评',
+                moduleIcon: '⭐',
+                name: '菜谱点评',
+                desc: '星级+文字+图片+多维度打分（口味/难度/营养均衡/外观）',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'mini',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集列表',
+                desc: '查看可用菜单',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集详情·菜 Tab',
+                desc: '菜品列表/份数/备注/加菜/整集做',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集详情·备菜 Tab',
+                desc: '备料聚合/状态切换/共用高亮',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集详情·采购 Tab',
+                desc: '全量+余色/要买在上/手动加项/分享',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集详情·一起吃 Tab',
+                desc: '成员/忌口汇总/分享码/活动流（协同点菜）',
+                status: 'planned',
+                priority: 'medium'
+            },
+            {
+                platform: 'mini',
+                module: '做菜扣库存',
+                moduleIcon: '🍳',
+                name: '单菜直做',
+                desc: 'cookDishNow 扣库存 + 写 cooking_record',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '做菜扣库存',
+                moduleIcon: '🍳',
+                name: '整集做菜',
+                desc: '食集所有菜品批量扣库存',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '做菜扣库存',
+                moduleIcon: '🍳',
+                name: 'FIFO 预扣清单',
+                desc: '做菜扣库存 modal：FIFO 预扣清单/不够红字/先采购/强行做',
+                status: 'partial',
+                priority: 'medium'
+            },
+            {
+                platform: 'mini',
+                module: '采购',
+                moduleIcon: '🛒',
+                name: '采购清单',
+                desc: '三色余色徽章（缺/低/够）+ 勾选已买',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '采购',
+                moduleIcon: '🛒',
+                name: '采购回写',
+                desc: '买完入库闭环：入库量/批次属性/回写开关',
+                status: 'partial',
+                priority: 'medium'
+            },
+            {
+                platform: 'mini',
+                module: '库存',
+                moduleIcon: '🏠',
+                name: '我家余量',
+                desc: '三色库存（红缺/黄偏低/绿够）+ 手动盘点 + 批次明细',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'mini',
+                module: '饮食日志',
+                moduleIcon: '📝',
+                name: '食记',
+                desc: '统计卡/时间轴/单条详情/再做一次',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'mini',
+                module: 'AI 智荐',
+                moduleIcon: '✨',
+                name: '智能荐菜',
+                desc: '根据预算和健康约束推荐菜品组合',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'mini',
+                module: 'AI 智荐',
+                moduleIcon: '✨',
+                name: '估营养',
+                desc: 'AI 菜品营养估算',
+                status: 'done',
+                priority: 'low'
+            },
+            {
+                platform: 'mini',
+                module: '协同',
+                moduleIcon: '👥',
+                name: '朋友点菜页',
+                desc: '朋友视角/忌口匹配/表态加菜/撞忌口（扫码进入）',
+                status: 'planned',
+                priority: 'low'
+            },
+            {
+                platform: 'mini',
+                module: '通知',
+                moduleIcon: '🔔',
+                name: '订阅消息',
+                desc: '小程序订阅消息（关键提醒）',
+                status: 'planned',
+                priority: 'low'
+            },
+
+            // ========== Flutter APP ==========
+            {
+                platform: 'flutter',
+                module: '登录',
+                moduleIcon: '🔐',
+                name: '账号密码登录',
+                desc: 'Sa-Token 登录，token 持久化，自动刷新',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '菜库',
+                moduleIcon: '📖',
+                name: '菜谱列表',
+                desc: '搜索（菜名+食材）+ 分页 + 下拉刷新 + 上拉加载',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '菜库',
+                moduleIcon: '📖',
+                name: '按食材筛选',
+                desc: '多选食材 FilterChip，交集筛选（必须包含所有选中食材）',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '菜谱详情',
+                moduleIcon: '📖',
+                name: '菜谱详情页',
+                desc: '步骤/图片/营养信息/食材用量',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '菜谱录入',
+                moduleIcon: '➕',
+                name: '录入新菜',
+                desc: '手动录入 + URL 导入，文字+图片步骤',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '菜谱点评',
+                moduleIcon: '⭐',
+                name: '菜谱点评',
+                desc: '星级+文字+多维度打分',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'flutter',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集列表',
+                desc: '查看可用菜单',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集详情·菜 Tab',
+                desc: '菜品列表/份数/备注/加菜/整集做',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集详情·备菜 Tab',
+                desc: '备料聚合/状态切换',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '食集',
+                moduleIcon: '🍱',
+                name: '食集详情·采购 Tab',
+                desc: '采购清单生成 + 余色 + 勾选已买',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '做菜扣库存',
+                moduleIcon: '🍳',
+                name: '单菜直做',
+                desc: 'cookDishNow 扣库存 + 写 cooking_record',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '做菜扣库存',
+                moduleIcon: '🍳',
+                name: '整集做菜',
+                desc: '食集所有菜品批量扣库存',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '采购',
+                moduleIcon: '🛒',
+                name: '采购清单',
+                desc: '三色余色 + 勾选已买 + 手动加项',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '库存',
+                moduleIcon: '🏠',
+                name: '我家余量',
+                desc: '三色库存 + 手动盘点 + 批次明细',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '饮食日志',
+                moduleIcon: '📝',
+                name: '食记',
+                desc: '统计卡/时间轴/单条详情',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'flutter',
+                module: '排菜计划',
+                moduleIcon: '📅',
+                name: '排菜日历',
+                desc: '周历排菜视图',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'flutter',
+                module: 'AI 智荐',
+                moduleIcon: '✨',
+                name: '智能荐菜',
+                desc: '根据预算和健康约束推荐菜品组合',
+                status: 'done',
+                priority: 'medium'
+            },
+            {
+                platform: 'flutter',
+                module: 'AI 智荐',
+                moduleIcon: '✨',
+                name: '估营养',
+                desc: 'AI 菜品营养估算',
+                status: 'done',
+                priority: 'low'
+            },
+            {
+                platform: 'flutter',
+                module: '设计系统',
+                moduleIcon: '🎨',
+                name: '双主题系统',
+                desc: '奶油轻食/抹茶禅意双主题，Design Tokens 三端一致',
+                status: 'done',
+                priority: 'high'
+            },
+            {
+                platform: 'flutter',
+                module: '设计系统',
+                moduleIcon: '🎨',
+                name: '交互状态补齐',
+                desc: 'hover/press/150ms transition 全补齐',
+                status: 'done',
+                priority: 'medium'
+            },
+        ];
+
+        // 渲染功能列表
+        function renderFeatures() {
+            const content = document.getElementById('content');
+            const platformFilter = document.querySelector('.platform-filter.active').dataset.platform;
+            const statusFilter = document.getElementById('status-filter').value;
+            const priorityFilter = document.getElementById('priority-filter').value;
+
+            // 过滤功能
+            let filtered = features.filter(f => {
+                if (platformFilter !== 'all' && f.platform !== platformFilter) return false;
+                if (statusFilter !== 'all' && f.status !== statusFilter) return false;
+                if (priorityFilter !== 'all' && f.priority !== priorityFilter) return false;
+                return true;
+            });
+
+            // 按平台和模块分组
+            const grouped = {};
+            filtered.forEach(f => {
+                if (!grouped[f.platform]) grouped[f.platform] = {};
+                const moduleKey = `${f.moduleIcon} ${f.module}`;
+                if (!grouped[f.platform][moduleKey]) {
+                    grouped[f.platform][moduleKey] = [];
+                }
+                grouped[f.platform][moduleKey].push(f);
+            });
+
+            // 渲染
+            let html = '';
+            const platformNames = {
+                admin: { name: '管理后台', icon: '🖥️', desc: 'Web 管理端 · Vue3 + Element Plus' },
+                mini: { name: '微信小程序', icon: '📱', desc: '用户端 · uni-app + Vue3' },
+                flutter: { name: 'Flutter APP', icon: '📱', desc: 'iOS/Android 原生端' }
+            };
+
+            for (const platform in grouped) {
+                const pinfo = platformNames[platform];
+                html += `
+                    <div class="platform-section">
+                        <div class="platform-header">
+                            <div class="platform-icon">${pinfo.icon}</div>
+                            <div class="platform-title">
+                                <h2>${pinfo.name}</h2>
+                                <p>${pinfo.desc}</p>
+                            </div>
+                        </div>
+                `;
+
+                for (const moduleName in grouped[platform]) {
+                    html += `
+                        <div class="module">
+                            <div class="module-header">
+                                <div class="module-title">${moduleName}</div>
+                            </div>
+                            <div class="feature-list">
+                    `;
+
+                    grouped[platform][moduleName].forEach(f => {
+                        const statusText = {
+                            done: '已完成',
+                            partial: '部分完成',
+                            planned: '已规划',
+                            notstarted: '未开始'
+                        }[f.status];
+
+                        const priorityText = {
+                            high: '高',
+                            medium: '中',
+                            low: '低'
+                        }[f.priority];
+
+                        html += `
+                            <div class="feature">
+                                <div class="feature-status status-${f.status}">${statusText}</div>
+                                <div class="feature-content">
+                                    <div class="feature-name">${f.name}</div>
+                                    <div class="feature-desc">${f.desc}</div>
+                                </div>
+                                <div class="feature-priority priority-${f.priority}">${priorityText}</div>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    </div>
+                `;
+            }
+
+            content.innerHTML = html || '<p style="text-align: center; padding: 40px; color: #6c757d;">没有匹配的功能项</p>';
+
+            // 更新统计
+            updateStats(filtered);
+        }
+
+        // 更新统计数字
+        function updateStats(filtered) {
+            const total = filtered.length;
+            const done = filtered.filter(f => f.status === 'done').length;
+            const partial = filtered.filter(f => f.status === 'partial').length;
+            const rate = total > 0 ? Math.round((done + partial * 0.5) / total * 100) : 0;
+
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('done-count').textContent = done;
+            document.getElementById('partial-count').textContent = partial;
+            document.getElementById('completion-rate').textContent = rate + '%';
+        }
+
+        // 事件绑定
+        document.querySelectorAll('.platform-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.platform-filter').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderFeatures();
+            });
+        });
+
+        document.getElementById('status-filter').addEventListener('change', renderFeatures);
+        document.getElementById('priority-filter').addEventListener('change', renderFeatures);
+
+        // 初始渲染
+        renderFeatures();
+    </script>
+</body>
+</html>
