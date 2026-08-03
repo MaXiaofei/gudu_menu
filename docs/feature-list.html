@@ -310,16 +310,18 @@
                 <span class="legend-arrow">→</span>
                 <div class="legend-item"><span class="legend-dot" style="background:#ffc107"></span>已开发</div>
                 <span class="legend-arrow">→</span>
-                <div class="legend-item"><span class="legend-dot" style="background:#20c997"></span>已测试</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#20c997"></span>单测通过</div>
                 <span class="legend-arrow">→</span>
                 <div class="legend-item"><span class="legend-dot" style="background:#0d6efd"></span>联调中</div>
                 <span class="legend-arrow">→</span>
                 <div class="legend-item"><span class="legend-dot" style="background:#6f42c1"></span>已联调</div>
                 <span class="legend-arrow">→</span>
+                <div class="legend-item"><span class="legend-dot" style="background:#e67700"></span>测试服验证</div>
+                <span class="legend-arrow">→</span>
                 <div class="legend-item"><span class="legend-dot" style="background:#198754"></span>已上线</div>
             </div>
             <p style="font-size:11px;color:#6c757d;margin-top:8px;">
-                状态判定：未开发=接口不存在 | 已开发=后端代码存在 | 已测试=有单元测试 | 联调中=前端调用但缺测试 | 已联调=前端调用+有测试 | 已上线=生产环境验证
+                未开发=接口不存在 | 已开发=后端代码存在 | 单测通过=后端单元测试通过(本地) | 联调中=前端开始对接 | 已联调=前后端打通 | 测试服验证=测试环境全链路验证 | 已上线=生产环境发布
             </p>
         </div>
 
@@ -345,10 +347,11 @@
                 <label>API 状态:</label>
                 <select id="api-status-filter">
                     <option value="all">全部</option>
-                    <option value="deployed">🟢 已上线</option>
+                    <option value="deployed">✅ 已上线</option>
+                    <option value="staging">🟠 测试服验证</option>
                     <option value="integrated">🟣 已联调</option>
                     <option value="integrating">🔵 联调中</option>
-                    <option value="tested">🟢 已测试</option>
+                    <option value="unit-tested">🟢 单测通过</option>
                     <option value="developed">🟡 已开发</option>
                     <option value="notstarted">🔴 未开发</option>
                 </select>
@@ -366,122 +369,122 @@
         <div class="content" id="content"></div>
 
         <footer>
-            <p>最后更新: 2026-07-29 · 数据来源: 后端 Controller 源码 + Flutter/小程序 Service 层调用分析</p>
+            <p>最后更新: 2026-08-03 · 数据来源: 后端 Controller 源码 + Flutter/小程序 Service 层调用分析</p>
         </footer>
     </div>
 
     <script>
     // ========== API 接口数据 ==========
-    // 状态: deployed(已上线) | integrated(已联调) | integrating(联调中) | tested(已测试) | developed(已开发) | notstarted(未开发)
+    // 状态: deployed(已上线) | staging(测试服验证) | unit-tested(单测通过) | integrated(已联调) | integrating(联调中) | developed(已开发) | notstarted(未开发)
     const apis = {
         // Auth
-        'POST /auth/login': { status: 'integrated', callers: ['flutter','mini','admin'], note: 'Sa-Token 登录' },
-        'POST /auth/logout': { status: 'integrated', callers: ['flutter'], note: '' },
+        'POST /auth/login': { status: 'staging', callers: ['flutter','mini','admin'], note: 'Sa-Token 登录' },
+        'POST /auth/logout': { status: 'staging', callers: ['flutter'], note: '登出' },
         'GET /auth/me': { status: 'developed', callers: [], note: '获取当前用户' },
 
         // Dict
-        'GET /dict': { status: 'tested', callers: ['flutter','mini','admin'], note: '字典查询+group筛选' },
-        'POST /dict': { status: 'tested', callers: ['admin'], note: '' },
+        'GET /dict': { status: 'unit-tested', callers: ['flutter','mini','admin'], note: '字典查询+group筛选' },
+        'POST /dict': { status: 'unit-tested', callers: ['admin'], note: '' },
         'PUT /dict': { status: 'developed', callers: ['admin'], note: '' },
         'DELETE /dict/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
         // Member
-        'GET /member': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
-        'POST /member/current': { status: 'integrated', callers: ['flutter','mini'], note: '切换当前就餐成员' },
-        'GET /member/current': { status: 'integrated', callers: ['flutter','mini'], note: '' },
+        'GET /member': { status: 'staging', callers: ['flutter','mini','admin'], note: '家庭成员列表' },
+        'POST /member/current': { status: 'staging', callers: ['flutter','mini'], note: '切换当前就餐成员' },
+        'GET /member/current': { status: 'staging', callers: ['flutter','mini'], note: '获取当前成员' },
         'GET /member/{id}/permissions': { status: 'developed', callers: [], note: '小程序权限' },
         'GET /member/permissions/keys': { status: 'developed', callers: [], note: '' },
-        'POST /member': { status: 'tested', callers: ['admin'], note: '' },
+        'POST /member': { status: 'unit-tested', callers: ['admin'], note: '' },
         'PUT /member': { status: 'developed', callers: ['admin'], note: '' },
         'DELETE /member/{id}': { status: 'developed', callers: ['admin'], note: '' },
-        'GET /member/{id}/nutrition-target': { status: 'integrated', callers: ['flutter'], note: '营养上限' },
+        'GET /member/{id}/nutrition-target': { status: 'staging', callers: ['flutter'], note: '营养上限' },
 
         // Dish
-        'GET /dish': { status: 'integrated', callers: ['flutter','mini','admin'], note: '菜品列表' },
-        'GET /dish/search': { status: 'integrated', callers: ['flutter','mini'], note: '多维搜索+食材筛选+分页' },
+        'GET /dish': { status: 'staging', callers: ['flutter','mini','admin'], note: '菜品列表' },
+        'GET /dish/search': { status: 'staging', callers: ['flutter','mini'], note: '多维搜索+食材筛选+分页' },
         'POST /dish/search': { status: 'developed', callers: [], note: '营养约束搜索(body)' },
-        'GET /dish/{id}': { status: 'integrated', callers: ['flutter','mini'], note: '菜品详情+步骤' },
-        'GET /dish/{id}/nutrition': { status: 'integrated', callers: ['flutter'], note: '份数营养' },
+        'GET /dish/{id}': { status: 'staging', callers: ['flutter','mini'], note: '菜品详情+步骤' },
+        'GET /dish/{id}/nutrition': { status: 'staging', callers: ['flutter'], note: '份数营养' },
         'GET /dish/{id}/history': { status: 'developed', callers: [], note: '做过记录' },
         'DELETE /dish/{id}/history/{hid}': { status: 'notstarted', callers: [], note: '' },
         'DELETE /dish/{id}/history': { status: 'notstarted', callers: [], note: '' },
-        'POST /dish': { status: 'integrated', callers: ['flutter','mini','admin'], note: '录入新菜' },
-        'POST /dish/import-url': { status: 'tested', callers: [], note: 'URL导入(RecipeImporterTest)' },
+        'POST /dish': { status: 'staging', callers: ['flutter','mini','admin'], note: '录入新菜' },
+        'POST /dish/import-url': { status: 'unit-tested', callers: [], note: 'URL导入(RecipeImporterTest)' },
         'PUT /dish': { status: 'developed', callers: ['admin'], note: '' },
         'DELETE /dish/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
         // Ingredient
-        'GET /ingredient': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'GET /ingredient': { status: 'staging', callers: ['flutter','mini','admin'], note: '食材列表' },
         'GET /ingredient/{id}/nutrition': { status: 'developed', callers: [], note: '食材营养' },
-        'GET /ingredient/{id}/unit-grams': { status: 'tested', callers: [], note: '单位换算表' },
+        'GET /ingredient/{id}/unit-grams': { status: 'unit-tested', callers: [], note: '单位换算表' },
         'PUT /ingredient/{id}/unit-grams': { status: 'developed', callers: [], note: '' },
-        'POST /ingredient': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'POST /ingredient': { status: 'staging', callers: ['flutter','mini','admin'], note: '新增食材' },
         'PUT /ingredient': { status: 'developed', callers: ['admin'], note: '' },
         'DELETE /ingredient/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
         // Cookbook
-        'POST /cookbook/favorite/{dishId}': { status: 'integrated', callers: ['mini'], note: '收藏' },
+        'POST /cookbook/favorite/{dishId}': { status: 'staging', callers: ['mini'], note: '收藏' },
         'DELETE /cookbook/favorite/{dishId}': { status: 'developed', callers: [], note: '' },
         'GET /cookbook/favorites': { status: 'developed', callers: [], note: '收藏列表' },
         'GET /cookbook/by-ingredients': { status: 'developed', callers: [], note: '按食材找菜(无分页)' },
 
         // Menu
-        'GET /menu': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
-        'GET /menu/{id}': { status: 'integrated', callers: ['flutter','mini'], note: '食集详情' },
+        'GET /menu': { status: 'staging', callers: ['flutter','mini','admin'], note: '食集列表' },
+        'GET /menu/{id}': { status: 'staging', callers: ['flutter','mini'], note: '食集详情' },
         'GET /menu/{id}/summary': { status: 'developed', callers: [], note: '' },
-        'POST /menu': { status: 'tested', callers: ['admin'], note: '' },
+        'POST /menu': { status: 'unit-tested', callers: ['admin'], note: '' },
         'PUT /menu': { status: 'developed', callers: ['admin'], note: '' },
         'DELETE /menu/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
         // Cook
-        'POST /menu/{id}/cook': { status: 'integrated', callers: ['flutter','mini'], note: '整集做菜扣库存' },
-        'POST /dish/{id}/cook-now': { status: 'integrated', callers: ['flutter','mini'], note: '单菜直做扣库存' },
+        'POST /menu/{id}/cook': { status: 'staging', callers: ['flutter','mini'], note: '整集做菜扣库存' },
+        'POST /dish/{id}/cook-now': { status: 'staging', callers: ['flutter','mini'], note: '单菜直做扣库存' },
 
         // Menu Prep
-        'GET /menu/{id}/prep': { status: 'integrated', callers: ['flutter','mini'], note: '备菜聚合' },
-        'PUT /menu/{id}/prep/{ingredientId}': { status: 'integrated', callers: ['flutter','mini'], note: '备菜状态切换' },
+        'GET /menu/{id}/prep': { status: 'staging', callers: ['flutter','mini'], note: '备菜聚合' },
+        'PUT /menu/{id}/prep/{ingredientId}': { status: 'staging', callers: ['flutter','mini'], note: '备菜状态切换' },
 
         // MealPlan
-        'GET /mealplan': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
-        'POST /mealplan': { status: 'developed', callers: [], note: '' },
-        'GET /mealplan/{planId}': { status: 'integrated', callers: ['flutter'], note: '' },
-        'POST /mealplan/{planId}/item': { status: 'integrated', callers: ['flutter'], note: '加菜' },
+        'GET /mealplan': { status: 'staging', callers: ['flutter','mini','admin'], note: '饭计划列表' },
+        'POST /mealplan': { status: 'staging', callers: ['admin'], note: '创建饭计划' },
+        'GET /mealplan/{planId}': { status: 'staging', callers: ['flutter'], note: '饭计划详情' },
+        'POST /mealplan/{planId}/item': { status: 'staging', callers: ['flutter'], note: '加菜到饭计划' },
         'DELETE /mealplan/item/{itemId}': { status: 'developed', callers: [], note: '' },
         'POST /mealplan/{planId}/apply-template': { status: 'developed', callers: [], note: '套用模板' },
-        'POST /mealplan/{planId}/copy-from/{srcPlanId}': { status: 'integrated', callers: ['flutter'], note: '' },
+        'POST /mealplan/{planId}/copy-from/{srcPlanId}': { status: 'staging', callers: ['flutter'], note: '复制饭计划' },
         'GET /mealplan/templates': { status: 'developed', callers: [], note: '' },
         'POST /mealplan/templates': { status: 'developed', callers: [], note: '' },
 
         // Shopping
-        'POST /shopping/generate': { status: 'integrated', callers: ['flutter','mini'], note: '从食集生成采购' },
-        'POST /shopping/create': { status: 'integrated', callers: ['flutter'], note: '' },
+        'POST /shopping/generate': { status: 'staging', callers: ['flutter','mini'], note: '从食集生成采购' },
+        'POST /shopping/create': { status: 'staging', callers: ['flutter'], note: '创建采购清单' },
         'GET /shopping/{listId}': { status: 'developed', callers: [], note: '' },
-        'GET /shopping/by-menu/{menuId}': { status: 'integrated', callers: ['flutter','mini'], note: '食集采购Tab' },
-        'GET /shopping': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'GET /shopping/by-menu/{menuId}': { status: 'staging', callers: ['flutter','mini'], note: '食集采购Tab' },
+        'GET /shopping': { status: 'staging', callers: ['flutter','mini','admin'], note: '采购清单列表' },
         'PUT /shopping/item/{itemId}': { status: 'developed', callers: [], note: '' },
-        'PUT /shopping/item/{itemId}/purchased': { status: 'integrated', callers: ['flutter','mini'], note: '勾选已买' },
+        'PUT /shopping/item/{itemId}/purchased': { status: 'staging', callers: ['flutter','mini'], note: '勾选已买' },
         'DELETE /shopping/item/{itemId}': { status: 'developed', callers: [], note: '' },
         'DELETE /shopping/{listId}': { status: 'developed', callers: [], note: '' },
-        'POST /shopping/item/custom': { status: 'integrated', callers: ['flutter','mini'], note: '手动加项' },
+        'POST /shopping/item/custom': { status: 'staging', callers: ['flutter','mini'], note: '手动加项' },
 
         // Pantry
-        'GET /pantry': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
-        'GET /pantry/expiring': { status: 'integrated', callers: ['flutter'], note: '临期食材' },
-        'GET /pantry/low': { status: 'integrated', callers: ['flutter'], note: '不足食材' },
-        'POST /pantry': { status: 'integrated', callers: ['flutter','mini'], note: '新增库存' },
-        'POST /pantry/batch': { status: 'integrated', callers: ['flutter'], note: '批量入库' },
-        'PUT /pantry': { status: 'integrated', callers: ['flutter','mini'], note: '盘点' },
+        'GET /pantry': { status: 'staging', callers: ['flutter','mini','admin'], note: '三色库存核心' },
+        'GET /pantry/expiring': { status: 'staging', callers: ['flutter'], note: '临期食材' },
+        'GET /pantry/low': { status: 'staging', callers: ['flutter'], note: '不足食材' },
+        'POST /pantry': { status: 'staging', callers: ['flutter','mini'], note: '新增库存' },
+        'POST /pantry/batch': { status: 'staging', callers: ['flutter'], note: '批量入库' },
+        'PUT /pantry': { status: 'staging', callers: ['flutter','mini'], note: '盘点' },
         'DELETE /pantry/{id}': { status: 'developed', callers: [], note: '' },
-        'POST /pantry/{id}/deduct': { status: 'integrated', callers: ['flutter'], note: '手动扣减' },
+        'POST /pantry/{id}/deduct': { status: 'staging', callers: ['flutter'], note: '手动扣减' },
 
         // DailyLog
-        'GET /dailylog': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
-        'POST /dailylog': { status: 'integrated', callers: ['flutter','mini'], note: '记录饮食' },
-        'GET /dailylog/{logId}/nutrition': { status: 'integrated', callers: ['flutter'], note: '' },
+        'GET /dailylog': { status: 'staging', callers: ['flutter','mini','admin'], note: '饮食记录列表' },
+        'POST /dailylog': { status: 'staging', callers: ['flutter','mini'], note: '记录饮食' },
+        'GET /dailylog/{logId}/nutrition': { status: 'staging', callers: ['flutter'], note: '饮食营养统计' },
 
         // Review
-        'POST /review': { status: 'integrated', callers: ['flutter','mini'], note: '提交点评' },
-        'GET /review/dish/{dishId}': { status: 'integrated', callers: ['flutter','mini'], note: '' },
+        'POST /review': { status: 'staging', callers: ['flutter','mini'], note: '提交点评' },
+        'GET /review/dish/{dishId}': { status: 'staging', callers: ['flutter','mini'], note: '菜谱点评列表' },
         'GET /review/dish/{dishId}/avg': { status: 'developed', callers: [], note: '平均评分' },
 
         // Notification
@@ -491,8 +494,8 @@
         'PUT /notification/{id}/read': { status: 'developed', callers: [], note: '' },
 
         // Nutrition Metric
-        'GET /nutrition/metric': { status: 'integrated', callers: ['flutter','mini'], note: '营养指标字典' },
-        'POST /nutrition/metric': { status: 'tested', callers: ['admin'], note: '' },
+        'GET /nutrition/metric': { status: 'staging', callers: ['flutter','mini'], note: '营养指标字典' },
+        'POST /nutrition/metric': { status: 'unit-tested', callers: ['admin'], note: '' },
         'PUT /nutrition/metric': { status: 'developed', callers: ['admin'], note: '' },
         'DELETE /nutrition/metric/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
@@ -509,8 +512,8 @@
         'POST /file/upload': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
 
         // Backup
-        'GET /backup/export': { status: 'tested', callers: ['admin'], note: '' },
-        'POST /backup/import': { status: 'tested', callers: ['admin'], note: '' },
+        'GET /backup/export': { status: 'unit-tested', callers: ['admin'], note: '' },
+        'POST /backup/import': { status: 'unit-tested', callers: ['admin'], note: '' },
     };
 
     // ========== 功能数据 ==========
@@ -658,9 +661,10 @@
     function getApiStatusInfo(status) {
         const map = {
             deployed: { text: '已上线', bg: '#198754', color: '#fff' },
+            staging: { text: '测试服验证', bg: '#e67700', color: '#fff' },
             integrated: { text: '已联调', bg: '#6f42c1', color: '#fff' },
             integrating: { text: '联调中', bg: '#0d6efd', color: '#fff' },
-            tested: { text: '已测试', bg: '#20c997', color: '#fff' },
+            'unit-tested': { text: '单测通过', bg: '#20c997', color: '#fff' },
             developed: { text: '已开发', bg: '#ffc107', color: '#000' },
             developing: { text: '开发中', bg: '#fd7e14', color: '#fff' },
             notstarted: { text: '未开发', bg: '#dc3545', color: '#fff' },
@@ -795,7 +799,7 @@
                 f.apiList.forEach(ep => {
                     const api = apis[ep];
                     if (api) {
-                        if (['deployed','integrated','tested'].includes(api.status)) apiReady++;
+                        if (['deployed','staging','integrated','unit-tested'].includes(api.status)) apiReady++;
                         if (api.status === 'notstarted') apiMissing++;
                     } else {
                         apiMissing++;
