@@ -185,7 +185,7 @@ class _DishListPageState extends State<DishListPage> {
                   _keywordCtrl.clear();
                   _hasText = false;
                 });
-                _reload();
+                // 不刷新列表：切模式只是换搜索方式，列表保持当前结果
               },
               child: Padding(
                 padding: const EdgeInsets.symmetric(
