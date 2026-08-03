@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>咕嘟小食单 · 功能清单</title>
+    <title>咕嘟小食单 · 功能清单 + API 接口追踪</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -26,14 +26,45 @@
             padding: 30px;
             text-align: center;
         }
-        header h1 {
-            font-size: 32px;
+        header h1 { font-size: 32px; margin-bottom: 10px; }
+        header p { font-size: 16px; opacity: 0.9; }
+
+        /* 状态图例 */
+        .legend {
+            padding: 15px 30px;
+            background: #fffbeb;
+            border-bottom: 2px solid #fde68a;
+        }
+        .legend h3 {
+            font-size: 14px;
+            color: #92400e;
             margin-bottom: 10px;
         }
-        header p {
-            font-size: 16px;
-            opacity: 0.9;
+        .legend-flow {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            align-items: center;
         }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: #4b5563;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .legend-arrow {
+            color: #9ca3af;
+            font-size: 14px;
+            margin: 0 2px;
+        }
+
         .controls {
             padding: 20px 30px;
             background: #f8f9fa;
@@ -64,7 +95,6 @@
         }
         select:hover, button:hover {
             border-color: #667eea;
-            background: #f8f9fa;
         }
         button.active {
             background: #667eea;
@@ -76,33 +106,23 @@
             background: #e7f3ff;
             border-bottom: 1px solid #d0e7ff;
             display: flex;
-            gap: 30px;
+            gap: 20px;
             flex-wrap: wrap;
         }
         .stat-card {
             flex: 1;
-            min-width: 150px;
+            min-width: 120px;
             background: white;
-            padding: 15px;
+            padding: 12px;
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            text-align: center;
         }
-        .stat-card h3 {
-            font-size: 14px;
-            color: #6c757d;
-            margin-bottom: 8px;
-        }
-        .stat-card .value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #667eea;
-        }
-        .content {
-            padding: 30px;
-        }
-        .platform-section {
-            margin-bottom: 40px;
-        }
+        .stat-card h3 { font-size: 12px; color: #6c757d; margin-bottom: 4px; }
+        .stat-card .value { font-size: 24px; font-weight: 700; color: #667eea; }
+
+        .content { padding: 30px; }
+        .platform-section { margin-bottom: 40px; }
         .platform-header {
             display: flex;
             align-items: center;
@@ -113,140 +133,195 @@
             color: white;
             border-radius: 12px;
         }
-        .platform-icon {
-            font-size: 32px;
-        }
-        .platform-title {
-            flex: 1;
-        }
-        .platform-title h2 {
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        .platform-title p {
-            font-size: 14px;
-            opacity: 0.9;
-        }
+        .platform-icon { font-size: 32px; }
+        .platform-title { flex: 1; }
+        .platform-title h2 { font-size: 24px; margin-bottom: 5px; }
+        .platform-title p { font-size: 14px; opacity: 0.9; }
+
         .module {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             border: 2px solid #e9ecef;
             border-radius: 12px;
             overflow: hidden;
         }
         .module-header {
             background: #f8f9fa;
-            padding: 15px 20px;
+            padding: 12px 20px;
             border-bottom: 2px solid #e9ecef;
             display: flex;
             align-items: center;
             gap: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
         }
-        .module-icon {
-            font-size: 24px;
-        }
+        .module-header:hover { background: #e9ecef; }
         .module-title {
             flex: 1;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             color: #212529;
         }
-        .feature-list {
-            padding: 15px 20px;
+        .module-count {
+            font-size: 12px;
+            color: #6c757d;
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 10px;
         }
+
         .feature {
-            padding: 12px;
-            margin-bottom: 8px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            display: flex;
-            align-items: start;
-            gap: 12px;
+            padding: 12px 20px;
+            border-bottom: 1px solid #f1f3f5;
+            cursor: pointer;
             transition: all 0.2s;
         }
-        .feature:hover {
-            background: #e9ecef;
-            transform: translateX(4px);
-        }
-        .feature:last-child {
-            margin-bottom: 0;
+        .feature:last-child { border-bottom: none; }
+        .feature:hover { background: #f8f9fa; }
+        .feature.expanded { background: #f0f4ff; }
+        .feature-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         .feature-status {
-            min-width: 60px;
-            padding: 4px 10px;
+            min-width: 56px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .status-done { background: #d4edda; color: #155724; }
+        .status-partial { background: #fff3cd; color: #856404; }
+        .status-planned { background: #d1ecf1; color: #0c5460; }
+        .status-notstarted { background: #f8d7da; color: #721c24; }
+
+        .feature-content { flex: 1; }
+        .feature-name { font-weight: 600; color: #212529; font-size: 14px; }
+        .feature-desc { font-size: 12px; color: #6c757d; margin-top: 2px; }
+        .feature-badges { display: flex; gap: 6px; margin-top: 4px; }
+        .badge {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .badge-flutter { background: #e3f2fd; color: #1565c0; }
+        .badge-mini { background: #e8f5e9; color: #2e7d32; }
+        .badge-admin { background: #fce4ec; color: #c62828; }
+        .badge-priority-high { background: #f8d7da; color: #721c24; }
+        .badge-priority-medium { background: #fff3cd; color: #856404; }
+        .badge-priority-low { background: #d1ecf1; color: #0c5460; }
+
+        /* API 详情面板 */
+        .api-panel {
+            display: none;
+            margin-top: 12px;
+            padding: 12px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+        .feature.expanded .api-panel { display: block; }
+        .api-panel h4 {
+            font-size: 13px;
+            color: #495057;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .api-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            margin-bottom: 4px;
+            background: #f8f9fa;
             border-radius: 6px;
             font-size: 12px;
+        }
+        .api-item:last-child { margin-bottom: 0; }
+        .api-method {
+            min-width: 48px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
             font-weight: 700;
             text-align: center;
             text-transform: uppercase;
         }
-        .status-done {
-            background: #d4edda;
-            color: #155724;
-        }
-        .status-partial {
-            background: #fff3cd;
-            color: #856404;
-        }
-        .status-planned {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-        .status-notstarted {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        .feature-content {
+        .method-get { background: #d4edda; color: #155724; }
+        .method-post { background: #cce5ff; color: #004085; }
+        .method-put { background: #fff3cd; color: #856404; }
+        .method-delete { background: #f8d7da; color: #721c24; }
+        .api-path {
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            color: #212529;
             flex: 1;
         }
-        .feature-name {
-            font-weight: 600;
-            color: #212529;
-            margin-bottom: 4px;
-        }
-        .feature-desc {
-            font-size: 13px;
-            color: #6c757d;
-            line-height: 1.5;
-        }
-        .feature-priority {
-            font-size: 11px;
-            font-weight: 700;
+        .api-status {
             padding: 2px 8px;
             border-radius: 4px;
-            background: #e9ecef;
-            color: #495057;
+            font-size: 10px;
+            font-weight: 700;
         }
-        .priority-high {
-            background: #f8d7da;
-            color: #721c24;
+        .api-caller {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 4px;
         }
-        .priority-medium {
-            background: #fff3cd;
-            color: #856404;
+        .caller-flutter { background: #e3f2fd; color: #1565c0; }
+        .caller-mini { background: #e8f5e9; color: #2e7d32; }
+        .caller-admin { background: #fce4ec; color: #c62828; }
+        .caller-none { background: #f5f5f5; color: #9e9e9e; }
+
+        .no-api {
+            font-size: 12px;
+            color: #9e9e9e;
+            font-style: italic;
+            padding: 8px;
+            text-align: center;
         }
-        .priority-low {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-        .hidden {
-            display: none;
-        }
+
         footer {
             padding: 20px 30px;
             background: #f8f9fa;
             border-top: 2px solid #e9ecef;
             text-align: center;
             color: #6c757d;
-            font-size: 14px;
+            font-size: 13px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🍲 咕嘟小食单 · 功能清单</h1>
-            <p>家庭菜谱与膳食管理系统 · 三端功能总览</p>
+            <h1>🍲 咕嘟小食单 · 功能 + API 接口追踪</h1>
+            <p>三端功能总览 · 点击功能查看关联 API 接口及状态</p>
         </header>
+
+        <div class="legend">
+            <h3>📊 API 接口状态生命周期（线性递进，互斥无冲突）</h3>
+            <div class="legend-flow">
+                <div class="legend-item"><span class="legend-dot" style="background:#dc3545"></span>未开发</div>
+                <span class="legend-arrow">→</span>
+                <div class="legend-item"><span class="legend-dot" style="background:#fd7e14"></span>开发中</div>
+                <span class="legend-arrow">→</span>
+                <div class="legend-item"><span class="legend-dot" style="background:#ffc107"></span>已开发</div>
+                <span class="legend-arrow">→</span>
+                <div class="legend-item"><span class="legend-dot" style="background:#20c997"></span>已测试</div>
+                <span class="legend-arrow">→</span>
+                <div class="legend-item"><span class="legend-dot" style="background:#0d6efd"></span>联调中</div>
+                <span class="legend-arrow">→</span>
+                <div class="legend-item"><span class="legend-dot" style="background:#6f42c1"></span>已联调</div>
+                <span class="legend-arrow">→</span>
+                <div class="legend-item"><span class="legend-dot" style="background:#198754"></span>已上线</div>
+            </div>
+            <p style="font-size:11px;color:#6c757d;margin-top:8px;">
+                状态判定：未开发=接口不存在 | 已开发=后端代码存在 | 已测试=有单元测试 | 联调中=前端调用但缺测试 | 已联调=前端调用+有测试 | 已上线=生产环境验证
+            </p>
+        </div>
 
         <div class="controls">
             <div class="filter-group">
@@ -254,12 +329,12 @@
                 <button class="platform-filter active" data-platform="all">全部</button>
                 <button class="platform-filter" data-platform="admin">🖥️ 管理后台</button>
                 <button class="platform-filter" data-platform="mini">📱 小程序</button>
-                <button class="platform-filter" data-platform="flutter">📱 Flutter APP</button>
+                <button class="platform-filter" data-platform="flutter">📱 Flutter</button>
             </div>
             <div class="filter-group">
-                <label>状态:</label>
+                <label>功能状态:</label>
                 <select id="status-filter">
-                    <option value="all">全部状态</option>
+                    <option value="all">全部</option>
                     <option value="done">✅ 已完成</option>
                     <option value="partial">🟡 部分完成</option>
                     <option value="planned">🔵 已规划</option>
@@ -267,739 +342,487 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>优先级:</label>
-                <select id="priority-filter">
-                    <option value="all">全部优先级</option>
-                    <option value="high">🔴 高优先级</option>
-                    <option value="medium">🟡 中优先级</option>
-                    <option value="low">🔵 低优先级</option>
+                <label>API 状态:</label>
+                <select id="api-status-filter">
+                    <option value="all">全部</option>
+                    <option value="deployed">🟢 已上线</option>
+                    <option value="integrated">🟣 已联调</option>
+                    <option value="integrating">🔵 联调中</option>
+                    <option value="tested">🟢 已测试</option>
+                    <option value="developed">🟡 已开发</option>
+                    <option value="notstarted">🔴 未开发</option>
                 </select>
             </div>
         </div>
 
         <div class="stats">
-            <div class="stat-card">
-                <h3>总功能数</h3>
-                <div class="value" id="total-count">0</div>
-            </div>
-            <div class="stat-card">
-                <h3>已完成</h3>
-                <div class="value" id="done-count">0</div>
-            </div>
-            <div class="stat-card">
-                <h3>部分完成</h3>
-                <div class="value" id="partial-count">0</div>
-            </div>
-            <div class="stat-card">
-                <h3>完成率</h3>
-                <div class="value" id="completion-rate">0%</div>
-            </div>
+            <div class="stat-card"><h3>功能总数</h3><div class="value" id="total-count">0</div></div>
+            <div class="stat-card"><h3>已完成</h3><div class="value" id="done-count">0</div></div>
+            <div class="stat-card"><h3>API 已联调+</h3><div class="value" id="api-ready-count">0</div></div>
+            <div class="stat-card"><h3>API 未开发</h3><div class="value" id="api-missing-count">0</div></div>
+            <div class="stat-card"><h3>功能完成率</h3><div class="value" id="completion-rate">0%</div></div>
         </div>
 
-        <div class="content" id="content">
-            <!-- 内容将通过 JavaScript 动态生成 -->
-        </div>
+        <div class="content" id="content"></div>
 
         <footer>
-            <p>最后更新: 2026-07-29 · 基于原型设计 + PRD 文档整理</p>
-            <p style="margin-top: 8px; font-size: 12px;">原型目录: .superpowers/brainstorm/ · PRD: docs/superpowers/</p>
+            <p>最后更新: 2026-07-29 · 数据来源: 后端 Controller 源码 + Flutter/小程序 Service 层调用分析</p>
         </footer>
     </div>
 
     <script>
-        // 功能数据
-        const features = [
-            // ========== 管理后台 (admin) ==========
-            {
-                platform: 'admin',
-                module: '登录鉴权',
-                moduleIcon: '🔐',
-                name: '主账号登录',
-                desc: 'Sa-Token 有状态鉴权，JWT token 管理',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '配置中心',
-                moduleIcon: '⚙️',
-                name: '字典管理',
-                desc: '菜系/标签/分类/单位/营养指标/健康指标等字典增删改',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '成员管理',
-                moduleIcon: '👥',
-                name: '家庭成员 CRUD',
-                desc: '成员档案：身高体重、过敏忌口、特殊人群标签、营养约束',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '食材管理',
-                moduleIcon: '🥬',
-                name: '食材库管理',
-                desc: '食材 CRUD + 营养数据(EAV) + 价格 + 采购品类 + 基础库存',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '食材管理',
-                moduleIcon: '🥬',
-                name: '单位换算配置',
-                desc: '食材单位换算表（称重单位/计数单位）',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'admin',
-                module: '菜谱管理',
-                moduleIcon: '📖',
-                name: '菜品库 CRUD',
-                desc: '菜名/做法/步骤/封面/备料时间/烹饪时间/难度/价格',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '菜谱管理',
-                moduleIcon: '📖',
-                name: '食材用量关联',
-                desc: '菜品-食材多对多关联（带用量重量），营养信息聚合展示',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '菜谱管理',
-                moduleIcon: '📖',
-                name: '菜谱导入',
-                desc: '网页链接解析（下厨房/美食杰）+ 批量 JSON 导入',
-                status: 'planned',
-                priority: 'medium'
-            },
-            {
-                platform: 'admin',
-                module: '菜谱管理',
-                moduleIcon: '📖',
-                name: '菜谱版本历史',
-                desc: '改动保留历史版本，可删单个/多个历史',
-                status: 'planned',
-                priority: 'low'
-            },
-            {
-                platform: 'admin',
-                module: '食集管理',
-                moduleIcon: '🍱',
-                name: '食集 CRUD',
-                desc: '菜单管理：手动排菜单，菜品价→菜单总价',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '食集管理',
-                moduleIcon: '🍱',
-                name: '按份数/人数算量',
-                desc: '按份数/人数算总量与营养',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '排菜计划',
-                moduleIcon: '📅',
-                name: '周历排菜',
-                desc: '拖拽式周历排菜：菜拖到具体某天/某餐（早中晚加餐）',
-                status: 'planned',
-                priority: 'medium'
-            },
-            {
-                platform: 'admin',
-                module: '排菜计划',
-                moduleIcon: '📅',
-                name: '菜单模板',
-                desc: '常用一周菜单存模板，一键套用',
-                status: 'planned',
-                priority: 'low'
-            },
-            {
-                platform: 'admin',
-                module: '库存管理',
-                moduleIcon: '🏠',
-                name: '库存余量管理',
-                desc: '食材余量、临期/不足提醒、库存盘点',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '采购管理',
-                moduleIcon: '🛒',
-                name: '采购清单生成',
-                desc: '从周计划按时间范围自动生成 + 去重合并 + 按品类分区',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: '采购管理',
-                moduleIcon: '🛒',
-                name: '采购清单导出',
-                desc: 'CSV/纯文本导出（去超市、发微信）',
-                status: 'planned',
-                priority: 'low'
-            },
-            {
-                platform: 'admin',
-                module: '饮食日志',
-                moduleIcon: '📝',
-                name: '每日饮食记录',
-                desc: '记录每天实际吃了什么、摄入量（为 V2 AI 分析攒数据）',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'admin',
-                module: '数据备份',
-                moduleIcon: '💾',
-                name: '全量数据导出/导入',
-                desc: '数据备份/恢复，防丢',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'admin',
-                module: 'AI 日志',
-                moduleIcon: '🤖',
-                name: 'AI 调用日志',
-                desc: 'AI 服务调用记录、费用统计',
-                status: 'done',
-                priority: 'medium'
-            },
+    // ========== API 接口数据 ==========
+    // 状态: deployed(已上线) | integrated(已联调) | integrating(联调中) | tested(已测试) | developed(已开发) | notstarted(未开发)
+    const apis = {
+        // Auth
+        'POST /auth/login': { status: 'integrated', callers: ['flutter','mini','admin'], note: 'Sa-Token 登录' },
+        'POST /auth/logout': { status: 'integrated', callers: ['flutter'], note: '' },
+        'GET /auth/me': { status: 'developed', callers: [], note: '获取当前用户' },
 
-            // ========== 小程序 (mini) ==========
-            {
-                platform: 'mini',
-                module: '登录',
-                moduleIcon: '🔐',
-                name: '微信登录',
-                desc: '微信小程序授权登录，主账号绑定',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '菜库浏览',
-                moduleIcon: '📖',
-                name: '菜谱列表',
-                desc: '搜索 + 分页 + 多维筛选（菜系/标签/营养/时间/难度）',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '菜库浏览',
-                moduleIcon: '📖',
-                name: '按食材找菜',
-                desc: '勾选冰箱现有食材，推荐能做的菜（清库存）',
-                status: 'partial',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '菜谱详情',
-                moduleIcon: '📖',
-                name: '菜谱详情页',
-                desc: '步骤/图片/营养信息/食材用量/按份数缩放',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '菜谱详情',
-                moduleIcon: '📖',
-                name: '收藏/做过标记',
-                desc: '收藏菜谱、标记已做过',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'mini',
-                module: '菜谱录入',
-                moduleIcon: '➕',
-                name: '录入新菜',
-                desc: '家庭成员贡献菜库，文字+图片步骤',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '菜谱点评',
-                moduleIcon: '⭐',
-                name: '菜谱点评',
-                desc: '星级+文字+图片+多维度打分（口味/难度/营养均衡/外观）',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'mini',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集列表',
-                desc: '查看可用菜单',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集详情·菜 Tab',
-                desc: '菜品列表/份数/备注/加菜/整集做',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集详情·备菜 Tab',
-                desc: '备料聚合/状态切换/共用高亮',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集详情·采购 Tab',
-                desc: '全量+余色/要买在上/手动加项/分享',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集详情·一起吃 Tab',
-                desc: '成员/忌口汇总/分享码/活动流（协同点菜）',
-                status: 'planned',
-                priority: 'medium'
-            },
-            {
-                platform: 'mini',
-                module: '做菜扣库存',
-                moduleIcon: '🍳',
-                name: '单菜直做',
-                desc: 'cookDishNow 扣库存 + 写 cooking_record',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '做菜扣库存',
-                moduleIcon: '🍳',
-                name: '整集做菜',
-                desc: '食集所有菜品批量扣库存',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '做菜扣库存',
-                moduleIcon: '🍳',
-                name: 'FIFO 预扣清单',
-                desc: '做菜扣库存 modal：FIFO 预扣清单/不够红字/先采购/强行做',
-                status: 'partial',
-                priority: 'medium'
-            },
-            {
-                platform: 'mini',
-                module: '采购',
-                moduleIcon: '🛒',
-                name: '采购清单',
-                desc: '三色余色徽章（缺/低/够）+ 勾选已买',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '采购',
-                moduleIcon: '🛒',
-                name: '采购回写',
-                desc: '买完入库闭环：入库量/批次属性/回写开关',
-                status: 'partial',
-                priority: 'medium'
-            },
-            {
-                platform: 'mini',
-                module: '库存',
-                moduleIcon: '🏠',
-                name: '我家余量',
-                desc: '三色库存（红缺/黄偏低/绿够）+ 手动盘点 + 批次明细',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'mini',
-                module: '饮食日志',
-                moduleIcon: '📝',
-                name: '食记',
-                desc: '统计卡/时间轴/单条详情/再做一次',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'mini',
-                module: 'AI 智荐',
-                moduleIcon: '✨',
-                name: '智能荐菜',
-                desc: '根据预算和健康约束推荐菜品组合',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'mini',
-                module: 'AI 智荐',
-                moduleIcon: '✨',
-                name: '估营养',
-                desc: 'AI 菜品营养估算',
-                status: 'done',
-                priority: 'low'
-            },
-            {
-                platform: 'mini',
-                module: '协同',
-                moduleIcon: '👥',
-                name: '朋友点菜页',
-                desc: '朋友视角/忌口匹配/表态加菜/撞忌口（扫码进入）',
-                status: 'planned',
-                priority: 'low'
-            },
-            {
-                platform: 'mini',
-                module: '通知',
-                moduleIcon: '🔔',
-                name: '订阅消息',
-                desc: '小程序订阅消息（关键提醒）',
-                status: 'planned',
-                priority: 'low'
-            },
+        // Dict
+        'GET /dict': { status: 'tested', callers: ['flutter','mini','admin'], note: '字典查询+group筛选' },
+        'POST /dict': { status: 'tested', callers: ['admin'], note: '' },
+        'PUT /dict': { status: 'developed', callers: ['admin'], note: '' },
+        'DELETE /dict/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
-            // ========== Flutter APP ==========
-            {
-                platform: 'flutter',
-                module: '登录',
-                moduleIcon: '🔐',
-                name: '账号密码登录',
-                desc: 'Sa-Token 登录，token 持久化，自动刷新',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '菜库',
-                moduleIcon: '📖',
-                name: '菜谱列表',
-                desc: '搜索（菜名+食材）+ 分页 + 下拉刷新 + 上拉加载',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '菜库',
-                moduleIcon: '📖',
-                name: '按食材筛选',
-                desc: '多选食材 FilterChip，交集筛选（必须包含所有选中食材）',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '菜谱详情',
-                moduleIcon: '📖',
-                name: '菜谱详情页',
-                desc: '步骤/图片/营养信息/食材用量',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '菜谱录入',
-                moduleIcon: '➕',
-                name: '录入新菜',
-                desc: '手动录入 + URL 导入，文字+图片步骤',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '菜谱点评',
-                moduleIcon: '⭐',
-                name: '菜谱点评',
-                desc: '星级+文字+多维度打分',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'flutter',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集列表',
-                desc: '查看可用菜单',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集详情·菜 Tab',
-                desc: '菜品列表/份数/备注/加菜/整集做',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集详情·备菜 Tab',
-                desc: '备料聚合/状态切换',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '食集',
-                moduleIcon: '🍱',
-                name: '食集详情·采购 Tab',
-                desc: '采购清单生成 + 余色 + 勾选已买',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '做菜扣库存',
-                moduleIcon: '🍳',
-                name: '单菜直做',
-                desc: 'cookDishNow 扣库存 + 写 cooking_record',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '做菜扣库存',
-                moduleIcon: '🍳',
-                name: '整集做菜',
-                desc: '食集所有菜品批量扣库存',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '采购',
-                moduleIcon: '🛒',
-                name: '采购清单',
-                desc: '三色余色 + 勾选已买 + 手动加项',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '库存',
-                moduleIcon: '🏠',
-                name: '我家余量',
-                desc: '三色库存 + 手动盘点 + 批次明细',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '饮食日志',
-                moduleIcon: '📝',
-                name: '食记',
-                desc: '统计卡/时间轴/单条详情',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'flutter',
-                module: '排菜计划',
-                moduleIcon: '📅',
-                name: '排菜日历',
-                desc: '周历排菜视图',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'flutter',
-                module: 'AI 智荐',
-                moduleIcon: '✨',
-                name: '智能荐菜',
-                desc: '根据预算和健康约束推荐菜品组合',
-                status: 'done',
-                priority: 'medium'
-            },
-            {
-                platform: 'flutter',
-                module: 'AI 智荐',
-                moduleIcon: '✨',
-                name: '估营养',
-                desc: 'AI 菜品营养估算',
-                status: 'done',
-                priority: 'low'
-            },
-            {
-                platform: 'flutter',
-                module: '设计系统',
-                moduleIcon: '🎨',
-                name: '双主题系统',
-                desc: '奶油轻食/抹茶禅意双主题，Design Tokens 三端一致',
-                status: 'done',
-                priority: 'high'
-            },
-            {
-                platform: 'flutter',
-                module: '设计系统',
-                moduleIcon: '🎨',
-                name: '交互状态补齐',
-                desc: 'hover/press/150ms transition 全补齐',
-                status: 'done',
-                priority: 'medium'
-            },
-        ];
+        // Member
+        'GET /member': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'POST /member/current': { status: 'integrated', callers: ['flutter','mini'], note: '切换当前就餐成员' },
+        'GET /member/current': { status: 'integrated', callers: ['flutter','mini'], note: '' },
+        'GET /member/{id}/permissions': { status: 'developed', callers: [], note: '小程序权限' },
+        'GET /member/permissions/keys': { status: 'developed', callers: [], note: '' },
+        'POST /member': { status: 'tested', callers: ['admin'], note: '' },
+        'PUT /member': { status: 'developed', callers: ['admin'], note: '' },
+        'DELETE /member/{id}': { status: 'developed', callers: ['admin'], note: '' },
+        'GET /member/{id}/nutrition-target': { status: 'integrated', callers: ['flutter'], note: '营养上限' },
 
-        // 渲染功能列表
-        function renderFeatures() {
-            const content = document.getElementById('content');
-            const platformFilter = document.querySelector('.platform-filter.active').dataset.platform;
-            const statusFilter = document.getElementById('status-filter').value;
-            const priorityFilter = document.getElementById('priority-filter').value;
+        // Dish
+        'GET /dish': { status: 'integrated', callers: ['flutter','mini','admin'], note: '菜品列表' },
+        'GET /dish/search': { status: 'integrated', callers: ['flutter','mini'], note: '多维搜索+食材筛选+分页' },
+        'POST /dish/search': { status: 'developed', callers: [], note: '营养约束搜索(body)' },
+        'GET /dish/{id}': { status: 'integrated', callers: ['flutter','mini'], note: '菜品详情+步骤' },
+        'GET /dish/{id}/nutrition': { status: 'integrated', callers: ['flutter'], note: '份数营养' },
+        'GET /dish/{id}/history': { status: 'developed', callers: [], note: '做过记录' },
+        'DELETE /dish/{id}/history/{hid}': { status: 'notstarted', callers: [], note: '' },
+        'DELETE /dish/{id}/history': { status: 'notstarted', callers: [], note: '' },
+        'POST /dish': { status: 'integrated', callers: ['flutter','mini','admin'], note: '录入新菜' },
+        'POST /dish/import-url': { status: 'tested', callers: [], note: 'URL导入(RecipeImporterTest)' },
+        'PUT /dish': { status: 'developed', callers: ['admin'], note: '' },
+        'DELETE /dish/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
-            // 过滤功能
-            let filtered = features.filter(f => {
-                if (platformFilter !== 'all' && f.platform !== platformFilter) return false;
-                if (statusFilter !== 'all' && f.status !== statusFilter) return false;
-                if (priorityFilter !== 'all' && f.priority !== priorityFilter) return false;
-                return true;
-            });
+        // Ingredient
+        'GET /ingredient': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'GET /ingredient/{id}/nutrition': { status: 'developed', callers: [], note: '食材营养' },
+        'GET /ingredient/{id}/unit-grams': { status: 'tested', callers: [], note: '单位换算表' },
+        'PUT /ingredient/{id}/unit-grams': { status: 'developed', callers: [], note: '' },
+        'POST /ingredient': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'PUT /ingredient': { status: 'developed', callers: ['admin'], note: '' },
+        'DELETE /ingredient/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
-            // 按平台和模块分组
-            const grouped = {};
-            filtered.forEach(f => {
-                if (!grouped[f.platform]) grouped[f.platform] = {};
-                const moduleKey = `${f.moduleIcon} ${f.module}`;
-                if (!grouped[f.platform][moduleKey]) {
-                    grouped[f.platform][moduleKey] = [];
-                }
-                grouped[f.platform][moduleKey].push(f);
-            });
+        // Cookbook
+        'POST /cookbook/favorite/{dishId}': { status: 'integrated', callers: ['mini'], note: '收藏' },
+        'DELETE /cookbook/favorite/{dishId}': { status: 'developed', callers: [], note: '' },
+        'GET /cookbook/favorites': { status: 'developed', callers: [], note: '收藏列表' },
+        'GET /cookbook/by-ingredients': { status: 'developed', callers: [], note: '按食材找菜(无分页)' },
 
-            // 渲染
-            let html = '';
-            const platformNames = {
-                admin: { name: '管理后台', icon: '🖥️', desc: 'Web 管理端 · Vue3 + Element Plus' },
-                mini: { name: '微信小程序', icon: '📱', desc: '用户端 · uni-app + Vue3' },
-                flutter: { name: 'Flutter APP', icon: '📱', desc: 'iOS/Android 原生端' }
-            };
+        // Menu
+        'GET /menu': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'GET /menu/{id}': { status: 'integrated', callers: ['flutter','mini'], note: '食集详情' },
+        'GET /menu/{id}/summary': { status: 'developed', callers: [], note: '' },
+        'POST /menu': { status: 'tested', callers: ['admin'], note: '' },
+        'PUT /menu': { status: 'developed', callers: ['admin'], note: '' },
+        'DELETE /menu/{id}': { status: 'developed', callers: ['admin'], note: '' },
 
-            for (const platform in grouped) {
-                const pinfo = platformNames[platform];
-                html += `
-                    <div class="platform-section">
-                        <div class="platform-header">
-                            <div class="platform-icon">${pinfo.icon}</div>
-                            <div class="platform-title">
-                                <h2>${pinfo.name}</h2>
-                                <p>${pinfo.desc}</p>
-                            </div>
-                        </div>
-                `;
+        // Cook
+        'POST /menu/{id}/cook': { status: 'integrated', callers: ['flutter','mini'], note: '整集做菜扣库存' },
+        'POST /dish/{id}/cook-now': { status: 'integrated', callers: ['flutter','mini'], note: '单菜直做扣库存' },
 
-                for (const moduleName in grouped[platform]) {
-                    html += `
-                        <div class="module">
-                            <div class="module-header">
-                                <div class="module-title">${moduleName}</div>
-                            </div>
-                            <div class="feature-list">
-                    `;
+        // Menu Prep
+        'GET /menu/{id}/prep': { status: 'integrated', callers: ['flutter','mini'], note: '备菜聚合' },
+        'PUT /menu/{id}/prep/{ingredientId}': { status: 'integrated', callers: ['flutter','mini'], note: '备菜状态切换' },
 
-                    grouped[platform][moduleName].forEach(f => {
-                        const statusText = {
-                            done: '已完成',
-                            partial: '部分完成',
-                            planned: '已规划',
-                            notstarted: '未开始'
-                        }[f.status];
+        // MealPlan
+        'GET /mealplan': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'POST /mealplan': { status: 'developed', callers: [], note: '' },
+        'GET /mealplan/{planId}': { status: 'integrated', callers: ['flutter'], note: '' },
+        'POST /mealplan/{planId}/item': { status: 'integrated', callers: ['flutter'], note: '加菜' },
+        'DELETE /mealplan/item/{itemId}': { status: 'developed', callers: [], note: '' },
+        'POST /mealplan/{planId}/apply-template': { status: 'developed', callers: [], note: '套用模板' },
+        'POST /mealplan/{planId}/copy-from/{srcPlanId}': { status: 'integrated', callers: ['flutter'], note: '' },
+        'GET /mealplan/templates': { status: 'developed', callers: [], note: '' },
+        'POST /mealplan/templates': { status: 'developed', callers: [], note: '' },
 
-                        const priorityText = {
-                            high: '高',
-                            medium: '中',
-                            low: '低'
-                        }[f.priority];
+        // Shopping
+        'POST /shopping/generate': { status: 'integrated', callers: ['flutter','mini'], note: '从食集生成采购' },
+        'POST /shopping/create': { status: 'integrated', callers: ['flutter'], note: '' },
+        'GET /shopping/{listId}': { status: 'developed', callers: [], note: '' },
+        'GET /shopping/by-menu/{menuId}': { status: 'integrated', callers: ['flutter','mini'], note: '食集采购Tab' },
+        'GET /shopping': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'PUT /shopping/item/{itemId}': { status: 'developed', callers: [], note: '' },
+        'PUT /shopping/item/{itemId}/purchased': { status: 'integrated', callers: ['flutter','mini'], note: '勾选已买' },
+        'DELETE /shopping/item/{itemId}': { status: 'developed', callers: [], note: '' },
+        'DELETE /shopping/{listId}': { status: 'developed', callers: [], note: '' },
+        'POST /shopping/item/custom': { status: 'integrated', callers: ['flutter','mini'], note: '手动加项' },
 
-                        html += `
-                            <div class="feature">
-                                <div class="feature-status status-${f.status}">${statusText}</div>
-                                <div class="feature-content">
-                                    <div class="feature-name">${f.name}</div>
-                                    <div class="feature-desc">${f.desc}</div>
-                                </div>
-                                <div class="feature-priority priority-${f.priority}">${priorityText}</div>
-                            </div>
-                        `;
-                    });
+        // Pantry
+        'GET /pantry': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'GET /pantry/expiring': { status: 'integrated', callers: ['flutter'], note: '临期食材' },
+        'GET /pantry/low': { status: 'integrated', callers: ['flutter'], note: '不足食材' },
+        'POST /pantry': { status: 'integrated', callers: ['flutter','mini'], note: '新增库存' },
+        'POST /pantry/batch': { status: 'integrated', callers: ['flutter'], note: '批量入库' },
+        'PUT /pantry': { status: 'integrated', callers: ['flutter','mini'], note: '盘点' },
+        'DELETE /pantry/{id}': { status: 'developed', callers: [], note: '' },
+        'POST /pantry/{id}/deduct': { status: 'integrated', callers: ['flutter'], note: '手动扣减' },
 
-                    html += `
-                            </div>
-                        </div>
-                    `;
-                }
+        // DailyLog
+        'GET /dailylog': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+        'POST /dailylog': { status: 'integrated', callers: ['flutter','mini'], note: '记录饮食' },
+        'GET /dailylog/{logId}/nutrition': { status: 'integrated', callers: ['flutter'], note: '' },
 
-                html += `
-                    </div>
-                `;
+        // Review
+        'POST /review': { status: 'integrated', callers: ['flutter','mini'], note: '提交点评' },
+        'GET /review/dish/{dishId}': { status: 'integrated', callers: ['flutter','mini'], note: '' },
+        'GET /review/dish/{dishId}/avg': { status: 'developed', callers: [], note: '平均评分' },
+
+        // Notification
+        'GET /notification': { status: 'developed', callers: [], note: '消息列表' },
+        'POST /notification/scan-expiring': { status: 'developed', callers: [], note: '扫描临期' },
+        'GET /notification/unread-count': { status: 'developed', callers: [], note: '' },
+        'PUT /notification/{id}/read': { status: 'developed', callers: [], note: '' },
+
+        // Nutrition Metric
+        'GET /nutrition/metric': { status: 'integrated', callers: ['flutter','mini'], note: '营养指标字典' },
+        'POST /nutrition/metric': { status: 'tested', callers: ['admin'], note: '' },
+        'PUT /nutrition/metric': { status: 'developed', callers: ['admin'], note: '' },
+        'DELETE /nutrition/metric/{id}': { status: 'developed', callers: ['admin'], note: '' },
+
+        // AI
+        'POST /ai/nutrition/fill': { status: 'developed', callers: [], note: 'AI营养补全' },
+        'POST /ai/menu/recommend': { status: 'integrated', callers: ['flutter','mini'], note: '智能荐菜' },
+        'POST /ai/dish/estimate': { status: 'integrated', callers: ['flutter'], note: '估营养' },
+        'GET /ai/provider': { status: 'developed', callers: ['admin'], note: 'AI提供商配置' },
+        'PUT /ai/provider': { status: 'developed', callers: ['admin'], note: '' },
+        'GET /ai/call-log': { status: 'developed', callers: ['admin'], note: '调用日志' },
+        'GET /ai/usage': { status: 'developed', callers: ['admin'], note: '用量统计' },
+
+        // File
+        'POST /file/upload': { status: 'integrated', callers: ['flutter','mini','admin'], note: '' },
+
+        // Backup
+        'GET /backup/export': { status: 'tested', callers: ['admin'], note: '' },
+        'POST /backup/import': { status: 'tested', callers: ['admin'], note: '' },
+    };
+
+    // ========== 功能数据 ==========
+    const features = [
+        // ========== 管理后台 ==========
+        { platform: 'admin', module: '🔐 登录鉴权', name: '主账号登录', desc: 'Sa-Token 有状态鉴权', status: 'done', priority: 'high',
+          apiList: ['POST /auth/login','POST /auth/logout','GET /auth/me'] },
+        { platform: 'admin', module: '⚙️ 配置中心', name: '字典管理', desc: '菜系/标签/分类/单位/营养指标等', status: 'done', priority: 'high',
+          apiList: ['GET /dict','POST /dict','PUT /dict','DELETE /dict/{id}'] },
+        { platform: 'admin', module: '👥 成员管理', name: '家庭成员 CRUD', desc: '档案/过敏忌口/特殊人群标签', status: 'done', priority: 'high',
+          apiList: ['GET /member','POST /member','PUT /member','DELETE /member/{id}'] },
+        { platform: 'admin', module: '👥 成员管理', name: '成员营养目标', desc: '每人营养约束上限', status: 'done', priority: 'medium',
+          apiList: ['GET /member/{id}/nutrition-target'] },
+        { platform: 'admin', module: '👥 成员管理', name: '小程序权限分配', desc: '功能权限矩阵', status: 'partial', priority: 'medium',
+          apiList: ['GET /member/{id}/permissions','GET /member/permissions/keys'] },
+        { platform: 'admin', module: '🥬 食材管理', name: '食材库 CRUD', desc: '营养数据(EAV)+价格+采购品类+库存', status: 'done', priority: 'high',
+          apiList: ['GET /ingredient','POST /ingredient','PUT /ingredient','DELETE /ingredient/{id}','GET /ingredient/{id}/nutrition'] },
+        { platform: 'admin', module: '🥬 食材管理', name: '单位换算配置', desc: '称重/计数单位换算表', status: 'partial', priority: 'medium',
+          apiList: ['GET /ingredient/{id}/unit-grams','PUT /ingredient/{id}/unit-grams'] },
+        { platform: 'admin', module: '📖 菜谱管理', name: '菜品库 CRUD', desc: '菜名/做法/步骤/封面/时间/难度/价格', status: 'done', priority: 'high',
+          apiList: ['GET /dish','POST /dish','PUT /dish','DELETE /dish/{id}','GET /dish/{id}','GET /dish/{id}/nutrition'] },
+        { platform: 'admin', module: '📖 菜谱管理', name: '菜谱 URL 导入', desc: '网页链接解析(下厨房/美食杰)', status: 'partial', priority: 'medium',
+          apiList: ['POST /dish/import-url'] },
+        { platform: 'admin', module: '📖 菜谱管理', name: '菜谱版本历史', desc: '改动保留历史，可删历史', status: 'partial', priority: 'low',
+          apiList: ['GET /dish/{id}/history','DELETE /dish/{id}/history/{hid}','DELETE /dish/{id}/history'] },
+        { platform: 'admin', module: '🍱 食集管理', name: '食集 CRUD', desc: '菜单管理+菜品关联', status: 'done', priority: 'high',
+          apiList: ['GET /menu','POST /menu','PUT /menu','DELETE /menu/{id}','GET /menu/{id}','GET /menu/{id}/summary'] },
+        { platform: 'admin', module: '📅 排菜计划', name: '周历排菜', desc: '拖拽式周历排菜', status: 'partial', priority: 'medium',
+          apiList: ['GET /mealplan','POST /mealplan','GET /mealplan/{planId}','POST /mealplan/{planId}/item','DELETE /mealplan/item/{itemId}'] },
+        { platform: 'admin', module: '📅 排菜计划', name: '菜单模板', desc: '存模板+一键套用+复制', status: 'partial', priority: 'low',
+          apiList: ['GET /mealplan/templates','POST /mealplan/templates','POST /mealplan/{planId}/apply-template','POST /mealplan/{planId}/copy-from/{srcPlanId}'] },
+        { platform: 'admin', module: '🏠 库存管理', name: '库存余量管理', desc: '余量/临期/不足/盘点', status: 'done', priority: 'high',
+          apiList: ['GET /pantry','GET /pantry/expiring','GET /pantry/low','POST /pantry','PUT /pantry','DELETE /pantry/{id}','POST /pantry/{id}/deduct'] },
+        { platform: 'admin', module: '🛒 采购管理', name: '采购清单', desc: '自动生成+去重合并+品类分区', status: 'done', priority: 'high',
+          apiList: ['GET /shopping','POST /shopping/generate','POST /shopping/create','GET /shopping/{listId}','DELETE /shopping/{listId}'] },
+        { platform: 'admin', module: '📝 饮食日志', name: '每日饮食记录', desc: '记录实际饮食+摄入量', status: 'done', priority: 'medium',
+          apiList: ['GET /dailylog','POST /dailylog','GET /dailylog/{logId}/nutrition'] },
+        { platform: 'admin', module: '⭐ 菜谱点评', name: '点评管理', desc: '多维度打分管理', status: 'done', priority: 'medium',
+          apiList: ['POST /review','GET /review/dish/{dishId}','GET /review/dish/{dishId}/avg'] },
+        { platform: 'admin', module: '🔔 通知', name: '通知中心', desc: '站内提醒+临期扫描+未读计数', status: 'partial', priority: 'low',
+          apiList: ['GET /notification','POST /notification/scan-expiring','GET /notification/unread-count','PUT /notification/{id}/read'] },
+        { platform: 'admin', module: '🤖 AI 管理', name: 'AI 配置+日志', desc: '提供商配置/调用日志/用量统计', status: 'done', priority: 'medium',
+          apiList: ['GET /ai/provider','PUT /ai/provider','GET /ai/call-log','GET /ai/usage','POST /ai/nutrition/fill'] },
+        { platform: 'admin', module: '💾 数据备份', name: '全量导出/导入', desc: '数据备份恢复', status: 'done', priority: 'high',
+          apiList: ['GET /backup/export','POST /backup/import'] },
+        { platform: 'admin', module: '📤 文件', name: '文件上传', desc: '图片等文件上传', status: 'done', priority: 'high',
+          apiList: ['POST /file/upload'] },
+        { platform: 'admin', module: '📊 营养指标', name: '营养指标字典', desc: '碳水/蛋白/脂肪/含糖/GI等', status: 'done', priority: 'high',
+          apiList: ['GET /nutrition/metric','POST /nutrition/metric','PUT /nutrition/metric','DELETE /nutrition/metric/{id}'] },
+
+        // ========== 小程序 ==========
+        { platform: 'mini', module: '🔐 登录', name: '微信登录', desc: '微信授权+主账号绑定', status: 'done', priority: 'high',
+          apiList: ['POST /auth/login','GET /auth/me'] },
+        { platform: 'mini', module: '📖 菜库浏览', name: '菜谱列表', desc: '搜索+分页+多维筛选', status: 'done', priority: 'high',
+          apiList: ['GET /dish/search'] },
+        { platform: 'mini', module: '📖 菜库浏览', name: '按食材找菜', desc: '勾选食材推荐能做的菜', status: 'partial', priority: 'high',
+          apiList: ['GET /cookbook/by-ingredients'] },
+        { platform: 'mini', module: '📖 菜库浏览', name: '收藏/做过', desc: '收藏+标记做过', status: 'done', priority: 'medium',
+          apiList: ['POST /cookbook/favorite/{dishId}','DELETE /cookbook/favorite/{dishId}','GET /cookbook/favorites'] },
+        { platform: 'mini', module: '📖 菜谱详情', name: '菜谱详情页', desc: '步骤/图片/营养/用量', status: 'done', priority: 'high',
+          apiList: ['GET /dish/{id}','GET /dish/{id}/nutrition'] },
+        { platform: 'mini', module: '➕ 菜谱录入', name: '录入新菜', desc: '文字+图片步骤', status: 'done', priority: 'high',
+          apiList: ['POST /dish','POST /file/upload'] },
+        { platform: 'mini', module: '⭐ 菜谱点评', name: '菜谱点评', desc: '星级+文字+多维度打分', status: 'done', priority: 'medium',
+          apiList: ['POST /review','GET /review/dish/{dishId}','GET /dict'] },
+        { platform: 'mini', module: '🍱 食集', name: '食集列表', desc: '查看可用菜单', status: 'done', priority: 'high',
+          apiList: ['GET /menu'] },
+        { platform: 'mini', module: '🍱 食集', name: '食集详情·菜 Tab', desc: '菜品列表/份数/加菜/整集做', status: 'done', priority: 'high',
+          apiList: ['GET /menu/{id}','POST /menu/{id}/cook'] },
+        { platform: 'mini', module: '🍱 食集', name: '食集详情·备菜 Tab', desc: '备料聚合/状态切换', status: 'done', priority: 'high',
+          apiList: ['GET /menu/{id}/prep','PUT /menu/{id}/prep/{ingredientId}'] },
+        { platform: 'mini', module: '🍱 食集', name: '食集详情·采购 Tab', desc: '全量+余色/手动加项', status: 'done', priority: 'high',
+          apiList: ['GET /shopping/by-menu/{menuId}','POST /shopping/generate','PUT /shopping/item/{itemId}/purchased','POST /shopping/item/custom'] },
+        { platform: 'mini', module: '🍱 食集', name: '食集详情·一起吃 Tab', desc: '协同点菜/分享码/忌口汇总', status: 'planned', priority: 'medium',
+          apiList: [] },
+        { platform: 'mini', module: '🍳 做菜扣库存', name: '单菜直做', desc: 'cookDishNow 扣库存', status: 'done', priority: 'high',
+          apiList: ['POST /dish/{id}/cook-now'] },
+        { platform: 'mini', module: '🍳 做菜扣库存', name: 'FIFO 预扣清单', desc: '预扣清单/不够红字/双按钮', status: 'partial', priority: 'medium',
+          apiList: ['POST /dish/{id}/cook-now'] },
+        { platform: 'mini', module: '🛒 采购', name: '采购清单', desc: '三色余色+勾选已买', status: 'done', priority: 'high',
+          apiList: ['GET /shopping','PUT /shopping/item/{itemId}/purchased'] },
+        { platform: 'mini', module: '🛒 采购', name: '采购回写入库', desc: '买完入库+批次属性', status: 'partial', priority: 'medium',
+          apiList: ['POST /pantry/batch'] },
+        { platform: 'mini', module: '🏠 库存', name: '我家余量', desc: '三色库存+盘点+批次明细', status: 'done', priority: 'high',
+          apiList: ['GET /pantry','GET /pantry/expiring','GET /pantry/low','POST /pantry','PUT /pantry','POST /pantry/{id}/deduct'] },
+        { platform: 'mini', module: '📝 饮食日志', name: '食记', desc: '统计卡/时间轴/再做一次', status: 'done', priority: 'medium',
+          apiList: ['GET /dailylog','POST /dailylog','GET /dailylog/{logId}/nutrition'] },
+        { platform: 'mini', module: '✨ AI 智荐', name: '智能荐菜', desc: '预算+健康约束推荐', status: 'done', priority: 'medium',
+          apiList: ['POST /ai/menu/recommend'] },
+        { platform: 'mini', module: '✨ AI 智荐', name: '估营养', desc: 'AI 营养估算', status: 'done', priority: 'low',
+          apiList: ['POST /ai/dish/estimate'] },
+        { platform: 'mini', module: '✨ AI 智荐', name: 'AI 营养补全', desc: '输入食材自动填充营养', status: 'planned', priority: 'medium',
+          apiList: ['POST /ai/nutrition/fill'] },
+        { platform: 'mini', module: '📅 排菜', name: '排菜日历', desc: '周历排菜', status: 'done', priority: 'medium',
+          apiList: ['GET /mealplan','POST /mealplan/{planId}/item'] },
+        { platform: 'mini', module: '👋 协同', name: '朋友点菜页', desc: '扫码进入/忌口匹配/加菜', status: 'planned', priority: 'low',
+          apiList: [] },
+        { platform: 'mini', module: '🔔 通知', name: '订阅消息', desc: '关键提醒推送', status: 'planned', priority: 'low',
+          apiList: [] },
+
+        // ========== Flutter APP ==========
+        { platform: 'flutter', module: '🔐 登录', name: '账号密码登录', desc: 'Sa-Token+token持久化', status: 'done', priority: 'high',
+          apiList: ['POST /auth/login','POST /auth/logout'] },
+        { platform: 'flutter', module: '📖 菜库', name: '菜谱列表', desc: '搜索(菜名+食材)+分页+刷新', status: 'done', priority: 'high',
+          apiList: ['GET /dish/search'] },
+        { platform: 'flutter', module: '📖 菜库', name: '按食材筛选', desc: '多选FilterChip交集筛选', status: 'done', priority: 'high',
+          apiList: ['GET /dish/search','GET /ingredient'] },
+        { platform: 'flutter', module: '📖 菜谱详情', name: '菜谱详情页', desc: '步骤/图片/营养/用量', status: 'done', priority: 'high',
+          apiList: ['GET /dish/{id}','GET /dish/{id}/nutrition'] },
+        { platform: 'flutter', module: '➕ 菜谱录入', name: '录入新菜', desc: '手动+URL导入', status: 'done', priority: 'high',
+          apiList: ['POST /dish','POST /dish/import-url','POST /file/upload'] },
+        { platform: 'flutter', module: '⭐ 菜谱点评', name: '菜谱点评', desc: '星级+多维度打分', status: 'done', priority: 'medium',
+          apiList: ['POST /review','GET /review/dish/{dishId}'] },
+        { platform: 'flutter', module: '🍱 食集', name: '食集列表', desc: '查看可用菜单', status: 'done', priority: 'high',
+          apiList: ['GET /menu'] },
+        { platform: 'flutter', module: '🍱 食集', name: '食集详情·菜 Tab', desc: '菜品列表/份数/加菜/整集做', status: 'done', priority: 'high',
+          apiList: ['GET /menu/{id}','POST /menu/{id}/cook'] },
+        { platform: 'flutter', module: '🍱 食集', name: '食集详情·备菜 Tab', desc: '备料聚合/状态切换', status: 'done', priority: 'high',
+          apiList: ['GET /menu/{id}/prep','PUT /menu/{id}/prep/{ingredientId}'] },
+        { platform: 'flutter', module: '🍱 食集', name: '食集详情·采购 Tab', desc: '采购清单+余色+勾选', status: 'done', priority: 'high',
+          apiList: ['GET /shopping/by-menu/{menuId}','POST /shopping/generate','PUT /shopping/item/{itemId}/purchased','POST /shopping/item/custom','POST /shopping/create'] },
+        { platform: 'flutter', module: '🍳 做菜扣库存', name: '单菜直做', desc: 'cookDishNow扣库存', status: 'done', priority: 'high',
+          apiList: ['POST /dish/{id}/cook-now'] },
+        { platform: 'flutter', module: '🍳 做菜扣库存', name: '整集做菜', desc: '批量扣库存', status: 'done', priority: 'high',
+          apiList: ['POST /menu/{id}/cook'] },
+        { platform: 'flutter', module: '🛒 采购', name: '采购清单', desc: '三色余色+勾选+手动加项', status: 'done', priority: 'high',
+          apiList: ['GET /shopping','PUT /shopping/item/{itemId}/purchased'] },
+        { platform: 'flutter', module: '🏠 库存', name: '我家余量', desc: '三色库存+盘点+批次', status: 'done', priority: 'high',
+          apiList: ['GET /pantry','GET /pantry/expiring','GET /pantry/low','POST /pantry','PUT /pantry','POST /pantry/batch','POST /pantry/{id}/deduct'] },
+        { platform: 'flutter', module: '📝 饮食日志', name: '食记', desc: '统计卡/时间轴/单条详情', status: 'done', priority: 'medium',
+          apiList: ['GET /dailylog','POST /dailylog','GET /dailylog/{logId}/nutrition'] },
+        { platform: 'flutter', module: '📅 排菜计划', name: '排菜日历', desc: '周历排菜+加菜+复制', status: 'done', priority: 'medium',
+          apiList: ['GET /mealplan','GET /mealplan/{planId}','POST /mealplan/{planId}/item','POST /mealplan/{planId}/copy-from/{srcPlanId}'] },
+        { platform: 'flutter', module: '✨ AI 智荐', name: '智能荐菜', desc: '预算+健康约束推荐', status: 'done', priority: 'medium',
+          apiList: ['POST /ai/menu/recommend'] },
+        { platform: 'flutter', module: '✨ AI 智荐', name: '估营养', desc: 'AI营养估算', status: 'done', priority: 'low',
+          apiList: ['POST /ai/dish/estimate'] },
+        { platform: 'flutter', module: '🎨 设计系统', name: '双主题系统', desc: '奶油轻食/抹茶禅意', status: 'done', priority: 'high',
+          apiList: [] },
+        { platform: 'flutter', module: '🎨 设计系统', name: '交互状态补齐', desc: 'hover/press/150ms', status: 'done', priority: 'medium',
+          apiList: [] },
+    ];
+
+    // ========== 渲染 ==========
+    function getApiStatusInfo(status) {
+        const map = {
+            deployed: { text: '已上线', bg: '#198754', color: '#fff' },
+            integrated: { text: '已联调', bg: '#6f42c1', color: '#fff' },
+            integrating: { text: '联调中', bg: '#0d6efd', color: '#fff' },
+            tested: { text: '已测试', bg: '#20c997', color: '#fff' },
+            developed: { text: '已开发', bg: '#ffc107', color: '#000' },
+            developing: { text: '开发中', bg: '#fd7e14', color: '#fff' },
+            notstarted: { text: '未开发', bg: '#dc3545', color: '#fff' },
+        };
+        return map[status] || { text: status, bg: '#6c757d', color: '#fff' };
+    }
+
+    function getMethodClass(method) {
+        const m = method.split(' ')[0].toUpperCase();
+        return { GET: 'method-get', POST: 'method-post', PUT: 'method-put', DELETE: 'method-delete' }[m] || '';
+    }
+
+    function getCallerBadge(caller) {
+        const map = { flutter: 'caller-flutter', mini: 'caller-mini', admin: 'caller-admin' };
+        const labels = { flutter: 'FL', mini: 'MI', admin: 'AD' };
+        return `<span class="api-caller ${map[caller] || 'caller-none'}">${labels[caller] || '?'}</span>`;
+    }
+
+    function renderFeatures() {
+        const content = document.getElementById('content');
+        const platformFilter = document.querySelector('.platform-filter.active').dataset.platform;
+        const statusFilter = document.getElementById('status-filter').value;
+        const apiStatusFilter = document.getElementById('api-status-filter').value;
+
+        let filtered = features.filter(f => {
+            if (platformFilter !== 'all' && f.platform !== platformFilter) return false;
+            if (statusFilter !== 'all' && f.status !== statusFilter) return false;
+            if (apiStatusFilter !== 'all') {
+                if (!f.apiList || f.apiList.length === 0) return false;
+                const hasMatch = f.apiList.some(ep => {
+                    const api = apis[ep];
+                    return api && api.status === apiStatusFilter;
+                });
+                if (!hasMatch) return false;
             }
-
-            content.innerHTML = html || '<p style="text-align: center; padding: 40px; color: #6c757d;">没有匹配的功能项</p>';
-
-            // 更新统计
-            updateStats(filtered);
-        }
-
-        // 更新统计数字
-        function updateStats(filtered) {
-            const total = filtered.length;
-            const done = filtered.filter(f => f.status === 'done').length;
-            const partial = filtered.filter(f => f.status === 'partial').length;
-            const rate = total > 0 ? Math.round((done + partial * 0.5) / total * 100) : 0;
-
-            document.getElementById('total-count').textContent = total;
-            document.getElementById('done-count').textContent = done;
-            document.getElementById('partial-count').textContent = partial;
-            document.getElementById('completion-rate').textContent = rate + '%';
-        }
-
-        // 事件绑定
-        document.querySelectorAll('.platform-filter').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.platform-filter').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                renderFeatures();
-            });
+            return true;
         });
 
-        document.getElementById('status-filter').addEventListener('change', renderFeatures);
-        document.getElementById('priority-filter').addEventListener('change', renderFeatures);
+        // 按平台分组
+        const grouped = {};
+        filtered.forEach(f => {
+            if (!grouped[f.platform]) grouped[f.platform] = {};
+            if (!grouped[f.platform][f.module]) grouped[f.platform][f.module] = [];
+            grouped[f.platform][f.module].push(f);
+        });
 
-        // 初始渲染
-        renderFeatures();
+        const platformNames = {
+            admin: { name: '管理后台', icon: '🖥️', desc: 'Web 管理端 · Vue3 + Element Plus' },
+            mini: { name: '微信小程序', icon: '📱', desc: '用户端 · uni-app + Vue3' },
+            flutter: { name: 'Flutter APP', icon: '📱', desc: 'iOS/Android 原生端' }
+        };
+
+        let html = '';
+        for (const platform in grouped) {
+            const pinfo = platformNames[platform];
+            html += `<div class="platform-section">
+                <div class="platform-header">
+                    <div class="platform-icon">${pinfo.icon}</div>
+                    <div class="platform-title">
+                        <h2>${pinfo.name}</h2>
+                        <p>${pinfo.desc}</p>
+                    </div>
+                </div>`;
+
+            for (const moduleName in grouped[platform]) {
+                const items = grouped[platform][moduleName];
+                html += `<div class="module">
+                    <div class="module-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                        <div class="module-title">${moduleName}</div>
+                        <div class="module-count">${items.length} 个功能</div>
+                    </div>
+                    <div class="module-body">`;
+
+                items.forEach((f, idx) => {
+                    const statusText = { done: '已完成', partial: '部分', planned: '已规划', notstarted: '未开始' }[f.status];
+                    const apiCount = f.apiList ? f.apiList.length : 0;
+
+                    html += `<div class="feature" id="feature-${platform}-${idx}" onclick="toggleFeature(this)">
+                        <div class="feature-main">
+                            <div class="feature-status status-${f.status}">${statusText}</div>
+                            <div class="feature-content">
+                                <div class="feature-name">${f.name}</div>
+                                <div class="feature-desc">${f.desc}</div>
+                                <div class="feature-badges">
+                                    <span class="badge badge-priority-${f.priority}">${f.priority === 'high' ? '高' : f.priority === 'medium' ? '中' : '低'}</span>
+                                    ${apiCount > 0 ? `<span class="badge" style="background:#e9ecef;color:#495057">${apiCount} 个API</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="api-panel">
+                            <h4>🔌 关联 API 接口</h4>
+                            ${apiCount === 0 ? '<div class="no-api">暂无关联接口（纯前端功能或待规划）</div>' : ''}
+                            ${(f.apiList || []).map(ep => {
+                                const api = apis[ep];
+                                if (!api) return `<div class="api-item"><span class="api-method" style="background:#e9ecef;color:#6c757d">???</span><span class="api-path">${ep}</span><span class="api-status" style="background:#e9ecef;color:#6c757d">未知</span></div>`;
+                                const si = getApiStatusInfo(api.status);
+                                return `<div class="api-item">
+                                    <span class="api-method ${getMethodClass(ep)}">${ep.split(' ')[0]}</span>
+                                    <span class="api-path">${ep.split(' ').slice(1).join(' ')}</span>
+                                    ${api.callers.map(c => getCallerBadge(c)).join('')}
+                                    <span class="api-status" style="background:${si.bg};color:${si.color}">${si.text}</span>
+                                    ${api.note ? `<span style="font-size:10px;color:#6c757d;margin-left:4px">${api.note}</span>` : ''}
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+                });
+
+                html += `</div></div>`;
+            }
+            html += `</div>`;
+        }
+
+        content.innerHTML = html || '<p style="text-align:center;padding:40px;color:#6c757d">没有匹配的功能项</p>';
+        updateStats(filtered);
+    }
+
+    function toggleFeature(el) {
+        el.classList.toggle('expanded');
+    }
+
+    function updateStats(filtered) {
+        const total = filtered.length;
+        const done = filtered.filter(f => f.status === 'done').length;
+        const partial = filtered.filter(f => f.status === 'partial').length;
+        const rate = total > 0 ? Math.round((done + partial * 0.5) / total * 100) : 0;
+
+        // API 统计
+        let apiReady = 0, apiMissing = 0;
+        filtered.forEach(f => {
+            if (f.apiList) {
+                f.apiList.forEach(ep => {
+                    const api = apis[ep];
+                    if (api) {
+                        if (['deployed','integrated','tested'].includes(api.status)) apiReady++;
+                        if (api.status === 'notstarted') apiMissing++;
+                    } else {
+                        apiMissing++;
+                    }
+                });
+            }
+        });
+
+        document.getElementById('total-count').textContent = total;
+        document.getElementById('done-count').textContent = done;
+        document.getElementById('api-ready-count').textContent = apiReady;
+        document.getElementById('api-missing-count').textContent = apiMissing;
+        document.getElementById('completion-rate').textContent = rate + '%';
+    }
+
+    // 事件
+    document.querySelectorAll('.platform-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.platform-filter').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderFeatures();
+        });
+    });
+    document.getElementById('status-filter').addEventListener('change', renderFeatures);
+    document.getElementById('api-status-filter').addEventListener('change', renderFeatures);
+
+    renderFeatures();
     </script>
 </body>
 </html>
