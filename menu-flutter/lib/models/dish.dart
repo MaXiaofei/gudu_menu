@@ -8,6 +8,10 @@ class Dish {
   final String? note;
   final String? coverUrl;
   final num? price;
+  /// 菜系/分类/标签名（后端 fillRelNames 回填，列表与详情均返回）。
+  final List<String> cuisineNames;
+  final List<String> categoryNames;
+  final List<String> tagNames;
 
   const Dish({
     required this.id,
@@ -18,6 +22,9 @@ class Dish {
     this.note,
     this.coverUrl,
     this.price,
+    this.cuisineNames = const [],
+    this.categoryNames = const [],
+    this.tagNames = const [],
   });
 
   factory Dish.fromJson(Map<String, dynamic> j) => Dish(
@@ -29,6 +36,16 @@ class Dish {
         note: j['note'] as String?,
         coverUrl: j['coverUrl'] as String?,
         price: j['price'] as num?,
+        cuisineNames: (j['cuisineNames'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [],
+        categoryNames: (j['categoryNames'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [],
+        tagNames:
+            (j['tagNames'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       );
 }
 

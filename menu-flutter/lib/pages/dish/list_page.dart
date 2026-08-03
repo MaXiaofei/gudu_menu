@@ -273,7 +273,11 @@ class _DishTile extends StatelessWidget {
       ),
       title: Text(dish.name),
       subtitle: Text(
-        '${dish.cookTime ?? 0}分钟 · 难度${dish.difficulty ?? '-'}',
+        [
+          if (dish.cuisineNames.isNotEmpty) dish.cuisineNames.join('/'),
+          '${dish.cookTime ?? 0}分钟',
+          '难度${dish.difficulty ?? '-'}',
+        ].join(' · '),
         style: TextStyle(
             color: t.caption, fontSize: 12),
       ),

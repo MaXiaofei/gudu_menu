@@ -36,6 +36,15 @@ class _DishDetailPageState extends State<DishDetailPage> {
   int _elapsed = 0;
   Timer? _timer;
 
+  /// 详情头部展示的标签（菜系 + 分类 + 标签去空合并）。
+  List<String> get _dishTags => _detail == null
+      ? const []
+      : [
+          ..._detail!.dish.cuisineNames,
+          ..._detail!.dish.categoryNames,
+          ..._detail!.dish.tagNames,
+        ].where((s) => s.isNotEmpty).toList();
+
   @override
   void initState() {
     super.initState();
@@ -101,7 +110,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
       final result = await DishService.cookNow(widget.id, servings: _serving);
       if (!mounted) return;
       final msg = result.hasShortage
-          ? '已做菜，库存已扣；缺量：${result.shortages.length} 项'
+          ? '已做菜，库存已扣；缺量：${result.shortageNames.join('、')}'
           : '已做菜，库存已扣';
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(msg)));
@@ -180,6 +189,28 @@ class _DishDetailPageState extends State<DishDetailPage> {
                               style: TextStyle(
                                   fontSize: 12, color: t.caption),
                             ),
+                            if (_dishTags.isNotEmpty) ...[
+                              const SizedBox(height: AppTokens.sp8),
+                              Wrap(
+                                spacing: AppTokens.sp8,
+                                runSpacing: AppTokens.sp4,
+                                children: _dishTags
+                                    .map((tag) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: t.primarySoft,
+                                            borderRadius: BorderRadius.circular(
+                                                AppTokens.rSm),
+                                          ),
+                                          child: Text(tag,
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: t.primary)),
+                                        ))
+                                    .toList(),
+                              ),
+                            ],
                             if ((_detail!.dish.note ?? '').isNotEmpty) ...[
                               const SizedBox(height: AppTokens.sp8),
                               Text(_detail!.dish.note!,

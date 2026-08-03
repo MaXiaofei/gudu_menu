@@ -119,6 +119,8 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                 case "category" -> categoryIds.add(r.getDictId());
             }
         }
+        // 回填菜系/分类/标签名，与 search 列表行为一致（避免详情页这几个字段为 null）。
+        fillRelNames(List.of(dish));
         return new DishDetail(dish, steps, cuisineIds, tagIds, categoryIds, ingredients);
     }
 

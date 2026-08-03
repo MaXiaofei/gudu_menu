@@ -6,6 +6,7 @@ import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuMapper;
+import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.pantry.PantryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ class CookServiceTest {
     @Mock DishIngredientMapper dishIngredientMapper;
     @Mock CookingRecordMapper cookingRecordMapper;
     @Mock PantryService pantryService;
+    @Mock IngredientMapper ingredientMapper;
 
     private CookService cookService;
 
@@ -39,7 +41,7 @@ class CookServiceTest {
     void setup() {
         MockitoAnnotations.openMocks(this);
         cookService = new CookService(menuMapper, menuDishMapper, dishIngredientMapper,
-                cookingRecordMapper, pantryService, new NeedAggregator());
+                cookingRecordMapper, pantryService, new NeedAggregator(), ingredientMapper);
         // 模拟 MyBatis insert 回填 id（生产 @TableId(AUTO) 会回填，mock 默认不回填）
         when(cookingRecordMapper.insert(any(CookingRecord.class))).thenAnswer(inv -> {
             inv.getArgument(0, CookingRecord.class).setId(1L);
@@ -71,7 +73,7 @@ class CookServiceTest {
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100")));
         // 每食材扣减返回够扣
         when(pantryService.deductByIngredient(eq(10L), eq(new BigDecimal("200"))))
-                .thenReturn(new PantryService.DeductResult(10L, new BigDecimal("200"), BigDecimal.ZERO, List.of()));
+                .thenReturn(new PantryService.DeductResult(10L, "番茄", new BigDecimal("200"), BigDecimal.ZERO, List.of()));
 
         CookResult r = cookService.cookByMenu(7L, 99L);
 
@@ -91,9 +93,9 @@ class CookServiceTest {
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(
                 di(1, 10, "100"), di(1, 20, "50")));
         when(pantryService.deductByIngredient(eq(10L), any())).thenReturn(
-                new PantryService.DeductResult(10L, new BigDecimal("30"), new BigDecimal("70"), List.of()));
+                new PantryService.DeductResult(10L, "番茄", new BigDecimal("30"), new BigDecimal("70"), List.of()));
         when(pantryService.deductByIngredient(eq(20L), any())).thenReturn(
-                new PantryService.DeductResult(20L, new BigDecimal("50"), BigDecimal.ZERO, List.of()));
+                new PantryService.DeductResult(20L, "鸡蛋", new BigDecimal("50"), BigDecimal.ZERO, List.of()));
 
         CookResult r = cookService.cookByMenu(7L, 99L);
 
@@ -106,7 +108,7 @@ class CookServiceTest {
     void cookByDish_单菜直做_source为dish_不更新menu() {
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(3, 10, "100")));
         when(pantryService.deductByIngredient(eq(10L), eq(new BigDecimal("100"))))
-                .thenReturn(new PantryService.DeductResult(10L, new BigDecimal("100"), BigDecimal.ZERO, List.of()));
+                .thenReturn(new PantryService.DeductResult(10L, "番茄", new BigDecimal("100"), BigDecimal.ZERO, List.of()));
 
         CookResult r = cookService.cookByDish(3L, BigDecimal.ONE, 99L);
 

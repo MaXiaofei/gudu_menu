@@ -256,7 +256,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             throw new BizException("食材 id 不能为空");
         }
         if (needGrams == null || needGrams.signum() <= 0) {
-            return new DeductResult(ingredientId, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
+            return new DeductResult(ingredientId, null, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
         }
         List<Pantry> batches = list(new QueryWrapper<Pantry>()
                 .eq("ingredient_id", ingredientId)
@@ -277,11 +277,12 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         List<DeductResult.BatchOut> outs = plan.ops().stream()
                 .map(op -> new DeductResult.BatchOut(op.pantryId(), op.deductGrams(), op.remainGrams()))
                 .collect(Collectors.toList());
-        return new DeductResult(ingredientId, deducted, shortage, outs);
+        return new DeductResult(ingredientId, null, deducted, shortage, outs);
     }
 
-    /** 单食材扣减结果。 */
+    /** 单食材扣减结果。ingredientName 冗余食材名（由上层批量回填），供前端直接展示。 */
     public record DeductResult(Long ingredientId,
+                               String ingredientName,
                                BigDecimal deductedGrams,
                                BigDecimal shortageGrams,
                                List<BatchOut> batches) {

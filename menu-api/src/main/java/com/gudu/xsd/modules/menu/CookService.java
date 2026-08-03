@@ -8,6 +8,8 @@ import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuMapper;
+import com.gudu.xsd.modules.nutrition.Ingredient;
+import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.pantry.PantryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,6 +46,7 @@ public class CookService {
     private final CookingRecordMapper cookingRecordMapper;
     private final PantryService pantryService;
     private final NeedAggregator needAggregator;
+    private final IngredientMapper ingredientMapper;
 
     /** 整集做：聚合食集各菜用量 → 扣减 → 每菜写 record → menu 标完成。 */
     @Transactional
@@ -118,7 +121,29 @@ public class CookService {
                 shortages.put(e.getKey(), r.shortageGrams());
             }
         }
+        fillIngredientNames(out);
         return out;
+    }
+
+    /** 批量回填扣减明细的食材名（一次查 ingredient 表，避免前端拿 id 反查）。 */
+    private void fillIngredientNames(List<PantryService.DeductResult> deductions) {
+        if (deductions.isEmpty()) return;
+        List<Long> ids = deductions.stream()
+                .map(PantryService.DeductResult::ingredientId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (ids.isEmpty()) return;
+        List<Ingredient> rows = ingredientMapper.selectBatchIds(ids);
+        if (rows == null || rows.isEmpty()) return;
+        Map<Long, String> nameMap = rows.stream()
+                .collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
+        for (int i = 0; i < deductions.size(); i++) {
+            PantryService.DeductResult r = deductions.get(i);
+            String name = r.ingredientId() == null ? null : nameMap.get(r.ingredientId());
+            deductions.set(i, new PantryService.DeductResult(
+                    r.ingredientId(), name, r.deductedGrams(), r.shortageGrams(), r.batches()));
+        }
     }
 
     private Long insertRecord(Long memberId, Long dishId, Long menuId,

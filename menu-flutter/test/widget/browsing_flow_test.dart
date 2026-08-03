@@ -23,7 +23,15 @@ void main() {
       if (options.path == '/dish/search') {
         return okResponse({
           'records': [
-            {'id': 1, 'name': '番茄炒蛋', 'cookTime': 10, 'difficulty': 1},
+            {
+              'id': 1,
+              'name': '番茄炒蛋',
+              'cookTime': 10,
+              'difficulty': 1,
+              'cuisineNames': ['鲁菜'],
+              'categoryNames': ['热菜'],
+              'tagNames': ['家常'],
+            },
             {'id': 2, 'name': '红烧肉', 'cookTime': 60, 'difficulty': 3},
           ],
           'total': 2,
@@ -40,6 +48,8 @@ void main() {
     expect(find.text('菜库'), findsOneWidget); // AppBar
     expect(find.text('番茄炒蛋'), findsOneWidget);
     expect(find.text('红烧肉'), findsOneWidget);
+    // Bug B 修复后 Dish model 解析字典名，列表副标题展示菜系
+    expect(find.textContaining('鲁菜'), findsOneWidget);
   });
 
   testWidgets('空数据 → 渲染空态"暂无菜品"', (tester) async {
