@@ -8,10 +8,15 @@ import '../../models/dish.dart';
 import '../../services/dish_service.dart';
 import '../../widgets/loading_empty.dart';
 
+/// 搜索模式：按菜名 / 按食材。
+enum _SearchMode { name, ingredient }
+
 /// 菜库列表（复刻 menu-mini/src/pages/dish/List.vue）。
 /// 搜索 + 分页（pageSize=20）+ 下拉刷新 + 上拉加载更多。
 ///
-/// 封面图片使用缩略图（/thumbnail/xxx.jpg），节省列表滚动时的流量和内存。
+/// 搜索支持两种模式（搜索框左侧下拉切换）：
+/// - 按菜名：输入菜名关键词，回车搜索。
+/// - 按食材：输入食材名实时联想，选中食材后按"含这些食材"搜菜（可多选，交集）。
 class DishListPage extends StatefulWidget {
   const DishListPage({super.key});
   @override
@@ -30,33 +35,15 @@ class _DishListPageState extends State<DishListPage> {
   bool _firstLoading = true;
   bool _hasText = false;
 
-  // 食材筛选
-  List<int> _selectedIngredientIds = [];
-  List<Map<String, dynamic>> _availableIngredients = [];
+  _SearchMode _mode = _SearchMode.name;
+  // 已选食材（按食材模式）：{id, name}
+  final List<_IngredientOption> _selectedIngredients = [];
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
-    _loadIngredients();
     _reload();
-  }
-
-  Future<void> _loadIngredients() async {
-    try {
-      final data = await ApiClient.instance.get('/ingredient', query: {
-        'pageNum': 1,
-        'pageSize': 200,
-      });
-      if (data is Map && data['records'] is List) {
-        final items = (data['records'] as List)
-            .map((e) => e as Map<String, dynamic>)
-            .toList();
-        if (mounted) {
-          setState(() => _availableIngredients = items);
-        }
-      }
-    } catch (_) {}
   }
 
   @override
@@ -79,8 +66,10 @@ class _DishListPageState extends State<DishListPage> {
   Future<List<Dish>> _fetch(int pageNum) async {
     try {
       final r = await DishService.search(
-        keyword: _keywordCtrl.text.trim(),
-        ingredientIds: _selectedIngredientIds.isEmpty ? null : _selectedIngredientIds,
+        keyword: _mode == _SearchMode.name ? _keywordCtrl.text.trim() : null,
+        ingredientIds: _selectedIngredients.isEmpty
+            ? null
+            : _selectedIngredients.map((e) => e.id).toList(),
         pageNum: pageNum,
         pageSize: _pageSize,
       );
@@ -109,6 +98,25 @@ class _DishListPageState extends State<DishListPage> {
     if (mounted) setState(() => _loading = false);
   }
 
+  /// 按食材模式：实时联想食材（调 /ingredient?keyword=）。
+  Future<List<_IngredientOption>> _suggestIngredients(String keyword) async {
+    if (keyword.trim().isEmpty) return [];
+    try {
+      final data = await ApiClient.instance.get('/ingredient', query: {
+        'keyword': keyword.trim(),
+        'pageNum': 1,
+        'pageSize': 20,
+      });
+      if (data is Map && data['records'] is List) {
+        return (data['records'] as List)
+            .map((e) => _IngredientOption.fromJson(e as Map<String, dynamic>))
+            .where((e) => e.name.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
@@ -116,30 +124,11 @@ class _DishListPageState extends State<DishListPage> {
         appBar: AppBar(title: const Text('菜库')),
         body: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: TextField(
-                controller: _keywordCtrl,
-                decoration: InputDecoration(
-                  hintText: '搜菜名',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _hasText
-                      ? IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            _keywordCtrl.clear();
-                            setState(() => _hasText = false);
-                            _reload();
-                          },
-                        )
-                      : null,
-                ),
-                onChanged: (v) => setState(() => _hasText = v.isNotEmpty),
-                onSubmitted: (_) => _reload(),
-              ),
-            ),
-            // 食材筛选区域
-            if (_availableIngredients.isNotEmpty) _buildIngredientSection(t),
+            _buildSearchBar(t),
+            // 已选食材标签（按食材模式）
+            if (_mode == _SearchMode.ingredient &&
+                _selectedIngredients.isNotEmpty)
+              _buildSelectedChips(t),
             Expanded(
               child: _firstLoading
                   ? const LoadingView()
@@ -176,66 +165,206 @@ class _DishListPageState extends State<DishListPage> {
       );
   }
 
-  Widget _buildIngredientSection(AppTokens t) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  /// 搜索框：左侧下拉选模式 + 右侧输入框（按食材模式带联想）。
+  Widget _buildSearchBar(AppTokens t) {
+    return Padding(
+      padding: const EdgeInsets.all(AppTokens.sp12),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(Icons.kitchen, size: 16, color: t.caption),
-              const SizedBox(width: 4),
-              Text(
-                '按食材筛选',
-                style: TextStyle(fontSize: 12, color: t.caption),
-              ),
-              const Spacer(),
-              if (_selectedIngredientIds.isNotEmpty)
-                TextButton(
-                  onPressed: () {
-                    setState(() => _selectedIngredientIds = []);
-                    _reload();
-                  },
-                  child: const Text('清除'),
+          // 模式下拉
+          Container(
+            decoration: BoxDecoration(
+              color: t.secondary,
+              borderRadius: BorderRadius.circular(AppTokens.rMd),
+            ),
+            child: PopupMenuButton<_SearchMode>(
+              initialValue: _mode,
+              onSelected: (m) {
+                setState(() {
+                  _mode = m;
+                  _keywordCtrl.clear();
+                  _hasText = false;
+                });
+                _reload();
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.sp12, vertical: AppTokens.sp16),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _mode == _SearchMode.name ? '菜名' : '食材',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: t.accent),
+                    ),
+                    Icon(Icons.arrow_drop_down, size: 18, color: t.accent),
+                  ],
                 ),
-            ],
+              ),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: _SearchMode.name,
+                  child: Text('按菜名'),
+                ),
+                PopupMenuItem(
+                  value: _SearchMode.ingredient,
+                  child: Text('按食材'),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _availableIngredients.take(20).map((ing) {
-              final id = ing['id'] as int;
-              final name = ing['name'] as String? ?? '';
-              final selected = _selectedIngredientIds.contains(id);
-              return FilterChip(
-                label: Text(name, style: const TextStyle(fontSize: 12)),
-                selected: selected,
-                onSelected: (checked) {
-                  setState(() {
-                    if (checked) {
-                      _selectedIngredientIds.add(id);
-                    } else {
-                      _selectedIngredientIds.remove(id);
-                    }
-                  });
-                  _reload();
-                },
-                selectedColor: t.primarySoft,
-                checkmarkColor: t.primary,
-              );
-            }).toList(),
+          const SizedBox(width: AppTokens.sp8),
+          // 输入框
+          Expanded(
+            child: _mode == _SearchMode.name
+                ? TextField(
+                    controller: _keywordCtrl,
+                    decoration: InputDecoration(
+                      hintText: '搜菜名',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppTokens.sp12, vertical: AppTokens.sp12),
+                      suffixIcon: _hasText
+                          ? IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () {
+                                _keywordCtrl.clear();
+                                setState(() => _hasText = false);
+                                _reload();
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (v) => setState(() => _hasText = v.isNotEmpty),
+                    onSubmitted: (_) => _reload(),
+                  )
+                : Autocomplete<_IngredientOption>(
+                    optionsBuilder: (textEditingValue) =>
+                        _suggestIngredients(textEditingValue.text),
+                    displayStringForOption: (o) => o.name,
+                    fieldViewBuilder:
+                        (ctx, controller, focusNode, onFieldSubmitted) {
+                      // 同步外部 _keywordCtrl（用于清空等）
+                      if (controller.text != _keywordCtrl.text) {
+                        _keywordCtrl.text = controller.text;
+                      }
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: InputDecoration(
+                          hintText: '输食材名，如番茄',
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppTokens.sp12,
+                              vertical: AppTokens.sp12),
+                        ),
+                        onSubmitted: (_) => onFieldSubmitted(),
+                      );
+                    },
+                    onSelected: (option) {
+                      if (!_selectedIngredients.any((e) => e.id == option.id)) {
+                        setState(() {
+                          _selectedIngredients.add(option);
+                          _keywordCtrl.clear();
+                        });
+                        _reload();
+                      }
+                    },
+                    optionsViewBuilder: (ctx, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4,
+                          borderRadius: BorderRadius.circular(AppTokens.rMd),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(ctx).size.width - 120,
+                              maxHeight: 200,
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: options.length,
+                              itemBuilder: (_, i) {
+                                final o = options.elementAt(i);
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(o.name,
+                                      style: const TextStyle(fontSize: 13)),
+                                  onTap: () => onSelected(o),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
+
+  /// 已选食材标签条（按食材模式，点 ✕ 移除并重搜）。
+  Widget _buildSelectedChips(AppTokens t) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppTokens.sp12, vertical: AppTokens.sp4),
+      child: Wrap(
+        spacing: AppTokens.sp8,
+        runSpacing: AppTokens.sp8,
+        children: [
+          ..._selectedIngredients.map((ing) => Chip(
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                label: Text(ing.name, style: const TextStyle(fontSize: 12)),
+                backgroundColor: t.primarySoft,
+                labelStyle: TextStyle(color: t.accent),
+                deleteIconColor: t.accent,
+                onDeleted: () {
+                  setState(() {
+                    _selectedIngredients.removeWhere((e) => e.id == ing.id);
+                  });
+                  _reload();
+                },
+              )),
+          if (_selectedIngredients.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedIngredients.clear();
+                });
+                _reload();
+              },
+              child: const Text('清除', style: TextStyle(fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 食材联想选项。
+class _IngredientOption {
+  final int id;
+  final String name;
+  const _IngredientOption({required this.id, required this.name});
+
+  factory _IngredientOption.fromJson(Map<String, dynamic> j) =>
+      _IngredientOption(
+        id: (j['id'] as num).toInt(),
+        name: (j['name'] ?? '') as String,
+      );
+
+  @override
+  bool operator ==(Object other) => other is _IngredientOption && id == other.id;
+
+  @override
+  int get hashCode => id;
 }
 
 /// 列表项：封面缩略图 + 菜名 + 时间/难度。

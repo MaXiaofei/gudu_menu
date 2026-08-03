@@ -69,6 +69,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
   Color get shadowSm => shadowBase.withAlpha(20); // ≈ .08
   Color get shadowMd => shadowBase.withAlpha(26); // ≈ .10
   Color get shadowLg => shadowBase.withAlpha(36); // ≈ .14
+  Color get shadowFab => shadowBase.withAlpha(102); // ≈ .40
 
   List<BoxShadow> get elevationSm => [
         BoxShadow(color: shadowSm, offset: const Offset(0, 1), blurRadius: 3),
@@ -78,6 +79,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
       ];
   List<BoxShadow> get elevationLg => [
         BoxShadow(color: shadowLg, offset: const Offset(0, 14), blurRadius: 36),
+      ];
+  /// FAB / 凸起按钮阴影（DESIGN.md §5 --shadow-fab: 0 4px 12px rgba(shadow,.40)）
+  List<BoxShadow> get elevationFab => [
+        BoxShadow(color: shadowFab, offset: const Offset(0, 4), blurRadius: 12),
       ];
 
   /// 主色渐变（登录按钮、头像底等用），与 cream/matcha 跟随。
