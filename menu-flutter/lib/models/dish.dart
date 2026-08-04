@@ -12,6 +12,8 @@ class Dish {
   final List<String> cuisineNames;
   final List<String> categoryNames;
   final List<String> tagNames;
+  /// 做过次数（按当前就餐成员统计，search 时回填，缺省 0）。
+  final int cookedCount;
 
   const Dish({
     required this.id,
@@ -25,6 +27,7 @@ class Dish {
     this.cuisineNames = const [],
     this.categoryNames = const [],
     this.tagNames = const [],
+    this.cookedCount = 0,
   });
 
   factory Dish.fromJson(Map<String, dynamic> j) => Dish(
@@ -46,6 +49,7 @@ class Dish {
             const [],
         tagNames:
             (j['tagNames'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        cookedCount: (j['cookedCount'] as num?)?.toInt() ?? 0,
       );
 }
 

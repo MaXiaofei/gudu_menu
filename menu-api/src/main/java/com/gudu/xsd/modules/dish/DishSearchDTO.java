@@ -44,4 +44,7 @@ public class DishSearchDTO extends PageQuery {
 
     /** 食材筛选：按包含指定食材的菜谱过滤（交集：必须包含所有选中食材）。 */
     private List<Long> ingredientIds;
+
+    /** 排序：cooked=做过最多；缺省=创建时间倒序。 */
+    private String sort;
 }

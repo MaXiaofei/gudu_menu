@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/app_theme.dart';
 
-/// 底部 5-Tab 主外壳（菜谱 / 食集 / [凸起推荐FAB] / 我家余量 / 我的）。
+/// 底部 5-Tab 主外壳（菜谱 / 食集 / [凸起推荐FAB] / 库存 / 我的）。
 ///
 /// 由 go_router 的 StatefulShellRoute.indexedStack 注入 [navigationShell]，
 /// 各 tab 状态独立保持（IndexedStack），切 tab 不重建。
@@ -48,7 +48,7 @@ class MainShell extends StatelessWidget {
                   child: const SizedBox(height: 1, width: double.infinity),
                 ),
               ),
-              // 4 个普通 tab（菜谱/食集/我家余量/我的），中间留白给 FAB
+              // 4 个普通 tab（菜谱/食集/库存/我的），中间留白给 FAB
               Padding(
                 padding: EdgeInsets.only(bottom: bottomPadding),
                 child: Row(
@@ -56,7 +56,7 @@ class MainShell extends StatelessWidget {
                     _navItem(t, 0, Icons.menu_book_outlined, Icons.menu_book, '菜谱'),
                     _navItem(t, 1, Icons.restaurant_menu_outlined, Icons.restaurant_menu, '食集'),
                     const Spacer(),
-                    _navItem(t, 3, Icons.kitchen_outlined, Icons.kitchen, '我家余量'),
+                    _navItem(t, 3, Icons.kitchen_outlined, Icons.kitchen, '库存'),
                     _navItem(t, 4, Icons.person_outline, Icons.person, '我的'),
                   ],
                 ),
@@ -142,17 +142,17 @@ class _RecommendFab extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: selected ? t.primaryDeep : t.primary,
-            shape: BoxShape.circle,
-            border: Border.all(color: t.card, width: 3),
-            boxShadow: t.elevationFab,
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: selected ? t.primaryDeep : t.primary,
+              shape: BoxShape.circle,
+              border: Border.all(color: t.card, width: 3),
+              boxShadow: t.elevationFab,
+            ),
+            child: const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
           ),
-          child: const Icon(Icons.recommend, size: 18, color: Colors.white),
-        ),
       ),
     );
   }

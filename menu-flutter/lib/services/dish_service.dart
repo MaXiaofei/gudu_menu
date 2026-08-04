@@ -7,9 +7,13 @@ import '../models/page.dart';
 class DishService {
   /// 多维搜索分页：GET /dish/search。
   /// [ingredientIds] 食材筛选（交集：必须包含所有选中食材）。
+  /// [tagIds] 标签筛选（分类标签条选中）。
+  /// [sort] 排序：cooked=做过最多；缺省=最新。
   static Future<PageData<Dish>> search({
     String? keyword,
     List<int>? ingredientIds,
+    List<int>? tagIds,
+    String? sort,
     int pageNum = 1,
     int pageSize = 20,
   }) async {
@@ -17,6 +21,8 @@ class DishService {
       if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
       if (ingredientIds != null && ingredientIds.isNotEmpty)
         'ingredientIds': ingredientIds.join(','),
+      if (tagIds != null && tagIds.isNotEmpty) 'tagIds': tagIds.join(','),
+      if (sort != null && sort.isNotEmpty) 'sort': sort,
       'pageNum': pageNum,
       'pageSize': pageSize,
     });

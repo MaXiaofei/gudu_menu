@@ -45,8 +45,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('PAGE_1'), findsOneWidget);
 
-    // 点"我家余量" → index 3
-    await tester.tap(find.text('我家余量'));
+    // 点"库存" → index 3
+    await tester.tap(find.text('库存'));
     await tester.pumpAndSettle();
     expect(find.text('PAGE_3'), findsOneWidget);
 
@@ -56,7 +56,7 @@ void main() {
     expect(find.text('PAGE_4'), findsOneWidget);
 
     // 点凸起"推荐"FAB（通过 icon 定位）→ index 2
-    await tester.tap(find.byIcon(Icons.recommend));
+    await tester.tap(find.byIcon(Icons.auto_awesome));
     await tester.pumpAndSettle();
     expect(find.text('PAGE_2'), findsOneWidget);
 

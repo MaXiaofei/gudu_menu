@@ -54,4 +54,8 @@ public class Dish {
     /** 标签名（关联查询，不入库）。 */
     @TableField(exist = false)
     private List<String> tagNames;
+
+    /** 做过次数（按当前就餐成员统计 cooking_record，不入库，search 时批量回填）。 */
+    @TableField(exist = false)
+    private Integer cookedCount;
 }

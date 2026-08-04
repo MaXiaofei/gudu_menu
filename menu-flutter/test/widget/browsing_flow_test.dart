@@ -45,15 +45,14 @@ void main() {
     // 让 _reload 的异步链路完成（mock 瞬时返回）→ setState 移除 spinner
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('菜库'), findsOneWidget); // AppBar
+    expect(find.text('菜谱'), findsOneWidget); // AppBar（原型改为"菜谱"）
     expect(find.text('番茄炒蛋'), findsOneWidget);
     expect(find.text('红烧肉'), findsOneWidget);
-    // Bug B 修复后 Dish model 解析字典名，列表副标题展示菜系
-    expect(find.textContaining('鲁菜'), findsOneWidget);
+    // 列表项副标题显示做过次数（cookedCount 缺省 0 → "没做过"）
+    expect(find.textContaining('没做过'), findsWidgets);
   });
 
   testWidgets('按食材模式：切模式 → 输入联想 → 选中食材 → 按食材搜菜', (tester) async {
-    String? lastDishSearchPath;
     Map<String, dynamic>? lastDishQuery;
     installMock((options) {
       // 食材联想：输"番"返回番茄
@@ -67,7 +66,6 @@ void main() {
       }
       // 菜品搜索：记录请求，返回含番茄的菜
       if (options.path == '/dish/search') {
-        lastDishSearchPath = options.path;
         lastDishQuery = options.queryParameters;
         return okResponse({
           'records': [

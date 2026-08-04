@@ -1,6 +1,7 @@
 package com.gudu.xsd.modules.dish;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import com.gudu.xsd.modules.dish.mapper.DishDictMapper;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.dish.mapper.DishMapper;
@@ -37,6 +38,7 @@ class DishServiceTest {
     private DishIngredientMapper dishIngMapper;
     private IngredientNutritionMapper ingredientNutritionMapper;
     private IngredientMapper ingredientMapper;
+    private CookingRecordMapper cookingRecordMapper;
     private DishService svc;
 
     @BeforeEach
@@ -47,7 +49,8 @@ class DishServiceTest {
         dishIngMapper = Mockito.mock(DishIngredientMapper.class);
         ingredientNutritionMapper = Mockito.mock(IngredientNutritionMapper.class);
         ingredientMapper = Mockito.mock(IngredientMapper.class);
-        svc = new DishService(stepMapper, dictRelMapper, dishIngMapper, ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(), null, new com.gudu.xsd.modules.nutrition.UnitConvertService(java.util.Set.of(20L)));
+        cookingRecordMapper = Mockito.mock(CookingRecordMapper.class);
+        svc = new DishService(stepMapper, dictRelMapper, dishIngMapper, ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(), null, new com.gudu.xsd.modules.nutrition.UnitConvertService(java.util.Set.of(20L)), cookingRecordMapper);
         injectBaseMapper(svc, dishMapper);
     }
 
@@ -213,6 +216,27 @@ class DishServiceTest {
 
         assertThat(detail.ingredients()).hasSize(1);
         assertThat(detail.ingredients().get(0).getIngredientName()).isNull();
+    }
+
+    /** cookedCount：无就餐成员时回填 0，不报错（容错验证）。 */
+    @Test
+    void 无就餐成员_cookedCount回填0不报错() {
+        DishSearchDTO q = new DishSearchDTO();
+        q.setPageNum(1);
+        q.setPageSize(10);
+
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Dish> mp =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10);
+        mp.setRecords(List.of(dish(1L, "番茄炒蛋"), dish(2L, "黄瓜")));
+        mp.setTotal(2);
+        when(dishMapper.selectPage(any(), any(Wrapper.class))).thenReturn(mp);
+        // 无 session → fillCookedCount 拿不到 member → 回填 0，cookingRecordMapper 不应被调用
+
+        var page = svc.search(q);
+
+        assertThat(page.getRecords()).extracting(Dish::getCookedCount)
+                .containsExactly(0, 0); // 无 member，全部回填 0
+        Mockito.verify(cookingRecordMapper, Mockito.never()).selectMaps(any());
     }
 
     private static BigDecimal bd(String s) { return new BigDecimal(s); }

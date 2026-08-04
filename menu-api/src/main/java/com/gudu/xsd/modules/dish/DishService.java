@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.gudu.xsd.modules.cookbook.CookingRecord;
+import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import com.gudu.xsd.modules.dish.mapper.DishDictMapper;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.dish.mapper.DishMapper;
@@ -38,6 +40,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     private final NutritionCalcService nutritionCalc;
     private final DictMapper dictMapper;
     private final com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert;
+    private final CookingRecordMapper cookingRecordMapper;
 
     /** 保存菜品（新增或更新），整体替换步骤 + 菜系/标签/分类关联 + 食材用量。 */
     @Transactional
@@ -172,12 +175,20 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                     "GROUP BY di.dish_id HAVING COUNT(DISTINCT di.ingredient_id) = " + ingCount);
         }
 
+        // 排序：缺省=创建时间倒序。cooked=做过最多（回填后当前页内存倒序）。
+        w.orderByDesc("create_time");
+        boolean sortByCooked = "cooked".equalsIgnoreCase(q.getSort()) && curMember != null;
+
         // 无营养约束：原 SQL 分页。
         Map<Long, BigDecimal> limits = q.getNutritionLimits();
         if (limits == null || limits.isEmpty()) {
             Page<Dish> page = new Page<>(q.getPageNum(), q.getPageSize());
             IPage<Dish> result = page(page, w);
             fillRelNames(result.getRecords());
+            fillCookedCount(result.getRecords(), curMember);
+            if (sortByCooked) {
+                result.getRecords().sort(Comparator.comparingInt(Dish::getCookedCount).reversed());
+            }
             return result;
         }
 
@@ -196,6 +207,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         page.setTotal(total);
         page.setRecords(pageRecords);
         fillRelNames(pageRecords);
+        fillCookedCount(pageRecords, curMember);
         return page;
     }
 
@@ -231,6 +243,40 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             d.setCuisineNames(cuisines);
             d.setCategoryNames(categories);
             d.setTagNames(tags);
+        }
+    }
+
+    /**
+     * 批量回填做过次数（按当前就餐成员统计 cooking_record）。
+     * 一条 SQL 按 member_id + dish_id IN(...) GROUP BY，避免逐菜 N+1。
+     * member 为 null 或无记录时回填 0。
+     */
+    private void fillCookedCount(List<Dish> dishes, Long memberId) {
+        if (dishes == null || dishes.isEmpty()) return;
+        for (Dish d : dishes) d.setCookedCount(0);
+        if (memberId == null) return;
+        List<Long> dishIds = dishes.stream().map(Dish::getId).filter(Objects::nonNull).toList();
+        if (dishIds.isEmpty()) return;
+        // selectMaps 返回聚合结果（COUNT(*) AS cnt），避免实体无 cnt 字段的映射问题
+        List<Map<String, Object>> rows = cookingRecordMapper.selectMaps(
+                new QueryWrapper<CookingRecord>()
+                        .select("dish_id", "COUNT(*) AS cnt")
+                        .eq("member_id", memberId)
+                        .in("dish_id", dishIds)
+                        .groupBy("dish_id"));
+        Map<Long, Long> cntMap = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object dishIdObj = row.get("dish_id");
+            Object cntObj = row.get("cnt");
+            if (dishIdObj != null) {
+                long cnt = cntObj == null ? 0L : ((Number) cntObj).longValue();
+                cntMap.put(((Number) dishIdObj).longValue(), cnt);
+            }
+        }
+        for (Dish d : dishes) {
+            if (d.getId() != null && cntMap.containsKey(d.getId())) {
+                d.setCookedCount(cntMap.get(d.getId()).intValue());
+            }
         }
     }
 
