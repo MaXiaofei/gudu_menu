@@ -509,9 +509,9 @@ class _MealPlanPageState extends State<MealPlanPage> {
               child: Row(children: [
                 Text('营养小计', style: TextStyle(fontSize: 12, color: t.caption)),
                 const Spacer(),
-                Text('🔥 ${nut.calorie}kcal', style: const TextStyle(fontSize: 12, color: AppTokens.error, fontWeight: FontWeight.w600)),
+                Text('${nut.calorie}kcal', style: const TextStyle(fontSize: 12, color: AppTokens.error, fontWeight: FontWeight.w600)),
                 const SizedBox(width: AppTokens.sp8),
-                Text('🥩 ${nut.protein}g', style: TextStyle(fontSize: 12, color: t.primary, fontWeight: FontWeight.w600)),
+                Text('${nut.protein}g', style: TextStyle(fontSize: 12, color: t.primary, fontWeight: FontWeight.w600)),
               ]),
             ),
           ],

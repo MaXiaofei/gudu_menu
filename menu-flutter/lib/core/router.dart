@@ -21,7 +21,7 @@ import '../widgets/main_shell.dart';
 
 /// 路由表 + 登录拦截（对应小程序 401/未登录 reLaunch 到登录页）。
 ///
-/// 结构：5 个 tab（菜谱/食集/[推荐]/我家余量/我的）包在 StatefulShellRoute 里，
+/// 结构：5 个 tab（菜谱/食集/[推荐]/库存/我的）包在 StatefulShellRoute 里，
 /// 由 [MainShell] 注入底部 Tab Bar；非 tab 页（详情/录入/点评等）为顶层 GoRoute，
 /// 由 tab 页 push 进入，不显示底部 bar。
 ///
@@ -40,7 +40,7 @@ GoRouter createRouter(AuthStore auth) {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
 
-      // ===== 5-Tab 主壳：菜谱 / 食集 / 推荐 / 我家余量 / 我的 =====
+      // ===== 5-Tab 主壳：菜谱 / 食集 / 推荐 / 库存 / 我的 =====
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             MainShell(navigationShell: navigationShell),
@@ -57,7 +57,7 @@ GoRouter createRouter(AuthStore auth) {
           StatefulShellBranch(routes: [
             GoRoute(path: '/ai-recommend', builder: (_, __) => const AiRecommendPage()),
           ]),
-          // 3. 我家余量
+          // 3. 库存
           StatefulShellBranch(routes: [
             GoRoute(path: '/pantry', builder: (_, __) => const PantryListPage()),
           ]),

@@ -685,8 +685,8 @@ class _PantryListPageState extends State<PantryListPage>
   String get _emptyText {
     switch (_tabCtrl.index) {
       case 0: return '暂无库存';
-      case 1: return '没有临期食材 ✨';
-      case 2: return '库存充足 ✅';
+      case 1: return '没有临期食材';
+      case 2: return '库存充足';
       default: return '';
     }
   }

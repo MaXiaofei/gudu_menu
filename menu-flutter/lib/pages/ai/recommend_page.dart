@@ -75,7 +75,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
               borderRadius: BorderRadius.circular(AppTokens.rMd),
             ),
             child: Column(children: [
-              Text('📋 智能荐菜', style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('智能荐菜', style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text('根据预算和健康约束推荐菜品组合', style: TextStyle(color: Colors.white70, fontSize: 12)),
             ]),
@@ -177,8 +177,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                   border: Border.all(color: const Color(0xFFE8D8B8)),
                 ),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('⚠️', style: TextStyle(fontSize: 12)),
-                  const SizedBox(width: 8),
                   Expanded(child: Text(
                     '当前成员未设置健康约束（糖上限/热量上限/过敏原），推荐未做健康过滤。建议在成员档案中完善。',
                     style: TextStyle(fontSize: 12, color: const Color(0xFF9B8060)),

@@ -395,8 +395,6 @@ class _PrepTabState extends State<_PrepTab> {
           padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
           child: Row(
             children: [
-              const Text('🧂', style: TextStyle(fontSize: 16)),
-              const SizedBox(width: AppTokens.sp8),
               Text('调料 $count 样 · 无需备料',
                   style: TextStyle(
                       fontSize: 12, color: t.body)),
@@ -479,10 +477,6 @@ class _PrepItemRow extends StatelessWidget {
                               style: TextStyle(
                                   fontSize: 14, fontWeight: FontWeight.w500, color: t.title)),
                         ),
-                        if (item.shared) ...[
-                          const SizedBox(width: AppTokens.sp4),
-                          const Text('🔥', style: TextStyle(fontSize: 12)),
-                        ],
                       ],
                     ),
                     if (item.dishNames.isNotEmpty)

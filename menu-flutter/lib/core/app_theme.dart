@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// 咕嘟小食单 · 双主题设计系统（与 docs/design/design-themes.html 1:1 对齐）。
+/// 咕嘟小食单 · 双主题设计系统（颜色 token 权威定义在本文件；
+/// 设计约定见 docs/design/DESIGN.md §4 圆角 / §5 阴影 / §6 间距 / §7 交互）。
 ///
 /// 定稿：原始深色中性色版。
 ///   · 奶油轻食（暖橙，默认）：primary #E89150 / title #4A382A / body #6E5C49

@@ -274,7 +274,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
                               ],
                               if (active) ...[
                                 const SizedBox(height: AppTokens.sp8),
-                                Text('⏱ ${_elapsed}s',
+                                Text('${_elapsed}s',
                                     style: TextStyle(
                                         color: t.primary,
                                         fontSize: 18,

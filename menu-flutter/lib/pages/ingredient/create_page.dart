@@ -388,7 +388,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                 border: Border.all(
                     color: showCustom ? t.primary : t.border, width: 1.2),
               ),
-              child: Text(showCustom ? '自定义 ✓' : '+ 自定义', style: TextStyle(fontSize: 12,
+              child: Text(showCustom ? '自定义' : '+ 自定义', style: TextStyle(fontSize: 12,
                   color: showCustom ? t.primary : t.caption)),
             );
           }),

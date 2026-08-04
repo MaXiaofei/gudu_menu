@@ -21,7 +21,6 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
     '1': '热量(kcal)', '2': '蛋白质(g)', '3': '脂肪(g)',
     '4': '碳水(g)', '5': '糖(g)', '6': '升糖指数',
   };
-  static const _icons = {'1': '🔥', '2': '🥩', '3': '🥑', '4': '🍚', '5': '🍬', '6': '📊'};
   static const _colors = {
     '1': AppTokens.error, '2': AppTokens.error, '3': AppTokens.success,
     '4': AppTokens.warning, '5': AppTokens.warning, '6': AppTokens.info,
@@ -69,7 +68,7 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
               borderRadius: BorderRadius.circular(AppTokens.rMd),
             ),
             child: Column(children: [
-              Text('🔍 描述一道菜或一餐', style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('描述一道菜或一餐', style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: AppTokens.sp4),
               Text('AI 估算总热量和营养', style: TextStyle(color: t.card.withValues(alpha: 0.7), fontSize: 12)),
             ]),
@@ -168,11 +167,7 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
               boxShadow: t.elevationSm,
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-              Row(children: [
-                Text(_icons[e.key]!, style: const TextStyle(fontSize: 16)),
-                const SizedBox(width: AppTokens.sp4),
-                Text(e.value, style: TextStyle(fontSize: 12, color: t.caption)),
-              ]),
+              Text(e.value, style: TextStyle(fontSize: 12, color: t.caption)),
               const SizedBox(height: AppTokens.sp4),
               Text('$displayVal', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _colors[e.key])),
             ]),

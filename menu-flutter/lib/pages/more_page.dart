@@ -61,38 +61,26 @@ class MorePage extends StatelessWidget {
                 style: TextStyle(fontSize: 13, color: t.caption)),
             const SizedBox(height: 22),
             _ToolCard(
-                icon: Icons.shopping_cart_outlined,
-                color: const Color(0xFFE8A33D),
                 name: '买菜',
                 sub: '采购清单，缺啥买啥',
                 onTap: () => context.push('/shopping')),
             _ToolCard(
-                icon: Icons.kitchen_outlined,
-                color: const Color(0xFF6FBF8E),
                 name: '家里有啥',
                 sub: '冰箱食材库存、临期提醒',
                 onTap: () => context.push('/pantry')),
             _ToolCard(
-                icon: Icons.edit_note_outlined,
-                color: const Color(0xFFB07BD8),
                 name: '今天吃了啥',
                 sub: '饮食日记，记一笔安心',
                 onTap: () => context.push('/dailylog')),
             _ToolCard(
-                icon: Icons.calendar_month_outlined,
-                color: const Color(0xFF6BA8E8),
                 name: '本周排菜',
                 sub: '一周菜单排起来',
                 onTap: () => context.push('/mealplan')),
             _ToolCard(
-                icon: Icons.auto_awesome,
-                color: const Color(0xFFE07B7B),
-                name: 'AI 帮我',
+                name: '推荐菜',
                 sub: '换菜单、算热量',
                 onTap: () => context.push('/ai-recommend')),
             _ToolCard(
-                icon: Icons.search,
-                color: const Color(0xFF2A9D8F),
                 name: '食材找菜',
                 sub: '手里有啥，能做啥',
                 onTap: () => context.push('/find-dish')),
@@ -104,15 +92,11 @@ class MorePage extends StatelessWidget {
 }
 
 class _ToolCard extends StatelessWidget {
-  final IconData icon;
-  final Color color; // 图标装饰色（多彩，不随主题）
   final String name;
   final String sub;
   final VoidCallback onTap;
 
   const _ToolCard({
-    required this.icon,
-    required this.color,
     required this.name,
     required this.sub,
     required this.onTap,
@@ -128,16 +112,6 @@ class _ToolCard extends StatelessWidget {
         onTap: onTap,
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: color.withAlpha(38),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
