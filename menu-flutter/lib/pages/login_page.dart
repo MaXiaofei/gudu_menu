@@ -49,11 +49,7 @@ class _LoginPageState extends State<LoginPage> {
                 Text(
                   '小食单',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: t.primary,
-                  ),
+                  style: t.textStyles.h1.copyWith(color: t.primary),
                 ),
                 const SizedBox(height: AppTokens.sp32),
                 TextField(

@@ -22,6 +22,9 @@ public class Ingredient {
 
     private BigDecimal price;
 
+    /** 库存警戒阈值（食材级，按默认单位计）。V39 从 pantry 行级挪到此处。 */
+    private BigDecimal lowThreshold;
+
     /** 关联 sys_dict(purchase_category)。 */
     private Long purchaseCategoryId;
 

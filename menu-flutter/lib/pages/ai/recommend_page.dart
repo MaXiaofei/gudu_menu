@@ -75,9 +75,9 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
               borderRadius: BorderRadius.circular(AppTokens.rMd),
             ),
             child: Column(children: [
-              Text('智能荐菜', style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('智能荐菜', style: t.textStyles.subtitle.copyWith(color: t.card)),
               const SizedBox(height: 8),
-              Text('根据预算和健康约束推荐菜品组合', style: TextStyle(color: Colors.white70, fontSize: 12)),
+              Text('根据预算和健康约束推荐菜品组合', style: t.textStyles.sm.copyWith(color: Colors.white70)),
             ]),
           ),
           const SizedBox(height: 16),
@@ -159,7 +159,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFF3F0), borderRadius: BorderRadius.circular(AppTokens.rMd),
                 ),
-                child: Text(_error!, style: const TextStyle(color: AppTokens.error, fontSize: 12)),
+                child: Text(_error!, style: t.textStyles.sm.copyWith(color: AppTokens.error)),
               ),
             ),
 
@@ -179,7 +179,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(child: Text(
                     '当前成员未设置健康约束（糖上限/热量上限/过敏原），推荐未做健康过滤。建议在成员档案中完善。',
-                    style: TextStyle(fontSize: 12, color: const Color(0xFF9B8060)),
+                    style: t.textStyles.sm.copyWith(color: const Color(0xFF9B8060)),
                   )),
                 ]),
               ),
@@ -240,7 +240,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           color: active ? t.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(AppTokens.rSm),
         ),
-        child: Text(label, style: TextStyle(fontSize: 12, color: active ? t.card : t.caption)),
+        child: Text(label, style: t.textStyles.sm.copyWith(color: active ? t.card : t.caption)),
       ),
     );
   }
@@ -260,10 +260,10 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           Row(children: [
             CircleAvatar(
               radius: 12, backgroundColor: t.primary,
-              child: Text('$index', style: TextStyle(color: t.card, fontSize: 12, fontWeight: FontWeight.bold)),
+              child: Text('$index', style: t.textStyles.sm.copyWith(fontWeight: FontWeight.bold, color: t.card)),
             ),
             const SizedBox(width: 8),
-            Text('推荐组合', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: t.title)),
+            Text('推荐组合', style: t.textStyles.cardTitle.copyWith(color: t.title)),
           ]),
           const SizedBox(height: 12),
           // 菜品 chips（可点击跳详情）
@@ -282,7 +282,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                   decoration: BoxDecoration(
                     color: t.primary.withAlpha(15), borderRadius: BorderRadius.circular(AppTokens.rMd),
                   ),
-                  child: Text(name, style: TextStyle(fontSize: 12, color: t.primary,
+                  child: Text(name, style: t.textStyles.sm.copyWith(color: t.primary,
                       decoration: TextDecoration.underline, decorationColor: t.primary.withAlpha(50))),
                 ),
               );
@@ -293,9 +293,9 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             ...reasons.map((r) => Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('·', style: TextStyle(fontSize: 12, color: t.caption)),
+                Text('·', style: t.textStyles.sm.copyWith(color: t.caption)),
                 const SizedBox(width: 8),
-                Expanded(child: Text(r, style: TextStyle(fontSize: 12, color: t.caption))),
+                Expanded(child: Text(r, style: t.textStyles.sm.copyWith(color: t.caption))),
               ]),
             )),
           ],
@@ -305,7 +305,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             child: TextButton.icon(
               onPressed: () => _addToPlan(dishes),
               icon: const Icon(Icons.calendar_today, size: 14),
-              label: const Text('排入计划', style: TextStyle(fontSize: 12)),
+              label: Text('排入计划', style: t.textStyles.sm),
             ),
           ),
         ]),

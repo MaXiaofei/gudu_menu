@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>菜谱详情 · 改动效果</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; color: #241914; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { font-size: 13px; color: #888; margin: 0 0 24px; }
+.section { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 20px; max-width: 400px; }
+.section h2 { font-size: 18px; margin: 0 0 8px; }
+.section .subtitle { font-size: 12px; color: #9C8C7A; margin: 0 0 16px; }
+.options { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.option { display: flex; gap: 12px; align-items: flex-start; border: 1px solid #eee; border-radius: 10px; padding: 12px; cursor: pointer; }
+.option .letter { width: 28px; height: 28px; border-radius: 50%; background: #FBF0DD; color: #D17A3C; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.option .content h3 { font-size: 14px; margin: 0 0 4px; }
+.option .content p { font-size: 12px; color: #9C8C7A; margin: 0; }
+.option.selected { border-color: #E89150; background: #FFF7EC; }
+</style>
+</head>
+<body>
+<h1>菜谱详情 · 删计时 + 加用料</h1>
+<p class="sub">去掉步骤里的计时按钮；营养和做法之间插入用料区</p>
+<div class="section">
+<h2>菜谱详情</h2>
+<p class="subtitle">从菜谱列表点进来。封面图 + 菜名/标签/时间难度 + 营养 + 用料 + 做法步骤 + 底部操作。对应 Flutter <code>pages/dish/detail_page.dart</code>。</p>
+
+<div class="section">
+  <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;max-width:340px;margin:0 auto;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px">
+
+    <!-- 顶栏 -->
+    <div style="padding:10px 14px 6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:18px;color:#6E5C49">‹</span>
+      <span style="font-size:11px;color:#9C8C7A">菜品详情</span>
+      <span style="font-size:11px;color:#9C8C7A"></span>
+    </div>
+
+    <!-- 滚动区 -->
+    <div style="flex:1;overflow:hidden">
+
+      <!-- 封面图（占位框，符合 §10 图片占位规则） -->
+      <div style="height:180px;background:linear-gradient(135deg,#FBF0DD,#F6D9BE);display:flex;align-items:center;justify-content:center">
+        <span style="font-size:11px;color:#B8762E">菜品封面图</span>
+      </div>
+
+      <!-- 菜名 + 时间难度 -->
+      <div style="padding:14px 16px 6px">
+        <div style="font-size:22px;font-weight:800;color:#4A382A">番茄炒蛋</div>
+        <div style="font-size:12px;color:#9C8C7A;margin-top:6px">备料 5 分 · 烹饪 5 分 · 难度 1/5</div>
+      </div>
+
+      <!-- 标签 -->
+      <div style="padding:6px 16px 8px;display:flex;flex-wrap:wrap;gap:6px">
+        <span style="font-size:11px;background:#FBF0DD;color:#D17A3C;padding:2px 10px;border-radius:8px">家常</span>
+        <span style="font-size:11px;background:#FBF0DD;color:#D17A3C;padding:2px 10px;border-radius:8px">快手</span>
+        <span style="font-size:11px;background:#FBF0DD;color:#D17A3C;padding:2px 10px;border-radius:8px">低脂</span>
+      </div>
+
+      <!-- 备注 -->
+      <div style="padding:0 16px 8px">
+        <div style="font-size:12px;color:#6E5C49;line-height:1.5">鸡蛋先炒到七分熟盛出，最后再回锅，口感更嫩。</div>
+      </div>
+
+      <!-- 营养 -->
+      <div style="padding:8px 16px 4px;border-top:1px solid #F0E6D6;margin-top:4px">
+        <div style="font-size:14px;font-weight:800;color:#4A382A;margin-bottom:8px">营养（份数 1）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:10px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:#9C8C7A">热量</div>
+            <div style="font-size:16px;font-weight:800;color:#4A382A;margin-top:2px">185</div>
+            <div style="font-size:9px;color:#9C8C7A">kcal</div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:10px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:#9C8C7A">蛋白质</div>
+            <div style="font-size:16px;font-weight:800;color:#4A382A;margin-top:2px">12</div>
+            <div style="font-size:9px;color:#9C8C7A">g</div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:10px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:#9C8C7A">脂肪</div>
+            <div style="font-size:16px;font-weight:800;color:#4A382A;margin-top:2px">10</div>
+            <div style="font-size:9px;color:#9C8C7A">g</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 用料（份数 1） -->
+      <div style="padding:10px 16px 4px;border-top:1px solid #F0E6D6;margin-top:8px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <span style="font-size:14px;font-weight:800;color:#4A382A">用料</span>
+          <span style="font-size:10px;color:#9C8C7A">份数 1 · 共 2 样</span>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:12px;overflow:hidden">
+          <!-- 番茄 -->
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #F0E6D6">
+            <div style="width:28px;height:28px;border-radius:8px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;font-size:14px">🍅</div>
+            <div style="flex:1;font-size:13px;font-weight:700;color:#4A382A">番茄</div>
+            <div style="font-size:13px;font-weight:800;color:#4A382A">300 g</div>
+          </div>
+          <!-- 鸡蛋 -->
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px">
+            <div style="width:28px;height:28px;border-radius:8px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;font-size:14px">🥚</div>
+            <div style="flex:1;font-size:13px;font-weight:700;color:#4A382A">鸡蛋</div>
+            <div style="font-size:13px;font-weight:800;color:#4A382A">180 g</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#9C8C7A;margin-top:6px">用量为 1 份基准；做菜时按份数自动放大。</div>
+      </div>
+
+      <!-- 做法步骤 -->
+      <div style="padding:12px 16px 4px;border-top:1px solid #F0E6D6;margin-top:8px">
+        <div style="font-size:14px;font-weight:800;color:#4A382A;margin-bottom:4px">做法</div>
+      </div>
+
+      <!-- 步骤 1 -->
+      <div style="padding:12px 16px;border-top:1px solid #F0E6D6">
+        <div style="font-size:13px;font-weight:700;color:#4A382A">步骤 1</div>
+        <div style="font-size:12px;color:#6E5C49;margin-top:6px;line-height:1.5">鸡蛋打散，加少许盐，搅匀。</div>
+      </div>
+
+      <!-- 步骤 2 -->
+      <div style="padding:12px 16px;border-top:1px solid #F0E6D6">
+        <div style="font-size:13px;font-weight:700;color:#4A382A">步骤 2</div>
+        <div style="font-size:12px;color:#6E5C49;margin-top:6px;line-height:1.5">热锅冷油，倒入蛋液，七分熟盛出。</div>
+      </div>
+
+      <!-- 步骤 3 -->
+      <div style="padding:12px 16px;border-top:1px solid #F0E6D6">
+        <div style="font-size:13px;font-weight:700;color:#4A382A">步骤 3</div>
+        <div style="font-size:12px;color:#6E5C49;margin-top:6px;line-height:1.5">番茄切块下锅炒出汁，倒回鸡蛋翻匀，调味即可。</div>
+      </div>
+    </div>
+
+    <!-- 底部操作 -->
+    <div style="border-top:1px solid #F0E6D6;padding:12px 16px;background:#FFFFFF">
+      <button style="width:100%;border:none;background:#4FAE6E;color:#fff;font-weight:800;font-size:14px;padding:13px;border-radius:12px">加到食集</button>
+    </div>
+  </div>
+</div>
+
+<div style="font-size:11px;color:#9C8C7A;margin-top:12px;text-align:center;max-width:340px;margin-left:auto;margin-right:auto">
+  对应 Flutter <code>pages/dish/detail_page.dart</code>。封面图点开全屏查看（缩略图→原图）；
+  用料标明食材+用量（1 份基准）；「今天做」扣库存+写做菜记录。
+</div>
+
+<div class="options" style="margin-top:14px">
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>菜谱详情原型行</h3>
+      <p>和 Flutter 实现对齐，往下继续</p>
+    </div>
+  </div>
+  <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>有细节要改</h3>
+      <p>封面/标签/步骤/按钮——终端说</p>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+function toggleSelect(el){ el.classList.toggle("selected"); }
+</script>
+</body>
+</html>

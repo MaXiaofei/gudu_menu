@@ -24,7 +24,8 @@
 .tk-dense{width:100%;border-collapse:collapse;background:#FFFAF5;border-radius:6px;overflow:hidden}
 .tk-dense td,.tk-dense th{font-size:11px;padding:4px 8px;border-bottom:1px solid #F2EAE0;text-align:left;color:#241914}
 .tk-loose{display:flex;flex-direction:column;gap:8px}
-.tk-loose .c{background:#FFFAF5;border:1px solid #F2EAE0;border-radius:12px;padding:10px 12px;font-size:13px;color:#241914}
+.tk-loose .c{background:#FFFAF5;border:1px solid #F2EAE0;border-radius:12px;padding:10px 12px;font-size:13px;color:#241914;display:flex;align-items:center;gap:8px}
+.tk-thumb{width:20px;height:20px;border-radius:6px;background:#F2EAE0;border:1px solid #E8DCD0;flex-shrink:0}
 .tk-pill{display:inline-block;background:#E8602C;color:#fff;border-radius:999px;padding:1px 8px;font-size:10px;margin-left:6px}
 code{background:#F2EAE0;border-radius:4px;padding:1px 5px;font-size:12px;color:#6B5950}
 </style>
@@ -112,9 +113,9 @@ code{background:#F2EAE0;border-radius:4px;padding:1px 5px;font-size:12px;color:#
       <h4>C 端 · 用户端（小程序+App）</h4>
       <p class="sub">温暖 / 宽松 / 卡片导向 · uview-plus / Material</p>
       <div class="tk-loose">
-        <div class="c">🍅 番茄炒蛋<span class="tk-pill">家常</span></div>
-        <div class="c">🐟 清蒸鲈鱼<span class="tk-pill">粤菜</span></div>
-        <div class="c">🥩 红烧肉<span class="tk-pill">家常</span></div>
+        <div class="c"><div class="tk-thumb"></div>番茄炒蛋<span class="tk-pill">家常</span></div>
+        <div class="c"><div class="tk-thumb"></div>清蒸鲈鱼<span class="tk-pill">粤菜</span></div>
+        <div class="c"><div class="tk-thumb"></div>红烧肉<span class="tk-pill">家常</span></div>
       </div>
       <p class="sub" style="margin-top:8px;margin-bottom:0">基准字号 16 · 圆角 8~12 · 间距偏松</p>
     </div>

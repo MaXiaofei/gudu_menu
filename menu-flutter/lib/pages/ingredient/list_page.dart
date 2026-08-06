@@ -153,7 +153,7 @@ class _IngredientListPageState extends State<IngredientListPage> {
                                 padding: const EdgeInsets.all(AppTokens.sp16),
                                 child: Center(child: Text(
                                   _hasMore ? '上拉加载更多' : '没有更多了',
-                                  style: TextStyle(color: t.caption, fontSize: 12),
+                                  style: t.textStyles.sm.copyWith(color: t.caption),
                                 )),
                               );
                             }
@@ -186,10 +186,10 @@ class _IngredientListPageState extends State<IngredientListPage> {
           backgroundColor: t.primary.withAlpha(20),
           child: Icon(Icons.eco_outlined, size: 18, color: t.primary),
         ),
-        title: Text(item.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.title)),
+        title: Text(item.name, style: t.textStyles.md.copyWith(fontWeight: FontWeight.w600, color: t.title)),
         subtitle: Text(
           item.nutritionSummary,
-          style: TextStyle(fontSize: 12, color: t.caption),
+          style: t.textStyles.sm.copyWith(color: t.caption),
         ),
         trailing: Icon(Icons.chevron_right, size: 18, color: t.caption),
         onTap: () {
@@ -211,7 +211,7 @@ class _IngredientListPageState extends State<IngredientListPage> {
       builder: (ctx) => Padding(
         padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(item.name, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: t.title)),
+          Text(item.name, style: t.textStyles.subtitle),
           if (unit != null || cat != null) ...[
             const SizedBox(height: AppTokens.sp4),
             Text(
@@ -219,7 +219,7 @@ class _IngredientListPageState extends State<IngredientListPage> {
                 if (unit != null) '单位：$unit',
                 if (cat != null) '品类：$cat',
               ].join('  ·  '),
-              style: TextStyle(fontSize: 12, color: t.caption),
+              style: t.textStyles.sm.copyWith(color: t.caption),
             ),
           ],
           const SizedBox(height: AppTokens.sp16),
@@ -230,17 +230,16 @@ class _IngredientListPageState extends State<IngredientListPage> {
             )
           else ...[
             Text('每 100g 营养',
-                style: TextStyle(fontSize: 12, color: t.caption, fontWeight: FontWeight.w600)),
+                style: t.textStyles.sm.copyWith(color: t.caption, fontWeight: FontWeight.w600)),
             const SizedBox(height: AppTokens.sp8),
             ...item.nutritions.entries.map((e) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppTokens.sp4),
                   child: Row(children: [
                     Expanded(
-                        child: Text(e.key, style: TextStyle(fontSize: 14, color: t.body))),
+                        child: Text(e.key, style: t.textStyles.md)),
                     Text(
                       '${e.value} ${_IngredientItem.unitByCn[e.key] ?? ''}'.trim(),
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600, color: t.primary),
+                      style: t.textStyles.md.copyWith(fontWeight: FontWeight.w600, color: t.primary),
                     ),
                   ]),
                 )),

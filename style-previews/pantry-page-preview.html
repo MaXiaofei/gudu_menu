@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pantry-page.html 改动效果</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; color: #241914; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { font-size: 13px; color: #888; margin: 0 0 24px; }
+.preview { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 20px; max-width: 760px; }
+.preview h2 { font-size: 18px; margin: 0 0 8px; }
+.preview .subtitle { font-size: 12px; color: #9C8C7A; margin: 0 0 16px; }
+.options { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.option { display: flex; gap: 12px; align-items: flex-start; border: 1px solid #eee; border-radius: 10px; padding: 12px; cursor: pointer; }
+.option .letter { width: 28px; height: 28px; border-radius: 50%; background: #FBF0DD; color: #D17A3C; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.option .content h3 { font-size: 14px; margin: 0 0 4px; }
+.option .content p { font-size: 12px; color: #9C8C7A; margin: 0; }
+.option.selected { border-color: #E89150; background: #FFF7EC; }
+</style>
+</head>
+<body>
+<h1>库存页</h1>
+<p class="sub">浮动「添加」按钮可点击，跳转手动添加流程</p>
+<div class="preview">
+<h2>库存</h2>
+<p class="subtitle">三色库存（红缺/黄偏低/绿够）。刚做完「今晚的饭」，扣空的高亮在上。每项记上次变动来源，手动盘点纠正偏差。</p>
+
+<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+
+  <!-- 左：库存主页 -->
+  <div>
+    <div style="font-size:12px;font-weight:800;color:#D17A3C;margin-bottom:6px;text-align:center">库存 · 主页</div>
+    <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;width:320px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px;position:relative">
+      <!-- 头 -->
+      <div style="padding:12px 16px 4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:#9C8C7A"> 库存</span>
+        <!-- 主操作：去采购。盘点入口在每行「±」，不在此重复 -->
+        <span style="font-size:10px;font-weight:800;color:#fff;background:#E89150;padding:5px 12px;border-radius:8px">去采购</span>
+      </div>
+      <div style="padding:4px 16px 8px;display:flex;justify-content:space-between;align-items:flex-end">
+        <div style="font-size:22px;font-weight:800;color:#4A382A">库存</div>
+
+      </div>
+
+      <!-- 三色汇总 -->
+      <div style="margin:0 14px 8px">
+        <div style="display:flex;font-size:10px;font-weight:800;gap:0;border-radius:8px;overflow:hidden">
+          <div style="flex:12;background:#4FAE6E;color:#fff;padding:6px 8px"> 够 12</div>
+          <div style="flex:3;background:#E5A938;color:#fff;padding:6px 8px"> 低 3</div>
+          <div style="flex:5;background:#DB5A4E;color:#fff;padding:6px 8px"> 缺 5</div>
+        </div>
+      </div>
+
+      <!-- 筛选条 -->
+      <div style="padding:0 14px 6px;display:flex;gap:5px">
+        <span style="font-size:10px;font-weight:800;background:#4A382A;color:#fff;padding:4px 9px;border-radius:7px">全部 20</span>
+        <span style="font-size:10px;background:#fff;border:1px solid #F0E6D6;color:#DB5A4E;padding:4px 9px;border-radius:7px">缺 5</span>
+        <span style="font-size:10px;background:#fff;border:1px solid #F0E6D6;color:#E5A938;padding:4px 9px;border-radius:7px">低 3</span>
+        <span style="font-size:10px;background:#fff;border:1px solid #F0E6D6;color:#4FAE6E;padding:4px 9px;border-radius:7px">够 12</span>
+      </div>
+
+      <!-- 列表 -->
+      <div style="flex:1;overflow:hidden;padding:0 14px">
+
+        <div style="font-size:9px;font-weight:800;color:#DB5A4E;letter-spacing:1px;margin:4px 0 4px">缺 / 空 · 5</div>
+
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px dashed #F0E6D6">
+          
+          <div style="flex:1"><div style="font-size:12px;font-weight:700;color:#4A382A">鸡蛋</div><div style="font-size:9px;color:#9C8C7A">做菜 -6 · 刚刚</div></div>
+          <span style="font-size:11px;font-weight:800;color:#DB5A4E">0 个</span>
+          <span style="font-size:13px;color:#D17A3C;font-weight:800">›</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px dashed #F0E6D6">
+          
+          <div style="flex:1"><div style="font-size:12px;font-weight:700;color:#4A382A">鲈鱼</div><div style="font-size:9px;color:#9C8C7A">做菜 -2 · 刚刚</div></div>
+          <span style="font-size:11px;font-weight:800;color:#DB5A4E">0 条</span>
+          <span style="font-size:13px;color:#D17A3C;font-weight:800">›</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px dashed #F0E6D6">
+          
+          <div style="flex:1"><div style="font-size:12px;font-weight:700;color:#4A382A">葱</div><div style="font-size:9px;color:#9C8C7A">本来就没有</div></div>
+          <span style="font-size:11px;font-weight:800;color:#DB5A4E">0 把</span>
+          <span style="font-size:13px;color:#D17A3C;font-weight:800">›</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px dashed #F0E6D6">
+          
+          <div style="flex:1"><div style="font-size:12px;font-weight:700;color:#4A382A">番茄</div><div style="font-size:9px;color:#9C8C7A">做菜 -2 · 刚刚</div></div>
+          <span style="font-size:11px;font-weight:800;color:#DB5A4E">0 个</span>
+          <span style="font-size:13px;color:#D17A3C;font-weight:800">›</span>
+        </div>
+
+        <div style="font-size:9px;font-weight:800;color:#E5A938;letter-spacing:1px;margin:8px 0 4px">偏低 · 3</div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px dashed #F0E6D6">
+          
+          <div style="flex:1"><div style="font-size:12px;font-weight:700;color:#4A382A">食用油</div><div style="font-size:9px;color:#9C8C7A">做菜 -15g · 刚刚</div></div>
+          <span style="font-size:11px;font-weight:800;color:#E5A938">485 g</span>
+          <span style="font-size:13px;color:#D17A3C;font-weight:800">›</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px dashed #F0E6D6">
+          
+          <div style="flex:1"><div style="font-size:12px;font-weight:700;color:#4A382A">牛奶</div><div style="font-size:9px;color:#9C8C7A">低于警戒 500ml</div></div>
+          <span style="font-size:11px;font-weight:800;color:#E5A938">300 ml</span>
+          <span style="font-size:13px;color:#D17A3C;font-weight:800">›</span>
+        </div>
+        <!-- 手动添加的记录：带「手动」来源标签，区别于做菜/采购/盘点 -->
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px dashed #F0E6D6">
+
+          <div style="flex:1"><div style="font-size:12px;font-weight:700;color:#4A382A">苹果</div><div style="font-size:9px;color:#9C8C7A"><span style="color:#D17A3C;font-weight:800">手动</span> +4 · 朋友送 7/2</div></div>
+          <span style="font-size:11px;font-weight:800;color:#4FAE6E">4 个</span>
+          <span style="font-size:13px;color:#D17A3C;font-weight:800">›</span>
+        </div>
+
+        <!-- 够：也带「±」（全部项均可随时盘点纠偏，不只缺/低） -->
+        <div style="font-size:9px;font-weight:800;color:#4FAE6E;letter-spacing:1px;margin:8px 0 4px">够 · 12</div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px dashed #F0E6D6">
+
+          <div style="flex:1"><div style="font-size:12px;font-weight:700;color:#4A382A">大米</div><div style="font-size:9px;color:#9C8C7A">采购 7/2 · 2kg</div></div>
+          <span style="font-size:11px;font-weight:800;color:#4FAE6E">2 kg</span>
+          <span style="font-size:13px;color:#D17A3C;font-weight:800">›</span>
+        </div>
+      </div>
+
+      <!-- 右下浮动「添加」：手动添加入口（页级新增，区别于每行「›」进详情盘点纠偏） -->
+      <a href="pantry-manual-add-preview.html" style="position:absolute;right:14px;bottom:62px;width:54px;height:54px;border-radius:50%;background:#E89150;box-shadow:0 8px 20px rgba(232,145,80,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;z-index:5;text-decoration:none;cursor:pointer">添加</a>
+
+      <!-- 底部 Tab -->
+      <div style="border-top:1px solid #F0E6D6;padding:8px 0 10px;display:flex;justify-content:space-around;align-items:flex-end;background:#FFFFFF">
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">菜谱</div></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">食集</div></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">推荐</div></div>
+        <div style="text-align:center"><div style="font-size:9px;font-weight:800;color:#D17A3C;margin-top:1px">库存</div></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">我的</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：食材详情页（点整行进入 · 盘点加减在这里） -->
+  <div>
+    <div style="font-size:12px;font-weight:800;color:#D17A3C;margin-bottom:6px;text-align:center">点行进入 · 食材详情</div>
+    <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;width:290px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px">
+      <!-- 顶栏：返回 + 标题 -->
+      <div style="padding:12px 14px 4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:20px;color:#6E5C49;font-weight:800">‹</span>
+        <span style="font-size:11px;color:#9C8C7A">食材详情</span>
+        <span style="width:20px"></span>
+      </div>
+
+      <!-- 食材头 -->
+      <div style="padding:14px 16px 12px;display:flex;align-items:center;gap:12px">
+        <div style="width:52px;height:52px;border-radius:14px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;font-size:26px"></div>
+        <div>
+          <div style="font-size:18px;font-weight:800;color:#4A382A">鸡蛋</div>
+          <div style="font-size:11px;color:#9C8C7A;margin-top:2px">系统记 0 个 · 做菜 -6 刚刚</div>
+        </div>
+      </div>
+
+      <!-- 加减盘：盘点纠偏在这里（居中放大，占视觉重心） -->
+      <div style="flex:1;padding:8px 16px 12px;display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div style="font-size:12px;color:#6E5C49;margin-bottom:10px">实际数了多少？</div>
+          <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:14px;padding:22px 14px;display:flex;align-items:center;justify-content:center;gap:26px">
+            <span style="width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;color:#DB5A4E;font-weight:800">−</span>
+            <div style="text-align:center"><div style="font-size:38px;font-weight:800;color:#4A382A;line-height:1">1</div><div style="font-size:10px;color:#9C8C7A;margin-top:4px">个 · 系统差 +1</div></div>
+            <span style="width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;color:#4FAE6E;font-weight:800">+</span>
+          </div>
+
+          <div style="background:#FFF7EC;border:1px solid #F0E6D6;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:11px;color:#6E5C49;line-height:1.5">
+            纠正差额会记一笔「盘点」，下次做菜扣减更准。区别于右下「添加」手动添加（带来源标签）。
+          </div>
+        </div>
+
+        <!-- 明细：操作流水（时间线，每条 = 时间 + 来源 + 数量变化） -->
+        <div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:0 0 8px">
+            <span style="font-size:11px;font-weight:800;color:#9C8C7A;letter-spacing:1px">明细</span>
+            <span style="font-size:9px;color:#B8762E">只展示最近 6 条操作</span>
+          </div>
+          <div style="background:#FDFAF4;border-radius:10px;padding:4px 12px">
+            <!-- 流水条：时间 + 来源标签 + 数量变化 -->
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed #E8DCC4">
+              <span style="font-size:9px;color:#9C8C7A;width:30px;flex-shrink:0">刚刚</span>
+              <span style="font-size:9px;font-weight:800;color:#DB5A4E;background:#FBE5E2;padding:1px 6px;border-radius:4px">做菜</span>
+              <span style="flex:1;font-size:11px;color:#4A382A">今晚的饭</span>
+              <span style="font-size:11px;font-weight:800;color:#DB5A4E">-6</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed #E8DCC4">
+              <span style="font-size:9px;color:#9C8C7A;width:30px;flex-shrink:0">7/2</span>
+              <span style="font-size:9px;font-weight:800;color:#4FAE6E;background:#E3F3E6;padding:1px 6px;border-radius:4px">采购</span>
+              <span style="flex:1;font-size:11px;color:#4A382A">采购</span>
+              <span style="font-size:11px;font-weight:800;color:#4FAE6E">+3</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed #E8DCC4">
+              <span style="font-size:9px;color:#9C8C7A;width:30px;flex-shrink:0">7/2</span>
+              <span style="font-size:9px;font-weight:800;color:#D17A3C;background:#FBF0DD;padding:1px 6px;border-radius:4px">盘点</span>
+              <span style="flex:1;font-size:11px;color:#4A382A">盘点</span>
+              <span style="font-size:11px;font-weight:800;color:#4FAE6E">+1</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 0">
+              <span style="font-size:9px;color:#9C8C7A;width:30px;flex-shrink:0">6/28</span>
+              <span style="font-size:9px;font-weight:800;color:#4FAE6E;background:#E3F3E6;padding:1px 6px;border-radius:4px">采购</span>
+              <span style="flex:1;font-size:11px;color:#4A382A">采购</span>
+              <span style="font-size:11px;font-weight:800;color:#4FAE6E">+3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底栏：保存（返回走左上角「‹」） -->
+      <div style="border-top:1px solid #F0E6D6;padding:12px 14px 16px;background:#FFFFFF;display:flex;justify-content:center">
+        <button style="border:none;background:#E89150;color:#fff;font-weight:800;font-size:13px;padding:11px 56px;border-radius:12px">保存</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="font-size:11px;color:#9C8C7A;margin-top:14px;text-align:center;max-width:640px;margin-left:auto;margin-right:auto">
+  <b>库存管理</b>：自动（做菜按用料扣）+ 手动（盘点纠正 / 手动添加）。<br>
+  <b>盘点入口</b>：点食材行进入详情页，在加减盘改差额，保存返回库存页。盘点只纠偏、不带来源标签。<br>
+  <b>手动添加入口</b>：右下「添加」，产生带「手动」标签的新记录（别人送 / 赠品 / 旧库存补登）。<br>
+  <b>盘点 vs 手动添加</b>：盘点只纠偏（改已有项的差额，不产生来源标签）；手动添加新增条目（带「手动」来源标签）。<br>
+  <b>每笔变动有来源</b>：做菜 / 采购入库 / 盘点 / 手动添加，方便对账。
+</div>
+
+<div class="options" style="margin-top:14px">
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>库存页行，核心原型齐了</h3>
+      <p>找菜→加食集→做菜扣库存→列采购→记入库存 全流程画完。下一步整理规范文档</p>
+    </div>
+  </div>
+  <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>有细节要改</h3>
+      <p>三色/分组/盘点弹层/批次展示——终端说</p>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+function toggleSelect(el){ el.classList.toggle("selected"); }
+</script>
+</body>
+</html>

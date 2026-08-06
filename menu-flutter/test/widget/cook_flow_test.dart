@@ -11,127 +11,86 @@ Widget _themed(Widget child) => MaterialApp(
       home: child,
     );
 
-/// 详情页"直接做这道菜"端到端（widget 级）：
-/// DishDetailPage._load → detail/nutrition/metrics 三个并发请求（mock）→
-/// 渲染详情 → 点击"直接做这道菜" → POST /dish/{id}/cook-now →
-/// 解析 CookResult.deductions（List<DeductResult>）→ SnackBar 展示缺量食材名。
-///
-/// 关键断言：修复后 deductions 不再丢失，缺量提示带食材名（"鸡蛋 5g"）。
+/// 详情页"加到食集"端到端（widget 级）。
 void main() {
-  testWidgets('做菜有欠量 → SnackBar 展示具体缺量食材名', (tester) async {
-    bool cookCalled = false;
+  testWidgets('无今天及以后的食集 → 点加到食集 → 弹输入框 → 确认新建', (tester) async {
     installMock((options) {
-      switch (options.path) {
-        case '/dish/1':
-          return okResponse({
-            'dish': {
-              'id': 1,
-              'name': '番茄炒蛋',
-              'prepTime': 5,
-              'cookTime': 10,
-              'difficulty': 2,
-              'cuisineNames': ['鲁菜'],
-              'categoryNames': ['热菜'],
-              'tagNames': ['家常'],
-            },
-            'steps': [
-              {'seq': 1, 'text': '番茄切块'},
-            ],
-          });
-        case '/dish/1/nutrition':
-          return okResponse({'1': 200.0});
-        case '/nutrition/metric':
-          return okResponse([
-            {'id': 1, 'name': 'calorie', 'unit': 'kcal'},
-          ]);
-        case '/dish/1/cook-now':
-          cookCalled = true;
-          return okResponse({
-            'menuId': null,
-            'deductions': [
-              {
-                'ingredientId': 16,
-                'ingredientName': '番茄',
-                'deductedGrams': 100.0,
-                'shortageGrams': 0,
-                'batches': [],
-              },
-              {
-                'ingredientId': 17,
-                'ingredientName': '鸡蛋',
-                'deductedGrams': 0.0,
-                'shortageGrams': 5.0,
-                'batches': [],
-              },
-            ],
-            'shortages': {'17': 5.0},
-            'cookingRecordIds': [6],
-          });
-        default:
-          return okResponse({});
+      if (options.path == '/dish/1') {
+        return okResponse({
+          'dish': {'id': 1, 'name': '番茄炒蛋', 'cookTime': 10, 'difficulty': 2},
+          'steps': [{'seq': 1, 'text': '番茄切块'}],
+        });
       }
+      if (options.path == '/dish/1/nutrition') return okResponse({});
+      if (options.path == '/nutrition/metric') return okResponse([]);
+      // GET /menu 返回旧食集（createTime 远早于今天）
+      if (options.path == '/menu' && options.method == 'GET') {
+        return okResponse({
+          'records': [
+            {'id': 1, 'name': '旧食集', 'servingCount': 1, 'status': 'DONE',
+             'createTime': '2020-01-01T00:00:00'},
+          ],
+          'total': 1,
+        });
+      }
+      // POST /menu（createMenu）返回新 id
+      if (options.path == '/menu' && options.method == 'POST') {
+        return okResponse(99);
+      }
+      return okResponse({});
     });
 
     await tester.pumpWidget(_themed(const DishDetailPage(id: 1)));
     await tester.pumpAndSettle();
 
-    // 详情已渲染
-    expect(find.text('番茄炒蛋'), findsOneWidget);
-    // Bug B 修复后详情页展示字典名标签
-    expect(find.text('鲁菜'), findsOneWidget);
-    expect(find.text('家常'), findsOneWidget);
+    await tester.tap(find.text('加到食集'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    // 点击"直接做这道菜"
-    expect(find.text('直接做这道菜'), findsOneWidget);
-    await tester.tap(find.text('直接做这道菜'));
+    // 弹出输入框（预填菜谱名"番茄炒蛋"）
+    expect(find.text('新建食集'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+
+    // 点确定
+    await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
-    // cook-now 请求确实发出
-    expect(cookCalled, isTrue);
-    // SnackBar 展示带食材名的缺量（修复前是"缺量：1 项"，现在是"鸡蛋 5g"）
-    expect(find.textContaining('鸡蛋 5g'), findsOneWidget);
+    // 新建成功 → SnackBar
+    expect(find.textContaining('已加入新食集'), findsOneWidget);
   });
 
-  testWidgets('做菜无欠量 → SnackBar 提示库存已扣', (tester) async {
+  testWidgets('有今天食集 → 点加到食集 → 弹出选择弹窗', (tester) async {
     installMock((options) {
-      switch (options.path) {
-        case '/dish/1':
-          return okResponse({
-            'dish': {'id': 1, 'name': '白米饭', 'cookTime': 30},
-            'steps': [],
-          });
-        case '/dish/1/nutrition':
-          return okResponse({});
-        case '/nutrition/metric':
-          return okResponse([]);
-        case '/dish/1/cook-now':
-          return okResponse({
-            'menuId': null,
-            'deductions': [
-              {
-                'ingredientId': 1,
-                'ingredientName': '大米',
-                'deductedGrams': 200.0,
-                'shortageGrams': 0,
-                'batches': [],
-              },
-            ],
-            'shortages': {},
-            'cookingRecordIds': [8],
-          });
-        default:
-          return okResponse({});
+      if (options.path == '/dish/1') {
+        return okResponse({
+          'dish': {'id': 1, 'name': '番茄炒蛋', 'cookTime': 10},
+          'steps': [],
+        });
       }
+      if (options.path == '/dish/1/nutrition') return okResponse({});
+      if (options.path == '/nutrition/metric') return okResponse([]);
+      // GET /menu 返回今天的食集
+      if (options.path == '/menu' && options.method == 'GET') {
+        return okResponse({
+          'records': [
+            {'id': 10, 'name': '今晚的饭', 'servingCount': 2, 'status': 'ACTIVE',
+             'createTime': DateTime.now().toIso8601String()},
+          ],
+          'total': 1,
+        });
+      }
+      return okResponse({});
     });
 
     await tester.pumpWidget(_themed(const DishDetailPage(id: 1)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('直接做这道菜'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.text('加到食集'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.textContaining('库存已扣'), findsOneWidget);
-    // 无欠量时不出现"缺量"字样
-    expect(find.textContaining('缺量'), findsNothing);
+    // 弹出 BottomSheet（不是输入框）
+    expect(find.text('加到哪个食集？'), findsOneWidget);
+    expect(find.text('今晚的饭'), findsOneWidget);
   });
 }

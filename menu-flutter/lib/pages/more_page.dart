@@ -31,11 +31,7 @@ class MorePage extends StatelessWidget {
                         color: t.primary,
                         borderRadius: BorderRadius.circular(2))),
                 const SizedBox(width: 8),
-                Text('更多',
-                    style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: t.title)),
+                Text('更多', style: t.textStyles.h2),
                 const Spacer(),
                 Consumer<ThemeController>(
                   builder: (_, tc, __) => IconButton(
@@ -58,7 +54,7 @@ class MorePage extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text('厨房里的得力小工具',
-                style: TextStyle(fontSize: 13, color: t.caption)),
+                style: t.textStyles.sm.copyWith(color: t.caption)),
             const SizedBox(height: 22),
             _ToolCard(
                 name: '买菜',
@@ -116,13 +112,9 @@ class _ToolCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: t.title)),
+                  Text(name, style: t.textStyles.lg),
                   const SizedBox(height: 3),
-                  Text(sub, style: TextStyle(fontSize: 12, color: t.caption)),
+                  Text(sub, style: t.textStyles.sm.copyWith(color: t.caption)),
                 ],
               ),
             ),

@@ -182,7 +182,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                 Expanded(
                   child: TextField(
                     controller: _nameCtrl,
-                    style: const TextStyle(fontSize: 16),
+                    style: t.textStyles.lg,
                     decoration: InputDecoration(
                       labelText: '食材名',
                       hintText: '如：番茄',
@@ -220,8 +220,8 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('AI\n补全', textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12)),
+                        : Text('AI\n补全', textAlign: TextAlign.center,
+                            style: t.textStyles.sm.copyWith(color: Colors.white)),
                   ),
                 ),
               ],
@@ -309,7 +309,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('保存', style: TextStyle(fontSize: 16)),
+                    : Text('保存', style: t.textStyles.lg.copyWith(color: Colors.white)),
               ),
             ),
             const SizedBox(height: 32),
@@ -331,8 +331,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
         ),
         const SizedBox(width: 8),
         Text(text,
-            style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: t.title)),
+            style: t.textStyles.md.copyWith(fontWeight: FontWeight.bold, color: t.title)),
       ],
     );
   }
@@ -351,7 +350,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(emptyText,
-            style: TextStyle(color: t.caption, fontSize: 12)),
+            style: t.textStyles.sm.copyWith(color: t.caption)),
       );
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -369,7 +368,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                 border: Border.all(
                     color: selected ? t.primary : t.border, width: 1.5),
               ),
-              child: Text(item.name, style: TextStyle(fontSize: 12,
+              child: Text(item.name, style: t.textStyles.sm.copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                   color: selected ? t.primary : t.title)),
             ),
@@ -388,7 +387,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                 border: Border.all(
                     color: showCustom ? t.primary : t.border, width: 1.2),
               ),
-              child: Text(showCustom ? '自定义' : '+ 自定义', style: TextStyle(fontSize: 12,
+              child: Text(showCustom ? '自定义' : '+ 自定义', style: t.textStyles.sm.copyWith(
                   color: showCustom ? t.primary : t.caption)),
             );
           }),
@@ -415,7 +414,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
               child: TextField(
                 controller: ctrl,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 14),
+                style: t.textStyles.md,
                 decoration: InputDecoration(
                   labelText: label,
                   hintText: unit.isNotEmpty ? '单位: $unit' : '',

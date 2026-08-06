@@ -66,6 +66,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
   static const double sp32 = 32;
   static const double sp48 = 48;
 
+  /// 语义化文字样式（11 档，对齐 tokens.json typography.scale）。
+  /// 用法：`final ts = t.textStyles;` → `ts.pageTitle` / `ts.cardTitle` / `ts.body` 等。
+  VxTextStyles get textStyles => VxTextStyles.fromTokens(this);
+
   // 阴影色（对应 CSS rgba(var(--sh), Α)）
   Color get shadowSm => shadowBase.withAlpha(20); // ≈ .08
   Color get shadowMd => shadowBase.withAlpha(26); // ≈ .10
@@ -258,14 +262,28 @@ ThemeData buildBrandTheme(AppTokens t) {
       ),
     ),
     textTheme: TextTheme(
-      headlineLarge: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: t.title),
-      headlineMedium: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: t.title),
-      headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: t.title),
-      titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: t.title),
-      titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: t.title),
-      bodyLarge: TextStyle(fontSize: 16, color: t.body),
-      bodyMedium: TextStyle(fontSize: 14, color: t.body),
-      bodySmall: TextStyle(fontSize: 12, color: t.caption),
+      // display → headlineLarge
+      headlineLarge: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: t.title, height: 1.2),
+      // h1
+      headlineMedium: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: t.title, height: 1.25),
+      // h2
+      headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: t.title, height: 1.3),
+      // h3（修正：w600→w700）
+      titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: t.title, height: 1.3),
+      // subtitle
+      titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: t.title, height: 1.35),
+      // lg（修正：w500→w600）
+      titleSmall: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: t.title, height: 1.4),
+      // md
+      bodyLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: t.body, height: 1.5),
+      // sm
+      bodyMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: t.body, height: 1.5),
+      // xs
+      bodySmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: t.caption, height: 1.4),
+      // tiny
+      labelSmall: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: t.caption, height: 1.4),
+      // micro
+      labelMedium: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: t.caption, height: 1.4),
     ),
   );
 }
@@ -273,3 +291,86 @@ ThemeData buildBrandTheme(AppTokens t) {
 /// 双主题预设入口。
 ThemeData get creamTheme => buildBrandTheme(AppTokens.cream);
 ThemeData get matchaTheme => buildBrandTheme(AppTokens.matcha);
+
+/// 语义化文字样式（11 档，对齐 tokens.json typography.scale + 便捷别名）。
+///
+/// 用法：
+/// ```dart
+/// final ts = AppTokens.of(context).textStyles;
+/// Text('标题', style: ts.pageTitle);
+/// Text('正文', style: ts.body);
+/// Text('芯片', style: ts.chip);          // tiny
+/// Text('标签', style: ts.sectionLabel);  // xs
+/// ```
+///
+/// 需要自定义颜色时用 `.copyWith(color: ...)`：
+/// ```dart
+/// Text('缺 / 空', style: ts.sectionLabel.copyWith(color: AppTokens.error));
+/// ```
+class VxTextStyles {
+  // —— 基础阶梯（对齐 tokens.json，带默认颜色）——
+  final TextStyle display;   // 40/w800 title
+  final TextStyle h1;        // 32/w800 title
+  final TextStyle h2;        // 24/w700 title
+  final TextStyle h3;        // 20/w700 title
+  final TextStyle subtitle;  // 18/w700 title
+  final TextStyle lg;        // 16/w600 title
+  final TextStyle md;        // 14/w400 body
+  final TextStyle sm;        // 12/w400 body
+  final TextStyle xs;        // 11/w700 caption
+  final TextStyle tiny;      // 10/w800 caption
+  final TextStyle micro;     //  9/w800 caption
+
+  const VxTextStyles({
+    required this.display,
+    required this.h1,
+    required this.h2,
+    required this.h3,
+    required this.subtitle,
+    required this.lg,
+    required this.md,
+    required this.sm,
+    required this.xs,
+    required this.tiny,
+    required this.micro,
+  });
+
+  factory VxTextStyles.fromTokens(AppTokens t) {
+    return VxTextStyles(
+      display:  TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: t.title, height: 1.2),
+      h1:       TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: t.title, height: 1.25),
+      h2:       TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: t.title, height: 1.3),
+      h3:       TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: t.title, height: 1.3),
+      subtitle: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: t.title, height: 1.35),
+      lg:       TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: t.title, height: 1.4),
+      md:       TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: t.body,  height: 1.5),
+      sm:       TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: t.body,  height: 1.5),
+      xs:       TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: t.caption, height: 1.4),
+      tiny:     TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: t.caption, height: 1.4),
+      micro:    TextStyle(fontSize:  9, fontWeight: FontWeight.w800, color: t.caption, height: 1.4),
+    );
+  }
+
+  // —— 便捷语义别名 ——
+
+  /// 页面主标题（16/w700，居中顶栏用）。
+  TextStyle get pageTitle => lg.copyWith(fontWeight: FontWeight.w700);
+
+  /// 卡片/列表项标题（14/w700，比正文稍重）。
+  TextStyle get cardTitle => md.copyWith(fontWeight: FontWeight.w700, color: md.color);
+
+  /// 分区标签、section header（11/w700，可 .copyWith(color:) 改语义色）。
+  TextStyle get sectionLabel => xs;
+
+  /// chip / badge 内文字（10/w800）。
+  TextStyle get chip => tiny;
+
+  /// 正文，14px。
+  TextStyle get body => md;
+
+  /// 辅助说明，12px。
+  TextStyle get caption => sm;
+
+  /// Tab 栏、页脚元信息，9px。
+  TextStyle get meta => micro;
+}

@@ -153,8 +153,7 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
+            style: t.textStyles.body.copyWith(
               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
               color: selected ? t.primary : t.body,
             ),
@@ -184,9 +183,7 @@ class _DishesTab extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(m.name,
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold, color: t.title)),
+                    child: Text(m.name, style: t.textStyles.h3),
                   ),
                   if (m.isDone)
                     const _StatusChip('已完成', AppTokens.success)
@@ -197,8 +194,7 @@ class _DishesTab extends StatelessWidget {
               const SizedBox(height: AppTokens.sp8),
               Text(
                 '份数 ${m.servingCount ?? 1} · 关联 ${detail.dishes.length} 道菜',
-                style: TextStyle(
-                    fontSize: 12, color: t.caption),
+                style: t.textStyles.sm.copyWith(color: t.caption),
               ),
             ],
           ),
@@ -362,12 +358,10 @@ class _PrepTabState extends State<_PrepTab> {
           Row(
             children: [
               Text('备料进度',
-                  style:
-                      TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: t.title)),
+                  style: t.textStyles.cardTitle.copyWith(color: t.title)),
               const Spacer(),
               Text('已备 ${p.readyCount} / 共 ${p.totalCount} 样',
-                  style: TextStyle(
-                      fontSize: 12, color: t.caption)),
+                  style: t.textStyles.sm.copyWith(color: t.caption)),
             ],
           ),
           const SizedBox(height: AppTokens.sp8),
@@ -396,8 +390,7 @@ class _PrepTabState extends State<_PrepTab> {
           child: Row(
             children: [
               Text('调料 $count 样 · 无需备料',
-                  style: TextStyle(
-                      fontSize: 12, color: t.body)),
+                  style: t.textStyles.sm),
               const Spacer(),
               Icon(
                   _condimentExpanded ? Icons.expand_less : Icons.expand_more,
@@ -460,8 +453,7 @@ class _PrepItemRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppTokens.rMd),
                 ),
                 child: Text(s.label,
-                    style: TextStyle(
-                        fontSize: 12,
+                    style: t.textStyles.sm.copyWith(
                         color: chipColor,
                         fontWeight: FontWeight.w600)),
               ),
@@ -474,8 +466,8 @@ class _PrepItemRow extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(item.ingredientName,
-                              style: TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w500, color: t.title)),
+                              style: t.textStyles.md.copyWith(
+                                  fontWeight: FontWeight.w500, color: t.title)),
                         ),
                       ],
                     ),
@@ -486,8 +478,7 @@ class _PrepItemRow extends StatelessWidget {
                           item.dishNames.length >= 2
                               ? '${item.dishCount} 道菜共用 · ${item.dishNames.join("、")}'
                               : item.dishNames.first,
-                          style: TextStyle(
-                              fontSize: 12, color: t.caption),
+                          style: t.textStyles.sm.copyWith(color: t.caption),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -495,8 +486,7 @@ class _PrepItemRow extends StatelessWidget {
                 ),
               ),
               Text('${item.totalGrams.toStringAsFixed(0)}g',
-                  style: TextStyle(
-                      fontSize: 12, color: t.caption)),
+                  style: t.textStyles.sm.copyWith(color: t.caption)),
             ],
           ),
         ),
@@ -584,8 +574,7 @@ class _ShoppingTabState extends State<_ShoppingTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('尚未生成采购清单',
-                  style:
-                      TextStyle(fontSize: 14, color: t.caption)),
+                  style: t.textStyles.md.copyWith(color: t.caption)),
               const SizedBox(height: AppTokens.sp16),
               ElevatedButton.icon(
                 onPressed: _generate,
@@ -637,8 +626,7 @@ class _ShoppingTabState extends State<_ShoppingTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(it.displayName,
-                        style: TextStyle(
-                          fontSize: 14,
+                        style: t.textStyles.md.copyWith(
                           fontWeight: FontWeight.w500,
                           decoration:
                               bought ? TextDecoration.lineThrough : null,
@@ -650,8 +638,7 @@ class _ShoppingTabState extends State<_ShoppingTab> {
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(it.amountText,
-                            style: TextStyle(
-                                fontSize: 12, color: t.caption)),
+                            style: t.textStyles.sm.copyWith(color: t.caption)),
                       ),
                   ],
                 ),
@@ -667,6 +654,7 @@ class _ShoppingTabState extends State<_ShoppingTab> {
   }
 
   Widget _stockBadge(String status, double shortage, double? pantry) {
+    final t = AppTokens.of(context);
     final color = _stockColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
@@ -676,8 +664,8 @@ class _ShoppingTabState extends State<_ShoppingTab> {
         borderRadius: BorderRadius.circular(AppTokens.rMd),
       ),
       child: Text(_stockLabel(status, shortage, pantry),
-          style: TextStyle(
-              fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+          style: t.textStyles.sm.copyWith(
+              color: color, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -724,8 +712,7 @@ class _RetryView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(msg,
-                  style: TextStyle(
-                      fontSize: 14, color: t.caption)),
+                  style: t.textStyles.md.copyWith(color: t.caption)),
               const SizedBox(height: AppTokens.sp16),
               OutlinedButton(onPressed: onRetry, child: const Text('重试')),
             ],
@@ -750,15 +737,10 @@ class _Placeholder extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title,
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: t.title)),
+              Text(title, style: t.textStyles.subtitle),
               const SizedBox(height: AppTokens.sp8),
               Text(desc,
-                  style: TextStyle(
-                      fontSize: 12, color: t.caption)),
+                  style: t.textStyles.sm.copyWith(color: t.caption)),
             ],
           ),
         ),
@@ -787,13 +769,12 @@ class _DishRow extends StatelessWidget {
                 (dishName == null || dishName!.isEmpty)
                     ? '菜 #$dishId'
                     : dishName!,
-                style: TextStyle(fontSize: 14, color: t.title),
+                style: t.textStyles.md.copyWith(color: t.title),
               ),
             ),
             Text(
               '× ${servingFactor?.toStringAsFixed(1) ?? '1.0'} 份',
-              style: TextStyle(
-                  fontSize: 12, color: t.caption),
+              style: t.textStyles.sm.copyWith(color: t.caption),
             ),
           ],
         ),
@@ -809,9 +790,7 @@ class _SectionTitle extends StatelessWidget {
     final t = AppTokens.of(context);
     return Padding(
         padding: const EdgeInsets.all(AppTokens.sp16),
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold, color: t.title)),
+        child: Text(text, style: t.textStyles.pageTitle),
       );
   }
 }
@@ -821,14 +800,17 @@ class _StatusChip extends StatelessWidget {
   final Color color;
   const _StatusChip(this.text, this.color);
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
-        decoration: BoxDecoration(
-          color: color.withAlpha(20),
-          borderRadius: BorderRadius.circular(AppTokens.rMd),
-        ),
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 12, color: color, fontWeight: FontWeight.w600)),
-      );
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+      ),
+      child: Text(text,
+          style: t.textStyles.sm.copyWith(
+              color: color, fontWeight: FontWeight.w600)),
+    );
+  }
 }

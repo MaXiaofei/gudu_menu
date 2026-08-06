@@ -73,17 +73,50 @@ class DishStep {
       : images!.split(',').where((s) => s.trim().isNotEmpty).toList();
 }
 
-/// 菜品详情聚合（后端 DishDetail record：{dish, steps, cuisineIds, ...}）。
+/// 菜品详情聚合（后端 DishDetail record：{dish, steps, cuisineIds, ..., ingredients}）。
 class DishDetail {
   final Dish dish;
   final List<DishStep> steps;
+  /// 用料明细（食材 id/名/用量克数）。详情页「用料」区展示。
+  final List<DishIngredient> ingredients;
 
-  const DishDetail({required this.dish, required this.steps});
+  const DishDetail({required this.dish, required this.steps, this.ingredients = const []});
 
   factory DishDetail.fromJson(Map<String, dynamic> j) => DishDetail(
         dish: Dish.fromJson(j['dish'] as Map<String, dynamic>),
         steps: ((j['steps'] ?? const []) as List)
             .map((e) => DishStep.fromJson(e as Map<String, dynamic>))
             .toList(),
+        ingredients: ((j['ingredients'] ?? const []) as List)
+            .map((e) => DishIngredient.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
+}
+
+/// 菜品用料项（对应后端 DishIngredient：食材 id/名/用量克数）。
+class DishIngredient {
+  final int ingredientId;
+  final String? ingredientName;
+  final double grams;
+
+  const DishIngredient({
+    required this.ingredientId,
+    this.ingredientName,
+    this.grams = 0,
+  });
+
+  factory DishIngredient.fromJson(Map<String, dynamic> j) => DishIngredient(
+        ingredientId: (j['ingredientId'] as num?)?.toInt() ?? 0,
+        ingredientName: j['ingredientName'] as String?,
+        grams: (j['grams'] as num?)?.toDouble() ?? 0,
+      );
+
+  String get displayName => ingredientName ?? '#$ingredientId';
+
+  /// 用量文案（克，整数不带小数）。
+  String get amountText {
+    final g = grams;
+    if (g == g.roundToDouble()) return '${g.toInt()} g';
+    return '${g.toStringAsFixed(1)} g';
+  }
 }

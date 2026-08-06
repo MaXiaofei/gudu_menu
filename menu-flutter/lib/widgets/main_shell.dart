@@ -78,9 +78,7 @@ class MainShell extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '推荐',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
+                        style: t.textStyles.micro.copyWith(
                           color: navigationShell.currentIndex == recommendIndex
                               ? t.primary
                               : t.caption,
@@ -114,11 +112,7 @@ class MainShell extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  color: color,
-                ),
+                style: t.textStyles.micro.copyWith(color: color),
               ),
             ],
           ),

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>44829 批次原型清理汇总</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; color: #241914; line-height: 1.6; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { font-size: 13px; color: #888; margin: 0 0 20px; }
+.card { background: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.card h2 { font-size: 15px; margin: 0 0 8px; }
+.stat { display: flex; gap: 24px; flex-wrap: wrap; margin: 12px 0; }
+.stat-item { text-align: center; }
+.stat-item .num { font-size: 28px; font-weight: 800; }
+.stat-item .label { font-size: 11px; color: #888; }
+.green { color: #2a7; }
+.red { color: #c33; }
+.blue { color: #4a8; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
+th { background: #f9f9f9; font-size: 12px; color: #666; }
+code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+.before { color: #c33; text-decoration: line-through; }
+.after { color: #2a7; font-weight: 600; }
+.note { font-size: 12px; color: #888; margin-top: 8px; padding: 10px; background: #fffbeb; border-radius: 6px; border: 1px solid #f5e9c8; }
+</style>
+</head>
+<body>
+
+<h1>44829 批次原型清理汇总</h1>
+<p class="sub">13 个界面原型 · 去 emoji + 去 AI 味文案 · 2026-08-04</p>
+
+<div class="card">
+  <h2>总览</h2>
+  <div class="stat">
+    <div class="stat-item"><div class="num green">13</div><div class="label">处理文件</div></div>
+    <div class="stat-item"><div class="num red">207</div><div class="label">删除 emoji</div></div>
+    <div class="stat-item"><div class="num blue">4</div><div class="label">改 AI 味文案</div></div>
+    <div class="stat-item"><div class="num green">19</div><div class="label">保留功能符号 ✕✓</div></div>
+    <div class="stat-item"><div class="num">0</div><div class="label">emoji 残留</div></div>
+  </div>
+  <div class="note">
+    <b>功能符号保留说明</b>：✕（删除按钮 8 处）、✓（勾选/已完成 11 处）属于 UI 功能符号，非装饰 emoji，已全部恢复。
+    初次批量处理时正则范围过宽误删了它们，已根据上下文精准补回。
+  </div>
+</div>
+
+<div class="card">
+  <h2>逐文件改动</h2>
+  <table>
+    <tr><th>文件</th><th>删 emoji</th><th>主要改动</th></tr>
+    <tr><td><code>home-aisho.html</code></td><td>—</td><td>⏸ 标记「暂停使用」（智荐首页概念已推翻，Flutter 未实现）</td></tr>
+    <tr><td><code>cookbook-search.html</code></td><td>23</td><td>菜品图 🍅🐂🐟🥚、Tab 📖🍱✨🏠👤、食材勾选 emoji 全删；「智荐」Tab→「推荐」</td></tr>
+    <tr><td><code>cooking-deduct-modal.html</code></td><td>20</td><td>按钮 ♨️🛒、食材图 🥬🐟🍅🥚🧂、警告 ⚠️、欠量 📝 全删</td></tr>
+    <tr><td><code>dailylog.html</code></td><td>16</td><td>标题 📖、统计 🏆、时间轴 🌙🍗、菜品图、扣减明细 emoji、按钮 🔁 全删</td></tr>
+    <tr><td><code>friend-pick.html</code></td><td>21</td><td>标题 👋、忌口 🚫、按钮 👍✏️、撞忌口 ⚠️、菜品图、搜索 🔍 全删；「系统帮你自动避开」→「已自动避开」</td></tr>
+    <tr><td><code>ingredient-manage.html</code></td><td>11</td><td>标题 🥕、搜索 🔍、食材图 🥚🐟🥤🧂🧻🥬🥗、阈值 🟡 全删</td></tr>
+    <tr><td><code>menu-detail-cai.html</code></td><td>9</td><td>标题 🌙、菜品图 🍅🐟🥬、按钮 ♨️ 全删；✕ 删除按钮保留</td></tr>
+    <tr><td><code>menu-detail-beicai.html</code></td><td>14</td><td>标题 🧄🌙、共用项 🔥、菜品图、调料 🧂、按钮 🛒 全删；✓ 已备保留</td></tr>
+    <tr><td><code>menu-detail-caigou.html</code></td><td>19</td><td>标题 🛒🌙、菜品图、按钮 📋🖼 全删；✓✕ 功能符号保留；「全量铁律体现」→「说明」</td></tr>
+    <tr><td><code>menu-detail-caigou-v2.html</code></td><td>25</td><td>同上（平铺版）；✓✕ 保留；「全量铁律体现」→「说明」</td></tr>
+    <tr><td><code>menu-detail-xietong.html</code></td><td>10</td><td>标题 👥🌙、成员头像 👑👩🧑、忌口 🚫、分享码 🔗 全删；✓ 已避开保留</td></tr>
+    <tr><td><code>pantry-page.html</code></td><td>21</td><td>标题 🏠、三色点 🟢🟡🔴、菜品图、Tab 📖🍱✨🏠👤、提示 💡 全删；「动线闭环终点」去黑话；「双轨库存」→「库存管理」</td></tr>
+    <tr><td><code>shopping-restock.html</code></td><td>18</td><td>菜品图 🐟🥬🍅、入库 📥、冷藏 🧊、提示 💡、余色 🔴🟢 全删；✓ 功能符号保留</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>AI 味文案改造</h2>
+  <table>
+    <tr><th>位置</th><th>改前</th><th>改后</th></tr>
+    <tr><td>pantry 标题</td><td><span class="before">我家余量 🏠 · 动线闭环终点</span></td><td><span class="after">我家余量</span></td></tr>
+    <tr><td>pantry 注释</td><td><span class="before">双轨库存</span></td><td><span class="after">库存管理</span></td></tr>
+    <tr><td>caigou 注释</td><td><span class="before">全量铁律体现</span></td><td><span class="after">说明</span></td></tr>
+    <tr><td>cookbook 副标题</td><td><span class="before">智荐四宫格的落地</span></td><td><span class="after">推荐四宫格的落地</span></td></tr>
+    <tr><td>friend-pick 忌口</td><td><span class="before">系统帮你自动避开</span></td><td><span class="after">已自动避开</span></td></tr>
+    <tr><td>两处 Tab</td><td><span class="before">智荐</span></td><td><span class="after">推荐</span></td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>保留项</h2>
+  <table>
+    <tr><th>类别</th><th>说明</th></tr>
+    <tr><td>功能符号 ✕</td><td>删除按钮（8 处）— 通用 UI 符号，非 emoji</td></tr>
+    <tr><td>功能符号 ✓</td><td>勾选/已完成状态（11 处）</td></tr>
+    <tr><td>功能符号 −+</td><td>份数增减按钮</td></tr>
+    <tr><td>功能符号 ‹›▾⋯</td><td>翻页/折叠/更多</td></tr>
+    <tr><td>home-aisho.html</td><td>已标记暂停，内部历史内容（含 智荐/✨ 等）作为记录保留</td></tr>
+  </table>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>app-shell.html 改动效果对比</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; color: #241914; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { font-size: 13px; color: #888; margin: 0 0 24px; }
+.row { display: flex; gap: 20px; flex-wrap: wrap; }
+.col { flex: 1; min-width: 320px; }
+.col h2 { font-size: 15px; margin: 0 0 4px; }
+.tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-bottom: 16px; }
+.tag.old { background: #fee; color: #c33; }
+.tag.new { background: #e6f7ee; color: #2a7; }
+.phone { background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;max-width:340px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14) }
+.statusbar { padding:10px 16px 6px;display:flex;justify-content:space-between;font-size:11px;color:#9C8C7A }
+.hello { padding:6px 16px 12px }
+.hello .t { font-size:22px;font-weight:800;color:#4A382A }
+.hello .s { font-size:12px;color:#9C8C7A;margin-top:2px }
+.search { padding:0 16px 12px }
+.search .box { background:#FBF0DD;border-radius:14px;padding:11px 14px;font-size:13px;color:#9C8C7A }
+.alert { margin:0 16px 12px;background:#FBF0DD;border:1px solid #F6D9BE;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px }
+.alert .body { flex:1 }
+.alert .t { font-size:12px;font-weight:800;color:#4A382A }
+.alert .s { font-size:10px;color:#9C8C7A;margin-top:1px }
+.alert .btn { font-size:11px;font-weight:800;color:#D17A3C }
+.chips { padding:0 16px 10px;display:flex;gap:6px;flex-wrap:wrap }
+.chip-on { font-size:11px;font-weight:700;padding:5px 11px;border-radius:99px;background:#E89150;color:#fff }
+.chip-off { font-size:11px;font-weight:700;padding:5px 11px;border-radius:99px;background:#F6D9BE;color:#B8762E }
+.rec-title { padding:0 16px 6px;font-size:11px;font-weight:800;color:#9C8C7A;letter-spacing:1px }
+.rec-cards { padding:4px 16px 14px;display:flex;gap:10px }
+.rc { flex:1;background:#FFFFFF;border:1px solid #F0E6D6;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(169,101,30,.08) }
+.rc .img { height:78px;display:flex;align-items:center;justify-content:center;font-size:38px }
+.rc .img.ph { background:#FBF0DD }
+.rc .img.ph2 { background:#F6D9BE }
+.rc .info { padding:8px 10px }
+.rc .name { font-size:13px;font-weight:800;color:#4A382A }
+.rc .meta { font-size:10px;color:#9C8C7A;margin-top:1px }
+.tabbar { border-top:1px solid #F0E6D6;padding:8px 0 12px;display:flex;justify-content:space-around;background:#FFFFFF }
+.tab { text-align:center }
+.tab .ic { font-size:20px }
+.tab .lb { font-size:9px;margin-top:1px }
+.tab.on .lb { font-weight:800;color:#D17A3C }
+.tab.off .lb { color:#9C8C7A }
+.tab.off .ic { opacity:.4 }
+.note { font-size:12px; color:#888; margin-top:20px; padding:12px; background:#f9f9f9; border-radius:8px; line-height:1.6 }
+.note b { color: #241914; }
+</style>
+</head>
+<body>
+
+<h1>app-shell.html · 改动效果对比</h1>
+<p class="sub">首屏（菜谱 Tab）。左为改前，右为改后。</p>
+
+<div class="row">
+  <!-- 改前 -->
+  <div class="col">
+    <h2>首屏示例</h2>
+    <span class="tag old">改前 · 含 emoji + AI 味文案</span>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span>🔋</span></div>
+      <div class="hello"><div class="t">今天吃点啥？</div><div class="s">家里还有 12 样食材，2 样快过期</div></div>
+      <div class="search"><div class="box">🔍 搜菜名，或"家里有番茄"</div></div>
+      <div class="alert">
+        <div style="font-size:20px">⚠️</div>
+        <div class="body"><div class="t">2 样临期 · 趁鲜用掉</div><div class="s">菠菜 2 天 · 牛奶 3 天</div></div>
+        <div class="btn">看余量</div>
+      </div>
+      <div class="chips">
+        <span class="chip-on">全部</span><span class="chip-off">家常</span><span class="chip-off">下饭</span><span class="chip-off">清淡</span><span class="chip-off">宴客</span>
+      </div>
+      <div class="rec-title">趁家里食材 · 推荐你做</div>
+      <div class="rec-cards">
+        <div class="rc"><div class="img ph">🍅</div><div class="info"><div class="name">番茄炒蛋</div><div class="meta">家里够 · 10 分钟</div></div></div>
+        <div class="rc"><div class="img ph2">🍳</div><div class="info"><div class="name">葱花炒蛋</div><div class="meta">差葱 · 8 分钟</div></div></div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><div class="ic">📖</div><div class="lb">菜谱</div></div>
+        <div class="tab off"><div class="ic">🍱</div><div class="lb">食集</div></div>
+        <div class="tab off"><div class="ic">🏠</div><div class="lb">我家余量</div></div>
+        <div class="tab off"><div class="ic">👤</div><div class="lb">我的</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 改后 -->
+  <div class="col">
+    <h2>首屏示例</h2>
+    <span class="tag new">改后 · 去 emoji + 去 AI 味</span>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span></span></div>
+      <div class="hello"><div class="t">今天吃点啥？</div><div class="s">家里还有 12 样食材，2 样快过期</div></div>
+      <div class="search"><div class="box">搜菜名，或"家里有番茄"</div></div>
+      <div class="alert">
+        <div class="body"><div class="t">2 样临期 · 趁鲜用掉</div><div class="s">菠菜 2 天 · 牛奶 3 天</div></div>
+        <div class="btn">看余量</div>
+      </div>
+      <div class="chips">
+        <span class="chip-on">全部</span><span class="chip-off">家常</span><span class="chip-off">下饭</span><span class="chip-off">清淡</span><span class="chip-off">宴客</span>
+      </div>
+      <div class="rec-title">试试这些</div>
+      <div class="rec-cards">
+        <div class="rc"><div class="img ph"></div><div class="info"><div class="name">番茄炒蛋</div><div class="meta">10 分钟</div></div></div>
+        <div class="rc"><div class="img ph2"></div><div class="info"><div class="name">葱花炒蛋</div><div class="meta">8 分钟</div></div></div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><div class="lb">菜谱</div></div>
+        <div class="tab off"><div class="lb">食集</div></div>
+        <div class="tab off"><div class="lb">我家余量</div></div>
+        <div class="tab off"><div class="lb">我的</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+<b>改动清单</b><br>
+① 方案 B（五 Tab + 🤔 中间 FAB）整块删除 —— 已被否决，Flutter 走方案 A<br>
+② 状态栏 🔋 删除（纯装饰示意）<br>
+③ 搜索框 🔍 删除<br>
+④ 临期条 ⚠️ 删除（警示靠背景色 + 边框）<br>
+⑤ 推荐区标题「趁家里食材 · 推荐你做」→「试试这些」（去库存暗示 + 算法口吻）<br>
+⑥ 菜品缩略图 🍅🍳 → CSS 占位框（符合 §10，图片位留容器）<br>
+⑦ 菜品副标题「家里够」「差葱」删除（避免库存算法暗示，只留时间）<br>
+⑧ Tab 图标 📖🍱🏠👤 全部删除（Flutter 用 Material 图标，原型留文字标注）<br>
+⑨ 投票选项 B + 「智荐」引用删除<br>
+</div>
+
+</body>
+</html>

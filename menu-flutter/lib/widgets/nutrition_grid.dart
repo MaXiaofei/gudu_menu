@@ -29,23 +29,19 @@ class NutritionGrid extends StatelessWidget {
             Expanded(
               child: Text(
                 AppConstants.metricNameCn(m.name),
-                style: TextStyle(fontSize: 14, color: t.title),
+                style: t.textStyles.body.copyWith(color: t.title),
               ),
             ),
             Text(
               _fmt(v),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: t.primary,
-              ),
+              style: t.textStyles.cardTitle.copyWith(color: t.primary),
             ),
             const SizedBox(width: 4),
             SizedBox(
               width: 60,
               child: Text(
                 m.unit,
-                style: TextStyle(fontSize: 12, color: t.caption),
+                style: t.textStyles.sm.copyWith(color: t.caption),
               ),
             ),
           ],

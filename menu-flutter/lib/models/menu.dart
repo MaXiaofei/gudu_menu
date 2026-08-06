@@ -13,6 +13,8 @@ class Menu {
   final int? servingCount;
   /// 状态：ACTIVE 进行中 / DONE 已完成。
   final String? status;
+  /// 创建时间（后端 ISO 格式字符串，如 2026-08-06T19:16:12）。
+  final String? createTime;
 
   const Menu({
     required this.id,
@@ -21,6 +23,7 @@ class Menu {
     this.targetMemberId,
     this.servingCount,
     this.status,
+    this.createTime,
   });
 
   factory Menu.fromJson(Map<String, dynamic> j) => Menu(
@@ -30,9 +33,16 @@ class Menu {
         targetMemberId: (j['targetMemberId'] as num?)?.toInt(),
         servingCount: (j['servingCount'] as num?)?.toInt(),
         status: j['status'] as String?,
+        createTime: j['createTime'] as String?,
       );
 
   bool get isDone => status == 'DONE';
+
+  /// 创建时间解析为 DateTime（解析失败返回 null）。
+  DateTime? get createdAt {
+    if (createTime == null || createTime!.isEmpty) return null;
+    return DateTime.tryParse(createTime!);
+  }
 }
 
 /// 食集→菜关联（后端 MenuDish + 冗余菜名/封面）。

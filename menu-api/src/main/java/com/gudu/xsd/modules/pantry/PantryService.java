@@ -37,6 +37,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     private final IngredientMapper ingredientMapper;
     private DictMapper dictMapper;
     private com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert;
+    private PantryChangeLogService changeLogService;
 
     /** FIFO 扣减规划（无状态纯函数，内联持有）。 */
     private final PantryDeductionPlanner deductionPlanner = new PantryDeductionPlanner();
@@ -57,6 +58,11 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     @Autowired
     public void setUnitConvert(com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert) {
         this.unitConvert = unitConvert;
+    }
+
+    @Autowired
+    public void setChangeLogService(PantryChangeLogService changeLogService) {
+        this.changeLogService = changeLogService;
     }
 
     // ===================== 纯函数（算法地基） =====================
@@ -111,14 +117,13 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     }
 
     /**
-     * 不足查询：余量严格低于阈值的库存。
+     * 不足查询（按食材聚合判）：阈值已挪到 ingredient.low_threshold（V39）。
+     * 返回所有 LOW 状态的食材聚合项。兼容旧 /pantry/low 接口。
      */
-    public List<PantryVO> listLow() {
-        List<Pantry> rows = list(new QueryWrapper<Pantry>()
-                .gt("low_threshold", 0)                       // 阈值为 0 视为不监控
-                .apply("amount < low_threshold")
-                .orderByAsc("amount"));
-        return fillVoList(rows);
+    public List<PantryGroupedVO.Item> listLow() {
+        return grouped().getItems().stream()
+                .filter(it -> "LOW".equals(it.getStatus()))
+                .collect(Collectors.toList());
     }
 
     // ===================== 内部辅助 =====================
@@ -350,5 +355,303 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             throw new BizException("未识别到有效的食材项");
         }
         return count;
+    }
+
+    // ===================== 三色分组（库存页主页，V39） =====================
+
+    /**
+     * 三色分组查询：按 ingredient_id 聚合 SUM(grams)，join ingredient 取 lowThreshold，
+     * 算 ENOUGH/LOW/NONE 三色，每项带最近一次变动来源。
+     *
+     * status 判定（按聚合克数）：
+     *   totalGrams <= 0                          → NONE（缺/空）
+     *   lowThreshold > 0 且 totalGrams < 阈值克数  → LOW（偏低）
+     *   否则                                       → ENOUGH（够）
+     *
+     * 排序：NONE → LOW → ENOUGH（缺的在前，紧迫感递减），同状态按食材名。
+     */
+    public PantryGroupedVO grouped() {
+        // 1. 聚合：按 ingredient_id 求 SUM(grams)、SUM(amount)、取任一 unitId（同食材应同单位）
+        List<Pantry> all = list(new QueryWrapper<Pantry>()
+                .select("ingredient_id", "unit_id", "SUM(amount) amount", "SUM(grams) grams")
+                .groupBy("ingredient_id", "unit_id"));
+        if (all.isEmpty()) {
+            PantryGroupedVO vo = new PantryGroupedVO();
+            vo.setSummary(new PantryGroupedVO.Summary());
+            vo.setItems(List.of());
+            return vo;
+        }
+
+        // 2. 批量取食材信息（含 lowThreshold）和单位名
+        List<Long> ingredientIds = all.stream().map(Pantry::getIngredientId).distinct().collect(Collectors.toList());
+        Map<Long, Ingredient> ingredientMap = ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ingredientIds))
+                .stream().collect(Collectors.toMap(Ingredient::getId, i -> i, (a, b) -> a));
+        Map<Long, String> unitName = unitNameMap();
+
+        // 3. 组装 item + 三色判定
+        List<PantryGroupedVO.Item> items = new java.util.ArrayList<>();
+        int enough = 0, low = 0, none = 0;
+        for (Pantry p : all) {
+            Ingredient ing = ingredientMap.get(p.getIngredientId());
+            if (ing == null) continue; // 食材被删则跳过
+
+            BigDecimal totalGrams = nz(p.getGrams());
+            BigDecimal totalAmount = nz(p.getAmount());
+            BigDecimal threshold = ing.getLowThreshold();
+            BigDecimal thresholdGrams = thresholdGrams(ing, threshold);
+
+            String status = classifyStatus(totalGrams, thresholdGrams);
+            switch (status) {
+                case "NONE": none++; break;
+                case "LOW": low++; break;
+                default: enough++; break;
+            }
+
+            PantryGroupedVO.Item item = new PantryGroupedVO.Item();
+            item.setIngredientId(p.getIngredientId());
+            item.setIngredientName(ing.getName());
+            item.setUnitId(p.getUnitId() != null ? p.getUnitId() : ing.getUnitId());
+            item.setUnitName(unitName.get(item.getUnitId()));
+            item.setLowThreshold(threshold);
+            item.setTotalAmount(totalAmount);
+            item.setTotalGrams(totalGrams);
+            item.setStatus(status);
+            item.setLastChange(lastChangeVo(p.getIngredientId()));
+            items.add(item);
+        }
+
+        // 4. 排序：NONE → LOW → ENOUGH，同状态按食材名
+        items.sort(java.util.Comparator
+                .comparingInt((PantryGroupedVO.Item it) -> statusOrder(it.getStatus()))
+                .thenComparing(it -> it.getIngredientName() == null ? "" : it.getIngredientName(),
+                        java.text.Collator.getInstance()));
+
+        PantryGroupedVO vo = new PantryGroupedVO();
+        PantryGroupedVO.Summary summary = new PantryGroupedVO.Summary();
+        summary.setEnough(enough);
+        summary.setLow(low);
+        summary.setNone(none);
+        vo.setSummary(summary);
+        vo.setItems(items);
+        return vo;
+    }
+
+    /** 食材详情：合计 + 阈值克数 + 最近 6 条变动流水。 */
+    public PantryItemDetailVO itemDetail(Long ingredientId) {
+        Ingredient ing = ingredientMapper.selectById(ingredientId);
+        if (ing == null) {
+            throw new BizException("食材不存在");
+        }
+        Map<Long, String> unitName = unitNameMap();
+
+        // 聚合该食材所有批次
+        List<Pantry> rows = list(new QueryWrapper<Pantry>()
+                .select("ingredient_id", "unit_id", "SUM(amount) amount", "SUM(grams) grams")
+                .eq("ingredient_id", ingredientId)
+                .groupBy("ingredient_id", "unit_id"));
+        BigDecimal totalGrams = rows.isEmpty() ? BigDecimal.ZERO : nz(rows.get(0).getGrams());
+        BigDecimal totalAmount = rows.isEmpty() ? BigDecimal.ZERO : nz(rows.get(0).getAmount());
+        Long unitId = rows.isEmpty() ? ing.getUnitId() : rows.get(0).getUnitId();
+        if (unitId == null) unitId = ing.getUnitId();
+
+        BigDecimal threshold = ing.getLowThreshold();
+        BigDecimal thresholdGrams = thresholdGrams(ing, threshold);
+
+        PantryItemDetailVO vo = new PantryItemDetailVO();
+        vo.setIngredientId(ingredientId);
+        vo.setIngredientName(ing.getName());
+        vo.setUnitId(unitId);
+        vo.setUnitName(unitName.get(unitId));
+        vo.setLowThreshold(threshold);
+        vo.setTotalAmount(totalAmount);
+        vo.setTotalGrams(totalGrams);
+        vo.setThresholdGrams(thresholdGrams);
+        vo.setStatus(classifyStatus(totalGrams, thresholdGrams));
+        vo.setChanges(changeLogService == null ? List.of() : changeLogService.listRecent(ingredientId, 6));
+        return vo;
+    }
+
+    // ===================== 盘点（差额纠偏，V39） =====================
+
+    /**
+     * 盘点：用户报实际数量（newAmount，按食材默认单位），后端算 delta = 目标 - 当前，
+     * 把差额落到该食材最新一批（或新建批次），写一笔 source=inventory 流水。
+     *
+     * @param ingredientId 食材
+     * @param newAmount    实际数了多少（目标值，按食材默认单位）
+     * @param sourceNote   备注（可空）
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void adjust(Long ingredientId, BigDecimal newAmount, String sourceNote) {
+        if (ingredientId == null) throw new BizException("食材 id 不能为空");
+        if (newAmount == null || newAmount.signum() < 0) throw new BizException("盘点数量不合法");
+
+        Ingredient ing = ingredientMapper.selectById(ingredientId);
+        if (ing == null) throw new BizException("食材不存在");
+
+        // 当前合计（按默认单位）
+        List<Pantry> rows = list(new QueryWrapper<Pantry>()
+                .eq("ingredient_id", ingredientId).orderByDesc("id"));
+        BigDecimal currentAmount = rows.stream()
+                .map(Pantry::getAmount).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal delta = newAmount.subtract(currentAmount);
+        if (delta.signum() == 0) return; // 无差额，不记
+
+        Long unitId = ing.getUnitId();
+        BigDecimal deltaGrams = unitConvert == null ? null
+                : unitConvert.toGramsFor(ingredientId, delta.abs(), unitId);
+        if (deltaGrams == null) deltaGrams = delta.abs(); // 兜底按单位原值
+
+        if (delta.signum() > 0) {
+            // 盘盈：新增一笔正批次
+            Pantry p = new Pantry();
+            p.setIngredientId(ingredientId);
+            p.setAmount(delta);
+            p.setUnitId(unitId);
+            p.setGrams(deltaGrams);
+            save(p);
+        } else {
+            // 盘亏：从最新批次往前扣（amount + grams 同步）
+            BigDecimal toDeduct = delta.abs();
+            BigDecimal remain = toDeduct;
+            for (Pantry p : rows) {
+                if (remain.signum() <= 0) break;
+                BigDecimal amt = p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO;
+                BigDecimal take = amt.min(remain);
+                p.setAmount(amt.subtract(take));
+                // grams 按比例缩放（保持 amount/grams 一致）
+                BigDecimal g = p.getGrams() != null ? p.getGrams() : BigDecimal.ZERO;
+                if (amt.signum() > 0) {
+                    p.setGrams(g.multiply(amt.subtract(take)).divide(amt, 2, java.math.RoundingMode.HALF_UP));
+                } else {
+                    p.setGrams(BigDecimal.ZERO);
+                }
+                updateById(p);
+                remain = remain.subtract(take);
+            }
+        }
+
+        // 变动后合计克数
+        BigDecimal afterGrams = sumGrams(ingredientId);
+        if (changeLogService != null) {
+            BigDecimal signedDelta = delta.signum() > 0 ? deltaGrams : deltaGrams.negate();
+            changeLogService.log(ingredientId, PantryChangeLog.SOURCE_INVENTORY, signedDelta, afterGrams, sourceNote);
+        }
+    }
+
+    // ===================== 手动添加（带来源标签，V39） =====================
+
+    /**
+     * 手动添加：新增一笔带「手动」来源标签的库存记录（别人送/赠品/旧库存补登）。
+     * 支持库里有 / 新建档的食材。
+     *
+     * @param ingredientId 食材 id（与 name 二选一；都传以 id 为准）
+     * @param name         食材名（ingredientId 为空时按名匹配/新建）
+     * @param amount       数量
+     * @param unitId       单位（可空，空则用食材默认单位）
+     * @param sourceNote   来源备注（朋友送/赠品/旧库存补登/其他）
+     * @param expireDate   过期日（可空）
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void manualAdd(Long ingredientId, String name, BigDecimal amount, Long unitId,
+                          String sourceNote, LocalDate expireDate) {
+        if ((ingredientId == null) && (name == null || name.isBlank())) {
+            throw new BizException("食材 id 和名称至少填一项");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            throw new BizException("数量必须大于 0");
+        }
+
+        // 解析食材：id 优先，否则按名匹配/新建
+        Ingredient ing;
+        if (ingredientId != null) {
+            ing = ingredientMapper.selectById(ingredientId);
+            if (ing == null) throw new BizException("食材不存在");
+        } else {
+            List<Ingredient> matched = ingredientMapper.selectList(
+                    new QueryWrapper<Ingredient>().eq("name", name.trim()).last("LIMIT 1"));
+            if (!matched.isEmpty()) {
+                ing = matched.get(0);
+            } else {
+                ing = new Ingredient();
+                ing.setName(name.trim());
+                ingredientMapper.insert(ing);
+            }
+            ingredientId = ing.getId();
+        }
+        if (unitId == null) unitId = ing.getUnitId();
+
+        // 入库新批次
+        Pantry p = new Pantry();
+        p.setIngredientId(ingredientId);
+        p.setAmount(amount);
+        p.setUnitId(unitId);
+        p.setExpireDate(expireDate);
+        p.setGrams(unitConvert == null ? null
+                : unitConvert.toGramsFor(ingredientId, amount, unitId));
+        save(p);
+
+        // 写流水 source=manual
+        BigDecimal afterGrams = sumGrams(ingredientId);
+        if (changeLogService != null) {
+            BigDecimal deltaGrams = p.getGrams() != null ? p.getGrams() : amount;
+            changeLogService.log(ingredientId, PantryChangeLog.SOURCE_MANUAL, deltaGrams, afterGrams, sourceNote);
+        }
+    }
+
+    // ===================== 三色分组内部辅助 =====================
+
+    /** null 安全归零。 */
+    private BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
+    }
+
+    /** 阈值换算成克（按食材默认单位）。unitConvert 为空时回退为阈值原值。 */
+    private BigDecimal thresholdGrams(Ingredient ing, BigDecimal threshold) {
+        if (threshold == null || threshold.signum() <= 0) return BigDecimal.ZERO;
+        if (unitConvert == null || ing.getUnitId() == null) return threshold;
+        return unitConvert.toGramsFor(ing.getId(), threshold, ing.getUnitId());
+    }
+
+    /** 三色状态判定（按克数）。 */
+    private String classifyStatus(BigDecimal totalGrams, BigDecimal thresholdGrams) {
+        if (totalGrams == null || totalGrams.signum() <= 0) return "NONE";
+        if (thresholdGrams != null && thresholdGrams.signum() > 0
+                && totalGrams.compareTo(thresholdGrams) < 0) {
+            return "LOW";
+        }
+        return "ENOUGH";
+    }
+
+    /** 排序用：NONE=0, LOW=1, ENOUGH=2。 */
+    private int statusOrder(String status) {
+        return switch (status) {
+            case "NONE" -> 0;
+            case "LOW" -> 1;
+            default -> 2;
+        };
+    }
+
+    /** 最近变动 → LastChange VO（无变动返回 null）。 */
+    private PantryGroupedVO.LastChange lastChangeVo(Long ingredientId) {
+        if (changeLogService == null) return null;
+        PantryChangeLog log = changeLogService.lastOne(ingredientId);
+        if (log == null) return null;
+        PantryGroupedVO.LastChange lc = new PantryGroupedVO.LastChange();
+        lc.setSource(log.getSource());
+        lc.setSourceNote(log.getSourceNote());
+        lc.setCreateTime(log.getCreateTime());
+        lc.setDelta(log.getDelta());
+        return lc;
+    }
+
+    /** 某食材当前合计克数。 */
+    private BigDecimal sumGrams(Long ingredientId) {
+        List<Pantry> rows = list(new QueryWrapper<Pantry>()
+                .select("SUM(grams) grams")
+                .eq("ingredient_id", ingredientId));
+        return rows.isEmpty() || rows.get(0).getGrams() == null ? BigDecimal.ZERO : rows.get(0).getGrams();
     }
 }

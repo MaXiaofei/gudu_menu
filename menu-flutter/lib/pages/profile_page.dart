@@ -41,17 +41,13 @@ class ProfilePage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(auth.nickname.isNotEmpty ? auth.nickname : '掌勺人',
-                            style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: t.title)),
+                            style: t.textStyles.subtitle),
                         const SizedBox(height: AppTokens.sp4),
                         Text(
                           member.currentName.isNotEmpty
                               ? '当前就餐：${member.currentName}'
                               : '未选择就餐成员',
-                          style: TextStyle(
-                              fontSize: 12, color: t.caption),
+                          style: t.textStyles.sm.copyWith(color: t.caption),
                         ),
                       ],
                     ),
@@ -125,14 +121,13 @@ class _SettingTile extends StatelessWidget {
     final t = AppTokens.of(context);
     return ListTile(
         leading: Icon(icon, color: t.primary),
-        title: Text(label, style: TextStyle(color: t.title)),
+        title: Text(label, style: t.textStyles.body.copyWith(color: t.title)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (value != null)
               Text(value!,
-                  style: TextStyle(
-                      color: t.caption, fontSize: 12)),
+                  style: t.textStyles.sm.copyWith(color: t.caption)),
             Icon(Icons.chevron_right, color: t.caption),
           ],
         ),

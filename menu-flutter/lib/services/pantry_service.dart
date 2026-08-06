@@ -85,6 +85,48 @@ class PantryService {
     if (data is Map && data['remain'] != null) return (data['remain'] as num).toDouble();
     return 0;
   }
+
+  // ===================== 库存页主页（三色分组，V39） =====================
+
+  /// 三色分组列表：GET /pantry/grouped
+  static Future<PantryGrouped> listGrouped() async {
+    final data = await ApiClient.instance.get('/pantry/grouped');
+    return PantryGrouped.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// 食材详情：GET /pantry/item?ingredientId=
+  static Future<PantryItemDetail> itemDetail(int ingredientId) async {
+    final data = await ApiClient.instance.get('/pantry/item', query: {'ingredientId': ingredientId});
+    return PantryItemDetail.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// 盘点：POST /pantry/adjust {ingredientId, newAmount, sourceNote?}
+  static Future<void> adjust(int ingredientId, double newAmount, {String? sourceNote}) async {
+    await ApiClient.instance.post('/pantry/adjust', body: {
+      'ingredientId': ingredientId,
+      'newAmount': newAmount,
+      if (sourceNote != null) 'sourceNote': sourceNote,
+    });
+  }
+
+  /// 手动添加：POST /pantry/manual
+  static Future<void> manualAdd({
+    int? ingredientId,
+    String? name,
+    required double amount,
+    int? unitId,
+    required String sourceNote,
+    String? expireDate,
+  }) async {
+    await ApiClient.instance.post('/pantry/manual', body: {
+      if (ingredientId != null) 'ingredientId': ingredientId,
+      if (name != null) 'name': name,
+      'amount': amount,
+      if (unitId != null) 'unitId': unitId,
+      'sourceNote': sourceNote,
+      if (expireDate != null) 'expireDate': expireDate,
+    });
+  }
 }
 
 /// 库存项 VO（对齐后端 PantryVO）。
@@ -161,5 +203,210 @@ class PantryVO {
   static String _fmt(double v) {
     if (v == v.roundToDouble()) return v.toInt().toString();
     return v.toStringAsFixed(1);
+  }
+}
+
+// ===================== 三色分组模型（V39） =====================
+
+/// GET /pantry/grouped 返回：汇总 + 按食材聚合的项列表。
+class PantryGrouped {
+  final int enough;
+  final int low;
+  final int none;
+  final List<PantryGroupedItem> items;
+
+  const PantryGrouped({required this.enough, required this.low, required this.none, required this.items});
+
+  factory PantryGrouped.fromJson(Map<String, dynamic> j) {
+    final s = (j['summary'] ?? {}) as Map<String, dynamic>;
+    final list = (j['items'] ?? []) as List;
+    return PantryGrouped(
+      enough: (s['enough'] as num?)?.toInt() ?? 0,
+      low: (s['low'] as num?)?.toInt() ?? 0,
+      none: (s['none'] as num?)?.toInt() ?? 0,
+      items: list.map((e) => PantryGroupedItem.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
+}
+
+/// 分组列表里的一项（一个食材聚合后）。
+class PantryGroupedItem {
+  final int ingredientId;
+  final String? ingredientName;
+  final int? unitId;
+  final String? unitName;
+  final double? lowThreshold;
+  final double totalAmount;
+  final double totalGrams;
+  final String status; // ENOUGH / LOW / NONE
+  final LastChange? lastChange;
+
+  const PantryGroupedItem({
+    required this.ingredientId,
+    this.ingredientName,
+    this.unitId,
+    this.unitName,
+    this.lowThreshold,
+    required this.totalAmount,
+    required this.totalGrams,
+    required this.status,
+    this.lastChange,
+  });
+
+  factory PantryGroupedItem.fromJson(Map<String, dynamic> j) => PantryGroupedItem(
+        ingredientId: (j['ingredientId'] as num).toInt(),
+        ingredientName: j['ingredientName'] as String?,
+        unitId: (j['unitId'] as num?)?.toInt(),
+        unitName: j['unitName'] as String?,
+        lowThreshold: (j['lowThreshold'] as num?)?.toDouble(),
+        totalAmount: (j['totalAmount'] as num?)?.toDouble() ?? 0,
+        totalGrams: (j['totalGrams'] as num?)?.toDouble() ?? 0,
+        status: j['status'] as String? ?? 'NONE',
+        lastChange: j['lastChange'] == null
+            ? null
+            : LastChange.fromJson(j['lastChange'] as Map<String, dynamic>),
+      );
+
+  String get displayName => ingredientName ?? '#$ingredientId';
+  String get displayAmount => '${_fmtAmount(totalAmount)} ${unitName ?? ''}';
+
+  /// 来源标签文案（做菜/采购/盘点/手动）。
+  String get sourceLabel {
+    switch (lastChange?.source) {
+      case 'cook': return '做菜';
+      case 'purchase': return '采购';
+      case 'inventory': return '盘点';
+      case 'manual': return '手动';
+      default: return '';
+    }
+  }
+
+  /// 来源副文案（如「朋友送」「-6」）。
+  String get sourceSub {
+    final lc = lastChange;
+    if (lc == null) return '';
+    final delta = lc.delta;
+    final sign = delta >= 0 ? '+' : '';
+    final note = lc.sourceNote;
+    if (note != null && note.isNotEmpty) {
+      return '$sign${_fmtAmount(delta)} · $note';
+    }
+    return '$sign${_fmtAmount(delta)}';
+  }
+
+  static String _fmtAmount(double v) {
+    if (v == v.roundToDouble()) return v.toInt().toString();
+    return v.toStringAsFixed(1);
+  }
+}
+
+/// 最近一次变动。
+class LastChange {
+  final String source;
+  final String? sourceNote;
+  final String? createTime;
+  final double delta;
+
+  const LastChange({required this.source, this.sourceNote, this.createTime, required this.delta});
+
+  factory LastChange.fromJson(Map<String, dynamic> j) => LastChange(
+        source: j['source'] as String? ?? '',
+        sourceNote: j['sourceNote'] as String?,
+        createTime: j['createTime'] as String?,
+        delta: (j['delta'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+// ===================== 食材详情模型（V39） =====================
+
+/// GET /pantry/item 返回：食材合计 + 阈值克数 + 最近 N 条流水。
+class PantryItemDetail {
+  final int ingredientId;
+  final String? ingredientName;
+  final int? unitId;
+  final String? unitName;
+  final double? lowThreshold;
+  final double totalAmount;
+  final double totalGrams;
+  final double thresholdGrams;
+  final String status;
+  final List<PantryChangeLog> changes;
+
+  const PantryItemDetail({
+    required this.ingredientId,
+    this.ingredientName,
+    this.unitId,
+    this.unitName,
+    this.lowThreshold,
+    required this.totalAmount,
+    required this.totalGrams,
+    required this.thresholdGrams,
+    required this.status,
+    required this.changes,
+  });
+
+  factory PantryItemDetail.fromJson(Map<String, dynamic> j) {
+    final list = (j['changes'] ?? []) as List;
+    return PantryItemDetail(
+      ingredientId: (j['ingredientId'] as num).toInt(),
+      ingredientName: j['ingredientName'] as String?,
+      unitId: (j['unitId'] as num?)?.toInt(),
+      unitName: j['unitName'] as String?,
+      lowThreshold: (j['lowThreshold'] as num?)?.toDouble(),
+      totalAmount: (j['totalAmount'] as num?)?.toDouble() ?? 0,
+      totalGrams: (j['totalGrams'] as num?)?.toDouble() ?? 0,
+      thresholdGrams: (j['thresholdGrams'] as num?)?.toDouble() ?? 0,
+      status: j['status'] as String? ?? 'NONE',
+      changes: list.map((e) => PantryChangeLog.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
+
+  String get displayName => ingredientName ?? '#$ingredientId';
+}
+
+/// 一条变动流水。
+class PantryChangeLog {
+  final int id;
+  final int ingredientId;
+  final String source;
+  final double delta;
+  final double? amountAfter;
+  final String? sourceNote;
+  final String? createTime;
+
+  const PantryChangeLog({
+    required this.id,
+    required this.ingredientId,
+    required this.source,
+    required this.delta,
+    this.amountAfter,
+    this.sourceNote,
+    this.createTime,
+  });
+
+  factory PantryChangeLog.fromJson(Map<String, dynamic> j) => PantryChangeLog(
+        id: (j['id'] as num).toInt(),
+        ingredientId: (j['ingredientId'] as num).toInt(),
+        source: j['source'] as String? ?? '',
+        delta: (j['delta'] as num?)?.toDouble() ?? 0,
+        amountAfter: (j['amountAfter'] as num?)?.toDouble(),
+        sourceNote: j['sourceNote'] as String?,
+        createTime: j['createTime'] as String?,
+      );
+
+  String get sourceLabel {
+    switch (source) {
+      case 'cook': return '做菜';
+      case 'purchase': return '采购';
+      case 'inventory': return '盘点';
+      case 'manual': return '手动';
+      default: return source;
+    }
+  }
+
+  String get deltaText {
+    final sign = delta >= 0 ? '+' : '';
+    final v = delta == delta.roundToDouble() ? delta.toInt().toString() : delta.toStringAsFixed(1);
+    return '$sign$v g';
   }
 }

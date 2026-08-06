@@ -50,10 +50,8 @@ class GradientButton extends StatelessWidget {
                       const SizedBox(width: 8),
                     ],
                     Text(label,
-                        style: TextStyle(
+                        style: t.textStyles.pageTitle.copyWith(
                           color: t.card,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
                         )),
                   ],
                 ),

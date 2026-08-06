@@ -183,7 +183,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
               left: AppTokens.sp16, right: AppTokens.sp16, top: AppTokens.sp16,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + AppTokens.sp16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('$_pickMeal · 选菜', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('$_pickMeal · 选菜', style: t.textStyles.subtitle),
             const SizedBox(height: AppTokens.sp12),
             TextField(
               decoration: InputDecoration(
@@ -205,7 +205,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
             const SizedBox(height: AppTokens.sp8),
             // 份数选择
             Row(children: [
-              const Text('份数', style: TextStyle(fontSize: 12)),
+              Text('份数', style: t.textStyles.sm),
               const SizedBox(width: AppTokens.sp8),
               for (final s in ['1', '2', '3'])
                 Padding(
@@ -221,14 +221,14 @@ class _MealPlanPageState extends State<MealPlanPage> {
             SizedBox(
               height: 220,
               child: _dishSearchResults.isEmpty
-                  ? Center(child: Text('搜索菜品', style: TextStyle(color: t.caption)))
+                  ? Center(child: Text('搜索菜品', style: t.textStyles.md.copyWith(color: t.caption)))
                   : ListView.builder(
                       itemCount: _dishSearchResults.length,
                       itemBuilder: (_, i) {
                         final d = _dishSearchResults[i];
                         return ListTile(
                           dense: true,
-                          title: Text(d.name, style: const TextStyle(fontSize: 14)),
+                          title: Text(d.name, style: t.textStyles.body),
                           onTap: () {
                             Navigator.pop(ctx);
                             _doAdd(d, double.tryParse(servings) ?? 1);
@@ -316,6 +316,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -324,7 +325,8 @@ class _MealPlanPageState extends State<MealPlanPage> {
             onPressed: _currentPlanIndex < _allPlans.length - 1 ? _prevWeek : null,
             iconSize: 22,
           ),
-          Text(_detail?.plan.name ?? '排菜计划', style: const TextStyle(fontSize: 16)),
+          Text(_detail?.plan.name ?? '排菜计划',
+              style: t.textStyles.pageTitle.copyWith(color: Colors.white)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: _currentPlanIndex > 0 ? _nextWeek : null,
@@ -368,7 +370,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
     final t = AppTokens.of(context);
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('还没有排菜计划', style: TextStyle(color: t.caption, fontSize: 14)),
+        Text('还没有排菜计划', style: t.textStyles.md.copyWith(color: t.caption)),
         const SizedBox(height: AppTokens.sp16),
         ElevatedButton.icon(
           onPressed: _createWeek,
@@ -392,7 +394,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
     if (showIdx.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('本周还没排菜', style: TextStyle(color: t.caption, fontSize: 14)),
+          Text('本周还没排菜', style: t.textStyles.md.copyWith(color: t.caption)),
           const SizedBox(height: AppTokens.sp16),
           ElevatedButton.icon(
             onPressed: _openAddByDate,
@@ -415,6 +417,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
   /// 独立加菜入口：先选「日期 + 餐次」再进选菜。
   /// （空日期被隐藏后，无法点日期卡里的「+」，故提供此入口给任意日期加菜。）
   void _openAddByDate() {
+    final t = AppTokens.of(context);
     final dates = _weekDates();
     if (dates.isEmpty || _meals.isEmpty) return;
     String date = dates.first;
@@ -430,7 +433,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('选日期', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Text('选日期', style: t.textStyles.md.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: AppTokens.sp8),
               Wrap(
                 spacing: AppTokens.sp8, runSpacing: AppTokens.sp8,
@@ -444,7 +447,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
                 ],
               ),
               const SizedBox(height: AppTokens.sp16),
-              const Text('选餐次', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Text('选餐次', style: t.textStyles.md.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: AppTokens.sp8),
               Wrap(
                 spacing: AppTokens.sp8, runSpacing: AppTokens.sp8,
@@ -491,9 +494,9 @@ class _MealPlanPageState extends State<MealPlanPage> {
         padding: const EdgeInsets.all(AppTokens.sp12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Text('${_weekdays[dayIndex]} $md', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            Text('${_weekdays[dayIndex]} $md', style: t.textStyles.cardTitle),
             const Spacer(),
-            Text('${items.length}菜', style: TextStyle(fontSize: 12, color: t.caption)),
+            Text('${items.length}菜', style: t.textStyles.sm.copyWith(color: t.caption)),
           ]),
           const SizedBox(height: AppTokens.sp8),
           ..._meals.map((meal) => _buildMealSlot(date, meal, items)),
@@ -507,11 +510,15 @@ class _MealPlanPageState extends State<MealPlanPage> {
                 borderRadius: BorderRadius.circular(AppTokens.rSm),
               ),
               child: Row(children: [
-                Text('营养小计', style: TextStyle(fontSize: 12, color: t.caption)),
+                Text('营养小计', style: t.textStyles.sm.copyWith(color: t.caption)),
                 const Spacer(),
-                Text('${nut.calorie}kcal', style: const TextStyle(fontSize: 12, color: AppTokens.error, fontWeight: FontWeight.w600)),
+                Text('${nut.calorie}kcal',
+                    style: t.textStyles.sm.copyWith(
+                        color: AppTokens.error, fontWeight: FontWeight.w600)),
                 const SizedBox(width: AppTokens.sp8),
-                Text('${nut.protein}g', style: TextStyle(fontSize: 12, color: t.primary, fontWeight: FontWeight.w600)),
+                Text('${nut.protein}g',
+                    style: t.textStyles.sm.copyWith(
+                        color: t.primary, fontWeight: FontWeight.w600)),
               ]),
             ),
           ],
@@ -528,7 +535,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         SizedBox(
           width: 56,
-          child: Text(meal, style: TextStyle(fontSize: 12, color: t.caption)),
+          child: Text(meal, style: t.textStyles.sm.copyWith(color: t.caption)),
         ),
         Expanded(
           child: Wrap(spacing: AppTokens.sp4, runSpacing: AppTokens.sp4, children: [
@@ -548,7 +555,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
                     ),
                     child: Text(
                       '$name${it.servingFactor != null && it.servingFactor != 1 ? " ×${_fmtFactor(it.servingFactor!)}" : ""}',
-                      style: TextStyle(fontSize: 12, color: t.primary),
+                      style: t.textStyles.sm.copyWith(color: t.primary),
                     ),
                   ),
                 ),
@@ -566,7 +573,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
                     border: Border.all(color: t.border),
                     borderRadius: BorderRadius.circular(AppTokens.rMd),
                   ),
-                  child: Text('+', style: TextStyle(fontSize: 12, color: t.caption)),
+                  child: Text('+', style: t.textStyles.sm.copyWith(color: t.caption)),
                 ),
               ),
             ),

@@ -19,7 +19,7 @@ class MemberBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text('当前就餐：', style: TextStyle(fontSize: 14)),
+          Text('当前就餐：', style: t.textStyles.body),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -29,7 +29,7 @@ class MemberBar extends StatelessWidget {
             ),
             child: Text(
               m.currentName.isEmpty ? '未选择' : m.currentName,
-              style: TextStyle(color: t.card, fontSize: 12, fontWeight: FontWeight.w700),
+              style: t.textStyles.sm.copyWith(fontWeight: FontWeight.w700, color: t.card),
             ),
           ),
           const Spacer(),
@@ -52,10 +52,9 @@ class MemberBar extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('选择就餐成员',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('选择就餐成员', style: t.textStyles.pageTitle),
               ),
               ...store.members.map(
                 (mem) => ListTile(
@@ -73,7 +72,7 @@ class MemberBar extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text('暂无成员，请先在后台添加',
-                      style: TextStyle(color: t.caption)),
+                      style: t.textStyles.body.copyWith(color: t.caption)),
                 ),
               const SizedBox(height: 8),
             ],

@@ -98,9 +98,7 @@ class _MenuListPageState extends State<MenuListPage> {
                               child: Center(
                                 child: Text(
                                   _hasMore ? '上拉加载更多' : '没有更多了',
-                                  style: TextStyle(
-                                      color: t.caption,
-                                      fontSize: 13),
+                                  style: t.textStyles.md.copyWith(color: t.caption),
                                 ),
                               ),
                             );
@@ -125,8 +123,7 @@ class _MenuTile extends StatelessWidget {
         subtitle: Text(
           '份数 ${menu.servingCount ?? 1}'
           '${menu.isDone ? ' · 已完成' : ''}',
-          style: TextStyle(
-              color: t.caption, fontSize: 13),
+          style: t.textStyles.md.copyWith(color: t.caption),
         ),
         trailing: Icon(Icons.chevron_right,
             color: t.caption),

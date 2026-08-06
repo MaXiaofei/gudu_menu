@@ -2,6 +2,8 @@ import 'package:go_router/go_router.dart';
 
 import '../pages/mealplan/mealplan_page.dart';
 import '../pages/pantry/list_page.dart';
+import '../pages/pantry/detail_page.dart';
+import '../pages/pantry/manual_add_page.dart';
 import '../pages/shopping/shopping_page.dart';
 import '../pages/ai/estimate_page.dart';
 import '../pages/ai/recommend_page.dart';
@@ -112,6 +114,16 @@ GoRouter createRouter(AuthStore auth) {
       GoRoute(
           path: '/dailylog',
           builder: (_, __) => const DailyLogPage()),
+      // 库存详情（盘点纠偏 + 变动明细）+ 手动添加
+      // 注意：/pantry/add 放在 /pantry/:id 前面，避免 add 被当成 :id 匹配
+      GoRoute(
+          path: '/pantry/add',
+          builder: (_, __) => const PantryManualAddPage()),
+      GoRoute(
+          path: '/pantry/:id',
+          builder: (_, s) => PantryDetailPage(
+            ingredientId: int.parse(s.pathParameters['id']!),
+          )),
     ],
   );
 }

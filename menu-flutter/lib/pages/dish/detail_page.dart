@@ -1,19 +1,19 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/image_helper.dart';
 import '../../core/app_theme.dart';
 import '../../models/dish.dart';
+import '../../models/menu.dart';
 import '../../models/nutrition_metric.dart';
 import '../../services/dish_service.dart';
+import '../../services/menu_service.dart';
 import '../../widgets/image_viewer.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/nutrition_grid.dart';
 
-/// 菜品详情（复刻 menu-mini/src/pages/dish/Detail.vue）。
-/// 封面 + 营养区 + 做法步骤（**步骤计时器**）+ 直接做这道菜/去点评。
+/// 菜品详情。
+/// 封面 + 营养区 + 用料 + 做法步骤 + 加到食集/去点评。
 ///
 /// 图片策略：
 /// - 列表/详情默认加载缩略图（/thumbnail/xxx.jpg），节省流量 + 加载快。
@@ -32,10 +32,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
   final int _serving = 1;
   bool _loading = true;
 
-  int _activeStep = -1;
-  int _elapsed = 0;
-  Timer? _timer;
-
   /// 详情头部展示的标签（菜系 + 分类 + 标签去空合并）。
   List<String> get _dishTags => _detail == null
       ? const []
@@ -51,12 +47,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
     _load();
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
   Future<void> _load() async {
     try {
       _detail = await DishService.detail(widget.id);
@@ -68,23 +58,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
       _metrics = await DishService.metrics();
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
-  }
-
-  void _toggleTimer(int i) {
-    if (_activeStep == i && _timer != null) {
-      _timer!.cancel();
-      _timer = null;
-      setState(() => _activeStep = -1);
-      return;
-    }
-    _timer?.cancel();
-    setState(() {
-      _activeStep = i;
-      _elapsed = 0;
-    });
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() => _elapsed++);
-    });
   }
 
   /// 打开全屏图片查看器（加载原图）。
@@ -100,27 +73,156 @@ class _DishDetailPageState extends State<DishDetailPage> {
     );
   }
 
-  /// 单菜直做：POST /dish/{id}/cook-now?servings=N。
-  /// 扣 pantry + 写 cooking_record；库存不够时提示缺哪些食材（shortages）。
-  bool _cooking = false;
-  Future<void> _cookNow() async {
-    if (_cooking) return;
-    setState(() => _cooking = true);
+  /// 加到食集：
+  /// - 查"今天及以后"创建的食集 → 有则弹窗让用户选择加到哪个
+  /// - 没有则弹输入框新建（名字预填菜谱名，可自定义）
+  /// - 新建食集名字默认取菜谱名，用户可修改
+  bool _adding = false;
+  Future<void> _addToMenu() async {
+    if (_adding) return;
+    setState(() => _adding = true);
+    final dishName = _detail?.dish.name ?? '新食集';
     try {
-      final result = await DishService.cookNow(widget.id, servings: _serving);
+      final page = await MenuService.list(pageNum: 1, pageSize: 50);
+      // 过滤：今天及以后创建的食集（createTime >= 今天 0 点）
+      final todayStart = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      final recentMenus = page.records.where((m) {
+        final created = m.createdAt;
+        return created != null && !created.isBefore(todayStart);
+      }).toList();
+
       if (!mounted) return;
-      final msg = result.hasShortage
-          ? '已做菜，库存已扣；缺量：${result.shortageNames.join('、')}'
-          : '已做菜，库存已扣';
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(msg)));
-    } catch (_) {
+      if (recentMenus.isEmpty) {
+        // 无今天及以后的食集 → 弹输入框新建（预填菜谱名）
+        final name = await _showNameDialog(dishName);
+        if (name == null) {
+          if (mounted) setState(() => _adding = false);
+          return;
+        }
+        await MenuService.createMenu(name, dishIds: [widget.id]);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已加入新食集「$name」')));
+      } else {
+        // 有今天及以后的食集 → 弹窗选择
+        final selectedId = await _showMenuPicker(recentMenus);
+        if (selectedId == null) {
+          if (mounted) setState(() => _adding = false);
+          return;
+        }
+        if (selectedId == -1) {
+          // 选"新建食集" → 弹输入框（预填菜谱名）
+          final name = await _showNameDialog(dishName);
+          if (name == null) {
+            if (mounted) setState(() => _adding = false);
+            return;
+          }
+          await MenuService.createMenu(name, dishIds: [widget.id]);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('已加入新食集「$name」')));
+        } else {
+          // 加入已有食集（传 dishName 用于拼接食集名）
+          await MenuService.addDishToMenu(selectedId, widget.id, dishName: dishName);
+          final menuName = recentMenus.firstWhere((m) => m.id == selectedId).name;
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('已加入食集「$menuName」')));
+        }
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('做菜失败')));
+            .showSnackBar(const SnackBar(content: Text('加入食集失败')));
       }
     }
-    if (mounted) setState(() => _cooking = false);
+    if (mounted) setState(() => _adding = false);
+  }
+
+  /// 弹输入框让用户输入食集名字，[defaultName] 预填默认值（菜谱名）。
+  /// 返回用户输入的名字，取消返回 null。
+  Future<String?> _showNameDialog(String defaultName) async {
+    final ctrl = TextEditingController(text: defaultName);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final t = AppTokens.of(ctx);
+        return AlertDialog(
+          title: Text('新建食集',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: t.title)),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: '食集名字',
+              hintText: '输入食集名字',
+              isDense: true,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(null),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final name = ctrl.text.trim();
+                Navigator.of(ctx).pop(name.isEmpty ? defaultName : name);
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 弹窗选择当天食集，返回选中的 menuId（-1=新建，null=取消）。
+  Future<int?> _showMenuPicker(List<Menu> menus) async {
+    return showModalBottomSheet<int>(
+      context: context,
+      builder: (ctx) {
+        final t = AppTokens.of(ctx);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppTokens.sp16),
+                child: Text('加到哪个食集？',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: t.title)),
+              ),
+              const Divider(height: 1),
+              ...menus.map((m) {
+                    final created = m.createdAt;
+                    final dateStr = created != null
+                        ? '${created.month}/${created.day} ${created.hour.toString().padLeft(2, '0')}:${created.minute.toString().padLeft(2, '0')}'
+                        : '';
+                    return ListTile(
+                      leading: Icon(Icons.restaurant_menu, color: t.primary),
+                      title: Text(m.name),
+                      subtitle: Text(
+                        '$dateStr · 份数 ${m.servingCount ?? 1} · ${m.isDone ? '已完成' : '进行中'}',
+                        style: TextStyle(fontSize: 12, color: t.caption),
+                      ),
+                    onTap: () => Navigator.of(ctx).pop(m.id),
+                    );
+                  }),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(Icons.add_circle, color: t.primary),
+                title: const Text('新建食集'),
+                onTap: () => Navigator.of(ctx).pop(-1),
+              ),
+              const SizedBox(height: AppTokens.sp8),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   /// 构建可点击的缩略图（点一下弹全屏原图）。
@@ -179,15 +281,11 @@ class _DishDetailPageState extends State<DishDetailPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(_detail!.dish.name,
-                                style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: t.title)),
+                                style: t.textStyles.h2),
                             const SizedBox(height: AppTokens.sp8),
                             Text(
                               '备料 ${_detail!.dish.prepTime ?? 0}分 · 烹饪 ${_detail!.dish.cookTime ?? 0}分 · 难度 ${_detail!.dish.difficulty ?? '-'}/5',
-                              style: TextStyle(
-                                  fontSize: 12, color: t.caption),
+                              style: t.textStyles.sm.copyWith(color: t.caption),
                             ),
                             if (_dishTags.isNotEmpty) ...[
                               const SizedBox(height: AppTokens.sp8),
@@ -204,9 +302,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                                 AppTokens.rSm),
                                           ),
                                           child: Text(tag,
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: t.primary)),
+                                              style: t.textStyles.xs.copyWith(color: t.primary)),
                                         ))
                                     .toList(),
                               ),
@@ -214,9 +310,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
                             if ((_detail!.dish.note ?? '').isNotEmpty) ...[
                               const SizedBox(height: AppTokens.sp8),
                               Text(_detail!.dish.note!,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: t.body)),
+                                  style: t.textStyles.sm),
                             ],
                           ],
                         ),
@@ -225,11 +319,78 @@ class _DishDetailPageState extends State<DishDetailPage> {
                         const _SectionTitle('营养（份数 1）'),
                         NutritionGrid(metrics: _metrics, values: _nutrition),
                       ],
+                      // 用料（份数 1）
+                      if (_detail!.ingredients.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                              AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('用料', style: t.textStyles.subtitle),
+                              Text('份数 $_serving · 共 ${_detail!.ingredients.length} 样',
+                                  style: t.textStyles.xs.copyWith(color: t.caption)),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: AppTokens.sp16),
+                          decoration: BoxDecoration(
+                            color: t.card,
+                            border: Border.all(color: t.border),
+                            borderRadius: BorderRadius.circular(AppTokens.rMd),
+                          ),
+                          child: Column(
+                            children: [
+                              for (final ing in _detail!.ingredients) ...[
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: AppTokens.sp12, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 28, height: 28,
+                                        decoration: BoxDecoration(
+                                          color: t.primarySoft,
+                                          borderRadius: BorderRadius.circular(AppTokens.rSm),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(ing.displayName.characters.first,
+                                            style: TextStyle(fontSize: 14, color: t.primaryDeep)),
+                                      ),
+                                      const SizedBox(width: AppTokens.sp8),
+                                      Expanded(
+                                        child: Text(ing.displayName,
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: t.title)),
+                                      ),
+                                      Text(ing.amountText,
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800,
+                                              color: t.title)),
+                                    ],
+                                  ),
+                                ),
+                                if (ing != _detail!.ingredients.last)
+                                  Divider(height: 1, thickness: 1, color: t.border),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                              AppTokens.sp16, AppTokens.sp4, AppTokens.sp16, 0),
+                          child: Text('用量为 $_serving 份基准；做菜时按份数自动放大。',
+                              style: t.textStyles.xs.copyWith(color: t.caption)),
+                        ),
+                      ],
                       const _SectionTitle('做法'),
                       ..._detail!.steps.asMap().entries.map((entry) {
                         final i = entry.key;
                         final s = entry.value;
-                        final active = _activeStep == i;
                         return Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
@@ -240,22 +401,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Text('步骤 ${i + 1}', style: TextStyle(color: t.title)),
-                                  const Spacer(),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: active
-                                          ? AppTokens.error
-                                          : t.primary,
-                                      minimumSize: const Size(64, 32),
-                                    ),
-                                    onPressed: () => _toggleTimer(i),
-                                    child: Text(active ? '停止' : '计时'),
-                                  ),
-                                ],
-                              ),
+                              Text('步骤 ${i + 1}', style: TextStyle(color: t.title, fontWeight: FontWeight.w700)),
                               const SizedBox(height: AppTokens.sp8),
                               Text(s.text, style: TextStyle(color: t.body)),
                               if (s.imageList.isNotEmpty) ...[
@@ -272,14 +418,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                       .toList(),
                                 ),
                               ],
-                              if (active) ...[
-                                const SizedBox(height: AppTokens.sp8),
-                                Text('${_elapsed}s',
-                                    style: TextStyle(
-                                        color: t.primary,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold)),
-                              ],
                             ],
                           ),
                         );
@@ -294,14 +432,14 @@ class _DishDetailPageState extends State<DishDetailPage> {
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTokens.success),
-                              onPressed: _cooking ? null : _cookNow,
-                              child: _cooking
+                              onPressed: _adding ? null : _addToMenu,
+                              child: _adding
                                   ? const SizedBox(
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2, color: Colors.white))
-                                  : const Text('直接做这道菜'),
+                                  : const Text('加到食集'),
                             ),
                             const SizedBox(height: AppTokens.sp12),
                             OutlinedButton(
@@ -328,7 +466,7 @@ class _SectionTitle extends StatelessWidget {
     return Padding(
         padding: const EdgeInsets.all(AppTokens.sp16),
         child: Text(text,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: t.title)),
+            style: t.textStyles.subtitle),
       );
   }
 }

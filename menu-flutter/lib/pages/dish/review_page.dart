@@ -162,7 +162,7 @@ class _ReviewPageState extends State<ReviewPage> {
               child: Column(
                 children: [
                   Text('给这道菜打个分',
-                      style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
+                      style: t.textStyles.subtitle.copyWith(color: t.card)),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -184,7 +184,7 @@ class _ReviewPageState extends State<ReviewPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(_ratingHint,
-                      style: TextStyle(color: t.card.withValues(alpha: 0.7), fontSize: 12)),
+                      style: t.textStyles.sm.copyWith(color: t.card.withValues(alpha: 0.7))),
                 ],
               ),
             ),
@@ -196,7 +196,7 @@ class _ReviewPageState extends State<ReviewPage> {
             TextField(
               controller: _textCtrl,
               maxLines: 4,
-              style: const TextStyle(fontSize: 14),
+              style: t.textStyles.md,
               decoration: InputDecoration(
                 hintText: '味道如何？难不难？想再做一次吗？',
                 filled: true,
@@ -237,7 +237,7 @@ class _ReviewPageState extends State<ReviewPage> {
                         width: 20, height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('提交点评', style: TextStyle(fontSize: 16)),
+                    : Text('提交点评', style: t.textStyles.lg.copyWith(color: Colors.white)),
               ),
             ),
             const SizedBox(height: 32),
@@ -262,8 +262,7 @@ class _ReviewPageState extends State<ReviewPage> {
       ),
       const SizedBox(width: 8),
       Text(text,
-          style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.bold, color: t.title)),
+          style: t.textStyles.md.copyWith(fontWeight: FontWeight.bold, color: t.title)),
     ]);
   }
 
@@ -319,7 +318,7 @@ class _ReviewPageState extends State<ReviewPage> {
                   Icon(Icons.add_photo_alternate_outlined,
                       size: 24, color: t.caption),
                   Text('${_imgFiles.length}/6',
-                      style: TextStyle(fontSize: 12, color: t.caption)),
+                      style: t.textStyles.sm.copyWith(color: t.caption)),
                 ],
               ),
             ),
@@ -345,7 +344,7 @@ class _ReviewPageState extends State<ReviewPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(d.name, style: TextStyle(fontSize: 14, color: t.title)),
+                Text(d.name, style: t.textStyles.md.copyWith(color: t.title)),
                 Row(
                   children: List.generate(5, (i) {
                     return InkWell(

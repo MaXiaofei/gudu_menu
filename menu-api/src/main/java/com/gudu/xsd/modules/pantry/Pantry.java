@@ -11,8 +11,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 食材库存：记录家中现有食材的余量/单位/过期日/低库存阈值。
+ * 食材库存：记录家中现有食材的余量/单位/过期日。
  * ingredient_id 关联 ingredient；unit_id 关联 sys_dict(group=unit)。
+ * 低库存阈值已挪到 ingredient.low_threshold（V39）。
  */
 @Data
 @TableName("pantry")
@@ -31,8 +32,6 @@ public class Pantry {
     private BigDecimal grams;
 
     private LocalDate expireDate;
-
-    private BigDecimal lowThreshold;
 
     private LocalDateTime updateTime;
 

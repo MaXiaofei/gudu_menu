@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>token-system.html 改动效果对比</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; color: #241914; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { font-size: 13px; color: #888; margin: 0 0 24px; }
+.row { display: flex; gap: 20px; flex-wrap: wrap; }
+.col { flex: 1; min-width: 320px; background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.col h2 { font-size: 15px; margin: 0 0 4px; }
+.tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-bottom: 16px; }
+.tag.old { background: #fee; color: #c33; }
+.tag.new { background: #e6f7ee; color: #2a7; }
+
+/* 复刻原型 token-system 的 C 端卡片样式 */
+.tk-loose { display: flex; flex-direction: column; gap: 8px; }
+.tk-loose .c { background: #FFFAF5; border: 1px solid #F2EAE0; border-radius: 12px; padding: 10px 12px; font-size: 13px; color: #241914; }
+.tk-pill { display: inline-block; background: #E8602C; color: #fff; border-radius: 999px; padding: 1px 8px; font-size: 10px; margin-left: 6px; }
+
+/* 改后：加 flex + 占位框 */
+.tk-loose.new .c { display: flex; align-items: center; gap: 8px; }
+.tk-thumb { width: 20px; height: 20px; border-radius: 6px; background: #F2EAE0; border: 1px solid #E8DCD0; flex-shrink: 0; }
+
+.note { font-size: 12px; color: #888; margin-top: 20px; padding: 12px; background: #f9f9f9; border-radius: 8px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>token-system.html · 改动效果对比</h1>
+<p class="sub">行 115-117 的示例菜品卡：左为改前（emoji 当图），右为改后（CSS 占位框）</p>
+
+<div class="row">
+  <div class="col">
+    <h2>C 端卡片示例</h2>
+    <span class="tag old">改前 · emoji 充当缩略图</span>
+    <div class="tk-loose">
+      <div class="c">🍅 番茄炒蛋<span class="tk-pill">家常</span></div>
+      <div class="c">🐟 清蒸鲈鱼<span class="tk-pill">粤菜</span></div>
+      <div class="c">🥩 红烧肉<span class="tk-pill">家常</span></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <h2>C 端卡片示例</h2>
+    <span class="tag new">改后 · CSS 占位框</span>
+    <div class="tk-loose new">
+      <div class="c"><div class="tk-thumb"></div>番茄炒蛋<span class="tk-pill">家常</span></div>
+      <div class="c"><div class="tk-thumb"></div>清蒸鲈鱼<span class="tk-pill">粤菜</span></div>
+      <div class="c"><div class="tk-thumb"></div>红烧肉<span class="tk-pill">家常</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+<b>改动说明</b><br>
+① 删除 3 处 emoji（🍅🐟🥩），它们原用作示例菜品的缩略图占位<br>
+② 新增 <code>.tk-thumb</> 样式：20×20 灰色圆角占位框，模拟"图片缺失时"的视觉效果<br>
+③ 符合 DESIGN.md §10 图片占位规则：不用 emoji 顶替图片，走占位框<br>
+④ 该文件无 AI 味文案，只此 3 处 emoji 需处理
+</div>
+
+</body>
+</html>

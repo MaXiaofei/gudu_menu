@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>做菜扣库存 - 完整页面</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: #f5f5f5; color: #241914; }
+
+/* ===== 页面容器 ===== */
+.page-wrapper { max-width: 420px; margin: 0 auto; background: #FDFAF4; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ===== 顶栏 ===== */
+.nav-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #FDFAF4; }
+.nav-bar .back { font-size: 22px; color: #6E5C49; font-weight: 800; text-decoration: none; line-height: 1; }
+.nav-bar .title { font-size: 13px; color: #9C8C7A; }
+
+/* ===== 内容区 ===== */
+.page-content { flex: 1; padding: 0 16px 20px; overflow-y: auto; }
+
+.page-heading { font-size: 20px; font-weight: 800; color: #4A382A; margin-bottom: 4px; }
+.page-sub { font-size: 12px; color: #9C8C7A; margin-bottom: 16px; }
+
+/* ===== 份数卡片 ===== */
+.info-card { background: #FDFAF4; border: 1px solid #F0E6D6; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.info-card .label { font-size: 12px; color: #6E5C49; }
+.info-card .value { font-size: 12px; font-weight: 800; color: #4A382A; }
+
+/* ===== 清单标题 ===== */
+.list-header { font-size: 11px; font-weight: 800; color: #9C8C7A; letter-spacing: 1px; margin-bottom: 8px; }
+
+/* ===== 食材行 ===== */
+.ingredient-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px dashed #F0E6D6; }
+.ingredient-row:last-child { border-bottom: none; }
+.ingredient-row .info { flex: 1; }
+.ingredient-row .name { font-size: 14px; font-weight: 700; color: #4A382A; }
+.ingredient-row .meta { font-size: 11px; color: #9C8C7A; margin-top: 2px; }
+.ingredient-row .name.muted { color: #6E5C49; font-weight: 400; }
+
+/* ===== 状态标签 ===== */
+.badge { font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 99px; color: #fff; white-space: nowrap; }
+.badge-danger { background: #DB5A4E; }
+.badge-warning { background: #E5A938; }
+.badge-success { background: #4FAE6E; }
+
+/* ===== 警告条 ===== */
+.alert { border-radius: 12px; padding: 10px 12px; font-size: 11px; line-height: 1.6; margin-bottom: 0; }
+.alert-danger { background: #FBD9D5; border: 1px solid #DB5A4E; color: #B8382B; }
+.alert-warning { background: #FFF7EC; border: 1px solid #E5A938; color: #B8762E; }
+
+/* ===== 底部按钮区 ===== */
+.bottom-bar { padding: 12px 16px 20px; background: #FDFAF4; border-top: 1px solid #F0E6D6; }
+.bottom-bar .btn-row { display: flex; gap: 10px; }
+.btn { font-weight: 800; font-size: 13px; padding: 13px; border-radius: 14px; text-align: center; cursor: pointer; border: none; }
+.btn-outline { flex: 1; border: 1.5px solid #E89150; background: #fff; color: #D17A3C; }
+.btn-primary { flex: 1.4; background: #E89150; color: #fff; }
+.btn-primary-full { width: 100%; background: #E89150; color: #fff; }
+.btn-sub-text { font-size: 11px; color: #9C8C7A; text-align: center; margin-top: 8px; }
+
+/* ===== 结果页 success 头 ===== */
+.result-header { text-align: center; padding: 24px 16px 0; }
+.result-header .check-circle { width: 60px; height: 60px; border-radius: 50%; background: #4FAE6E; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 32px; color: #fff; }
+.result-header .result-title { font-size: 18px; font-weight: 800; color: #4A382A; margin-top: 12px; }
+.result-header .result-meta { font-size: 12px; color: #9C8C7A; margin-top: 4px; }
+.result-header .result-tag { display: inline-block; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 99px; background: #4FAE6E; color: #fff; margin-top: 10px; }
+
+/* ===== 扣减结果行 ===== */
+.result-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px dashed #F0E6D6; }
+.result-row:last-child { border-bottom: none; }
+.result-row .name { flex: 1; font-size: 13px; color: #4A382A; }
+.result-row .change { font-size: 11px; color: #9C8C7A; }
+
+/* ===== 分割标题 ===== */
+.section-title { font-size: 11px; font-weight: 800; color: #9C8C7A; letter-spacing: 1px; margin: 20px 0 8px; }
+
+/* 预览页外层 */
+.preview-outer { max-width: 880px; margin: 20px auto; }
+.preview-outer h1 { font-size: 20px; margin-bottom: 4px; }
+.preview-outer .sub { font-size: 13px; color: #888; margin-bottom: 24px; }
+.preview-grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+.preview-col { flex: 1; min-width: 320px; max-width: 420px; }
+.preview-col .col-label { font-size: 12px; font-weight: 800; color: #D17A3C; margin-bottom: 8px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="preview-outer">
+  <h1>做菜扣库存 · 完整页面流程</h1>
+  <p class="sub">从食集详情点「开始做这顿饭」→ 确认扣库存页 → 扣减结果页。不再使用弹窗，改为独立全屏页面。</p>
+
+  <div class="preview-grid">
+
+    <!-- ========== ① 确认扣库存页 ========== -->
+    <div class="preview-col">
+      <div class="col-label">① 确认扣库存页</div>
+      <div class="page-wrapper" style="border:1px solid #F0E6D6;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+
+        <!-- 顶栏 -->
+        <div class="nav-bar">
+          <a class="back" href="#">‹</a>
+          <span class="title">做菜</span>
+          <span style="width:22px"></span>
+        </div>
+
+        <!-- 内容 -->
+        <div class="page-content">
+          <div class="page-heading">开始做这顿饭</div>
+          <div class="page-sub">番茄炒蛋 + 清蒸鲈鱼 + 蒜蓉菠菜</div>
+
+          <!-- 份数 -->
+          <div class="info-card">
+            <span class="label">各菜份数（菜 Tab 可改）</span>
+            <span class="value">2 / 2 / 2 人份</span>
+          </div>
+
+          <!-- 预扣清单 -->
+          <div class="list-header">将按食材扣库存 · 先扣早买的</div>
+
+          <div class="ingredient-row">
+            <div class="info"><div class="name">葱</div><div class="meta">扣 3 把 · 库存 0</div></div>
+            <span class="badge badge-danger">差 3</span>
+          </div>
+          <div class="ingredient-row">
+            <div class="info"><div class="name">鲈鱼</div><div class="meta">扣 2 条 · 库存 2</div></div>
+            <span class="badge badge-warning">扣到 0</span>
+          </div>
+          <div class="ingredient-row">
+            <div class="info"><div class="name">菠菜</div><div class="meta">扣 2 把 · 库存 0</div></div>
+            <span class="badge badge-danger">差 2</span>
+          </div>
+          <div class="ingredient-row">
+            <div class="info"><div class="name">番茄</div><div class="meta">扣 4 · 库存 2</div></div>
+            <span class="badge badge-danger">差 2</span>
+          </div>
+          <div class="ingredient-row">
+            <div class="info"><div class="name">鸡蛋</div><div class="meta">扣 6 · 库存 4</div></div>
+            <span class="badge badge-danger">差 2</span>
+          </div>
+          <div class="ingredient-row" style="opacity:.65">
+            <div class="info"><div class="name muted">盐 · 适量</div></div>
+            <span class="badge badge-success">够</span>
+          </div>
+
+          <!-- 警告 -->
+          <div class="alert alert-danger" style="margin-top:14px">
+            <b>4 样不够</b>（葱/菠菜/番茄/鸡蛋）。继续做会<b>扣到 0、欠量记入做菜记录</b>；或先去采购补齐。
+          </div>
+        </div>
+
+        <!-- 底部按钮 -->
+        <div class="bottom-bar">
+          <div class="btn-row">
+            <button class="btn btn-outline">先去采购</button>
+            <button class="btn btn-primary">确认做菜，扣库存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ② 扣减结果页 ========== -->
+    <div class="preview-col">
+      <div class="col-label">② 扣减结果页</div>
+      <div class="page-wrapper" style="border:1px solid #F0E6D6;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+
+        <!-- 内容 -->
+        <div class="page-content">
+          <!-- 成功头 -->
+          <div class="result-header">
+            <div class="check-circle">✓</div>
+            <div class="result-title">做菜记录已写入</div>
+            <div class="result-meta">今晚的饭 · 3 道菜 · 2 人份 · 7/2 19:20</div>
+            <span class="result-tag">食集 → 已完成</span>
+          </div>
+
+          <!-- 扣减结果 -->
+          <div class="section-title">库存已更新</div>
+
+          <div class="result-row">
+            <span class="name">鸡蛋</span>
+            <span class="change">4 → <b style="color:#DB5A4E">0</b></span>
+            <span class="badge badge-danger">空</span>
+          </div>
+          <div class="result-row">
+            <span class="name">鲈鱼</span>
+            <span class="change">2 → <b style="color:#DB5A4E">0</b></span>
+            <span class="badge badge-danger">空</span>
+          </div>
+          <div class="result-row">
+            <span class="name">蒜</span>
+            <span class="change">2 → <b style="color:#E5A938">0</b></span>
+            <span class="badge badge-danger">空</span>
+          </div>
+          <div class="result-row">
+            <span class="name">食用油</span>
+            <span class="change">500 → <b style="color:#E5A938">485 g</b></span>
+            <span class="badge badge-warning">偏低</span>
+          </div>
+          <div class="result-row">
+            <span class="name">盐</span>
+            <span class="change">够 → <b style="color:#4FAE6E">够</b></span>
+            <span class="badge badge-success">够</span>
+          </div>
+
+          <!-- 欠量提醒 -->
+          <div class="alert alert-warning" style="margin-top:14px">
+            <b>欠量已记</b>：葱 3 / 菠菜 2 / 番茄 2（库存没有，没扣成）。下次采购可补。
+          </div>
+        </div>
+
+        <!-- 底部按钮 -->
+        <div class="bottom-bar">
+          <button class="btn btn-primary-full">查看食记</button>
+          <div class="btn-sub-text">‹ 返回食集</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 说明 -->
+  <div style="font-size:12px;color:#9C8C7A;margin-top:20px;text-align:center;line-height:1.8">
+    <b>页面流程</b>：食集详情 → 确认扣库存页 → 扣减结果页 → 食记 / 返回食集<br>
+    <b>扣减规则</b>：按食材聚合各菜用量（份数 × 单道用量），先扣库存里最早买的批次<br>
+    <b>不够的处理</b>：能扣的扣到 0，扣不动的欠量写进做菜记录备注（不记负数、不让库存变负）<br>
+    <b>写库</b>：做菜记录（带食集和份数）+ 库存批次减量 + 食集状态 → 已完成
+  </div>
+</div>
+
+</body>
+</html>

@@ -322,7 +322,7 @@ class _CreateDishPageState extends State<CreateDishPage>
                               color: Colors.white,
                             ),
                           )
-                        : const Text('保存', style: TextStyle(fontSize: 16)),
+                        : Text('保存', style: t.textStyles.lg.copyWith(color: Colors.white)),
                   ),
                 ),
               ),
@@ -334,6 +334,7 @@ class _CreateDishPageState extends State<CreateDishPage>
   // ========== 手动录入 Tab ==========
 
   Widget _buildManualEntry() {
+    final t = AppTokens.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -371,7 +372,7 @@ class _CreateDishPageState extends State<CreateDishPage>
                           color: Colors.white,
                         ),
                       )
-                    : const Text('保存', style: TextStyle(fontSize: 16)),
+                    : Text('保存', style: t.textStyles.lg.copyWith(color: Colors.white)),
               ),
             ),
           const SizedBox(height: 32),
@@ -446,10 +447,7 @@ class _CreateDishPageState extends State<CreateDishPage>
                   const SizedBox(height: 8),
                   Text(
                     '添加封面图',
-                    style: TextStyle(
-                      color: t.caption,
-                      fontSize: 14,
-                    ),
+                    style: t.textStyles.md.copyWith(color: t.caption),
                   ),
                 ],
               ),
@@ -474,7 +472,7 @@ class _CreateDishPageState extends State<CreateDishPage>
             Icon(icon, size: 16, color: t.primary),
             const SizedBox(width: 4),
             Text(label,
-                style: TextStyle(fontSize: 12, color: t.primary, fontWeight: FontWeight.w600)),
+                style: t.textStyles.sm.copyWith(color: t.primary, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -485,7 +483,7 @@ class _CreateDishPageState extends State<CreateDishPage>
     final t = AppTokens.of(context);
     return TextField(
       controller: _nameCtrl,
-      style: const TextStyle(fontSize: 16),
+      style: t.textStyles.lg,
       decoration: InputDecoration(
         labelText: '菜名',
         hintText: '如：番茄炒蛋',
@@ -536,7 +534,7 @@ class _CreateDishPageState extends State<CreateDishPage>
     return TextField(
       controller: ctrl,
       keyboardType: TextInputType.number,
-      style: const TextStyle(fontSize: 14),
+      style: t.textStyles.md,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
@@ -566,7 +564,7 @@ class _CreateDishPageState extends State<CreateDishPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('难度',
-            style: TextStyle(fontSize: 14, color: t.body)),
+            style: t.textStyles.md),
         const SizedBox(height: 8),
         Row(
           children: List.generate(5, (i) {
@@ -608,7 +606,7 @@ class _CreateDishPageState extends State<CreateDishPage>
     return TextField(
       controller: _priceCtrl,
       keyboardType: TextInputType.number,
-      style: const TextStyle(fontSize: 14),
+      style: t.textStyles.md,
       decoration: InputDecoration(
         labelText: '参考价格（元）',
         hintText: '可选',
@@ -632,7 +630,7 @@ class _CreateDishPageState extends State<CreateDishPage>
     return TextField(
       controller: _noteCtrl,
       maxLines: 2,
-      style: const TextStyle(fontSize: 14),
+      style: t.textStyles.md,
       decoration: InputDecoration(
         labelText: '备注',
         hintText: '可选，如：家常做法、少油版',
@@ -670,11 +668,7 @@ class _CreateDishPageState extends State<CreateDishPage>
         const SizedBox(width: 12),
         Text(
           title,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: t.title,
-          ),
+          style: t.textStyles.subtitle,
         ),
       ],
     );
@@ -708,9 +702,8 @@ class _CreateDishPageState extends State<CreateDishPage>
                   alignment: Alignment.center,
                   child: Text(
                     '${index + 1}',
-                    style: TextStyle(
+                    style: t.textStyles.sm.copyWith(
                       color: t.card,
-                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -718,8 +711,7 @@ class _CreateDishPageState extends State<CreateDishPage>
                 const SizedBox(width: 8),
                 Text(
                   '步骤 ${index + 1}',
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: t.textStyles.md.copyWith(
                     fontWeight: FontWeight.w600,
                     color: t.title,
                   ),
@@ -738,7 +730,7 @@ class _CreateDishPageState extends State<CreateDishPage>
             TextField(
               controller: step.textCtrl,
               maxLines: 3,
-              style: const TextStyle(fontSize: 14),
+              style: t.textStyles.md,
               decoration: InputDecoration(
                 hintText: '描述这一步怎么做…',
                 filled: true,
@@ -825,7 +817,7 @@ class _CreateDishPageState extends State<CreateDishPage>
             const SizedBox(width: 8),
             Text(
               '添加图片（可选）',
-              style: TextStyle(fontSize: 12, color: t.caption),
+              style: t.textStyles.sm.copyWith(color: t.caption),
             ),
           ],
         ),
@@ -878,21 +870,13 @@ class _CreateDishPageState extends State<CreateDishPage>
                 const SizedBox(height: 12),
                 Text(
                   '从其他 App 导入菜谱',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: t.title,
-                  ),
+                  style: t.textStyles.subtitle,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '粘贴下厨房、美食杰、豆果的菜谱链接，\n自动解析菜名、步骤和图片',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: t.caption,
-                    height: 1.5,
-                  ),
+                  style: t.textStyles.sm.copyWith(color: t.caption),
                 ),
                 const SizedBox(height: 16),
                 // 支持的平台标签
@@ -913,7 +897,7 @@ class _CreateDishPageState extends State<CreateDishPage>
           // URL 输入
           TextField(
             controller: _urlCtrl,
-            style: const TextStyle(fontSize: 14),
+            style: t.textStyles.md,
             keyboardType: TextInputType.url,
             decoration: InputDecoration(
               hintText: '粘贴菜谱链接…',
@@ -963,7 +947,7 @@ class _CreateDishPageState extends State<CreateDishPage>
                   : const Icon(Icons.cloud_download_outlined),
               label: Text(
                   _importing ? '正在解析菜谱…' : '开始导入',
-                  style: const TextStyle(fontSize: 16)),
+                  style: t.textStyles.lg.copyWith(color: Colors.white)),
             ),
           ),
         ],
@@ -982,10 +966,7 @@ class _CreateDishPageState extends State<CreateDishPage>
       ),
       child: Text(
         name,
-        style: TextStyle(
-          fontSize: 12,
-          color: t.accent,
-        ),
+        style: t.textStyles.sm.copyWith(color: t.accent),
       ),
     );
   }

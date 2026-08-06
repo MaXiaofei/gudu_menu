@@ -211,12 +211,12 @@ class _ShoppingPageState extends State<ShoppingPage> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: t.primary.withAlpha(25),
-          child: Text('#$seq', style: TextStyle(color: t.primary, fontSize: 12)),
+          child: Text('#$seq', style: t.textStyles.sm.copyWith(color: t.primary)),
         ),
         title: Text('采购单 · ${l.sourceLabel} · 第$seq 单',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            style: t.textStyles.body.copyWith(fontWeight: FontWeight.w600)),
         subtitle: Text(l.dateRange.isNotEmpty ? l.dateRange : displayTime,
-            style: TextStyle(fontSize: 12, color: t.caption)),
+            style: t.textStyles.sm.copyWith(color: t.caption)),
         trailing: Icon(Icons.chevron_right, color: t.caption),
         onTap: () => _openDetail(l.id),
         onLongPress: () => _confirmDeleteList(l.id),
@@ -315,7 +315,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
         borderRadius: BorderRadius.circular(AppTokens.rMd),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('从哪里生成', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        Text('从哪里生成', style: t.textStyles.cardTitle),
         const SizedBox(height: 8),
         Row(children: [
           _genTab('plan', '周计划'),
@@ -350,7 +350,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
             onPressed: _genLoading ? null : _doGenerate,
             child: _genLoading
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('生成清单', style: TextStyle(fontSize: 14)),
+                : Text('生成清单', style: t.textStyles.body),
           ),
         ),
       ]),
@@ -417,7 +417,8 @@ class _ShoppingPageState extends State<ShoppingPage> {
             borderRadius: BorderRadius.circular(AppTokens.rSm),
           ),
           child: Text(label, textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: active ? t.card : t.caption,
+              style: t.textStyles.sm.copyWith(
+                  color: active ? t.card : t.caption,
                   fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
         ),
       ),
@@ -450,7 +451,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Text(p['name'] ?? '${p['weekStart']}起',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                      style: t.textStyles.sm.copyWith(fontWeight: FontWeight.w500,
                           color: sel ? t.card : t.title)),
                   if (p['itemCount'] != null) ...[
                     const SizedBox(width: 4),
@@ -461,7 +462,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                         borderRadius: BorderRadius.circular(AppTokens.rSm),
                       ),
                       child: Text('${p['itemCount']}菜',
-                          style: TextStyle(fontSize: 10, color: sel ? Colors.white70 : t.primary)),
+                          style: t.textStyles.chip.copyWith(color: sel ? Colors.white70 : t.primary)),
                     ),
                   ],
                 ]),
@@ -500,13 +501,13 @@ class _ShoppingPageState extends State<ShoppingPage> {
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text('已选 ${_selectedDishIds.length} 道菜',
-              style: TextStyle(fontSize: 12, color: t.primary)),
+              style: t.textStyles.sm.copyWith(color: t.primary)),
         ),
       SizedBox(
         height: 120,
         child: filtered.isEmpty
             ? Center(child: Text(_dishes.isEmpty ? '暂无菜品' : '无匹配菜品',
-                style: TextStyle(color: t.caption, fontSize: 12)))
+                style: t.textStyles.sm.copyWith(color: t.caption)))
             : ListView.builder(
                 itemCount: filtered.take(50).length,
                 itemBuilder: (_, i) {
@@ -517,7 +518,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
-                    title: Text(d['name'] ?? '', style: const TextStyle(fontSize: 12)),
+                    title: Text(d['name'] ?? '', style: t.textStyles.sm),
                     value: sel,
                     onChanged: (v) => setState(() {
                       if (v == true) { _selectedDishIds.add(id); } else { _selectedDishIds.remove(id); }
@@ -552,7 +553,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                   border: Border.all(color: sel ? t.primary : t.border),
                 ),
                 child: Text(m['name'] ?? '菜单 #${m['id']}',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                    style: t.textStyles.sm.copyWith(fontWeight: FontWeight.w500,
                         color: sel ? t.card : t.title)),
               ),
             ),
@@ -566,7 +567,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
     final t = AppTokens.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(text, style: TextStyle(color: t.caption, fontSize: 12)),
+      child: Text(text, style: t.textStyles.sm.copyWith(color: t.caption)),
     );
   }
 
@@ -583,7 +584,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
         padding: EdgeInsets.only(
             left: 16, right: 16, top: 16, bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('手动添加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('手动添加', style: AppTokens.of(ctx).textStyles.subtitle),
           const SizedBox(height: 12),
           TextField(
             controller: _addNameCtrl,
@@ -618,7 +619,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                   ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('添加失败: $e')));
                 }
               },
-              child: const Text('添加', style: TextStyle(fontSize: 14)),
+              child: Text('添加', style: t.textStyles.body),
             ),
           ),
         ]),
@@ -635,9 +636,9 @@ class _ShoppingPageState extends State<ShoppingPage> {
       ),
       const SizedBox(width: 8),
       Text('${d.sourceLabel} · #${d.id}',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          style: t.textStyles.pageTitle),
       const Spacer(),
-      Text(d.dateRange, style: TextStyle(fontSize: 12, color: t.caption)),
+      Text(d.dateRange, style: t.textStyles.sm.copyWith(color: t.caption)),
     ]);
   }
 
@@ -646,7 +647,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
     final t = AppTokens.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 12),
-      Text(catName, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.primary)),
+      Text(catName, style: t.textStyles.md.copyWith(fontWeight: FontWeight.w600, color: t.primary)),
       const SizedBox(height: 4),
       ...items.map((it) => _buildItemTile(it)),
     ]);
@@ -678,14 +679,13 @@ class _ShoppingPageState extends State<ShoppingPage> {
         Expanded(
           child: Text(
             it.displayName,
-            style: TextStyle(
-              fontSize: 14,
+            style: t.textStyles.md.copyWith(
               color: it.isPurchased ? t.caption : t.title,
               decoration: it.isPurchased ? TextDecoration.lineThrough : null,
             ),
           ),
         ),
-        Text(it.amountText, style: TextStyle(fontSize: 12, color: t.caption)),
+        Text(it.amountText, style: t.textStyles.sm.copyWith(color: t.caption)),
         const SizedBox(width: 8),
         _buildStockBadge(it),
         const SizedBox(width: 8),
@@ -728,7 +728,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           color: color,
           borderRadius: BorderRadius.circular(AppTokens.rPill),
         ),
-        child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: t.card)),
+        child: Text(text, style: t.textStyles.chip.copyWith(color: t.card)),
       );
   }
 

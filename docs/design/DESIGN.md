@@ -19,7 +19,10 @@
 ### 同步规则
 - 新功能/改版：**先改原型（44829），再改代码**
 - 代码修复 bug：改动确认后，**回写原型**保持一致
-- 原型与代码冲突时：以原型为准（除非原型本身有错，需双方确认后同步修改）
+- 原型与代码冲突时：
+  - **Token 值（字号/颜色/圆角/间距）→ 以本文档约束为准**（代码尚未统一处理，原型可能使用随手填的近似值）
+  - **布局/交互/流程 → 以原型为准**（原型承载完整设计意图，代码是参考实现）
+  - 如果原型本身有错，双方确认后同步修改
 
 ---
 
@@ -51,16 +54,16 @@
 
 ---
 
-## §4 圆角阶梯（7 档）
+## §4 圆角阶梯（6 档）
 
 | token | 值 | 用途 |
 |---|---|---|
-| `rXs` | 6 | 小标签、chip |
+| `rXs` | 4 | 小标签、chip |
 | `rSm` | 8 | 小按钮、骨架行 |
 | `rMd` | 12 | 卡片、输入框、按钮标准 |
 | `rLg` | 16 | 大卡片、头部容器 |
-| `rXl` | 20 | 模态、大容器 |
-| `rFull` | 9999 | 圆形、胶囊 |
+| `rXl` | 22 | 模态、大容器 |
+| `rPill` | 999 | 圆形、胶囊 |
 
 （具体以 `app_theme.dart` 为准）
 
@@ -74,7 +77,18 @@
 
 ## §6 间距阶梯（8 档）
 
-以 `app_theme.dart` 的 `sXs / sSm / sMd / sLg / sXl / sXxl / sXxxl / sHuge` 为准，基准 4px 倍数。
+| token | 值 | 用途 |
+|---|---|---|
+| `sp2` | 2 | 微调间隙 |
+| `sp4` | 4 | 紧凑间距 |
+| `sp8` | 8 | 行内间距 |
+| `sp12` | 12 | 卡片内边距、列表水平边距 |
+| `sp16` | 16 | 区块间距、表单垂直间距 |
+| `sp24` | 24 | 大区块间距 |
+| `sp32` | 32 | 页面级间距 |
+| `sp48` | 48 | 超大间距 |
+
+基准 4px 倍数。具体以 `app_theme.dart` 为准。
 
 ---
 
@@ -124,13 +138,80 @@
 
 ---
 
+## §11 Flutter 代码实现约束 ⭐（新增 2026-08-05）
+
+> **写任何新 UI 前第一步：读 `lib/core/app_theme.dart`，确认可用 token 和组件。**
+
+### 11.1 文字：必须用 VxTextStyles，禁止硬编码 fontSize
+
+语义化文字体系定义在 `lib/core/app_theme.dart` → `VxTextStyles`。对齐 `tokens.json` 的 11 档阶梯。
+
+**用法：** `final ts = AppTokens.of(context).textStyles;`
+
+| 别名 | 字号/字重 | 用途 |
+|---|---|---|
+| `ts.pageTitle` | 16/w700 | 页面主标题 |
+| `ts.cardTitle` | 14/w700 | 卡片/列表项标题 |
+| `ts.sectionLabel` | 11/w700 | 分区标签，`.copyWith(color:)` 改语义色 |
+| `ts.body` | 14/w400 | 正文 |
+| `ts.caption` | 12/w400 | 辅助说明 |
+| `ts.chip` | 10/w800 | Chip/Badge 文字 |
+| `ts.meta` | 9/w800 | Tab 文字/元信息 |
+
+完整阶梯（display→micro 共 11 档）见 `VxTextStyles` 类定义。
+
+**禁止：**
+- ❌ 手写 `fontSize: N` — 一律走 `ts.xxx` 或 `ts.xxx.copyWith()`
+- ❌ `fontWeight: FontWeight.w800` 滥用 — w800 仅限 display/h1/h2/tiny/micro 五档
+
+### 11.2 颜色：必须用 AppTokens，禁止裸色值
+
+```dart
+final t = AppTokens.of(context);
+t.primary / t.title / t.body / t.caption / t.bg / t.card / t.border
+AppTokens.success / warning / error / info  // 功能色两套共享
+```
+
+**禁止：** `Color(0xFF...)` 裸色值 — 主题切换时不会跟随。
+
+### 11.3 圆角 / 阴影 / 间距
+
+```dart
+AppTokens.rXs(4) / rSm(8) / rMd(12) / rLg(16) / rXl(22) / rPill(999)
+AppTokens.sp4 / sp8 / sp12 / sp16 / sp24 / sp32 / sp48
+t.elevationSm / t.elevationMd / t.elevationLg / t.elevationFab
+```
+
+### 11.4 已有共享组件（禁止重复造轮子）
+
+| 组件 | 文件 | 用途 |
+|---|---|---|
+| `AppCard` | `lib/widgets/app_card.dart` | 通用卡片 |
+| `LoadingView` / `EmptyView` | `lib/widgets/loading_empty.dart` | 骨架屏 / 空态 |
+| `StatusChip` | `lib/widgets/status_chip.dart` | 状态徽章 |
+| `GradientButton` | `lib/widgets/gradient_button.dart` | 渐变主按钮 |
+
+### 11.5 重复 UI 模式（做新功能优先抽组件，不复制代码）
+
+以下模式在当前代码中出现 ≥2 次，属于设计债。遇到时先抽组件再使用：
+
+| 组件 | 重复次数 | 说明 |
+|---|---|---|
+| `SectionLabel` | 12+ | 分区小标题（`ts.sectionLabel` + `letterSpacing: 1`） |
+| `InfoCallout` | 4 | 说明提示条（`t.highlight` bg + `t.border` 描边 + `AppTokens.rSm` 圆角） |
+| `Counter` | 2 | 加减盘（± 圆形按钮 + `ts.display` 大数字 + 下方差值文字） |
+| `SearchInput` | 3 | 搜索框（白底 + 1.5px 主色描边 + `rMd` 圆角 + 搜索图标 + ✕ 清除） |
+
+---
+
 ## 附：本文档维护约定
 
 - 新增视觉/交互约定时，同步在对应代码注释里写 `DESIGN.md §N` 引用。
 - token 权威定义始终在 `app_theme.dart`；本文件只做语义说明，不重复抄数值。
 - 引用过本文档的代码文件（需保持引用有效）：
-  - `lib/core/app_theme.dart`（§4/§5/§6/§7）
+  - `lib/core/app_theme.dart`（§4/§5/§6/§7/**§11**）
   - `lib/widgets/loading_empty.dart`（§1）
   - `lib/widgets/image_viewer.dart`（§1）
   - `lib/widgets/app_card.dart`（§8/§9）
   - `lib/widgets/main_shell.dart`（§8/§9）
+  - `lib/pages/dish/list_page.dart`（§11 — VxTextStyles 参考实现）

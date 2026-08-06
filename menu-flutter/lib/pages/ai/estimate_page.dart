@@ -68,9 +68,9 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
               borderRadius: BorderRadius.circular(AppTokens.rMd),
             ),
             child: Column(children: [
-              Text('描述一道菜或一餐', style: TextStyle(color: t.card, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('描述一道菜或一餐', style: t.textStyles.subtitle.copyWith(color: t.card)),
               const SizedBox(height: AppTokens.sp4),
-              Text('AI 估算总热量和营养', style: TextStyle(color: t.card.withValues(alpha: 0.7), fontSize: 12)),
+              Text('AI 估算总热量和营养', style: t.textStyles.sm.copyWith(color: t.card.withValues(alpha: 0.7))),
             ]),
           ),
           const SizedBox(height: AppTokens.sp16),
@@ -79,7 +79,7 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
           TextField(
             controller: _descCtrl,
             maxLines: 4,
-            style: const TextStyle(fontSize: 14),
+            style: t.textStyles.body,
             decoration: InputDecoration(
               hintText: '如：番茄炒蛋一份，加了两个鸡蛋',
               filled: true, fillColor: t.bg,
@@ -90,7 +90,7 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
 
           // 份数
           Row(children: [
-            const Text('份数', style: TextStyle(fontSize: 14)),
+            Text('份数', style: t.textStyles.body),
             const SizedBox(width: AppTokens.sp12),
             SizedBox(
               width: 80,
@@ -123,7 +123,7 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: AppTokens.sp12),
-              child: Text(_error!, style: const TextStyle(color: AppTokens.error, fontSize: 14)),
+              child: Text(_error!, style: t.textStyles.body.copyWith(color: AppTokens.error)),
             ),
 
           // 结果
@@ -144,9 +144,9 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
       Row(children: [
         Container(width: 4, height: 20, decoration: BoxDecoration(color: t.primary, borderRadius: BorderRadius.circular(AppTokens.rXs))),
         const SizedBox(width: AppTokens.sp8),
-        const Text('估算结果', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text('估算结果', style: t.textStyles.subtitle),
         const Spacer(),
-        Text(source, style: TextStyle(fontSize: 12, color: t.caption)),
+        Text(source, style: t.textStyles.sm.copyWith(color: t.caption)),
       ]),
       const SizedBox(height: AppTokens.sp12),
       GridView.count(
@@ -167,9 +167,9 @@ class _AiEstimatePageState extends State<AiEstimatePage> {
               boxShadow: t.elevationSm,
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text(e.value, style: TextStyle(fontSize: 12, color: t.caption)),
+              Text(e.value, style: t.textStyles.sm.copyWith(color: t.caption)),
               const SizedBox(height: AppTokens.sp4),
-              Text('$displayVal', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _colors[e.key])),
+              Text('$displayVal', style: t.textStyles.h3.copyWith(color: _colors[e.key])),
             ]),
           );
         }).toList(),

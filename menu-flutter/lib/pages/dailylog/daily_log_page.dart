@@ -144,7 +144,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('记一餐', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('记一餐', style: t.textStyles.subtitle),
                 const SizedBox(height: 12),
                 // 模式切换
                 Row(children: [
@@ -166,7 +166,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                   ),
                   const SizedBox(height: 8),
                   Row(children: [
-                    const Text('份数', style: TextStyle(fontSize: 12)),
+                    Text('份数', style: t.textStyles.sm),
                     const SizedBox(width: 8),
                     SizedBox(
                       width: 80,
@@ -182,7 +182,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text('份', style: TextStyle(fontSize: 12, color: t.caption)),
+                    Text('份', style: t.textStyles.sm.copyWith(color: t.caption)),
                   ]),
                   const SizedBox(height: 12),
                   // 菜库热门快捷选
@@ -203,7 +203,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                               color: t.primary.withAlpha(15),
                               borderRadius: BorderRadius.circular(AppTokens.rMd),
                             ),
-                            child: Text(d.name, style: TextStyle(fontSize: 12, color: t.primary)),
+                            child: Text(d.name, style: t.textStyles.sm.copyWith(color: t.primary)),
                           ),
                         );
                       }).toList(),
@@ -213,7 +213,8 @@ class _DailyLogPageState extends State<DailyLogPage> {
                     height: 44,
                     child: ElevatedButton(
                       onPressed: () { Navigator.pop(ctx); _submitQuickAdd(); },
-                      child: const Text('快速记录', style: TextStyle(fontSize: 14)),
+                      child: Text('快速记录',
+                          style: t.textStyles.body.copyWith(color: Colors.white)),
                     ),
                   ),
                 ] else ...[
@@ -245,7 +246,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                     child: searchResults.isEmpty
                         ? Center(
                             child: Text('输入菜名搜索',
-                                style: TextStyle(color: t.caption, fontSize: 12)),
+                                style: t.textStyles.sm.copyWith(color: t.caption)),
                           )
                         : ListView.builder(
                             itemCount: searchResults.length,
@@ -253,7 +254,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                               final d = searchResults[i];
                               return ListTile(
                                 dense: true,
-                                title: Text(d.name, style: const TextStyle(fontSize: 14)),
+                                title: Text(d.name, style: t.textStyles.body),
                                 onTap: () {
                                   Navigator.pop(ctx);
                                   _doAddDish(d.id, d.name, 1);
@@ -283,7 +284,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
           borderRadius: BorderRadius.circular(AppTokens.rLg),
         ),
         child: Text(label,
-            style: TextStyle(fontSize: 12, color: active ? t.card : t.body)),
+            style: t.textStyles.sm.copyWith(color: active ? t.card : t.body)),
       ),
     );
   }
@@ -370,7 +371,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text('精准', style: TextStyle(fontSize: 12, color: t.card.withValues(alpha: 0.7))),
+                Text('精准', style: t.textStyles.sm.copyWith(color: t.card.withValues(alpha: 0.7))),
                 Switch(
                   value: _preciseMode,
                   onChanged: (v) => setState(() => _preciseMode = v),
@@ -389,7 +390,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: Text('当前成员：$memberName',
-                        style: TextStyle(fontSize: 12, color: t.caption)),
+                        style: t.textStyles.sm.copyWith(color: t.caption)),
                   ),
                 if (_isToday && _preciseMode && _target != null)
                   _buildPreciseCard()
@@ -401,7 +402,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
                       ? Center(
                           child: Text(
                             _isToday ? '今天还没记录，点下方 + 记一餐' : '当天暂无记录',
-                            style: TextStyle(color: t.caption, fontSize: 14),
+                            style: t.textStyles.md.copyWith(color: t.caption),
                           ),
                         )
                       : ListView.builder(
@@ -420,10 +421,10 @@ class _DailyLogPageState extends State<DailyLogPage> {
                                   color: it.isDish ? t.primary : AppTokens.warning,
                                 ),
                               ),
-                              title: Text(it.displayName, style: const TextStyle(fontSize: 14)),
+                              title: Text(it.displayName, style: t.textStyles.body),
                               subtitle: Text(
                                 '${it.amount.toStringAsFixed(it.isDish ? 0 : 0)}${it.isDish ? " 份" : " g"}',
-                                style: TextStyle(fontSize: 12, color: t.caption),
+                                style: t.textStyles.sm.copyWith(color: t.caption),
                               ),
                               dense: true,
                             );
@@ -468,10 +469,10 @@ class _DailyLogPageState extends State<DailyLogPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Text('${_date.month}月${_date.day}日',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      style: t.textStyles.subtitle),
                   Text(
                     isToday ? '今天 · 左右滑动切换' : _weekLabel(_date.weekday),
-                    style: TextStyle(fontSize: 12, color: isToday ? t.primary : t.caption),
+                    style: t.textStyles.sm.copyWith(color: isToday ? t.primary : t.caption),
                   ),
                 ]),
               ),
@@ -502,7 +503,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text('今天 ${items.length} 项 · ${cal > 0 ? "约 $cal kcal" : ""}',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.body)),
+          style: t.textStyles.md.copyWith(fontWeight: FontWeight.w600)),
     );
   }
 
@@ -544,23 +545,23 @@ class _DailyLogPageState extends State<DailyLogPage> {
                   ),
                 ),
                 Text('${(ratio * 100).toInt()}%',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: ringColor)),
+                    style: t.textStyles.md.copyWith(
+                        fontWeight: FontWeight.bold, color: ringColor)),
               ]),
             ),
             const SizedBox(width: 24),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('热量预算', style: TextStyle(fontSize: 12, color: t.caption)),
+              Text('热量预算', style: t.textStyles.sm.copyWith(color: t.caption)),
               Text('$actualCal / ${_target!.calorieTarget} kcal',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: t.textStyles.subtitle),
               Text(
                 remaining >= 0 ? '剩余 $remaining kcal' : '超出 ${-remaining} kcal',
-                style: TextStyle(
-                    fontSize: 12,
+                style: t.textStyles.sm.copyWith(
                     color: remaining >= 0 ? AppTokens.success : AppTokens.error,
                     fontWeight: FontWeight.w600),
               ),
               Text('${_target!.goalLabel} · BMR ${_target!.bmr}',
-                  style: TextStyle(fontSize: 11, color: t.caption)),
+                  style: t.textStyles.xs),
             ]),
           ]),
           const SizedBox(height: 12),
@@ -579,7 +580,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
     final ratio = target > 0 ? (actual / target).clamp(0.0, 1.2) : 0.0;
     final c = ratio > 1.0 ? AppTokens.error : ratio > 0.85 ? AppTokens.warning : color;
     return Row(children: [
-      SizedBox(width: 66, child: Text(label, style: const TextStyle(fontSize: 12))),
+      SizedBox(width: 66, child: Text(label, style: t.textStyles.sm)),
       Expanded(
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppTokens.rXs),
@@ -592,7 +593,7 @@ class _DailyLogPageState extends State<DailyLogPage> {
       ),
       const SizedBox(width: 8),
       SizedBox(width: 72, child: Text('$actual/$target g',
-          style: TextStyle(fontSize: 11, color: t.caption))),
+          style: t.textStyles.xs)),
     ]);
   }
 

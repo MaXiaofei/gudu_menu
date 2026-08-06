@@ -7,6 +7,7 @@ DELETE FROM shopping_list;
 DELETE FROM daily_log_item;
 DELETE FROM daily_log;
 DELETE FROM notification;
+DELETE FROM pantry_change_log;
 DELETE FROM pantry;
 DELETE FROM meal_plan_item;
 DELETE FROM meal_plan;

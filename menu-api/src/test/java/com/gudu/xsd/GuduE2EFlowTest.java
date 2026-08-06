@@ -213,13 +213,13 @@ class GuduE2EFlowTest {
         post(token, "/member/current?memberId=" + MEMBER_CHEF, null);
 
         // 录库存：番茄，过期日 = 明天（落在 3 天临期窗口内）
+        // lowThreshold 已挪到 ingredient（V39），录 pantry 不再带阈值
         LocalDate tomorrow = LocalDate.now().plusDays(1);
         Map<String, Object> pantryReq = new HashMap<>();
         pantryReq.put("ingredientId", ING_TOMATO);
         pantryReq.put("amount", 500);
         pantryReq.put("unitId", UNIT_G);
         pantryReq.put("expireDate", tomorrow.toString());
-        pantryReq.put("lowThreshold", 100);
         JsonNode rp = post(token, "/pantry", pantryReq);
         assertThat(rp.get("code").asInt()).isEqualTo(0);
 

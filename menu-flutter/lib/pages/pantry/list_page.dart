@@ -1,58 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
-import '../../services/ingredient_service.dart';
 import '../../services/pantry_service.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/status_chip.dart';
 
-/// 批量行数据
-class _BatchRow {
-  final TextEditingController name = TextEditingController();
-  final TextEditingController qty = TextEditingController();
-  final TextEditingController expire = TextEditingController();
-  String unit = '';
-
-  void dispose() { name.dispose(); qty.dispose(); expire.dispose(); }
-  String get nameText => name.text.trim();
-  String get qtyText => qty.text.trim();
-  String get expireText => expire.text.trim();
-
-  /// 根据食材名自动推断单位
-  void suggestUnit() {
-    final n = nameText;
-    if (n.isEmpty) { unit = ''; return; }
-    unit = _matchUnit(n);
-  }
-
-  // 客户端单位匹配表（与后端 UnitMatcher 保持一致）
-  static String _matchUnit(String name) {
-    const map = {
-      '牛奶': '盒', '酸奶': '盒', '豆浆': '杯', '油': '瓶', '酱油': '瓶', '醋': '瓶',
-      '料酒': '瓶', '盐': '袋', '糖': '袋', '生抽': '瓶', '老抽': '瓶', '蚝油': '瓶',
-      '排骨': '斤', '牛肉': '斤', '羊肉': '斤', '猪肉': '斤', '鸡肉': '斤', '鸭肉': '斤',
-      '鸡腿': '斤', '鸡翅': '斤', '鸡胸': '斤', '鱼': '条', '虾': '斤', '蟹': '只',
-      '蛋': '个', '鸡蛋': '个', '鸭蛋': '个', '白菜': '颗', '生菜': '把',
-      '土豆': '个', '番茄': '个', '西红柿': '个', '黄瓜': '根', '胡萝卜': '根',
-      '茄子': '个', '玉米': '根', '红薯': '个', '葱': '把', '姜': '块', '蒜': '头',
-      '辣椒': '个', '青椒': '个', '蘑菇': '盒', '金针菇': '盒', '苹果': '个',
-      '香蕉': '根', '梨': '个', '西瓜': '个', '葡萄': '串', '草莓': '盒',
-      '米': '袋', '面': '袋', '面条': '把', '面包': '个', '馒头': '个',
-      '豆腐': '块', '肉': '斤', '菜': '把', '果': '个', '奶': '盒',
-    };
-    for (final e in map.entries) {
-      if (name.contains(e.key)) return e.value;
-    }
-    return '';
-  }
-}
-
-/// 食材库存管理页。
+/// 库存主页（三色分组版，对齐 pantry-page-preview.html 原型）。
 ///
-/// 3 个 Tab：全部 / 临期 / 不足。
-/// 每项卡片显示食材名、数量、过期日、阈值标记。
-/// FAB 新增库存项 → 底部 Sheet 选食材 + 填数量/单位/过期日/阈值。
-/// 点击卡片 → 编辑弹窗。
-/// 长按 → 删除确认。
+/// 结构：顶部三色汇总条（够 N / 低 N / 缺 N）→ 按 缺→低→够 分组列表 →
+/// 每行点整行进食材详情页盘点 → 右下浮动「添加」进手动添加页。
 class PantryListPage extends StatefulWidget {
   const PantryListPage({super.key});
 
@@ -60,794 +17,192 @@ class PantryListPage extends StatefulWidget {
   State<PantryListPage> createState() => _PantryListPageState();
 }
 
-class _PantryListPageState extends State<PantryListPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabCtrl;
+class _PantryListPageState extends State<PantryListPage> {
+  /// 主题 token 缓存。
+  AppTokens get _t => AppTokens.of(context);
 
-  List<PantryVO> _items = [];
-  List<DictItem> _ingredients = [];
+  PantryGrouped? _grouped;
   bool _loading = true;
-
-  // 分页（仅"全部"tab）：每页 10 条，滚动到底加载更多
-  static const _pageSize = 10;
-  final _scroll = ScrollController();
-  int _page = 1;
-  bool _hasMore = false;
-  bool _loadingMore = false;
-  bool get _paginated => _tabCtrl.index == 0;
-
-  // 批量模式
-  final List<_BatchRow> _batchRows = [];
-  bool _batchSaving = false;
-
-  // 表单
-  final _amountCtrl = TextEditingController();
-  final _expireCtrl = TextEditingController();
-  final _thresholdCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController(); // 单品添加的食材名
-  List<DictItem> _matchedIngredients = []; // 输入匹配结果
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
-    _tabCtrl.addListener(() {
-      if (!_tabCtrl.indexIsChanging) _load();
-    });
-    _scroll.addListener(_onScroll);
     _load();
   }
 
-  @override
-  void dispose() {
-    _scroll.dispose();
-    _tabCtrl.dispose();
-    _amountCtrl.dispose();
-    _expireCtrl.dispose();
-    _thresholdCtrl.dispose();
-    _nameCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadOptions() async {
-    try {
-      _ingredients = await IngredientService.listAll();
-      if (mounted) setState(() {});
-    } catch (_) {}
-  }
-
   Future<void> _load() async {
-    setState(() => _loading = true);
-    _page = 1;
-    _hasMore = false;
+    setState(() {
+      _loading = _grouped == null;
+      _error = null;
+    });
     try {
-      switch (_tabCtrl.index) {
-        case 0:
-          // "全部" tab 走分页，首屏 10 条
-          final pg = await PantryService.list(pageNum: 1, pageSize: _pageSize);
-          _items = pg.records;
-          _hasMore = pg.records.length >= _pageSize;
-          break;
-        case 1:
-          _items = await PantryService.listExpiring();
-          break;
-        case 2:
-          _items = await PantryService.listLow();
-          break;
-      }
-    } catch (_) {
-      _items = [];
-    }
-    _loadOptions();
-    if (mounted) setState(() => _loading = false);
-  }
-
-  /// 滚动到底加载下一页（仅"全部"tab）。
-  Future<void> _loadMore() async {
-    if (!_paginated || _loadingMore || !_hasMore) return;
-    setState(() => _loadingMore = true);
-    try {
-      _page++;
-      final pg = await PantryService.list(pageNum: _page, pageSize: _pageSize);
-      _items.addAll(pg.records);
-      _hasMore = pg.records.length >= _pageSize;
-    } catch (_) {
-      _page--;
-      _hasMore = false;
-    }
-    if (mounted) setState(() => _loadingMore = false);
-  }
-
-  void _onScroll() {
-    if (!_scroll.hasClients || !_paginated || _loadingMore || !_hasMore) return;
-    final pos = _scroll.position;
-    if (pos.pixels >= pos.maxScrollExtent - 100) _loadMore();
-  }
-
-  // ===== 新增 / 编辑 =====
-
-  void _showAddSheet() {
-    _showFormSheet(isEdit: false, item: null);
-  }
-
-  void _showEditSheet(PantryVO item) {
-    _showFormSheet(isEdit: true, item: item);
-  }
-
-  void _showFormSheet({required bool isEdit, PantryVO? item}) {
-    final t = AppTokens.of(context);
-    _nameCtrl.text = item?.ingredientName ?? item?.displayName ?? '';
-    _amountCtrl.text = item != null ? item.amount.toString() : '';
-    _expireCtrl.text = item?.expireDate ?? '';
-    _thresholdCtrl.text = item?.lowThreshold?.toString() ?? '';
-    _matchedIngredients = [];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 16, right: 16, top: 16,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(isEdit ? '编辑库存' : '添加库存',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: t.title)),
-              const SizedBox(height: 12),
-              // 食材输入框（替代 chip 列表）
-              TextField(
-                controller: _nameCtrl,
-                autofocus: true,
-                style: const TextStyle(fontSize: 14),
-                decoration: InputDecoration(
-                  labelText: isEdit ? '食材名' : '食材名（输入或选择）',
-                  hintText: '如：牛奶、排骨',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  filled: true, fillColor: t.bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-                ),
-                onChanged: (v) {
-                  setSheetState(() {
-                    final q = v.trim().toLowerCase();
-                    if (q.isEmpty) {
-                      _matchedIngredients = [];
-                    } else {
-                      _matchedIngredients = _ingredients
-                          .where((i) => i.name.toLowerCase().contains(q))
-                          .take(5)
-                          .toList();
-                    }
-                  });
-                },
-              ),
-              // 匹配结果下拉提示
-              if (_matchedIngredients.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  decoration: BoxDecoration(
-                    color: t.card,
-                    borderRadius: BorderRadius.circular(AppTokens.rSm),
-                    border: Border.all(color: t.border),
-                  ),
-                  child: Column(children: _matchedIngredients.map((ing) {
-                    return ListTile(
-                      dense: true,
-                      title: Text(ing.name, style: const TextStyle(fontSize: 12)),
-                      onTap: () {
-                        _nameCtrl.text = ing.name;
-                        setSheetState(() {
-                          _matchedIngredients = [];
-                        });
-                      },
-                    );
-                  }).toList()),
-                ),
-              if (_nameCtrl.text.isNotEmpty && _matchedIngredients.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 4),
-                  child: Text('未匹配到已有食材，将创建新食材"${_nameCtrl.text.trim()}"',
-                      style: const TextStyle(fontSize: 11, color: AppTokens.error)),
-                ),
-              const SizedBox(height: 12),
-              // 数量
-              TextField(
-                controller: _amountCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: '数量',
-                  hintText: '如 500',
-                  filled: true, fillColor: t.bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // 过期日
-              TextField(
-                controller: _expireCtrl,
-                decoration: InputDecoration(
-                  labelText: '过期日（可选）',
-                  hintText: 'yyyy-MM-dd',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.calendar_today, size: 18),
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: ctx,
-                        initialDate: DateTime.now().add(const Duration(days: 7)),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-                      );
-                      if (picked != null) {
-                        setSheetState(() {
-                          _expireCtrl.text =
-                              '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-                        });
-                      }
-                    },
-                  ),
-                  filled: true, fillColor: t.bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // 低库存阈值
-              TextField(
-                controller: _thresholdCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: '低库存阈值（可选）',
-                  hintText: '低于此量显示红色警告',
-                  filled: true, fillColor: t.bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 44,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final name = _nameCtrl.text.trim();
-                    if (name.isEmpty) {
-                      _snack(ctx, '请输入食材名');
-                      return;
-                    }
-                    final amt = double.tryParse(_amountCtrl.text.trim());
-                    if (amt == null || amt <= 0) {
-                      _snack(ctx, '请输入有效数量');
-                      return;
-                    }
-                    final expire = _expireCtrl.text.trim().isNotEmpty ? _expireCtrl.text.trim() : null;
-                    final threshold = _thresholdCtrl.text.trim().isNotEmpty
-                        ? double.tryParse(_thresholdCtrl.text.trim())
-                        : null;
-
-                    try {
-                      if (isEdit && item != null) {
-                        await PantryService.update({
-                          'id': item.id,
-                          'amount': amt,
-                          'expireDate': expire,
-                          'lowThreshold': threshold,
-                        });
-                      } else {
-                        // 用批量接口（后端按 name 匹配/创建 ingredient）
-                        await PantryService.batchAdd([{
-                          'name': name,
-                          'amount': amt,
-                          'expireDate': expire,
-                        }]);
-                      }
-                      Navigator.pop(ctx);
-                      _load();
-                    } catch (e) {
-                      _snack(ctx, '保存失败');
-                    }
-                  },
-                  child: Text(isEdit ? '保存修改' : '添加', style: const TextStyle(fontSize: 14)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===== 批量添加 =====
-
-  void _showBatchSheet() {
-    final t = AppTokens.of(context);
-    if (_batchRows.isEmpty) {
-      _batchRows.add(_BatchRow());
-    }
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 12, right: 12, top: 16,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(children: [
-                const Text('批量添加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    _batchRows.clear();
-                    setSheetState(() {});
-                  },
-                  child: const Text('清空', style: TextStyle(color: AppTokens.error)),
-                ),
-              ]),
-              const SizedBox(height: 4),
-              // 表头
-              Row(children: [
-                Expanded(flex: 3, child: Text('名称', style: TextStyle(fontSize: 12, color: t.caption))),
-                Expanded(flex: 2, child: Text('数量', style: TextStyle(fontSize: 12, color: t.caption))),
-                Expanded(flex: 1, child: Text('单位', style: TextStyle(fontSize: 12, color: t.caption))),
-                Expanded(flex: 2, child: Text('过期日', style: TextStyle(fontSize: 12, color: t.caption))),
-                const SizedBox(width: 32),
-              ]),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 260,
-                child: ListView.builder(
-                  itemCount: _batchRows.length,
-                  itemBuilder: (_, i) {
-                    final r = _batchRows[i];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(children: [
-                        Expanded(
-                          flex: 3,
-                          child: _batchField(r.name, '食材名', Icons.eco_outlined,
-                            onChanged: (_) => setSheetState(() => r.suggestUnit()),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: _batchField(r.qty, '500', null),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 1,
-                          child: _batchUnitChip(r, () => setSheetState(() {})),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: _batchField(r.expire, '7/5', Icons.calendar_today),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            r.dispose();
-                            _batchRows.removeAt(i);
-                            setSheetState(() {});
-                          },
-                          child: Icon(Icons.close, size: 18, color: t.caption),
-                        ),
-                      ]),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => setSheetState(() => _batchRows.add(_BatchRow())),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('添加一行'),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 44,
-                child: ElevatedButton(
-                  onPressed: _batchSaving ? null : () => _submitBatch(ctx),
-                  child: _batchSaving
-                      ? SizedBox(width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: t.card))
-                      : const Text('一键入库', style: TextStyle(fontSize: 14)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _batchUnitChip(_BatchRow r, VoidCallback onRefresh) {
-    final t = AppTokens.of(context);
-    return GestureDetector(
-      onTap: () {
-        final ctrl = TextEditingController(text: r.unit);
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('修改单位'),
-            content: TextField(controller: ctrl, autofocus: true,
-                decoration: const InputDecoration(hintText: '斤/盒/个/...')),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-              TextButton(onPressed: () {
-                r.unit = ctrl.text.trim();
-                Navigator.pop(ctx);
-                onRefresh();
-              }, child: const Text('确定')),
-            ],
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          color: r.unit.isNotEmpty ? t.primary.withAlpha(15) : t.bg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: r.unit.isNotEmpty ? t.primary.withAlpha(60) : t.border),
-        ),
-        child: Text(
-          r.unit.isNotEmpty ? r.unit : '?',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            color: r.unit.isNotEmpty ? t.primary : t.caption,
-            fontWeight: r.unit.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _batchField(TextEditingController ctrl, String hint, IconData? icon,
-      {ValueChanged<String>? onChanged}) {
-    final t = AppTokens.of(context);
-    return TextField(
-      controller: ctrl,
-      onChanged: onChanged,
-      style: const TextStyle(fontSize: 12),
-      decoration: InputDecoration(
-        hintText: hint,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        filled: true, fillColor: t.bg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: t.border),
-        ),
-        prefixIcon: icon != null ? Icon(icon, size: 16) : null,
-      ),
-    );
-  }
-
-  Future<void> _submitBatch(BuildContext ctx) async {
-    final valid = _batchRows.where((r) => r.nameText.isNotEmpty).toList();
-    if (valid.isEmpty) { _snack(ctx, '请至少输入一个食材名'); return; }
-
-    setState(() => _batchSaving = true);
-    try {
-      final items = valid.map((r) {
-        final expire = r.expireText.isNotEmpty ? _normalizeDate(r.expireText) : null;
-        return {
-          'name': r.nameText,
-          'amount': _parseQty(r.qtyText),
-          if (r.unit.isNotEmpty) 'unit': r.unit,
-          if (expire != null) 'expireDate': expire,
-        };
-      }).toList();
-
-      final count = await PantryService.batchAdd(items);
-      Navigator.pop(ctx);
-      _batchRows.clear();
-      if (mounted) _snack(context, '已添加 $count 项');
-      _load();
-    } catch (_) {
-      _snack(ctx, '添加失败');
-    } finally {
-      setState(() => _batchSaving = false);
+      final g = await PantryService.listGrouped();
+      if (!mounted) return;
+      setState(() {
+        _grouped = g;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '$e';
+        _loading = false;
+      });
     }
   }
-
-  /// 解析数量字符串：500g→500, 2斤→1000, 3盒→3, 空→1
-  double _parseQty(String s) {
-    if (s.isEmpty) return 1;
-    final numMatch = RegExp(r'^(\d+\.?\d*)\s*(.*)').firstMatch(s.trim());
-    if (numMatch == null) return 1;
-    final v = double.tryParse(numMatch.group(1)!) ?? 1;
-    final unit = numMatch.group(2)?.trim() ?? '';
-    if (unit == '斤') return v * 500;
-    if (unit == '公斤' || unit == 'kg') return v * 1000;
-    if (unit == '两') return v * 50;
-    return v;
-  }
-
-  /// 日期标准化：7/5 → 2026-07-05, 7-5 → 2026-07-05
-  String? _normalizeDate(String s) {
-    final m = RegExp(r'^(\d{1,2})[/-](\d{1,2})$').firstMatch(s.trim());
-    if (m == null) return null;
-    final month = int.parse(m.group(1)!).toString().padLeft(2, '0');
-    final day = int.parse(m.group(2)!).toString().padLeft(2, '0');
-    final year = DateTime.now().year;
-    return '$year-$month-$day';
-  }
-
-  void _snack(BuildContext ctx, String msg) {
-    ScaffoldMessenger.of(ctx)
-        .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
-  }
-
-  // ===== 删除 =====
-
-  Future<void> _deleteItem(PantryVO item) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除库存项'),
-        content: Text('确定删除「${item.displayName}」？'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除', style: TextStyle(color: AppTokens.error)),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) {
-      try {
-        await PantryService.delete(item.id);
-        _load();
-      } catch (_) {
-        _snack(context, '删除失败');
-      }
-    }
-  }
-
-  // ===== UI =====
 
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('食材库存'),
+        title: const Text('库存'),
         actions: [
           IconButton(
             icon: const Icon(Icons.playlist_add),
             tooltip: '批量添加',
-            onPressed: _showBatchSheet,
+            onPressed: () => context.push('/pantry/add'),
           ),
         ],
-        bottom: TabBar(
-          controller: _tabCtrl,
-          indicatorColor: t.card,
-          labelColor: t.card,
-          unselectedLabelColor: Colors.white60,
-          tabs: const [
-            Tab(text: '全部'),
-            Tab(text: '临期'),
-            Tab(text: '不足'),
-          ],
-        ),
       ),
       body: _loading
           ? const LoadingView()
-          : _items.isEmpty
-              ? Center(
-                  child: Text(
-                    _emptyText,
-                    style: TextStyle(color: t.caption, fontSize: 12),
-                  ),
-                )
+          : _error != null
+              ? EmptyView(text: '加载失败：$_error')
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _items.length + (_loadingMore ? 1 : 0),
-                    itemBuilder: (_, i) {
-                      if (i == _items.length) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                            child: SizedBox(
-                              width: 20, height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        );
-                      }
-                      final item = _items[i];
-                      return _buildCard(item);
-                    },
-                  ),
+                  child: _grouped == null || _grouped!.items.isEmpty
+                      ? ListView(
+                          children: const [SizedBox(height: 200), Center(child: EmptyView(text: '暂无库存'))],
+                        )
+                      : _buildBody(t),
                 ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddSheet,
-        child: const Icon(Icons.add),
+        onPressed: () async {
+          await context.push('/pantry/add');
+          _load(); // 返回后刷新
+        },
+        backgroundColor: _t.primary,
+        child: Text('添加', style: _t.textStyles.cardTitle.copyWith(color: Colors.white)),
       ),
     );
   }
 
-  String get _emptyText {
-    switch (_tabCtrl.index) {
-      case 0: return '暂无库存';
-      case 1: return '没有临期食材';
-      case 2: return '库存充足';
-      default: return '';
-    }
+  Widget _buildBody(AppTokens t) {
+    final g = _grouped!;
+    final noneItems = g.items.where((i) => i.status == 'NONE').toList();
+    final lowItems = g.items.where((i) => i.status == 'LOW').toList();
+    final enoughItems = g.items.where((i) => i.status == 'ENOUGH').toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+      children: [
+        // 三色汇总条
+        _buildSummaryBar(t, g),
+        const SizedBox(height: 12),
+        // 分组列表
+        if (noneItems.isNotEmpty) ...[
+          _buildSectionTitle(t, '缺 / 空 · ${noneItems.length}', AppTokens.error),
+          ...noneItems.map((i) => _buildRow(t, i)),
+        ],
+        if (lowItems.isNotEmpty) ...[
+          _buildSectionTitle(t, '偏低 · ${lowItems.length}', AppTokens.warning),
+          ...lowItems.map((i) => _buildRow(t, i)),
+        ],
+        if (enoughItems.isNotEmpty) ...[
+          _buildSectionTitle(t, '够 · ${enoughItems.length}', AppTokens.success),
+          ...enoughItems.map((i) => _buildRow(t, i)),
+        ],
+      ],
+    );
   }
 
-  // ===== 扣减 =====
-
-  void _quickDeduct(PantryVO item) async {
-    // 默认步长：1（个/盒/袋等离散单位）或 50（g/ml 等连续单位）
-    final unit = item.unitName ?? '';
-    final step = ['个', '盒', '袋', '瓶', '罐', '颗', '只', '条', '块', '把', '根']
-            .any((u) => unit.contains(u)) ? 1.0 : 50.0;
-    try {
-      await PantryService.deduct(item.id, step);
-      _load();
-    } catch (_) { _snack(context, '扣减失败'); }
-  }
-
-  void _showDeductSheet(PantryVO item) {
-    final t = AppTokens.of(context);
-    final ctrl = TextEditingController(text: '1');
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(left: 16, right: 16, top: 16,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('使用 ${item.displayName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: t.title)),
-          const SizedBox(height: 4),
-          Text('当前库存：${item.displayAmount}',
-              style: TextStyle(fontSize: 12, color: t.caption)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: ctrl,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              hintText: '用了多少？',
-              suffixText: item.unitName ?? '',
-              filled: true, fillColor: t.bg,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 44,
-            child: ElevatedButton(
-              onPressed: () async {
-                final v = double.tryParse(ctrl.text.trim());
-                if (v == null || v <= 0) { _snack(ctx, '请输入有效数量'); return; }
-                try {
-                  await PantryService.deduct(item.id, v);
-                  Navigator.pop(ctx);
-                  _load();
-                } catch (_) { _snack(ctx, '扣减失败'); }
-              },
-              child: const Text('确认使用', style: TextStyle(fontSize: 14)),
-            ),
-          ),
-        ]),
+  /// 三色汇总条：够(绿)/低(黄)/缺(红)，宽度按数量比例。
+  Widget _buildSummaryBar(AppTokens t, PantryGrouped g) {
+    final total = g.enough + g.low + g.none;
+    if (total == 0) return const SizedBox.shrink();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppTokens.rSm),
+      child: Row(
+        children: [
+          if (g.enough > 0)
+            Expanded(flex: g.enough, child: _seg(t, '${g.enough}', AppTokens.success, '够')),
+          if (g.low > 0)
+            Expanded(flex: g.low, child: _seg(t, '${g.low}', AppTokens.warning, '低')),
+          if (g.none > 0)
+            Expanded(flex: g.none, child: _seg(t, '${g.none}', AppTokens.error, '缺')),
+        ],
       ),
     );
   }
 
-  Widget _miniBtn(String label, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withAlpha(15),
-          borderRadius: BorderRadius.circular(AppTokens.rMd),
-          border: Border.all(color: color.withAlpha(60)),
-        ),
-        child: Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
-      ),
+  Widget _seg(AppTokens t, String count, Color color, String label) {
+    return Container(
+      color: color,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Text('$label $count',
+          style: t.textStyles.chip.copyWith(color: Colors.white)),
     );
   }
 
-  Widget _buildCard(PantryVO item) {
-    final t = AppTokens.of(context);
-    final low = item.isLow;
-    final expiring = item.isExpiring();
-    final expired = item.isExpired;
-    Color? borderColor;
-    if (low) {
-      borderColor = AppTokens.error;
-    } else if (expiring || expired) {
-      borderColor = AppTokens.warning;
-    }
+  Widget _buildSectionTitle(AppTokens t, String text, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 4),
+      child: Text(text,
+          style: t.textStyles.micro.copyWith(color: color, letterSpacing: 1)),
+    );
+  }
 
+  /// 单行：食材名 + 来源标签 + 数量 + 进入箭头
+  Widget _buildRow(AppTokens t, PantryGroupedItem item) {
+    final color = stockColor(item.status);
+    final hasSource = item.sourceLabel.isNotEmpty;
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 4),
       elevation: 0,
+      color: t.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTokens.rMd),
-        side: borderColor != null
-            ? BorderSide(color: borderColor, width: 1.5)
-            : BorderSide(color: t.border),
+        side: BorderSide(color: color.withAlpha(40)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppTokens.rMd),
-        onTap: () => _showEditSheet(item),
-        onLongPress: () => _deleteItem(item),
+        onTap: () async {
+          await context.push('/pantry/${item.ingredientId}');
+          _load(); // 详情页盘点后刷新
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(item.displayName,
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.title)),
-                  ),
-                  Text(item.displayAmount,
-                      style: TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600, color: t.primary)),
-                  const SizedBox(width: 8),
-                  _miniBtn('−', AppTokens.error, () => _quickDeduct(item)),
-                  const SizedBox(width: 4),
-                  _miniBtn('使用', t.primary, () => _showDeductSheet(item)),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  // 阈值
-                  Text(
-                    item.lowThreshold != null && item.lowThreshold! > 0
-                        ? '阈值 ${_fmt(item.lowThreshold!)}'
-                        : '无阈值',
-                    style: TextStyle(fontSize: 11, color: t.caption),
-                  ),
-                  const SizedBox(width: 12),
-                  // 过期日
-                  Text(
-                    item.expireText,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: expired
-                          ? AppTokens.error
-                          : expiring
-                              ? AppTokens.warning
-                              : t.caption,
-                      fontWeight: (expired || expiring) ? FontWeight.w600 : FontWeight.normal,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.displayName,
+                        style: t.textStyles.cardTitle.copyWith(color: t.title)),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasSource
+                          ? '${item.sourceLabel} ${item.sourceSub}'
+                          : (item.status == 'NONE' ? '本来就没有' : '无变动记录'),
+                      style: t.textStyles.tiny.copyWith(
+                        color: hasSource && item.sourceLabel == '手动' ? _t.primary : t.caption,
+                        fontWeight: hasSource && item.sourceLabel == '手动' ? FontWeight.w700 : FontWeight.normal,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              Text(item.displayAmount,
+                  style: t.textStyles.sm.copyWith(color: color)),
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right, size: 18, color: t.caption),
             ],
           ),
         ),
       ),
     );
-  }
-
-  String _fmt(double v) {
-    if (v == v.roundToDouble()) return v.toInt().toString();
-    return v.toStringAsFixed(1);
   }
 }

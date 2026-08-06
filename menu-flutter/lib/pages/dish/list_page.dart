@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api_client.dart';
 import '../../core/image_helper.dart';
 import '../../core/app_theme.dart';
 import '../../models/dish.dart';
@@ -9,18 +8,11 @@ import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
 import '../../widgets/loading_empty.dart';
 
-/// 搜索模式：按菜名 / 按食材。
-enum _SearchMode { name, ingredient }
-
 /// 排序：cooked=做过最多；latest=最新。
 enum _SortMode { cooked, latest }
 
 /// 菜库列表（按原型 cookbook-search.html 左屏）。
-/// 搜索框 + 分类标签条 + 排序 + 分页 + 下拉刷新 + 上拉加载更多。
-///
-/// 搜索支持两种模式（搜索框左侧下拉切换）：
-/// - 按菜名：输入菜名关键词，回车搜索。
-/// - 按食材：输入食材名实时联想，选中后按"含这些食材"搜菜（可多选，交集）。
+/// 浅色顶栏 + 纯搜索框 + 分类标签条 + 排序 + 卡片式列表。
 class DishListPage extends StatefulWidget {
   const DishListPage({super.key});
   @override
@@ -30,6 +22,7 @@ class DishListPage extends StatefulWidget {
 class _DishListPageState extends State<DishListPage> {
   final _scroll = ScrollController();
   final _keywordCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
   static const _pageSize = 20;
 
   List<Dish> _dishes = [];
@@ -40,9 +33,7 @@ class _DishListPageState extends State<DishListPage> {
   bool _firstLoading = true;
   bool _hasText = false;
 
-  _SearchMode _mode = _SearchMode.name;
   _SortMode _sort = _SortMode.latest;
-  final List<_IngredientOption> _selectedIngredients = [];
 
   // 分类标签条
   List<DictItem> _tags = [];
@@ -52,6 +43,7 @@ class _DishListPageState extends State<DishListPage> {
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    _searchFocus.addListener(() => setState(() {}));
     _loadTags();
     _reload();
   }
@@ -60,6 +52,7 @@ class _DishListPageState extends State<DishListPage> {
   void dispose() {
     _scroll.dispose();
     _keywordCtrl.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -83,10 +76,7 @@ class _DishListPageState extends State<DishListPage> {
   Future<List<Dish>> _fetch(int pageNum) async {
     try {
       final r = await DishService.search(
-        keyword: _mode == _SearchMode.name ? _keywordCtrl.text.trim() : null,
-        ingredientIds: _selectedIngredients.isEmpty
-            ? null
-            : _selectedIngredients.map((e) => e.id).toList(),
+        keyword: _keywordCtrl.text.trim().isEmpty ? null : _keywordCtrl.text.trim(),
         tagIds: _selectedTagId == null ? null : [_selectedTagId!],
         sort: _sort == _SortMode.cooked ? 'cooked' : null,
         pageNum: pageNum,
@@ -118,35 +108,16 @@ class _DishListPageState extends State<DishListPage> {
     if (mounted) setState(() => _loading = false);
   }
 
-  Future<List<_IngredientOption>> _suggestIngredients(String keyword) async {
-    if (keyword.trim().isEmpty) return [];
-    try {
-      final data = await ApiClient.instance.get('/ingredient', query: {
-        'keyword': keyword.trim(),
-        'pageNum': 1,
-        'pageSize': 20,
-      });
-      if (data is Map && data['records'] is List) {
-        return (data['records'] as List)
-            .map((e) => _IngredientOption.fromJson(e as Map<String, dynamic>))
-            .where((e) => e.name.isNotEmpty)
-            .toList();
-      }
-    } catch (_) {}
-    return [];
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
     return Scaffold(
-        appBar: AppBar(title: const Text('菜谱')),
-        body: Column(
+      backgroundColor: t.bg,
+      body: SafeArea(
+        child: Column(
           children: [
-            _buildSearchBar(t),
-            if (_mode == _SearchMode.ingredient &&
-                _selectedIngredients.isNotEmpty)
-              _buildSelectedChips(t),
+            _buildTopBar(t),
+            _buildSearchBox(t),
             if (_tags.isNotEmpty) _buildTagBar(t),
             _buildSortBar(t),
             Expanded(
@@ -156,9 +127,11 @@ class _DishListPageState extends State<DishListPage> {
                       color: t.primary,
                       onRefresh: _reload,
                       child: _dishes.isEmpty
-                          ? const EmptyView(text: '暂无菜品')
+                          ? ListView(
+                              children: const [SizedBox(height: 200), EmptyView(text: '暂无菜品')])
                           : ListView.builder(
                               controller: _scroll,
+                              padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12),
                               itemCount: _dishes.length + 1,
                               itemBuilder: (_, i) {
                                 if (i == _dishes.length) {
@@ -167,219 +140,117 @@ class _DishListPageState extends State<DishListPage> {
                                     child: Center(
                                       child: Text(
                                         _hasMore ? '上拉加载更多' : '没有更多了',
-                                        style: TextStyle(
-                                            color: t.caption, fontSize: 12),
+                                        style: t.textStyles.caption,
                                       ),
                                     ),
                                   );
                                 }
-                                return _DishTile(dish: _dishes[i]);
+                                return _DishCard(dish: _dishes[i]);
                               },
                             ),
                     ),
             ),
           ],
         ),
-      );
+      ),
+    );
   }
 
-  /// 搜索框：主色描边 + 左侧下拉选模式 + ✕ 清除。
-  Widget _buildSearchBar(AppTokens t) {
+  /// 浅色顶栏：‹ 菜谱 空（原型行10-14，非主色 AppBar）。
+  Widget _buildTopBar(AppTokens t) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          AppTokens.sp12, AppTokens.sp12, AppTokens.sp12, AppTokens.sp8),
+          AppTokens.sp12, AppTokens.sp12, AppTokens.sp12, AppTokens.sp4),
       child: Row(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              color: t.secondary,
-              borderRadius: BorderRadius.circular(AppTokens.rMd),
-            ),
-            child: PopupMenuButton<_SearchMode>(
-              initialValue: _mode,
-              onSelected: (m) {
-                setState(() {
-                  _mode = m;
-                  _keywordCtrl.clear();
-                  _hasText = false;
-                });
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppTokens.sp12, vertical: AppTokens.sp16),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _mode == _SearchMode.name ? '菜名' : '食材',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: t.accent),
-                    ),
-                    Icon(Icons.arrow_drop_down, size: 18, color: t.accent),
-                  ],
-                ),
-              ),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: _SearchMode.name, child: Text('按菜名')),
-                PopupMenuItem(value: _SearchMode.ingredient, child: Text('按食材')),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppTokens.sp8),
-          Expanded(
-            child: _mode == _SearchMode.name
-                ? TextField(
-                    controller: _keywordCtrl,
-                    decoration: InputDecoration(
-                      hintText: '搜菜名',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppTokens.sp12, vertical: AppTokens.sp12),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTokens.rMd),
-                        borderSide: BorderSide(color: t.primary, width: 1.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTokens.rMd),
-                        borderSide: BorderSide(color: t.primary, width: 1.5),
-                      ),
-                      suffixIcon: _hasText
-                          ? IconButton(
-                              icon: const Icon(Icons.close, size: 20),
-                              onPressed: () {
-                                _keywordCtrl.clear();
-                                setState(() => _hasText = false);
-                                _reload();
-                              },
-                            )
-                          : null,
-                    ),
-                    onChanged: (v) => setState(() => _hasText = v.isNotEmpty),
-                    onSubmitted: (_) => _reload(),
-                  )
-                : Autocomplete<_IngredientOption>(
-                    optionsBuilder: (textEditingValue) =>
-                        _suggestIngredients(textEditingValue.text),
-                    displayStringForOption: (o) => o.name,
-                    fieldViewBuilder:
-                        (ctx, controller, focusNode, onFieldSubmitted) {
-                      if (controller.text != _keywordCtrl.text) {
-                        _keywordCtrl.text = controller.text;
-                      }
-                      return TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        decoration: InputDecoration(
-                          hintText: '输食材名，如番茄',
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: AppTokens.sp12,
-                              vertical: AppTokens.sp12),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppTokens.rMd),
-                            borderSide: BorderSide(color: t.primary, width: 1.5),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppTokens.rMd),
-                            borderSide: BorderSide(color: t.primary, width: 1.5),
-                          ),
-                        ),
-                        onSubmitted: (_) => onFieldSubmitted(),
-                      );
-                    },
-                    onSelected: (option) {
-                      if (!_selectedIngredients.any((e) => e.id == option.id)) {
-                        setState(() {
-                          _selectedIngredients.add(option);
-                          _keywordCtrl.clear();
-                        });
-                        _reload();
-                      }
-                    },
-                    optionsViewBuilder: (ctx, onSelected, options) {
-                      return Align(
-                        alignment: Alignment.topLeft,
-                        child: Material(
-                          elevation: 4,
-                          borderRadius: BorderRadius.circular(AppTokens.rMd),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(ctx).size.width - 120,
-                              maxHeight: 200,
-                            ),
-                            child: ListView.builder(
-                              shrinkWrap: true,
-                              itemCount: options.length,
-                              itemBuilder: (_, i) {
-                                final o = options.elementAt(i);
-                                return ListTile(
-                                  dense: true,
-                                  title: Text(o.name,
-                                      style: const TextStyle(fontSize: 13)),
-                                  onTap: () => onSelected(o),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
+          // 返回（tab 页其实不用返回，但原型有 ‹；这里留空占位保持视觉对称）
+          const SizedBox(width: 24),
+          const Spacer(),
+          Text('菜谱', style: t.textStyles.pageTitle),
+          const Spacer(),
+          const SizedBox(width: 24),
         ],
       ),
     );
   }
 
-  /// 已选食材标签条（按食材模式）。
-  Widget _buildSelectedChips(AppTokens t) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.sp12, vertical: AppTokens.sp4),
-      child: Wrap(
-        spacing: AppTokens.sp8,
-        runSpacing: AppTokens.sp8,
-        children: [
-          ..._selectedIngredients.map((ing) => Chip(
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                label: Text(ing.name, style: const TextStyle(fontSize: 12)),
-                backgroundColor: t.primarySoft,
-                labelStyle: TextStyle(color: t.accent),
-                deleteIconColor: t.accent,
-                onDeleted: () {
-                  setState(() {
-                    _selectedIngredients.removeWhere((e) => e.id == ing.id);
-                  });
+  /// 搜索框：白底 + 1.5px 主色描边 + 12px圆角。
+  /// 搜索中态：深棕文字 12px + 橙色闪烁竖线光标 + 灰色 ✕ 清除。
+  /// （原型 cookbook-search.html 行16-23）
+  Widget _buildSearchBox(AppTokens t) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, AppTokens.sp4, 14, AppTokens.sp8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+          border: Border.all(color: t.primary, width: 1.5),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 9),
+        child: Row(
+          children: [
+            // 搜索文字（深棕 12px）+ 闪烁竖线光标
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: TextField(
+                      controller: _keywordCtrl,
+                      focusNode: _searchFocus,
+                      style: t.textStyles.sm.copyWith(color: t.title),
+                      // 隐藏系统光标，用自定义闪烁竖线代替
+                      showCursor: false,
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        border: InputBorder.none,
+                        hintText: '搜菜名',
+                        hintStyle: t.textStyles.caption,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (v) => setState(() => _hasText = v.isNotEmpty),
+                      onSubmitted: (_) => _reload(),
+                    ),
+                  ),
+                  // 橙色闪烁竖线光标（原型 gap:8px 后紧跟竖线）
+                  if (_searchFocus.hasFocus && _hasText) ...[
+                    const SizedBox(width: 8),
+                    const _BlinkingCursor(),
+                  ],
+                ],
+              ),
+            ),
+            // ✕ 清除按钮（原型：11px 文字 ✕）
+            if (_hasText)
+              GestureDetector(
+                onTap: () {
+                  _keywordCtrl.clear();
+                  setState(() => _hasText = false);
                   _reload();
                 },
-              )),
-          if (_selectedIngredients.isNotEmpty)
-            TextButton(
-              onPressed: () {
-                setState(() => _selectedIngredients.clear());
-                _reload();
-              },
-              child: const Text('清除', style: TextStyle(fontSize: 12)),
-            ),
-        ],
+                child: Padding(
+                  padding: const EdgeInsets.only(left: AppTokens.sp8),
+                  child: Text('✕', style: t.textStyles.xs),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  /// 分类标签条：横向滚动，全部 + 各 tag。
+  /// 分类标签条：横向滚动，全部(深色实心) + 各 tag(白底描边)（原型行26-32）。
   Widget _buildTagBar(AppTokens t) {
     return SizedBox(
-      height: 38,
+      height: 36,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12),
+        padding: const EdgeInsets.fromLTRB(AppTokens.sp12, 0, AppTokens.sp12, AppTokens.sp8),
         children: [
           _tagChip(t, null, '全部'),
-          ..._tags.map((tag) => _tagChip(t, tag.id, tag.name)),
+          ..._tags.map((tag) => Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: _tagChip(t, tag.id, tag.name),
+              )),
         ],
       ),
     );
@@ -387,47 +258,42 @@ class _DishListPageState extends State<DishListPage> {
 
   Widget _tagChip(AppTokens t, int? id, String name) {
     final selected = _selectedTagId == id;
-    return Padding(
-      padding: const EdgeInsets.only(right: AppTokens.sp8),
-      child: GestureDetector(
-        onTap: () {
-          setState(() => _selectedTagId = id);
-          _reload();
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.sp12, vertical: 5),
-          decoration: BoxDecoration(
-            color: selected ? t.title : t.card,
-            borderRadius: BorderRadius.circular(AppTokens.rSm),
-            border: selected ? null : Border.all(color: t.border),
-          ),
-          child: Text(
-            name,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: selected ? Colors.white : t.body,
-            ),
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedTagId = id);
+        _reload();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected ? t.title : t.card,
+          borderRadius: BorderRadius.circular(AppTokens.rSm),
+          border: selected ? null : Border.all(color: t.border),
+        ),
+        child: Text(
+          name,
+          style: t.textStyles.sectionLabel.copyWith(
+            color: selected ? Colors.white : t.body,
           ),
         ),
       ),
     );
   }
 
-  /// 排序行：左结果计数 + 右排序切换。
+  /// 排序行：左"X 道" + 右"做过最多/最新 ▾"（原型行34-37）。
   Widget _buildSortBar(AppTokens t) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.sp12, vertical: AppTokens.sp4),
+      padding: const EdgeInsets.fromLTRB(
+          AppTokens.sp12, 0, AppTokens.sp12, AppTokens.sp4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('$_total 道', style: TextStyle(fontSize: 10, color: t.caption)),
-          PopupMenuButton<_SortMode>(
-            initialValue: _sort,
-            onSelected: (s) {
-              setState(() => _sort = s);
+          Text('$_total 道', style: t.textStyles.xs),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _sort = _sort == _SortMode.cooked ? _SortMode.latest : _SortMode.cooked;
+              });
               _reload();
             },
             child: Row(
@@ -435,16 +301,11 @@ class _DishListPageState extends State<DishListPage> {
               children: [
                 Text(
                   _sort == _SortMode.cooked ? '做过最多' : '最新',
-                  style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w800, color: t.accent),
+                  style: t.textStyles.sectionLabel.copyWith(color: t.accent),
                 ),
-                Icon(Icons.arrow_drop_down, size: 16, color: t.accent),
+                Icon(Icons.arrow_drop_down, size: 14, color: t.accent),
               ],
             ),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: _SortMode.cooked, child: Text('做过最多')),
-              PopupMenuItem(value: _SortMode.latest, child: Text('最新')),
-            ],
           ),
         ],
       ),
@@ -452,29 +313,11 @@ class _DishListPageState extends State<DishListPage> {
   }
 }
 
-/// 食材联想选项。
-class _IngredientOption {
-  final int id;
-  final String name;
-  const _IngredientOption({required this.id, required this.name});
-
-  factory _IngredientOption.fromJson(Map<String, dynamic> j) =>
-      _IngredientOption(
-        id: (j['id'] as num).toInt(),
-        name: (j['name'] ?? '') as String,
-      );
-
-  @override
-  bool operator ==(Object other) => other is _IngredientOption && id == other.id;
-
-  @override
-  int get hashCode => id;
-}
-
-/// 列表项：44px 圆角缩略图 + 菜名 + 做过N次/时间/难度。
-class _DishTile extends StatelessWidget {
+/// 列表卡片：白底 + 1px描边 + 12px圆角 + margin间距 + 横向布局
+/// （44px缩略图 + 菜名 + 做过N次·时间）（原型行40-71）。
+class _DishCard extends StatelessWidget {
   final Dish dish;
-  const _DishTile({required this.dish});
+  const _DishCard({required this.dish});
 
   @override
   Widget build(BuildContext context) {
@@ -484,44 +327,106 @@ class _DishTile extends StatelessWidget {
         ? ImageHelper.toThumbnail(ImageHelper.toAbsolute(dish.coverUrl!))
         : null;
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.sp12, vertical: AppTokens.sp4),
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTokens.rXl),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: thumbUrl != null
-              ? Image.network(
-                  thumbUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _placeholder(t),
-                  loadingBuilder: (_, child, progress) {
-                    if (progress == null) return child;
-                    return _placeholder(t);
-                  },
-                )
-              : _placeholder(t),
-        ),
-      ),
-      title: Text(dish.name,
-          style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w800, color: t.title)),
-      subtitle: Text(
-        [
-          dish.cookedCount > 0 ? '做过 ${dish.cookedCount} 次' : '没做过',
-          '${dish.cookTime ?? 0} 分',
-          '难度${dish.difficulty ?? '-'}',
-        ].join(' · '),
-        style: TextStyle(fontSize: 10, color: t.caption),
-      ),
+    return GestureDetector(
       onTap: () => context.push('/dish/${dish.id}'),
+      child: Container(
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+        border: Border.all(color: t.border),
+      ),
+      child: Row(
+        children: [
+          // 44px 缩略图，11px 圆角（原型 border-radius:11px）
+          ClipRRect(
+            borderRadius: BorderRadius.circular(11),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: thumbUrl != null
+                  ? Image.network(
+                      thumbUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholder(t),
+                      loadingBuilder: (_, child, progress) =>
+                          progress == null ? child : _placeholder(t),
+                    )
+                  : _placeholder(t),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(dish.name, style: t.textStyles.cardTitle),
+                const SizedBox(height: 1),
+                Text(
+                  [
+                    dish.cookedCount > 0 ? '做过 ${dish.cookedCount} 次' : '没做过',
+                    '${dish.cookTime ?? 0} 分',
+                  ].join(' · '),
+                  style: t.textStyles.tiny,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      ),
     );
   }
 
   Widget _placeholder(AppTokens t) => Container(
-        color: t.secondary,
+        color: const Color(0xFFFBF0DD), // 原型 #FBF0DD
         child: Icon(Icons.restaurant, color: t.border, size: 20),
       );
+}
+
+/// 搜索框闪烁竖线光标：宽1 高14 橙色，AnimatedOpacity 周期闪烁。
+/// 对应原型 cookbook-search.html 的 `animation:blink 1s infinite` 竖线。
+class _BlinkingCursor extends StatefulWidget {
+  const _BlinkingCursor();
+
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: true);
+    _opacity = Tween(begin: 1.0, end: 0.0).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, __) => Opacity(
+        opacity: _opacity.value,
+        child: Container(
+          width: 1,
+          height: 14,
+          color: const Color(0xFFE89150),
+        ),
+      ),
+    );
+  }
 }

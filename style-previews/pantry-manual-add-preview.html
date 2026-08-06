@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>手动添加 · 改动效果</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; color: #241914; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { font-size: 13px; color: #888; margin: 0 0 20px; }
+.section { background:#fff;border:1px solid #eee;border-radius:8px;padding:20px;max-width:760px;margin-bottom:24px; }
+.section h2 { font-size:16px;margin:0 0 8px; }
+.section p.subtitle { font-size:12px;color:#9C8C7A;margin:0 0 16px; }
+.options { margin-top:14px;display:flex;flex-direction:column;gap:10px; }
+.option { display:flex;gap:12px;align-items:flex-start;border:1px solid #eee;border-radius:10px;padding:12px;cursor:pointer; }
+.option .letter { width:28px;height:28px;border-radius:50%;background:#FBF0DD;color:#D17A3C;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0; }
+.option .content h3 { font-size:14px;margin:0 0 4px; }
+.option .content p { font-size:12px;color:#9C8C7A;margin:0; }
+.option.selected { border-color:#E89150;background:#FFF7EC; }
+</style>
+</head>
+<body>
+<h1>手动添加流程 · 与详情页对齐</h1>
+<p class="sub">两屏改整页：顶栏‹+标题、食材头52px、加减盘40px/38px、底栏居中不占满</p>
+<div class="section">
+<h2>手动添加 · 别人送 / 赠品 / 旧库存补登</h2>
+<p class="subtitle">库存页右下「添加」进入。区别于盘点（纠偏）：这里新增一条带「手动」来源标签的记录。可挑库里有 / 新建档的食材。两屏均为整页，与食材详情页同构。</p>
+
+<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+
+  <!-- 左：① 选食材（整页） -->
+  <div>
+    <div style="font-size:12px;font-weight:800;color:#D17A3C;margin-bottom:6px;text-align:center">① 点「添加」 · 选要添加的食材</div>
+    <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;width:290px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px">
+      <!-- 顶栏：返回 + 标题（对齐详情页） -->
+      <div style="padding:12px 14px 4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:20px;color:#6E5C49;font-weight:800">‹</span>
+        <span style="font-size:11px;color:#9C8C7A">手动添加</span>
+        <span style="width:20px"></span>
+      </div>
+
+      <!-- 头说明（对齐详情页食材头的 padding） -->
+      <div style="padding:14px 16px 12px">
+        <div style="font-size:18px;font-weight:800;color:#4A382A">选食材</div>
+        <div style="font-size:11px;color:#9C8C7A;margin-top:2px">朋友送 / 赠品 / 之前忘记登的旧库存，记一笔进来</div>
+      </div>
+
+      <!-- 主体 -->
+      <div style="flex:1;padding:0 16px 12px;display:flex;flex-direction:column;gap:12px">
+        <!-- 搜索 -->
+        <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:#9C8C7A">搜食材名 / 扫码</span>
+        </div>
+
+        <!-- 候选：库里已有的 -->
+        <div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:0 0 8px">
+            <span style="font-size:11px;font-weight:800;color:#9C8C7A;letter-spacing:1px">库里已有</span>
+          </div>
+          <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:10px;padding:12px 14px">
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed #F0E6D6">
+              <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#4A382A">苹果</div><div style="font-size:10px;color:#9C8C7A;margin-top:1px">现有 0 个 · 个</div></div>
+              <span style="font-size:10px;font-weight:800;color:#fff;background:#E89150;padding:4px 11px;border-radius:8px">已选</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed #F0E6D6">
+              <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#4A382A">橙子</div><div style="font-size:10px;color:#9C8C7A;margin-top:1px">现有 2 个 · 个</div></div>
+              <span style="font-size:10px;font-weight:800;color:#9C8C7A">选</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+              <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#4A382A">大米</div><div style="font-size:10px;color:#9C8C7A;margin-top:1px">现有 2 kg · kg</div></div>
+              <span style="font-size:10px;font-weight:800;color:#9C8C7A">选</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 候选：新建档 -->
+        <div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:0 0 8px">
+            <span style="font-size:11px;font-weight:800;color:#9C8C7A;letter-spacing:1px">库里没有？</span>
+          </div>
+          <div style="border:1.5px dashed #E89150;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+            <div style="flex:1"><div style="font-size:12px;font-weight:800;color:#D17A3C">+ 新建食材并添加</div><div style="font-size:10px;color:#9C8C7A;margin-top:1px">填名字 + 单位，建档同时入库</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底栏：下一步（对齐详情页保存栏） -->
+      <div style="border-top:1px solid #F0E6D6;padding:12px 14px 16px;background:#FFFFFF;display:flex;justify-content:center">
+        <button style="border:none;background:#E89150;color:#fff;font-weight:800;font-size:13px;padding:11px 56px;border-radius:12px">下一步</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：② 填数量 + 来源（整页） -->
+  <div>
+    <div style="font-size:12px;font-weight:800;color:#D17A3C;margin-bottom:6px;text-align:center">② 填数量 + 来源备注 · 入库</div>
+    <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;width:290px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px">
+      <!-- 顶栏：返回 + 标题（对齐详情页） -->
+      <div style="padding:12px 14px 4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:20px;color:#6E5C49;font-weight:800">‹</span>
+        <span style="font-size:11px;color:#9C8C7A">手动添加</span>
+        <span style="width:20px"></span>
+      </div>
+
+      <!-- 食材头（对齐详情页：52px 圆角14px） -->
+      <div style="padding:14px 16px 12px;display:flex;align-items:center;gap:12px">
+        <div style="width:52px;height:52px;border-radius:14px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;font-size:26px"></div>
+        <div>
+          <div style="font-size:18px;font-weight:800;color:#4A382A">苹果</div>
+          <div style="font-size:11px;color:#9C8C7A;margin-top:2px">现有 0 个 · 手动新增一笔</div>
+        </div>
+      </div>
+
+      <!-- 主体 -->
+      <div style="flex:1;padding:8px 16px 12px;display:flex;flex-direction:column;gap:14px">
+        <!-- 加减盘（对齐详情页：40px按钮 / 38px数字 / 圆角14px / padding22） -->
+        <div>
+          <div style="font-size:12px;color:#6E5C49;margin-bottom:10px">这次进来多少？</div>
+          <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:14px;padding:22px 14px;display:flex;align-items:center;justify-content:center;gap:26px">
+            <span style="width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;color:#DB5A4E;font-weight:800">−</span>
+            <div style="text-align:center"><div style="font-size:38px;font-weight:800;color:#4A382A;line-height:1">4</div><div style="font-size:10px;color:#9C8C7A;margin-top:4px">个</div></div>
+            <span style="width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;color:#4FAE6E;font-weight:800">+</span>
+          </div>
+        </div>
+
+        <!-- 批次属性 -->
+        <div style="display:flex;gap:7px">
+          <div style="flex:1;background:#FDFAF4;border:1px solid #F0E6D6;border-radius:10px;padding:10px 12px">
+            <div style="font-size:10px;color:#9C8C7A">日期</div>
+            <div style="font-size:12px;font-weight:700;color:#4A382A;margin-top:2px">今天 7/2</div>
+          </div>
+          <div style="flex:1;background:#FDFAF4;border:1px solid #F0E6D6;border-radius:10px;padding:10px 12px">
+            <div style="font-size:10px;color:#9C8C7A">存放</div>
+            <div style="font-size:12px;font-weight:700;color:#4A382A;margin-top:2px">冷藏</div>
+          </div>
+          <div style="flex:1;background:#FDFAF4;border:1px solid #F0E6D6;border-radius:10px;padding:10px 12px">
+            <div style="font-size:10px;color:#9C8C7A">保质期</div>
+            <div style="font-size:12px;font-weight:700;color:#4A382A;margin-top:2px">7 天</div>
+          </div>
+        </div>
+
+        <!-- 来源备注：手动添加的核心字段，决定「手动」标签下挂什么说明 -->
+        <div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:0 0 8px">
+            <span style="font-size:11px;font-weight:800;color:#9C8C7A;letter-spacing:1px">来源备注</span>
+            <span style="font-size:9px;color:#B8762E">会显示在这条记录上</span>
+          </div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:800;background:#E89150;color:#fff;padding:6px 13px;border-radius:8px">朋友送</span>
+            <span style="font-size:11px;background:#fff;border:1px solid #F0E6D6;color:#6E5C49;padding:6px 13px;border-radius:8px">赠品</span>
+            <span style="font-size:11px;background:#fff;border:1px solid #F0E6D6;color:#6E5C49;padding:6px 13px;border-radius:8px">旧库存补登</span>
+            <span style="font-size:11px;background:#fff;border:1px solid #F0E6D6;color:#6E5C49;padding:6px 13px;border-radius:8px">其他</span>
+          </div>
+        </div>
+
+        <!-- 说明条：强调和盘点的区别（对齐详情页说明条样式） -->
+        <div style="background:#FFF7EC;border:1px solid #F0E6D6;border-radius:10px;padding:10px 12px;font-size:11px;color:#6E5C49;line-height:1.5">
+          这笔记作 <b style="color:#D17A3C">手动 +4</b>，会带「<b style="color:#D17A3C">手动</b>」来源标签。区别于盘点：盘点只改已有项的差额、不带标签。
+        </div>
+      </div>
+
+      <!-- 底栏：入库（对齐详情页保存栏：居中、不占满行） -->
+      <div style="border-top:1px solid #F0E6D6;padding:12px 14px 16px;background:#FFFFFF;display:flex;justify-content:center">
+        <button style="border:none;background:#E89150;color:#fff;font-weight:800;font-size:13px;padding:11px 56px;border-radius:12px">入库 · 4 个</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="font-size:11px;color:#9C8C7A;margin-top:14px;text-align:center;max-width:640px;margin-left:auto;margin-right:auto">
+  <b>手动添加</b>：右下「添加」入口，产生一条带「手动」来源标签的新记录（朋友送 / 赠品 / 旧库存补登）。<br>
+  <b>和盘点的边界</b>：盘点只纠偏（改差额、不带来源标签）；手动添加新增条目（带「手动 · 朋友送」这样的标签，方便对账）。<br>
+  <b>新建档</b>：库里没有的食材，可「新建食材并添加」，建档同时入库。<br>
+  <b>设计对齐</b>：两屏均为整页，与食材详情页同构（顶栏「‹」+ 标题、食材头、加减盘、底栏保存）。
+</div>
+
+<div class="options" style="margin-top:14px">
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>手动添加流程齐了</h3>
+      <p>入口（右下「添加」）+ 流程（选食材→填数量/来源→入库）补全，与详情页同构</p>
+    </div>
+  </div>
+  <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>有细节要改</h3>
+      <p>选食材/来源标签/新建档/和盘点的区分——终端说</p>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+function toggleSelect(el){ el.classList.toggle("selected"); }
+</script>
+</body>
+</html>

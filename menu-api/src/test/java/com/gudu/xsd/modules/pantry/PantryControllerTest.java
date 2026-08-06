@@ -78,8 +78,20 @@ class PantryControllerTest {
         v.setAmount(amount);
         v.setUnitName("g");
         v.setExpireDate(expire);
-        v.setLowThreshold(new BigDecimal("10"));
+        // lowThreshold 已挪到 ingredient（V39），pantry 行不再带阈值
         return v;
+    }
+
+    /** 分组项（listLow 现在返回 PantryGroupedVO.Item，V39）。 */
+    private PantryGroupedVO.Item lowItem(String name) {
+        PantryGroupedVO.Item it = new PantryGroupedVO.Item();
+        it.setIngredientId(10L);
+        it.setIngredientName(name);
+        it.setTotalAmount(new BigDecimal("3"));
+        it.setTotalGrams(new BigDecimal("3"));
+        it.setStatus("LOW");
+        it.setUnitName("g");
+        return it;
     }
 
     @Test
@@ -109,14 +121,14 @@ class PantryControllerTest {
     }
 
     @Test
-    void 不足查询_返回VO数组() throws Exception {
-        given(svc.listLow()).willReturn(List.of(
-                vo(2L, "面粉", new BigDecimal("3"), null)));
+    void 不足查询_返回分组项数组() throws Exception {
+        given(svc.listLow()).willReturn(List.of(lowItem("面粉")));
 
         mvc.perform(get("/pantry/low"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data[0].ingredientName").value("面粉"));
+                .andExpect(jsonPath("$.data[0].ingredientName").value("面粉"))
+                .andExpect(jsonPath("$.data[0].status").value("LOW"));
     }
 
     @Test
@@ -126,7 +138,8 @@ class PantryControllerTest {
             return null;
         }).when(svc).saveWithGrams(any(Pantry.class));
 
-        String body = "{\"ingredientId\":10,\"amount\":12,\"unitId\":20,\"expireDate\":\"2026-06-22\",\"lowThreshold\":10}";
+        // lowThreshold 已挪到 ingredient（V39），pantry 新增不带阈值
+        String body = "{\"ingredientId\":10,\"amount\":12,\"unitId\":20,\"expireDate\":\"2026-06-22\"}";
         mvc.perform(post("/pantry").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
