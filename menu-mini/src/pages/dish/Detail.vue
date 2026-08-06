@@ -16,7 +16,7 @@
           :src="imgUrl(dish.coverUrl)"
           mode="aspectFill"
         />
-        <view v-else class="cover ph-cover">🍽</view>
+        <view v-else class="cover ph-cover"><u-icon name="photo" :size="80" color="rgba(255,255,255,0.85)" /></view>
       </view>
 
       <!-- 标题区 -->
@@ -24,7 +24,7 @@
         <view class="title-row">
           <text class="title">{{ dish.name }}</text>
           <text :class="['src-tag', dish.source === 'IMPORT' ? 'imp' : 'own']">
-            {{ dish.source === 'IMPORT' ? '🌐' : '🏠' }}
+            {{ dish.source === 'IMPORT' ? '导入' : '自创' }}
           </text>
         </view>
         <view class="meta-row">
@@ -102,7 +102,7 @@
               mode="aspectFill"
             />
           </view>
-          <view v-if="active === i" class="timer">⏱ {{ elapsed }}s</view>
+          <view v-if="active === i" class="timer"><u-icon name="clock" :size="28" color="#E89150" /> {{ elapsed }}s</view>
         </view>
       </view>
 
@@ -269,7 +269,6 @@ function goBack() {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #F6D9BE, #F6D9BE);
-  font-size: 100rpx;
   color: rgba(255, 255, 255, 0.85);
 }
 
@@ -295,15 +294,14 @@ function goBack() {
   color: #4A382A;
 }
 .src-tag {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 50%;
-  background: rgba(232, 145, 80, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  line-height: 1.6;
 }
+.src-tag.imp { color: #4FA0D0; background: rgba(79, 160, 208, 0.12); }
+.src-tag.own { color: #E89150; background: rgba(232, 145, 80, 0.12); }
 .meta-row {
   display: flex;
   align-items: center;
@@ -421,6 +419,9 @@ function goBack() {
   border-radius: 16rpx;
 }
 .timer {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
   color: #E89150;
   font-size: 36rpx;
   font-weight: bold;

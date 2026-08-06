@@ -1,25 +1,25 @@
 <template>
   <view class="ctb">
     <view class="ctb-item" :class="{ on: cur === 'dish' }" @click="go('/pages/dish/List')">
-      <text class="ctb-ico">📖</text>
+      <u-icon name="bookmark" :size="22" :color="cur === 'dish' ? '#D17A3C' : '#9C8C7A'" />
       <text class="ctb-txt">菜谱</text>
     </view>
     <view class="ctb-item" :class="{ on: cur === 'menu' }" @click="go('/pages/menu/Home')">
-      <text class="ctb-ico">🍱</text>
+      <u-icon name="bag" :size="22" :color="cur === 'menu' ? '#D17A3C' : '#9C8C7A'" />
       <text class="ctb-txt">食集</text>
     </view>
     <view class="ctb-fab-wrap" @click="go('/pages/index/Index')">
       <view class="ctb-fab" :class="{ on: cur === 'index' }">
-        <text class="ctb-fab-ico">✨</text>
+        <u-icon name="star-fill" :size="22" color="#FFFFFF" />
       </view>
       <text class="ctb-fab-txt" :class="{ on: cur === 'index' }">智荐</text>
     </view>
     <view class="ctb-item" :class="{ on: cur === 'pantry' }" @click="go('/pages/pantry/List')">
-      <text class="ctb-ico">🏠</text>
+      <u-icon name="home-fill" :size="22" :color="cur === 'pantry' ? '#D17A3C' : '#9C8C7A'" />
       <text class="ctb-txt">我家余量</text>
     </view>
     <view class="ctb-item" :class="{ on: cur === 'profile' }" @click="go('/pages/profile/Settings')">
-      <text class="ctb-ico">👤</text>
+      <u-icon name="account" :size="22" :color="cur === 'profile' ? '#D17A3C' : '#9C8C7A'" />
       <text class="ctb-txt">我的</text>
     </view>
   </view>
@@ -77,9 +77,7 @@ onMounted(() => {
   gap: 2rpx;
   padding: 4rpx 0;
 }
-.ctb-ico { font-size: 40rpx; opacity: 0.45; }
 .ctb-txt { font-size: 18rpx; color: #9C8C7A; }
-.ctb-item.on .ctb-ico { opacity: 1; }
 .ctb-item.on .ctb-txt { color: #D17A3C; font-weight: 800; }
 
 /* 中间凸起智荐 FAB */
@@ -99,7 +97,6 @@ onMounted(() => {
   border: 4rpx solid #FFFFFF;
 }
 .ctb-fab.on { background: #D17A3C; }
-.ctb-fab-ico { font-size: 40rpx; }
 .ctb-fab-txt { font-size: 18rpx; color: #9C8C7A; margin-top: 4rpx; }
 .ctb-fab-txt.on { color: #D17A3C; font-weight: 800; }
 </style>

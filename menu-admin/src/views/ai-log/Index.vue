@@ -56,7 +56,7 @@ const total = ref(0)
 const loading = ref(false)
 const query = ref({
   pageNum: 1,
-  pageSize: 20,
+  pageSize: 15,
   scene: '' as string,
   status: '' as string,
 })

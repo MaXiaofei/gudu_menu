@@ -23,7 +23,7 @@ class _DishListPageState extends State<DishListPage> {
   final _scroll = ScrollController();
   final _keywordCtrl = TextEditingController();
   final _searchFocus = FocusNode();
-  static const _pageSize = 20;
+  static const _pageSize = 15; // DESIGN.md §12.2 列表分页约定
 
   List<Dish> _dishes = [];
   int _page = 1;
@@ -349,11 +349,11 @@ class _DishCard extends StatelessWidget {
                   ? Image.network(
                       thumbUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder(t),
+                      errorBuilder: (_, __, ___) => _placeholder(t, dish.name),
                       loadingBuilder: (_, child, progress) =>
-                          progress == null ? child : _placeholder(t),
+                          progress == null ? child : _placeholder(t, dish.name),
                     )
-                  : _placeholder(t),
+                  : _placeholder(t, dish.name),
             ),
           ),
           const SizedBox(width: 10),
@@ -379,10 +379,21 @@ class _DishCard extends StatelessWidget {
     );
   }
 
-  Widget _placeholder(AppTokens t) => Container(
-        color: const Color(0xFFFBF0DD), // 原型 #FBF0DD
-        child: Icon(Icons.restaurant, color: t.border, size: 20),
-      );
+  /// 无封面图时的占位：奶油色底 + 菜名首字（DESIGN.md §10.4，不用 emoji 顶替图片）。
+  Widget _placeholder(AppTokens t, String name) {
+    final initial = name.trim().isNotEmpty ? name.trim().characters.first : '菜';
+    return Container(
+      color: t.secondary, // 原型 #FBF0DD，走 token 不裸色值（DESIGN.md §11.2）
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: t.textStyles.lg.copyWith(
+          color: t.title.withAlpha(115), // ≈ 0.45 透明度
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
 }
 
 /// 搜索框闪烁竖线光标：宽1 高14 橙色，AnimatedOpacity 周期闪烁。

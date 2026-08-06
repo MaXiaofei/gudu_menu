@@ -27,13 +27,13 @@
             <view class="title-row">
               <text class="title">{{ detail.menu.name }}</text>
               <text :class="['status-chip', detail.menu.status === 'DONE' ? 'done' : 'active']">
-                {{ detail.menu.status === 'DONE' ? '✓ 已完成' : '🍽 进行中' }}
+                {{ detail.menu.status === 'DONE' ? '✓ 已完成' : '进行中' }}
               </text>
             </view>
             <view class="meta-row">
-              <text class="meta-item">👥 {{ detail.menu.servingCount || 1 }} 人份</text>
+              <text class="meta-item"><u-icon name="account" :size="22" color="#9C8C7A" /> {{ detail.menu.servingCount || 1 }} 人份</text>
               <text class="meta-dot">·</text>
-              <text class="meta-item">🍳 包含 {{ detail.dishes.length }} 道菜</text>
+              <text class="meta-item">包含 {{ detail.dishes.length }} 道菜</text>
             </view>
           </view>
 
@@ -90,7 +90,7 @@
                   <view class="prep-main">
                     <view class="prep-name-row">
                       <text class="prep-name">{{ it.ingredientName }}</text>
-                      <text v-if="it.shared" class="prep-fire">🔥</text>
+                      <text v-if="it.shared" class="prep-shared">共用</text>
                     </view>
                     <text v-if="it.dishNames.length" class="prep-sub">{{ prepSub(it) }}</text>
                   </view>
@@ -104,7 +104,7 @@
 
             <!-- 调料折叠 -->
             <view v-if="prep.condiments.length" class="condiment-header" @click="condimentExpanded = !condimentExpanded">
-              <text class="condiment-emoji">🧂</text>
+              <u-icon name="tags" :size="22" color="#6E5C49" />
               <text class="condiment-title">调料 {{ prep.condiments.length }} 样 · 无需备料</text>
               <text class="condiment-arrow">{{ condimentExpanded ? '▾' : '▸' }}</text>
             </view>
@@ -120,7 +120,7 @@
                 <view class="prep-main">
                   <view class="prep-name-row">
                     <text class="prep-name">{{ it.ingredientName }}</text>
-                    <text v-if="it.shared" class="prep-fire">🔥</text>
+                    <text v-if="it.shared" class="prep-shared">共用</text>
                   </view>
                   <text v-if="it.dishNames.length" class="prep-sub">{{ prepSub(it) }}</text>
                 </view>
@@ -136,7 +136,7 @@
           <view v-if="shopLoading" class="prep-loading">加载采购中…</view>
           <view v-else-if="!shopVO" class="shop-empty">
             <text class="shop-empty-title">尚未生成采购清单</text>
-            <button class="shop-gen-btn" @click="generateShop">🛒 按食集生成</button>
+            <button class="shop-gen-btn" @click="generateShop">按食集生成</button>
           </view>
           <view v-else class="yh-card shop-card">
             <view
@@ -596,7 +596,14 @@ function goBack() {
 .prep-main { flex: 1; overflow: hidden; }
 .prep-name-row { display: flex; align-items: center; gap: 8rpx; }
 .prep-name { font-size: 28rpx; color: #4A382A; font-weight: 500; }
-.prep-fire { font-size: 22rpx; }
+.prep-shared {
+  font-size: 18rpx;
+  font-weight: 600;
+  color: #E89150;
+  background: rgba(232, 145, 80, 0.12);
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+}
 .prep-sub {
   display: block;
   margin-top: 4rpx;
@@ -618,7 +625,6 @@ function goBack() {
   background: #FBF0DD;
   border-radius: 16rpx;
 }
-.condiment-emoji { font-size: 28rpx; }
 .condiment-title { flex: 1; font-size: 26rpx; color: #6E5C49; }
 .condiment-arrow { font-size: 26rpx; color: #9C8C7A; }
 

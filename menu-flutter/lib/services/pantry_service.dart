@@ -3,10 +3,10 @@ import '../models/page.dart';
 
 /// 食材库存服务。
 class PantryService {
-  /// 分页库存列表：GET /pantry?pageNum=&pageSize=（"全部" tab 用，每页 10 条）。
+  /// 分页库存列表：GET /pantry?pageNum=&pageSize=（"全部" tab 用，每页 15 条，DESIGN.md §12.2）。
   static Future<PageData<PantryVO>> list({
     int pageNum = 1,
-    int pageSize = 10,
+    int pageSize = 15,
   }) async {
     final data = await ApiClient.instance.get('/pantry', query: {
       'pageNum': pageNum,
@@ -19,6 +19,9 @@ class PantryService {
   }
 
   /// 全量库存列表：GET /pantry?pageSize=1000
+  ///
+  /// 例外于 DESIGN.md §12.1（列表须分页）：库存需在本地分组/筛选/聚合展示，
+  /// 一次性拉全量；库存量级有限（家庭库存通常百条以内）。
   static Future<List<PantryVO>> listAll() async {
     final data = await ApiClient.instance.get('/pantry', query: {
       'pageNum': 1,

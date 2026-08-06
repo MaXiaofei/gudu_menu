@@ -11,7 +11,7 @@
 
     <!-- 搜索框（白底橙边，对齐原型聚焦态） -->
     <view class="search-box">
-      <text class="s-ico">🔍</text>
+      <u-icon class="s-ico" name="search" :size="20" color="#D17A3C" />
       <input
         class="s-input"
         v-model="keyword"
@@ -103,7 +103,7 @@
     <!-- 菜品列表（方案D：左圆头像 + 右三行，类似微信列表） -->
     <view v-if="loading && !dishes.length" class="empty">加载中…</view>
     <view v-else-if="!dishes.length" class="empty">
-      <text class="empty-ico">🍳</text>
+      <u-icon class="empty-ico" name="bookmark" :size="56" color="#C9B79F" />
       <text>还没有自己的菜谱，点 + 录一个吧</text>
     </view>
     <view v-else class="dish-list">
@@ -116,14 +116,14 @@
         <!-- 左圆角方块头像（对齐原型：emoji on #FBF0DD） -->
         <view class="dish-avatar">
           <image v-if="d.coverUrl" class="avatar-img" :src="imgUrl(d.coverUrl)" mode="aspectFill" />
-          <text v-else class="avatar-ph">{{ dishEmoji(d.name) }}</text>
+          <text v-else class="avatar-ph">{{ initial(d.name) }}</text>
         </view>
         <!-- 右侧三行信息 -->
         <view class="dish-info">
           <!-- 第1行：菜名 + 来源标记 -->
           <view class="dish-r1">
             <text class="dish-name">{{ d.name }}</text>
-            <text v-if="d.source === 'IMPORT'" class="dish-src">🌐</text>
+            <text v-if="d.source === 'IMPORT'" class="dish-src">导入</text>
           </view>
           <!-- 第2行：做过·时间·热量（灰字，对齐原型 meta） -->
           <view class="dish-r2">
@@ -159,7 +159,7 @@ import CustomTabBar from '@/components/CustomTabBar.vue'
 const dishes = ref<any[]>([])
 const keyword = ref('')
 const page = ref(1)
-const pageSize = 10
+const pageSize = 15 // DESIGN.md §12.2 列表分页约定
 const status = ref<'loadmore' | 'loading' | 'nomore'>('loadmore')
 const loading = ref(false)
 
@@ -306,20 +306,10 @@ function cookText(d: any): string {
   const n = Number(d.cookCount) || 0
   return n > 0 ? `做过 ${n} 次` : '没做过'
 }
-/** 食材 emoji 兜底（对齐原型：番茄炒蛋→🍅，番茄牛腩→🐂） */
-function dishEmoji(name: string): string {
-  if (!name) return '🍽'
-  if (/番茄|西红柿/.test(name)) return '🍅'
-  if (/牛|牛腩/.test(name)) return '🐂'
-  if (/鱼/.test(name)) return '🐟'
-  if (/蛋/.test(name)) return '🥚'
-  if (/面/.test(name)) return '🍜'
-  if (/鸡|鸭/.test(name)) return '🍗'
-  if (/肉|排骨|里脊/.test(name)) return '🍖'
-  if (/菠|菜|蔬/.test(name)) return '🥬'
-  if (/豆腐|豆/.test(name)) return '🥘'
-  if (/汤/.test(name)) return '🍲'
-  return '🍽'
+/** 无封面图时的占位首字（DESIGN.md §10.4：不用食物 emoji 顶替图片）。 */
+function initial(name?: string): string {
+  if (!name) return '菜'
+  return name.trim().charAt(0) || '菜'
 }
 function imgUrl(u: string): string {
   if (!u) return ''
@@ -392,7 +382,7 @@ reload()
   padding: 12rpx 24rpx;
   margin: 16rpx 0 8rpx;
 }
-.s-ico { font-size: 16px; color: #D17A3C; }
+.s-ico { display: flex; align-items: center; }
 .s-input { flex: 1; font-size: 14px; color: #4A382A; }
 .s-ph { color: #9C8C7A; }
 .s-clear { font-size: 14px; color: #9C8C7A; padding: 0 4px; }
@@ -497,7 +487,7 @@ reload()
   justify-content: center;
 }
 .avatar-img { width: 100%; height: 100%; }
-.avatar-ph { font-size: 44rpx; }
+.avatar-ph { font-size: 36rpx; font-weight: 600; color: rgba(74, 56, 42, 0.45); }
 .dish-info {
   flex: 1;
   display: flex;
@@ -521,7 +511,12 @@ reload()
   text-overflow: ellipsis;
 }
 .dish-src {
-  font-size: 24rpx;
+  font-size: 18rpx;
+  font-weight: 600;
+  color: #4FA0D0;
+  background: rgba(79, 160, 208, 0.12);
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
   flex-shrink: 0;
 }
 /* 第2行：做过·时间·评分（灰字） */
@@ -561,7 +556,7 @@ reload()
   gap: 12px; padding: 80px 0;
   color: #9C8C7A; font-size: 13px; text-align: center;
 }
-.empty-ico { font-size: 48px; }
+.empty-ico { display: block; }
 .end { text-align: center; color: #9C8C7A; font-size: 12px; padding: 20rpx 0; }
 
 /* 悬浮 + */

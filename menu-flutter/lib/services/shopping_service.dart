@@ -3,10 +3,10 @@ import '../models/page.dart';
 
 /// 采购清单服务。
 class ShoppingService {
-  /// 分页列表：GET /shopping?pageNum=&pageSize=（每页 10 条）。
+  /// 分页列表：GET /shopping?pageNum=&pageSize=（每页 15 条，DESIGN.md §12.2）。
   static Future<PageData<ShoppingList>> listPaged({
     int pageNum = 1,
-    int pageSize = 10,
+    int pageSize = 15,
   }) async {
     final data = await ApiClient.instance.get('/shopping', query: {
       'pageNum': pageNum,

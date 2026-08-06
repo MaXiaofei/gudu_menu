@@ -15,7 +15,7 @@ class DishService {
     List<int>? tagIds,
     String? sort,
     int pageNum = 1,
-    int pageSize = 20,
+    int pageSize = 15, // DESIGN.md §12.2
   }) async {
     final data = await ApiClient.instance.get('/dish/search', query: {
       if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,

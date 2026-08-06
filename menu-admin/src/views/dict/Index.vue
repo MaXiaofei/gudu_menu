@@ -41,7 +41,7 @@ const groupTabs: GroupTab[] = [
 
 const activeTab = ref<string>('cuisine')
 const loading = ref(false)
-const pageSize = 20
+const pageSize = 15
 
 // 营养指标 name(英文, DB/营养 EAV 兼容 key) → 中文展示名
 // DB 仍存英文，前端展示时映射；未命中时回退为原 name。

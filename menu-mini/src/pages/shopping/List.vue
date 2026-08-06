@@ -11,7 +11,7 @@
     <!-- 列表 -->
     <view v-if="loading && !lists.length" class="empty">加载中…</view>
     <view v-else-if="!lists.length" class="empty">
-      <text class="empty-ico">🛒</text>
+      <u-icon class="empty-ico" name="shopping-cart" :size="56" color="#C9B79F" />
       <text>还没有采购记录</text>
     </view>
     <view v-else class="list">
@@ -181,7 +181,7 @@ onLoad(() => { reload() })
   gap: 12px; padding: 100px 0;
   color: #9C8C7A; font-size: 13px; text-align: center;
 }
-.empty-ico { font-size: 48px; }
+.empty-ico { display: block; }
 
 /* 悬浮 + */
 .fab {

@@ -45,8 +45,8 @@ class MealPlanService {
     return (data as num?)?.toInt() ?? 0;
   }
 
-  /// 列表：GET /mealplan?pageNum=1&pageSize=10
-  static Future<List<MealPlan>> list({int pageSize = 10}) async {
+  /// 列表：GET /mealplan?pageNum=1&pageSize=15（DESIGN.md §12.2）。
+  static Future<List<MealPlan>> list({int pageSize = 15}) async {
     final data = await ApiClient.instance.get('/mealplan', query: {
       'pageNum': 1, 'pageSize': pageSize,
     });

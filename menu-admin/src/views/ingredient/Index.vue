@@ -26,7 +26,7 @@ const sortBy = ref<string>('')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 // 前端分页
 const pageNum = ref(1)
-const pageSize = 20
+const pageSize = 15
 
 const unitOptions = ref<DictItem[]>([])
 const purchaseOptions = ref<DictItem[]>([])

@@ -3,6 +3,8 @@ import '../core/api_client.dart';
 /// 食材服务（字典 / 创建 / AI 补全营养）。
 class IngredientService {
   /// 字典项（单位 / 采购分类）：GET /dict?group=xxx
+  ///
+  /// 例外于 DESIGN.md §12.1（列表须分页）：字典项用于下拉选择，需全量。
   static Future<List<DictItem>> listDictByGroup(String group) async {
     final data = await ApiClient.instance.get('/dict', query: {
       'group': group,
@@ -25,6 +27,8 @@ class IngredientService {
   }
 
   /// 全部食材列表（id + name）：GET /ingredient?pageSize=1000
+  ///
+  /// 例外于 DESIGN.md §12.1（列表须分页）：用于建菜/采购选食材下拉，需全量。
   static Future<List<DictItem>> listAll() async {
     final data = await ApiClient.instance.get('/ingredient', query: {
       'pageNum': 1,

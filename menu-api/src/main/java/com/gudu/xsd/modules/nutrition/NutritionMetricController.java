@@ -19,6 +19,10 @@ public class NutritionMetricController {
 
     private final NutritionMetricMapper mapper;
 
+    /**
+     * 全量返回营养指标字典。
+     * 例外于 DESIGN.md §12.1（列表须分页）：营养指标为少量字典数据，用于下拉选择。
+     */
     @GetMapping
     public R<List<NutritionMetric>> list() {
         return R.ok(mapper.selectList(null));

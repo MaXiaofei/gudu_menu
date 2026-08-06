@@ -29,7 +29,7 @@
         :class="['chip', selected.has(ing.id) && 'on']"
         @click="toggle(ing.id)"
       >
-        {{ ingEmoji(ing.name) }} {{ ing.name }}<text v-if="selected.has(ing.id)"> ✓</text>
+        {{ ing.name }}<text v-if="selected.has(ing.id)"> ✓</text>
       </view>
       <view v-if="!showAllChips && filteredList.length > 12" class="chip more" @click="showAllChips = true">+ 更多</view>
     </view>
@@ -57,7 +57,7 @@
           @click="toggleDish(m.dish.id, $event)"
         >
           <view class="match-head">
-            <text class="match-emoji">{{ dishEmoji(m.dish.name) }}</text>
+            <text class="match-emoji">{{ initial(m.dish.name) }}</text>
             <text class="match-name">{{ m.dish.name }}</text>
             <text :class="['match-pill', pillClass(m)]">{{ pillText(m) }}</text>
           </view>
@@ -197,29 +197,10 @@ function onAddMenu() {
   uni.showToast({ title: `选中 ${selectedDishes.value.size} 道，请选目标食集`, icon: 'none' })
 }
 
-/** 食材 emoji 兜底 */
-function ingEmoji(name?: string): string {
-  if (!name) return '🥘'
-  const map: Record<string, string> = {
-    '蛋': '🥚', '鱼': '🐟', '虾': '🦐', '鸡': '🐔', '牛': '🐂', '猪': '🥓', '羊': '🍖',
-    '葱': '🧅', '姜': '🫚', '蒜': '🧄', '番茄': '🍅', '西红柿': '🍅', '土豆': '🥔',
-    '萝卜': '🥕', '黄瓜': '🥒', '菜': '🥬', '奶': '🥛', '油': '🫒', '米': '🍚', '面': '🍜',
-    '豆腐': '🥘', '豆': '🫘', '椒': '🌶', '果': '🥑', '蘑菇': '🍄',
-  }
-  for (const k in map) if (name.includes(k)) return map[k]
-  return '🥘'
-}
-
-/** 菜 emoji 兜底 */
-function dishEmoji(name?: string): string {
-  if (!name) return '🍽'
-  if (/番茄|西红柿/.test(name)) return '🍅'
-  if (/鱼/.test(name)) return '🐟'
-  if (/蛋/.test(name)) return '🥚'
-  if (/面/.test(name)) return '🍜'
-  if (/肉|排骨/.test(name)) return '🍖'
-  if (/菜|蔬|菠/.test(name)) return '🥬'
-  return '🍽'
+/** 无封面图时的占位首字（DESIGN.md §10.4：不用食物 emoji 顶替图片）。 */
+function initial(name?: string): string {
+  if (!name) return '菜'
+  return name.trim().charAt(0) || '菜'
 }
 
 function pillClass(m: DishMatch): string {
@@ -306,7 +287,15 @@ function noteText(m: DishMatch): string {
 }
 .match-card.sel { border-color: #E89150; background: #FFF7EC; }
 .match-head { display: flex; align-items: center; gap: 16rpx; }
-.match-emoji { font-size: 36rpx; }
+.match-emoji {
+  width: 56rpx; height: 56rpx;
+  border-radius: 14rpx;
+  background: #FBF0DD;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 28rpx; font-weight: 600;
+  color: rgba(74, 56, 42, 0.45);
+}
 .match-name { flex: 1; font-size: 28rpx; font-weight: 800; color: #4A382A; }
 .match-pill {
   font-size: 20rpx; font-weight: 800;

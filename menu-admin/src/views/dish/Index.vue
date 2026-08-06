@@ -52,7 +52,7 @@ const total = ref(0)
 const query = reactive({
   keyword: '',
   pageNum: 1,
-  pageSize: 20,
+  pageSize: 15,
 })
 
 // ===== URL 导入 =====

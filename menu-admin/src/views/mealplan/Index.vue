@@ -20,7 +20,7 @@ const loading = ref(false)
 const list = ref<MealPlan[]>([])
 const total = ref(0)
 const pageNum = ref(1)
-const pageSize = 20
+const pageSize = 15
 const dishes = ref<{ id: number; name: string }[]>([])
 
 async function load() {

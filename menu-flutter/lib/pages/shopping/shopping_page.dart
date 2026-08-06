@@ -20,8 +20,8 @@ class _ShoppingPageState extends State<ShoppingPage> {
   // 列表
   List<ShoppingList> _lists = [];
   bool _loading = true;
-  // 分页：每页 10 条，滚动到底加载更多
-  static const _pageSize = 10;
+  // 分页：每页 15 条（DESIGN.md §12.2），滚动到底加载更多
+  static const _pageSize = 15;
   final _scroll = ScrollController();
   int _page = 1;
   bool _hasMore = false;
@@ -126,7 +126,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
   String _buildShareText() {
     if (_detail == null) return '';
     final buf = StringBuffer();
-    buf.writeln('📋 采购单 #${_detail!.id}  ${_detail!.sourceLabel}');
+    buf.writeln('采购单 #${_detail!.id}  ${_detail!.sourceLabel}');
     if (_detail!.startDate != null) {
       buf.writeln('${_detail!.startDate} ~ ${_detail!.endDate}');
     }
@@ -135,7 +135,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
       final catName = _detail!.categoryNames[entry.key] ?? '其他';
       buf.writeln('$catName：');
       for (final item in entry.value) {
-        final check = item.isPurchased ? '✓' : '☐';
+        final check = item.isPurchased ? '✓' : '[ ]';
         buf.writeln('  $check ${item.displayName}  ${item.amountText}');
       }
     }

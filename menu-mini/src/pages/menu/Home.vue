@@ -14,7 +14,7 @@
     <!-- 食集卡片列表 -->
     <view v-if="loading && !menus.length" class="empty">加载中…</view>
     <view v-else-if="!menus.length" class="empty">
-      <text class="empty-ico">📝</text>
+      <u-icon class="empty-ico" name="edit-pen" :size="56" color="#C9B79F" />
       <text>还没有食集，点 ＋ 排个本周菜单吧</text>
     </view>
     <view v-else>
@@ -26,13 +26,13 @@
       >
         <view class="menu-head">
           <view :class="['type-chip', mn.status === 'DONE' ? 'done' : 'active']">
-            {{ mn.status === 'DONE' ? '✓ 已完成' : '🍽 进行中' }}
+            {{ mn.status === 'DONE' ? '✓ 已完成' : '进行中' }}
           </view>
           <text class="menu-name">{{ mn.name }}</text>
         </view>
         <view class="menu-meta">
-          <text class="m-item">👥 {{ mn.servingCount || 1 }} 人份</text>
-          <text class="m-item">🕒 {{ fmtTime(mn.createTime) }}</text>
+          <text class="m-item"><u-icon name="account" :size="22" color="#9C8C7A" /> {{ mn.servingCount || 1 }} 人份</text>
+          <text class="m-item"><u-icon name="clock" :size="22" color="#9C8C7A" /> {{ fmtTime(mn.createTime) }}</text>
         </view>
       </view>
 
@@ -59,7 +59,7 @@ import CustomTabBar from '@/components/CustomTabBar.vue'
 const menus = ref<Menu[]>([])
 const loading = ref(false)
 const page = ref(1)
-const pageSize = 20
+const pageSize = 15 // DESIGN.md §12.2 列表分页约定
 const hasMore = ref(true)
 
 async function reload() {
@@ -196,7 +196,7 @@ onShow(() => reload())
   gap: 16px; padding: 100px 0;
   color: #9C8C7A; font-size: 13px; text-align: center;
 }
-.empty-ico { font-size: 56px; }
+.empty-ico { display: block; }
 
 .more-hint {
   text-align: center;

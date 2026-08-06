@@ -17,7 +17,7 @@ const loading = ref(false)
 const allList = ref<Member[]>([])
 const keyword = ref('')
 const pageNum = ref(1)
-const pageSize = 20
+const pageSize = 15
 
 // 名称关键词过滤（前端本地，数据量小）
 const filteredList = computed<Member[]>(() => {

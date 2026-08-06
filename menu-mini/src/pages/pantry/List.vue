@@ -3,30 +3,30 @@
     <!-- 顶栏 -->
     <view class="topbar">
       <view class="top-left">
-        <text class="crumb">🏠 我家</text>
+        <text class="crumb">我家</text>
         <text class="title">我家余量</text>
       </view>
-      <text class="search-ico">🔍</text>
+      <u-icon class="search-ico" name="search" :size="24" color="#4A382A" />
     </view>
 
     <view v-if="loading" class="empty">加载中…</view>
     <view v-else-if="!list.length" class="empty-box">
-      <text class="empty-ico">🏠</text>
+      <u-icon class="empty-ico" name="home" :size="80" color="#C9B79F" />
       <text>还没加过食材，做完菜或采购后会自动入库</text>
     </view>
     <template v-else>
       <!-- 闭环提示：缺/空食材 → 去采购（对齐原型 pantry-page） -->
       <view v-if="cnt.miss > 0" class="loop-hint" @click="goShopping">
-        <text class="loop-ico">♨️</text>
+        <u-icon class="loop-ico" name="gift" :size="24" color="#B8762E" />
         <text class="loop-txt">{{ cnt.miss }} 样扣到空，要去采购补吗？</text>
         <text class="loop-btn">去采购</text>
       </view>
 
       <!-- 三色汇总条 -->
       <view class="summary">
-        <view class="seg seg-ok">🟢 够 {{ cnt.ok }}</view>
-        <view class="seg seg-low">🟡 低 {{ cnt.low }}</view>
-        <view class="seg seg-miss">🔴 缺 {{ cnt.miss }}</view>
+        <view class="seg seg-ok">够 {{ cnt.ok }}</view>
+        <view class="seg seg-low">低 {{ cnt.low }}</view>
+        <view class="seg seg-miss">缺 {{ cnt.miss }}</view>
       </view>
 
       <!-- 筛选chips -->
@@ -44,7 +44,7 @@
             {{ g.label }} · {{ g.items.length }}
           </view>
           <view v-for="r in g.items" :key="r.id" class="row">
-            <text class="emoji">{{ emoji(r.ingredientName) }}</text>
+            <text class="emoji">{{ initial(r.ingredientName) }}</text>
             <view class="info">
               <text class="name">{{ r.ingredientName || '#' + r.ingredientId }}</text>
               <text class="src">{{ srcText(r) }}</text>
@@ -125,30 +125,17 @@ function srcText(r: PantryVO): string {
   if (Number(r.amount) <= 0) return '空了 · 该补'
   const d = daysBetween(r.expireDate)
   if (d !== null && d < 0) return `已过期 ${-d} 天`
-  if (d !== null && d <= 3) return `⚠️ 临期 剩 ${d} 天`
+  if (d !== null && d <= 3) return `临期 剩 ${d} 天`
   const th = Number(r.lowThreshold)
   if (th > 0 && Number(r.amount) < th) return `低于警戒 ${th}`
   if (d !== null) return `剩 ${d} 天`
   return '充足'
 }
 
-function emoji(name?: string): string {
-  if (!name) return '🥘'
-  const map: Record<string, string> = {
-    '蛋': '🥚', '鱼': '🐟', '虾': '🦐', '蟹': '🦀',
-    '鸡肉': '🐔', '鸡': '🐔', '鸭': '🦆',
-    '牛肉': '🥩', '牛': '🐂', '猪': '🥓', '羊': '🍖',
-    '葱': '🧅', '姜': '🫚', '蒜': '🧄',
-    '番茄': '🍅', '西红柿': '🍅', '茄子': '🍆',
-    '土豆': '🥔', '马铃薯': '🥔', '萝卜': '🥕', '胡萝卜': '🥕',
-    '黄瓜': '🥒', '瓜': '🥒', '椒': '🌶', '蘑菇': '🍄', '菌': '🍄',
-    '菜': '🥬', '奶': '🥛', '黄油': '🧈', '油': '🫒',
-    '米': '🍚', '面': '🍜', '粉': '🍜', '面包': '🍞', '麦': '🌾',
-    '苹果': '🍎', '橙': '🍊', '柠檬': '🍋', '梨': '🍐', '香蕉': '🍌',
-    '豆': '🫘', '果': '🥑',
-  }
-  for (const k in map) if (name.includes(k)) return map[k]
-  return '🥘'
+/** 无封面图时的占位首字（DESIGN.md §10.4：不用食物 emoji 顶替图片）。 */
+function initial(name?: string): string {
+  if (!name) return '食'
+  return name.trim().charAt(0) || '食'
 }
 
 /** 盘点：弹原生 editable modal（后端调整接口待补，先提示） */
@@ -202,7 +189,7 @@ onShow(() => { load() })
 .top-left { display: flex; flex-direction: column; gap: 4rpx; }
 .crumb { font-size: 22rpx; color: #9C8C7A; }
 .title { font-size: 44rpx; font-weight: 800; color: #4A382A; }
-.search-ico { font-size: 36rpx; }
+.search-ico { display: flex; align-items: flex-end; }
 
 /* 闭环提示（缺→去采购） */
 .loop-hint {
@@ -215,7 +202,7 @@ onShow(() => { load() })
   border-radius: 20rpx;
   padding: 16rpx 22rpx;
 }
-.loop-ico { font-size: 30rpx; }
+.loop-ico { display: flex; align-items: center; }
 .loop-txt { flex: 1; font-size: 22rpx; color: #B8762E; line-height: 1.4; }
 .loop-btn {
   font-size: 22rpx; font-weight: 800; color: #D17A3C;
@@ -285,7 +272,15 @@ onShow(() => { load() })
   padding: 22rpx 8rpx;
   border-bottom: 2rpx dashed #F0E6D6;
 }
-.emoji { font-size: 40rpx; }
+.emoji {
+  width: 60rpx; height: 60rpx;
+  border-radius: 16rpx;
+  background: #FBF0DD;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 30rpx; font-weight: 600;
+  color: rgba(74, 56, 42, 0.45);
+}
 .info { flex: 1; display: flex; flex-direction: column; gap: 4rpx; }
 .name { font-size: 28rpx; font-weight: 700; color: #4A382A; }
 .src { font-size: 22rpx; color: #9C8C7A; }
@@ -307,5 +302,5 @@ onShow(() => { load() })
   gap: 20rpx; padding: 200rpx 40rpx;
   color: #9C8C7A; font-size: 26rpx; text-align: center;
 }
-.empty-ico { font-size: 96rpx; }
+.empty-ico { display: block; }
 </style>

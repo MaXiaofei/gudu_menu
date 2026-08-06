@@ -12,7 +12,7 @@ const props = withDefaults(
     pageSize?: number
   }>(),
   {
-    pageSize: 20,
+    pageSize: 15, // DESIGN.md §12.2 列表分页约定
   },
 )
 

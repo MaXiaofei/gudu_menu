@@ -7,7 +7,7 @@ const authStore = useAuthStore()
 <template>
   <div class="home">
     <div class="welcome">
-      <h2>你好，{{ authStore.nickname || '掌柜' }} 👋</h2>
+      <h2>你好，{{ authStore.nickname || '掌柜' }}</h2>
       <p>欢迎来到咕嘟小食单管理后台</p>
     </div>
   </div>

@@ -91,7 +91,7 @@ public class AiController {
         w.orderByDesc("create_time");
         IPage<AiCallLog> page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
                 q.getPageNum() == null ? 1 : q.getPageNum(),
-                q.getPageSize() == null ? 20 : q.getPageSize());
+                q.getPageSize() == null ? 15 : q.getPageSize());
         return R.ok(callLogMapper.selectPage(page, w));
     }
 

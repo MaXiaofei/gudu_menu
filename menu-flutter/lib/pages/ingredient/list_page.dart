@@ -30,7 +30,7 @@ class _IngredientListPageState extends State<IngredientListPage> {
   final Map<int, String> _unitNames = {};
   final Map<int, String> _catNames = {};
 
-  static const _pageSize = 20;
+  static const _pageSize = 15; // DESIGN.md §12.2 列表分页约定
 
   @override
   void initState() {

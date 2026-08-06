@@ -7,13 +7,16 @@
         <text class="hero-title">今天吃点什么？</text>
       </view>
       <view class="avatar" @click="onSwitchMember">
-        <text class="avatar-emoji">🧑</text>
+        <u-icon name="account-fill" :size="24" color="#D17A3C" />
       </view>
     </view>
 
     <!-- 主推荐：临期驱动渐变卡 -->
     <view class="rec-main" v-if="mainRec">
-      <text class="rec-flag">⏰ 临期提醒 · 优先用掉</text>
+      <view class="rec-flag-row">
+        <u-icon name="bell" :size="16" color="#FFFFFF" />
+        <text class="rec-flag">临期提醒 · 优先用掉</text>
+      </view>
       <text class="rec-expire">{{ mainRec.expireHint }}</text>
       <view class="rec-dish" @click="goDetail(mainRec)">
         <view class="rec-emoji-wrap"><text class="rec-emoji">{{ mainRec.emoji }}</text></view>
@@ -23,8 +26,8 @@
         </view>
       </view>
       <view class="rec-btns">
-        <view class="rec-btn rec-btn-pri" @click="cookNow(mainRec)">✨ 今天做</view>
-        <view class="rec-btn rec-btn-ghost" @click="addMenu(mainRec)">🍱 加食集</view>
+        <view class="rec-btn rec-btn-pri" @click="cookNow(mainRec)">今天做</view>
+        <view class="rec-btn rec-btn-ghost" @click="addMenu(mainRec)">加食集</view>
       </view>
     </view>
 
@@ -46,19 +49,19 @@
     <view class="sec-label">找菜</view>
     <view class="find-grid">
       <view class="find-cell" @click="goSearch">
-        <view class="find-ico">🔍</view>
+        <view class="find-ico"><u-icon name="search" :size="26" color="#D17A3C" /></view>
         <text class="find-name">搜菜名</text>
       </view>
       <view class="find-cell" @click="go('/pages/cookbook/FindByIngredients')">
-        <view class="find-ico">🥕</view>
+        <view class="find-ico"><u-icon name="list" :size="26" color="#D17A3C" /></view>
         <text class="find-name">按食材找</text>
       </view>
       <view class="find-cell" @click="go('/pages/dish/List')">
-        <view class="find-ico">📖</view>
+        <view class="find-ico"><u-icon name="bookmark" :size="26" color="#D17A3C" /></view>
         <text class="find-name">逛菜谱库</text>
       </view>
       <view class="find-cell" @click="onPhotoSearch">
-        <view class="find-ico">📷</view>
+        <view class="find-ico"><u-icon name="camera" :size="26" color="#D17A3C" /></view>
         <text class="find-name">拍照识菜</text>
       </view>
     </view>
@@ -120,8 +123,8 @@ function pickEmoji(name: string, idx = 0): string {
 }
 
 const SUB_TAGS = [
-  { tag: '🍂 季节鲜', tagClass: 'tag-green' },
-  { tag: '🔁 你常做', tagClass: 'tag-yellow' },
+  { tag: '季节鲜', tagClass: 'tag-green' },
+  { tag: '你常做', tagClass: 'tag-yellow' },
 ]
 
 function toRec(d: any, idx = 0) {
@@ -220,7 +223,6 @@ onShow(() => {
   background: #F6D9BE;
   display: flex; align-items: center; justify-content: center;
 }
-.avatar-emoji { font-size: 36rpx; }
 
 /* 主推渐变卡 */
 .rec-main {
@@ -231,7 +233,8 @@ onShow(() => {
   box-shadow: 0 14rpx 36rpx rgba(169, 101, 30, 0.18);
   color: #fff;
 }
-.rec-flag { font-size: 20rpx; opacity: 0.9; letter-spacing: 1px; display: block; }
+.rec-flag-row { display: flex; align-items: center; gap: 6rpx; }
+.rec-flag { font-size: 20rpx; opacity: 0.9; letter-spacing: 1px; }
 .rec-expire {
   display: inline-block;
   margin-top: 16rpx;
@@ -316,7 +319,6 @@ onShow(() => {
   border-radius: 16rpx;
   background: #FBF0DD;
   display: flex; align-items: center; justify-content: center;
-  font-size: 30rpx;
 }
 .find-name { font-size: 26rpx; font-weight: 700; color: #4A382A; }
 

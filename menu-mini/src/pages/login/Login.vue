@@ -2,7 +2,7 @@
   <view class="login">
     <!-- 顶部渐变 header -->
     <view class="header">
-      <view class="logo-circle">🍜</view>
+      <view class="logo-circle"><text class="logo-text">食</text></view>
       <text class="brand">小食单</text>
       <text class="slogan">小火慢炖，咕嘟出家的味道</text>
     </view>
@@ -15,7 +15,7 @@
       <view class="field">
         <text class="field-label">手机号 / 账号</text>
         <view class="input-wrap">
-          <text class="input-ico">👤</text>
+          <u-icon class="input-ico" name="account" :size="20" color="#9C8C7A" />
           <input
             class="ipt"
             v-model="form.username"
@@ -28,7 +28,7 @@
       <view class="field">
         <text class="field-label">密码</text>
         <view class="input-wrap">
-          <text class="input-ico">🔒</text>
+          <u-icon class="input-ico" name="lock" :size="20" color="#9C8C7A" />
           <input
             class="ipt"
             v-model="form.password"
@@ -36,7 +36,7 @@
             placeholder="请输入密码"
             placeholder-class="ipt-ph"
           />
-          <text class="pwd-toggle" @click="showPwd = !showPwd">{{ showPwd ? '🙈' : '👁' }}</text>
+          <u-icon class="pwd-toggle" :name="showPwd ? 'eye' : 'eye-off'" :size="20" color="#9C8C7A" @click="showPwd = !showPwd" />
         </view>
       </view>
 
@@ -99,7 +99,11 @@ async function onLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.logo-text {
   font-size: 76rpx;
+  font-weight: bold;
+  color: #FFFFFF;
 }
 .brand {
   margin-top: 30rpx;
@@ -154,7 +158,6 @@ async function onLogin() {
   border-color: #E89150;
 }
 .input-ico {
-  font-size: 32rpx;
   margin-right: 16rpx;
 }
 .ipt {
@@ -168,7 +171,6 @@ async function onLogin() {
   font-size: 28rpx;
 }
 .pwd-toggle {
-  font-size: 32rpx;
   padding: 0 4rpx;
 }
 
