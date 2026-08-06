@@ -1,7 +1,6 @@
 package com.gudu.xsd.modules.menu;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.gudu.xsd.common.PageQuery;
 import com.gudu.xsd.common.R;
 import com.gudu.xsd.modules.menu.MenuService.MenuDetail;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,7 +18,7 @@ public class MenuController {
     private final MenuService svc;
 
     @GetMapping
-    public R<IPage<Menu>> list(PageQuery q) {
+    public R<IPage<Menu>> list(MenuPageQuery q) {
         return R.ok(svc.page(q));
     }
 

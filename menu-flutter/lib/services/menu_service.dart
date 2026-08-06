@@ -11,15 +11,19 @@ import 'dish_service.dart' show CookResult;
 /// - `PUT /menu`：更新食集（整体替换关联菜），返回新 id。
 /// - `POST /menu/{id}/cook`：整集做菜 → 返回 CookResult。
 class MenuService {
-  /// 分页查食集：GET /menu?pageNum=&pageSize=。
+  /// 分页查食集：GET /menu?pageNum=&pageSize=&status=。
+  /// [status] 可选过滤：'ACTIVE' 进行中 / 'DONE' 已完成；null = 全部。
   static Future<PageData<Menu>> list({
     int pageNum = 1,
-    int pageSize = 20,
+    int pageSize = 15, // DESIGN.md §12.2
+    String? status,
   }) async {
-    final data = await ApiClient.instance.get('/menu', query: {
+    final query = <String, dynamic>{
       'pageNum': pageNum,
       'pageSize': pageSize,
-    });
+    };
+    if (status != null && status.isNotEmpty) query['status'] = status;
+    final data = await ApiClient.instance.get('/menu', query: query);
     return PageData<Menu>.fromJson(
       data as Map<String, dynamic>,
       Menu.fromJson,

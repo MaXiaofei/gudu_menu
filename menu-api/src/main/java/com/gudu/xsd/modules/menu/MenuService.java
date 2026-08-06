@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.gudu.xsd.common.PageQuery;
 import com.gudu.xsd.modules.dish.Dish;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.DishQueryService;
@@ -36,10 +35,60 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     private final IngredientMapper ingredientMapper;
     private final UnitConvertService unitConvert;
 
-    /** 分页查（后台管理）。按创建时间倒序。 */
-    public IPage<Menu> page(PageQuery q) {
-        return page(new Page<>(q.getPageNum(), q.getPageSize()),
-                new QueryWrapper<Menu>().orderByDesc("create_time"));
+    /**
+     * 分页查食集列表。按创建时间倒序。
+     * status 非空时过滤（ACTIVE 进行中 / DONE 已完成）；缺省查全部。
+     * 回填 dishCount + covers（前 3 个菜的封面，列表缩略堆叠用）。
+     */
+    public IPage<Menu> page(MenuPageQuery q) {
+        QueryWrapper<Menu> w = new QueryWrapper<Menu>().orderByDesc("create_time");
+        if (q.getStatus() != null && !q.getStatus().isBlank()) {
+            w.eq("status", q.getStatus());
+        }
+        IPage<Menu> result = page(new Page<>(q.getPageNum(), q.getPageSize()), w);
+        fillDishCountAndCovers(result.getRecords());
+        return result;
+    }
+
+    /**
+     * 批量回填当前页各食集的菜数 + 前 3 个菜的封面。
+     * 一次查所有关联 menu_dish，再一次批量查 dish 取 coverUrl，消除 N+1。
+     */
+    private void fillDishCountAndCovers(List<Menu> menus) {
+        if (menus == null || menus.isEmpty()) return;
+        for (Menu m : menus) {
+            m.setDishCount(0);
+            m.setCovers(List.of());
+        }
+        List<Long> menuIds = menus.stream().map(Menu::getId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        if (menuIds.isEmpty()) return;
+        // 当前页所有 menu_dish 关联，按 menuId 分组保留顺序
+        List<MenuDish> mds = menuDishMapper.selectList(
+                new QueryWrapper<MenuDish>().in("menu_id", menuIds).orderByAsc("id"));
+        if (mds.isEmpty()) return;
+        // 批量查涉及的菜，取 coverUrl
+        List<Long> dishIds = mds.stream().map(MenuDish::getDishId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, Dish> dishById = dishIds.isEmpty() ? Map.of()
+                : dishMapper.selectBatchIds(dishIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(Dish::getId, d -> d, (a, b) -> a));
+        // 按 menuId 分组，算菜数、取前 3 个有封面的 coverUrl
+        Map<Long, List<MenuDish>> byMenu = mds.stream()
+                .collect(java.util.stream.Collectors.groupingBy(MenuDish::getMenuId));
+        for (Menu m : menus) {
+            List<MenuDish> rels = byMenu.getOrDefault(m.getId(), List.of());
+            m.setDishCount(rels.size());
+            List<String> covers = rels.stream()
+                    .map(MenuDish::getDishId)
+                    .map(dishById::get)
+                    .filter(java.util.Objects::nonNull)
+                    .map(Dish::getCoverUrl)
+                    .filter(c -> c != null && !c.isBlank())
+                    .limit(3)
+                    .toList();
+            m.setCovers(covers);
+        }
     }
 
     /** 保存菜单并整体替换其菜品关联。 */

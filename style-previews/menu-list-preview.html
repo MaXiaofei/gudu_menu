@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>食集列表 · 原型</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; color: #241914; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { font-size: 13px; color: #888; margin: 0 0 24px; }
+.preview { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 20px; max-width: 760px; }
+.preview h2 { font-size: 18px; margin: 0 0 8px; }
+.preview .subtitle { font-size: 12px; color: #9C8C7A; margin: 0 0 16px; }
+.note { font-size: 12px; color: #9C8C7A; margin-top: 16px; line-height: 1.7; }
+.note b { color: #4A382A; }
+@keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<h1>食集列表 · 原型</h1>
+<p class="sub">对应 Flutter <code>pages/menu/list_page.dart</code>。44829 批次此前只画了食集详情四个 Tab，未画列表入口页，本页补齐。</p>
+
+<div class="preview">
+<h2>食集</h2>
+<p class="subtitle">底部 Tab 第二项。食集 = 把几道菜凑成一顿饭（如「今晚的饭」）。点列表项进详情页（菜/备菜/采购/一起吃）。下拉刷新、上拉加载更多（pageSize=20）。</p>
+
+<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+
+  <!-- 左：列表主页 -->
+  <div>
+    <div style="font-size:12px;font-weight:800;color:#D17A3C;margin-bottom:6px;text-align:center">食集 · 主页</div>
+    <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;width:320px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px">
+
+      <!-- 头：返回 + 标题 + 更多 -->
+      <div style="padding:12px 16px 4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:#9C8C7A"></span>
+        <span style="font-size:11px;color:#9C8C7A">食集</span>
+        <span style="font-size:16px;color:#6E5C49">⋯</span>
+      </div>
+      <!-- 大标题 -->
+      <div style="padding:4px 16px 8px;display:flex;justify-content:space-between;align-items:flex-end">
+        <div style="font-size:22px;font-weight:800;color:#4A382A">食集</div>
+        <span style="font-size:10px;font-weight:800;color:#fff;background:#E89150;padding:5px 12px;border-radius:8px">新建食集</span>
+      </div>
+
+      <!-- 状态汇总条：进行中 / 已完成 -->
+      <div style="padding:0 16px 8px;display:flex;gap:5px">
+        <span style="font-size:10px;font-weight:800;background:#4A382A;color:#fff;padding:4px 9px;border-radius:7px">全部 4</span>
+        <span style="font-size:10px;background:#fff;border:1px solid #F0E6D6;color:#E5A938;padding:4px 9px;border-radius:7px">进行中 2</span>
+        <span style="font-size:10px;background:#fff;border:1px solid #F0E6D6;color:#9C8C7A;padding:4px 9px;border-radius:7px">已完成 2</span>
+      </div>
+
+      <!-- 列表 -->
+      <div style="flex:1;overflow:hidden;padding:0 14px">
+
+        <!-- 进行中食集：高亮（最近要做的在上） -->
+        <a href="#" style="text-decoration:none;display:block;margin-bottom:7px;margin-top:4px">
+          <div style="background:#FFF7EC;border:1.5px solid #F6D9BE;border-radius:14px;padding:11px;box-shadow:0 1px 3px rgba(169,101,30,.08)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:13px;font-weight:800;color:#4A382A">今晚的饭</div>
+              <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:#E5A938;color:#fff">进行中</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+              <!-- 菜封面缩略（占位框，符合图片占位规则） -->
+              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;display:inline-block"></span>
+              <span style="width:22px;height:22px;border-radius:6px;background:#F6D9BE;display:inline-block;margin-left:-8px"></span>
+              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;display:inline-block;margin-left:-8px"></span>
+              <span style="font-size:10px;color:#6E5C49;margin-left:2px">3 道菜</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:#9C8C7A">4 人份</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 普通进行中食集 -->
+        <a href="#" style="text-decoration:none;display:block;margin-bottom:7px">
+          <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:14px;padding:11px;box-shadow:0 1px 3px rgba(169,101,30,.06)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:13px;font-weight:800;color:#4A382A">周末聚餐</div>
+              <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:#E5A938;color:#fff">进行中</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;display:inline-block"></span>
+              <span style="width:22px;height:22px;border-radius:6px;background:#F6D9BE;display:inline-block;margin-left:-8px"></span>
+              <span style="font-size:10px;color:#6E5C49;margin-left:2px">5 道菜</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:#9C8C7A">6 人份 · 上周六</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 已完成食集（降饱和） -->
+        <a href="#" style="text-decoration:none;display:block;margin-bottom:7px">
+          <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:14px;padding:11px;box-shadow:0 1px 3px rgba(169,101,30,.06)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:13px;font-weight:800;color:#4A382A">宝宝辅食周</div>
+              <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:#4FAE6E;color:#fff">已完成</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+              <span style="width:22px;height:22px;border-radius:6px;background:#F0F8EE;display:inline-block"></span>
+              <span style="width:22px;height:22px;border-radius:6px;background:#D8E2C8;display:inline-block;margin-left:-8px"></span>
+              <span style="font-size:10px;color:#9C8C7A;margin-left:2px">4 道菜</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:#9C8C7A">2 人份 · 7/28</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 已完成食集 -->
+        <a href="#" style="text-decoration:none;display:block;margin-bottom:7px">
+          <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:14px;padding:11px;box-shadow:0 1px 3px rgba(169,101,30,.06)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:13px;font-weight:800;color:#4A382A">一顿简餐</div>
+              <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:#4FAE6E;color:#fff">已完成</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;display:inline-block"></span>
+              <span style="font-size:10px;color:#9C8C7A;margin-left:2px">2 道菜</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:#9C8C7A">1 人份 · 7/20</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 上拉加载更多 -->
+        <div style="text-align:center;font-size:10px;color:#9C8C7A;padding:8px 0">上拉加载更多</div>
+      </div>
+
+      <!-- 底部 Tab（菜谱 / 食集 / [推荐] / 库存 / 我的） -->
+      <div style="border-top:1px solid #F0E6D6;padding:8px 0 10px;display:flex;justify-content:space-around;align-items:center;background:#FFFFFF">
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">菜谱</div></div>
+        <div style="text-align:center"><div style="font-size:9px;font-weight:800;color:#D17A3C;margin-top:1px">食集</div></div>
+        <!-- 凸起推荐 FAB（直径 40px · 上凸 16px） -->
+        <div style="width:40px;height:40px;border-radius:50%;background:#E89150;margin-top:-26px;box-shadow:0 4px 10px rgba(169,101,30,.3);display:flex;align-items:center;justify-content:center;border:3px solid #fff"></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">库存</div></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">我的</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：空态 -->
+  <div>
+    <div style="font-size:12px;font-weight:800;color:#9C8C7A;margin-bottom:6px;text-align:center">空态 · 暂无食集</div>
+    <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;width:320px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px">
+
+      <!-- 头 -->
+      <div style="padding:12px 16px 4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:#9C8C7A"></span>
+        <span style="font-size:11px;color:#9C8C7A">食集</span>
+        <span style="font-size:16px;color:#6E5C49">⋯</span>
+      </div>
+      <div style="padding:4px 16px 8px">
+        <div style="font-size:22px;font-weight:800;color:#4A382A">食集</div>
+      </div>
+
+      <!-- 空态 -->
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 40px">
+        <!-- 占位图（符合图片占位规则：线框 + 文字，不画具体食物） -->
+        <div style="width:96px;height:96px;border-radius:24px;background:#FBF0DD;border:1.5px dashed #F6D9BE;display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+          <span style="font-size:11px;color:#B8762E">食集封面图</span>
+        </div>
+        <div style="font-size:15px;font-weight:800;color:#4A382A">还没有食集</div>
+        <div style="font-size:11px;color:#9C8C7A;margin-top:6px;text-align:center;line-height:1.6">把几道菜凑成一顿饭<br>备料、采购、做菜一次搞定</div>
+        <button style="margin-top:18px;border:none;background:#E89150;color:#fff;font-weight:800;font-size:13px;padding:11px 28px;border-radius:12px">建一个食集</button>
+      </div>
+
+      <!-- 底部 Tab -->
+      <div style="border-top:1px solid #F0E6D6;padding:8px 0 10px;display:flex;justify-content:space-around;align-items:center;background:#FFFFFF">
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">菜谱</div></div>
+        <div style="text-align:center"><div style="font-size:9px;font-weight:800;color:#D17A3C;margin-top:1px">食集</div></div>
+        <div style="width:40px;height:40px;border-radius:50%;background:#E89150;margin-top:-26px;box-shadow:0 4px 10px rgba(169,101,30,.3);display:flex;align-items:center;justify-content:center;border:3px solid #fff"></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">库存</div></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">我的</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>字段来源</b>：列表项字段对应后端 <code>Menu</code>（name / servingCount / status：ACTIVE·进行中 / DONE·已完成 / createTime）。<br>
+  <b>状态可视化</b>：进行中用琥珀胶囊 + 浅橙高亮卡，已完成用绿色胶囊，对应详情页头部的 <code>_StatusChip</code>。<br>
+  <b>列表项</b>：APP 现状（list_page.dart）只显示「食集名 + 份数 + 右箭头」，原型补全了菜数、状态色、封面缩略堆叠——属设计意图前瞻，待代码跟进（DESIGN.md §0：原型承载完整设计意图）。<br>
+  <b>底部 Tab</b>：5 项（菜谱 / 食集 / [凸起推荐 FAB] / 库存 / 我的），当前选中「食集」。<br>
+  <b>下拉刷新 / 上拉加载</b>：pageSize=20，列表底部「上拉加载更多 / 没有更多了」。
+</div>
+
+</div>
+
+</body>
+</html>

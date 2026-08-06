@@ -1,12 +1,14 @@
 package com.gudu.xsd.modules.menu;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("menu")
@@ -35,4 +37,12 @@ public class Menu {
 
     @TableLogic
     private Integer deleted;
+
+    /** 关联菜数（列表接口回填，不入库）。 */
+    @TableField(exist = false)
+    private Integer dishCount;
+
+    /** 前 3 个菜的封面 URL（列表缩略堆叠用，列表接口回填，不入库）。 */
+    @TableField(exist = false)
+    private List<String> covers;
 }

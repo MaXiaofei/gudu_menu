@@ -15,6 +15,10 @@ class Menu {
   final String? status;
   /// 创建时间（后端 ISO 格式字符串，如 2026-08-06T19:16:12）。
   final String? createTime;
+  /// 关联菜数（列表接口冗余返回，详情接口不带）。
+  final int? dishCount;
+  /// 前 3 个菜的封面 URL（列表接口冗余返回，用于缩略堆叠）。
+  final List<String> covers;
 
   const Menu({
     required this.id,
@@ -24,6 +28,8 @@ class Menu {
     this.servingCount,
     this.status,
     this.createTime,
+    this.dishCount,
+    this.covers = const [],
   });
 
   factory Menu.fromJson(Map<String, dynamic> j) => Menu(
@@ -34,6 +40,8 @@ class Menu {
         servingCount: (j['servingCount'] as num?)?.toInt(),
         status: j['status'] as String?,
         createTime: j['createTime'] as String?,
+        dishCount: (j['dishCount'] as num?)?.toInt(),
+        covers: (j['covers'] as List?)?.map((e) => e as String).toList() ?? const [],
       );
 
   bool get isDone => status == 'DONE';
