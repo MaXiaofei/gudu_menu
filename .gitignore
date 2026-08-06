@@ -14,3 +14,6 @@ data/
 # brainstorming visual companion
 .superpowers/
 .zcode/
+
+# 下厨房功能对照（本地资料，不入库）
+xiachufang/
