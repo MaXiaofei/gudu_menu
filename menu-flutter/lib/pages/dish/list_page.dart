@@ -428,6 +428,7 @@ class _BlinkingCursorState extends State<_BlinkingCursor>
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     return AnimatedBuilder(
       animation: _opacity,
       builder: (_, __) => Opacity(
@@ -435,7 +436,7 @@ class _BlinkingCursorState extends State<_BlinkingCursor>
         child: Container(
           width: 1,
           height: 14,
-          color: const Color(0xFFE89150),
+          color: t.primary, // DESIGN.md §11.2 走 token，不裸色值
         ),
       ),
     );

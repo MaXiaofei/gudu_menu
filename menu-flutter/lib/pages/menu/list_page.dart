@@ -31,6 +31,11 @@ class _MenuListPageState extends State<MenuListPage> {
   /// 当前选中的状态过滤：null 全部 / 'ACTIVE' 进行中 / 'DONE' 已完成。
   String? _status;
 
+  /// 菜名占位缓存：menuId → 前 3 个菜名（用于封面缩略堆叠的首字占位）。
+  /// 列表接口的 covers 字段在后端未部署时缺失，或菜无封面时为空——
+  /// 此时退化为菜名首字色块，保证「几道菜」的视觉提示始终存在。
+  final Map<int, List<String>> _dishNames = {};
+
   @override
   void initState() {
     super.initState();
@@ -59,11 +64,47 @@ class _MenuListPageState extends State<MenuListPage> {
       final r = await MenuService.list(
           pageNum: pageNum, pageSize: _pageSize, status: _status);
       _hasMore = r.records.length >= _pageSize;
+      // 后端旧版本列表接口不返回 dishCount/covers——对缺失项并发拉详情补菜数 + 菜名。
+      // 详情接口（GET /menu/{id}）的 dishes 带 dishName，用于首字占位。静默失败，不阻断列表。
+      await _enrichDishInfo(r.records);
       return r.records;
     } catch (_) {
       _hasMore = false;
       return [];
     }
+  }
+
+  /// 并发拉详情补 dishCount + 菜名（仅对 dishCount == null 的旧接口数据生效）。
+  /// 新版后端返回了 dishCount 时直接跳过，无额外请求。
+  Future<void> _enrichDishInfo(List<Menu> menus) async {
+    final need = menus.where((m) => m.dishCount == null).toList();
+    if (need.isEmpty) return;
+    await Future.wait(need.map((m) async {
+      try {
+        final d = await MenuService.detail(m.id);
+        // 用详情 dishes 长度回填菜数（拷贝一份避免直接改 const 实体字段）。
+        final enriched = Menu(
+          id: m.id,
+          name: m.name,
+          typeId: m.typeId,
+          targetMemberId: m.targetMemberId,
+          servingCount: m.servingCount,
+          status: m.status,
+          createTime: m.createTime,
+          dishCount: d.dishes.length,
+          covers: m.covers,
+        );
+        final i = menus.indexOf(m);
+        if (i >= 0) menus[i] = enriched;
+        _dishNames[m.id] = d.dishes
+            .map((md) => (md.dishName ?? '').trim())
+            .where((n) => n.isNotEmpty)
+            .take(3)
+            .toList();
+      } catch (_) {
+        // 单条失败不影响整页，菜数保持 null → UI 兜底显示 0。
+      }
+    }));
   }
 
   Future<void> _reload() async {
@@ -87,6 +128,56 @@ class _MenuListPageState extends State<MenuListPage> {
     if (_status == status) return;
     _status = status;
     await _reload();
+  }
+
+  /// 左滑删除二次确认：弹窗 → 确定则调接口删除并从列表移除。
+  /// 返回 true 时 Dismissible 才会真正收起卡片。
+  Future<bool> _confirmDelete(Menu menu) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('删除食集'),
+            content: Text('确认删除食集「${menu.name}」？该操作不可撤销。'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('取消')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('删除')),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok) return false;
+    try {
+      await MenuService.deleteMenu(menu.id);
+      if (!mounted) return false;
+      setState(() => _menus.removeWhere((m) => m.id == menu.id));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已删除')));
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('删除失败')));
+      }
+      return false;
+    }
+  }
+
+  /// 左滑露出的删除底色：右对齐红色底 + 删除图标。
+  Widget _dismissBackground(AppTokens t) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: AppTokens.sp16),
+      margin: const EdgeInsets.only(bottom: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE53935),
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+      ),
+      child: const Icon(Icons.delete_outline, color: Colors.white),
+    );
   }
 
   /// 顶栏「新建食集」/ 空态 CTA：弹输入框建空食集。
@@ -156,7 +247,14 @@ class _MenuListPageState extends State<MenuListPage> {
                       onRefresh: _reload,
                       child: _menus.isEmpty
                           ? ListView(
-                              children: [_EmptyView(onCreate: _createMenu)],
+                              children: [
+                                EmptyView(
+                                  text: '还没有食集',
+                                  subtitle: '把几道菜凑成一顿饭\n备料、采购、做菜一次搞定',
+                                  actionLabel: '建一个食集',
+                                  onAction: _createMenu,
+                                ),
+                              ],
                             )
                           : ListView.builder(
                               controller: _scroll,
@@ -175,7 +273,17 @@ class _MenuListPageState extends State<MenuListPage> {
                                     ),
                                   );
                                 }
-                                return _MenuCard(menu: _menus[i]);
+                                final menu = _menus[i];
+                                return Dismissible(
+                                  key: ValueKey(menu.id),
+                                  direction: DismissDirection.endToStart,
+                                  background: _dismissBackground(t),
+                                  confirmDismiss: (_) => _confirmDelete(menu),
+                                  child: _MenuCard(
+                                    menu: menu,
+                                    dishNames: _dishNames[menu.id] ?? const [],
+                                  ),
+                                );
                               },
                             ),
                     ),
@@ -260,7 +368,9 @@ class _MenuListPageState extends State<MenuListPage> {
 /// 进行中=高亮卡（highlight 底 + primarySoft 描边）；已完成=普通卡。
 class _MenuCard extends StatelessWidget {
   final Menu menu;
-  const _MenuCard({required this.menu});
+  /// 前 3 个菜名（详情接口冗余返回），covers 为空时用首字色块占位。
+  final List<String> dishNames;
+  const _MenuCard({required this.menu, this.dishNames = const []});
 
   @override
   Widget build(BuildContext context) {
@@ -299,8 +409,12 @@ class _MenuCard extends StatelessWidget {
             // 第二行：封面缩略堆叠 + 菜数 + 份数 + 相对日期
             Row(
               children: [
+                // 有封面图 → 显图；无图但有菜名 → 菜名首字色块占位；都没有 → 不显示堆叠。
                 if (menu.covers.isNotEmpty) ...[
                   _CoverStack(covers: menu.covers),
+                  const SizedBox(width: AppTokens.sp8),
+                ] else if (dishNames.isNotEmpty) ...[
+                  _InitialStack(names: dishNames),
                   const SizedBox(width: AppTokens.sp8),
                 ],
                 Text('${menu.dishCount ?? 0} 道菜',
@@ -396,6 +510,61 @@ class _CoverStack extends StatelessWidget {
   Widget _placeholder(AppTokens t) => Container(color: t.secondary);
 }
 
+/// 菜名首字色块堆叠（covers 无图时的降级占位，DESIGN.md §10.4 禁用 emoji 顶图）。
+/// 尺寸/叠加规则同 _CoverStack（22×22，后一个左移 8 叠加），最多 3 个。
+class _InitialStack extends StatelessWidget {
+  final List<String> names;
+  const _InitialStack({required this.names});
+
+  static const _size = 22.0;
+  static const _overlap = 8.0;
+  static const _radius = 6.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    final list = names.take(3).toList();
+    if (list.isEmpty) return const SizedBox.shrink();
+    final width = _size + (list.length - 1) * (_size - _overlap);
+    return SizedBox(
+      width: width,
+      height: _size,
+      child: Stack(
+        children: [
+          for (int i = 0; i < list.length; i++)
+            Positioned(
+              left: i * (_size - _overlap),
+              top: 0,
+              child: _block(list[i], t),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _block(String name, AppTokens t) {
+    final initial = name.trim().isNotEmpty ? name.trim().characters.first : '菜';
+    return Container(
+      decoration: BoxDecoration(
+        color: t.secondary,
+        borderRadius: BorderRadius.circular(_radius),
+        border: Border.all(color: t.card, width: 1.5),
+      ),
+      alignment: Alignment.center,
+      width: _size,
+      height: _size,
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: t.title.withAlpha(115), // ≈ 0.45 透明度，同 dish 列表占位
+        ),
+      ),
+    );
+  }
+}
+
 /// 相对日期：今天 / 昨天 / N 天前 / M/D（不引第三方库）。
 String _relativeDate(DateTime? dt) {
   if (dt == null) return '';
@@ -407,58 +576,4 @@ String _relativeDate(DateTime? dt) {
   if (diff == 1) return '昨天';
   if (diff < 7) return '$diff 天前';
   return '${dt.month}/${dt.day}';
-}
-
-/// 空态：占位图 + 文案 + 「建一个食集」CTA（原型右屏）。
-class _EmptyView extends StatelessWidget {
-  final VoidCallback onCreate;
-  const _EmptyView({required this.onCreate});
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 80),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: t.secondary,
-                  borderRadius: BorderRadius.circular(AppTokens.rXl),
-                  border: Border.all(color: t.primarySoft, width: 1.5),
-                ),
-              ),
-              const SizedBox(height: AppTokens.sp16),
-              Text('还没有食集', style: t.textStyles.subtitle),
-              const SizedBox(height: 6),
-              Text(
-                '把几道菜凑成一顿饭\n备料、采购、做菜一次搞定',
-                textAlign: TextAlign.center,
-                style: t.textStyles.caption,
-              ),
-              const SizedBox(height: AppTokens.sp16),
-              ElevatedButton(
-                onPressed: onCreate,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 28, vertical: 11),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTokens.rMd),
-                  ),
-                ),
-                child: const Text('建一个食集'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

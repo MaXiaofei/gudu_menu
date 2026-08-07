@@ -80,8 +80,17 @@ GoRouter createRouter(AuthStore auth) {
       ),
       GoRoute(
         path: '/dish/:id',
-        builder: (_, s) =>
-            DishDetailPage(id: int.parse(s.pathParameters['id']!)),
+        builder: (_, s) {
+          // extra 形如 {'showActions': false}，从食集详情点进来查看菜谱时传入。
+          final extra = s.extra;
+          final showActions = (extra is Map && extra['showActions'] is bool)
+              ? extra['showActions'] as bool
+              : true;
+          return DishDetailPage(
+            id: int.parse(s.pathParameters['id']!),
+            showActions: showActions,
+          );
+        },
       ),
       // 录入新菜（手动 + URL 导入）
       GoRoute(

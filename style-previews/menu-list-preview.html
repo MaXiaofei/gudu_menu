@@ -19,7 +19,7 @@ h1 { font-size: 20px; margin: 0 0 4px; }
 </head>
 <body>
 <h1>食集列表 · 原型</h1>
-<p class="sub">对应 Flutter <code>pages/menu/list_page.dart</code>。44829 批次此前只画了食集详情四个 Tab，未画列表入口页，本页补齐。</p>
+<p class="sub">对应 Flutter <code>pages/menu/list_page.dart</code>。左滑删除 + 二次确认。点列表项进食集详情（菜 tab 点菜进菜谱详情，见 <code>menu-detail-cai.html</code>）。</p>
 
 <div class="preview">
 <h2>食集</h2>
@@ -62,10 +62,10 @@ h1 { font-size: 20px; margin: 0 0 4px; }
               <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:#E5A938;color:#fff">进行中</span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
-              <!-- 菜封面缩略（占位框，符合图片占位规则） -->
-              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;display:inline-block"></span>
-              <span style="width:22px;height:22px;border-radius:6px;background:#F6D9BE;display:inline-block;margin-left:-8px"></span>
-              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;display:inline-block;margin-left:-8px"></span>
+              <!-- 菜封面缩略：有图显图，无图用菜名首字色块占位（DESIGN.md §10.4） -->
+              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;border:1.5px solid #fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:rgba(74,56,42,.45)">番</span>
+              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;border:1.5px solid #fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:rgba(74,56,42,.45);margin-left:-8px">紫</span>
+              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;border:1.5px solid #fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:rgba(74,56,42,.45);margin-left:-8px">蒜</span>
               <span style="font-size:10px;color:#6E5C49;margin-left:2px">3 道菜</span>
               <span style="flex:1"></span>
               <span style="font-size:10px;color:#9C8C7A">4 人份</span>
@@ -176,14 +176,158 @@ h1 { font-size: 20px; margin: 0 0 4px; }
     </div>
   </div>
 
+  <!-- 新增屏：左滑删除 -->
+  <div style="flex-basis:100%;border-top:1px dashed #E5D9C2;margin:20px 0 8px"></div>
+  <div style="font-size:12px;font-weight:800;color:#4A382A;width:100%">② 交互 · 左滑删除（本轮新增）</div>
+
+  <!-- 屏 3：左滑删除交互 -->
+  <div>
+    <div style="font-size:12px;font-weight:800;color:#D17A3C;margin-bottom:6px;text-align:center">左滑删除 · 露出删除按钮</div>
+    <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;width:320px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px">
+
+      <!-- 头 -->
+      <div style="padding:12px 16px 4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:#9C8C7A"></span>
+        <span style="font-size:11px;color:#9C8C7A">食集</span>
+        <span style="font-size:16px;color:#6E5C49">⋯</span>
+      </div>
+      <div style="padding:4px 16px 8px;display:flex;justify-content:space-between;align-items:flex-end">
+        <div style="font-size:22px;font-weight:800;color:#4A382A">食集</div>
+        <span style="font-size:10px;font-weight:800;color:#fff;background:#E89150;padding:5px 12px;border-radius:8px">新建食集</span>
+      </div>
+      <div style="padding:0 16px 8px;display:flex;gap:5px">
+        <span style="font-size:10px;font-weight:800;background:#4A382A;color:#fff;padding:4px 9px;border-radius:7px">全部 3</span>
+        <span style="font-size:10px;background:#fff;border:1px solid #F0E6D6;color:#E5A938;padding:4px 9px;border-radius:7px">进行中 2</span>
+        <span style="font-size:10px;background:#fff;border:1px solid #F0E6D6;color:#9C8C7A;padding:4px 9px;border-radius:7px">已完成 1</span>
+      </div>
+
+      <!-- 列表（第二张卡处于左滑状态） -->
+      <div style="flex:1;overflow:hidden;padding:0 14px;position:relative">
+
+        <!-- 卡 1：正常 -->
+        <a href="#" style="text-decoration:none;display:block;margin-bottom:7px;margin-top:4px">
+          <div style="background:#FFF7EC;border:1.5px solid #F6D9BE;border-radius:14px;padding:11px;box-shadow:0 1px 3px rgba(169,101,30,.08)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:13px;font-weight:800;color:#4A382A">今晚的饭</div>
+              <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:#E5A938;color:#fff">进行中</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+              <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;display:inline-block"></span>
+              <span style="width:22px;height:22px;border-radius:6px;background:#F6D9BE;display:inline-block;margin-left:-8px"></span>
+              <span style="font-size:10px;color:#6E5C49;margin-left:2px">3 道菜</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:#9C8C7A">4 人份</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 卡 2：左滑露出删除底（用 transform 平移 + 红色底卡模拟） -->
+        <div style="position:relative;margin-bottom:7px;border-radius:14px;overflow:hidden">
+          <!-- 红色删除底 -->
+          <div style="position:absolute;inset:0;background:#E53935;display:flex;align-items:center;justify-content:flex-end;padding-right:20px;border-radius:14px">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </div>
+          <!-- 卡片本体左移 88px -->
+          <a href="#" style="text-decoration:none;display:block;transform:translateX(-88px);transition:transform .2s">
+            <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:14px;padding:11px;box-shadow:0 1px 3px rgba(169,101,30,.06)">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:13px;font-weight:800;color:#4A382A">周末聚餐</div>
+                <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:#E5A938;color:#fff">进行中</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+                <span style="width:22px;height:22px;border-radius:6px;background:#FBF0DD;display:inline-block"></span>
+                <span style="width:22px;height:22px;border-radius:6px;background:#F6D9BE;display:inline-block;margin-left:-8px"></span>
+                <span style="font-size:10px;color:#6E5C49;margin-left:2px">5 道菜</span>
+                <span style="flex:1"></span>
+                <span style="font-size:10px;color:#9C8C7A">6 人份 · 上周六</span>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <!-- 卡 3：正常 -->
+        <a href="#" style="text-decoration:none;display:block;margin-bottom:7px">
+          <div style="background:#FFFFFF;border:1px solid #F0E6D6;border-radius:14px;padding:11px;box-shadow:0 1px 3px rgba(169,101,30,.06)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:13px;font-weight:800;color:#4A382A">宝宝辅食周</div>
+              <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:#4FAE6E;color:#fff">已完成</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+              <span style="width:22px;height:22px;border-radius:6px;background:#F0F8EE;display:inline-block"></span>
+              <span style="font-size:10px;color:#9C8C7A;margin-left:2px">4 道菜</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:#9C8C7A">2 人份 · 7/28</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 滑动方向提示 -->
+        <div style="text-align:center;font-size:10px;color:#D17A3C;padding:6px 0">↑ 第二张卡：从右向左滑露出删除</div>
+      </div>
+
+      <!-- 底部 Tab -->
+      <div style="border-top:1px solid #F0E6D6;padding:8px 0 10px;display:flex;justify-content:space-around;align-items:center;background:#FFFFFF">
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">菜谱</div></div>
+        <div style="text-align:center"><div style="font-size:9px;font-weight:800;color:#D17A3C;margin-top:1px">食集</div></div>
+        <div style="width:40px;height:40px;border-radius:50%;background:#E89150;margin-top:-26px;box-shadow:0 4px 10px rgba(169,101,30,.3);display:flex;align-items:center;justify-content:center;border:3px solid #fff"></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">库存</div></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#9C8C7A;margin-top:1px">我的</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 屏 4：删除二次确认弹窗 -->
+  <div>
+    <div style="font-size:12px;font-weight:800;color:#D17A3C;margin-bottom:6px;text-align:center">点删除 · 二次确认弹窗</div>
+    <div style="background:#FDFAF4;border:1px solid #F0E6D6;border-radius:22px;width:320px;overflow:hidden;box-shadow:0 14px 36px rgba(169,101,30,.14);display:flex;flex-direction:column;height:640px;position:relative">
+
+      <!-- 列表背景（半透蒙层衬托弹窗） -->
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+        <div style="padding:12px 16px 4px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:#9C8C7A"></span>
+          <span style="font-size:11px;color:#9C8C7A">食集</span>
+          <span style="font-size:16px;color:#6E5C49">⋯</span>
+        </div>
+        <div style="padding:4px 16px 8px"><div style="font-size:22px;font-weight:800;color:#4A382A">食集</div></div>
+        <div style="flex:1;background:#00000040"></div>
+      </div>
+
+      <!-- 弹窗（居中） -->
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:264px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.25)">
+        <div style="padding:20px 20px 8px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#4A382A">删除食集</div>
+          <div style="font-size:12px;color:#6E5C49;margin-top:10px;line-height:1.6">确认删除食集「<b style="color:#4A382A">周末聚餐</b>」？<br>该操作不可撤销。</div>
+        </div>
+        <div style="display:flex;border-top:1px solid #F0E6D6;margin-top:16px">
+          <button style="flex:1;border:none;background:#fff;color:#9C8C7A;font-size:14px;padding:13px 0;font-weight:600">取消</button>
+          <div style="width:1px;background:#F0E6D6"></div>
+          <button style="flex:1;border:none;background:#fff;color:#E53935;font-size:14px;padding:13px 0;font-weight:800">删除</button>
+        </div>
+      </div>
+
+      <!-- 操作流注释 -->
+      <div style="position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:10px;color:#9C8C7A;line-height:1.7;padding:0 24px">
+        确定 → <code style="background:#FBF0DD;padding:1px 5px;border-radius:4px;color:#D17A3C">DELETE /menu/{id}</code><br>
+        成功：列表移除该项 + SnackBar「已删除」<br>
+        失败：SnackBar「删除失败」，卡片弹回
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <div class="note">
   <b>字段来源</b>：列表项字段对应后端 <code>Menu</code>（name / servingCount / status：ACTIVE·进行中 / DONE·已完成 / createTime）。<br>
   <b>状态可视化</b>：进行中用琥珀胶囊 + 浅橙高亮卡，已完成用绿色胶囊，对应详情页头部的 <code>_StatusChip</code>。<br>
-  <b>列表项</b>：APP 现状（list_page.dart）只显示「食集名 + 份数 + 右箭头」，原型补全了菜数、状态色、封面缩略堆叠——属设计意图前瞻，待代码跟进（DESIGN.md §0：原型承载完整设计意图）。<br>
+  <b>列表项</b>：食集名 + 菜数 + 份数 + 相对日期 + 封面缩略堆叠（最多 3 张）。<br>
   <b>底部 Tab</b>：5 项（菜谱 / 食集 / [凸起推荐 FAB] / 库存 / 我的），当前选中「食集」。<br>
-  <b>下拉刷新 / 上拉加载</b>：pageSize=20，列表底部「上拉加载更多 / 没有更多了」。
+  <b>下拉刷新 / 上拉加载</b>：pageSize=15，列表底部「上拉加载更多 / 没有更多了」。<br>
+  <br>
+  <b>① 左滑删除（已实现 · list_page.dart）</b>：列表项用 <code>Dismissible</code> 包裹，仅 <code>endToStart</code>（从右向左滑）露出红色删除底；点击删除后弹二次确认（「确认删除食集「xxx」？该操作不可撤销」），确定才调 <code>DELETE /menu/{id}</code>——成功从列表移除 + SnackBar「已删除」，失败 SnackBar「删除失败」且卡片弹回。<br>
+  <b>点列表项 → 食集详情</b>：进 <code>menu-detail-cai.html</code>（菜 tab 默认页），菜行可点进菜谱详情（从食集进、无底部按钮）。<br>
+  <b>② 菜数 + 封面图标（向后兼容 · list_page.dart）</b>：菜数缩略堆叠遵循「有图显图，无图用菜名首字色块占位」（DESIGN.md §10.4，禁 emoji 顶图）。<br>
+  &nbsp;&nbsp;• <b>正常链路</b>（后端新版）：列表接口直接返回 <code>dishCount</code> + <code>covers</code>（前 3 个菜的封面 URL），前端直接渲染图片堆叠。<br>
+  &nbsp;&nbsp;• <b>降级链路</b>（后端旧版 / 菜无封面）：列表接口缺 <code>dishCount</code> 时，前端并发拉每个食集的详情（<code>GET /menu/{id}</code>）用 <code>dishes.length</code> 回填菜数；<code>covers</code> 为空时用详情里的 <code>dishName</code> 首字做 22×22 圆角色块堆叠（最多 3 个，如上「今晚的饭」的 番/紫/蒜）。静默失败，不阻断列表。
 </div>
 
 </div>

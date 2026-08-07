@@ -12,11 +12,11 @@
       <view class="ctb-fab" :class="{ on: cur === 'index' }">
         <u-icon name="star-fill" :size="22" color="#FFFFFF" />
       </view>
-      <text class="ctb-fab-txt" :class="{ on: cur === 'index' }">智荐</text>
+      <text class="ctb-fab-txt" :class="{ on: cur === 'index' }">推荐</text>
     </view>
     <view class="ctb-item" :class="{ on: cur === 'pantry' }" @click="go('/pages/pantry/List')">
       <u-icon name="home-fill" :size="22" :color="cur === 'pantry' ? '#D17A3C' : '#9C8C7A'" />
-      <text class="ctb-txt">我家余量</text>
+      <text class="ctb-txt">库存</text>
     </view>
     <view class="ctb-item" :class="{ on: cur === 'profile' }" @click="go('/pages/profile/Settings')">
       <u-icon name="account" :size="22" :color="cur === 'profile' ? '#D17A3C' : '#9C8C7A'" />

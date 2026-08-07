@@ -20,7 +20,10 @@ import '../../widgets/nutrition_grid.dart';
 /// - 点击图片弹出全屏可查看器，加载原图（/original/xxx.jpg），支持双指缩放。
 class DishDetailPage extends StatefulWidget {
   final int id;
-  const DishDetailPage({super.key, required this.id});
+  /// 是否显示底部操作按钮（加到食集 / 去点评）。
+  /// 从食集详情点进来查看菜谱时为 false，避免冗余操作。
+  final bool showActions;
+  const DishDetailPage({super.key, required this.id, this.showActions = true});
   @override
   State<DishDetailPage> createState() => _DishDetailPageState();
 }
@@ -237,23 +240,26 @@ class _DishDetailPageState extends State<DishDetailPage> {
         width: width,
         height: height,
         fit: fit,
-        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-        loadingBuilder: (_, child, progress) {
-          if (progress == null) return child;
-          return Container(
-            width: width,
-            height: height,
-            color: t.bg,
-            child: const Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          );
-        },
+        // 加载失败/加载中统一走占位（DESIGN.md §1 禁止 spinner、§10.1 禁止空白破图）。
+        errorBuilder: (_, __, ___) => _imagePlaceholder(t, width, height),
+        loadingBuilder: (_, child, progress) =>
+            progress == null ? child : _imagePlaceholder(t, width, height),
       ),
+    );
+  }
+
+  /// 图片占位：奶油色底 + 图片图标（DESIGN.md §10.2，加载中/失败都用它，禁 spinner/禁空白）。
+  Widget _imagePlaceholder(AppTokens t, double? width, double? height) {
+    final w = width ?? 80;
+    final h = height ?? 80;
+    final iconSize = (w < h ? w : h) * 0.4;
+    return Container(
+      width: width,
+      height: height,
+      color: t.secondary,
+      alignment: Alignment.center,
+      child: Icon(Icons.image_outlined,
+          color: t.caption.withValues(alpha: 0.5), size: iconSize),
     );
   }
 
@@ -423,33 +429,34 @@ class _DishDetailPageState extends State<DishDetailPage> {
                         );
                       }),
                       const SizedBox(height: AppTokens.sp16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTokens.success),
-                              onPressed: _adding ? null : _addToMenu,
-                              child: _adding
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: Colors.white))
-                                  : const Text('加到食集'),
-                            ),
-                            const SizedBox(height: AppTokens.sp12),
-                            OutlinedButton(
-                              onPressed: () =>
-                                  context.push('/dish/${widget.id}/review'),
-                              child: const Text('去点评'),
-                            ),
-                          ],
+                      if (widget.showActions)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTokens.success),
+                                onPressed: _adding ? null : _addToMenu,
+                                child: _adding
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2, color: Colors.white))
+                                    : const Text('加到食集'),
+                              ),
+                              const SizedBox(height: AppTokens.sp12),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    context.push('/dish/${widget.id}/review'),
+                                child: const Text('去点评'),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                       const SizedBox(height: AppTokens.sp24),
                     ],
                   ),

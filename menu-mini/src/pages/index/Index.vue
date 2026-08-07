@@ -105,21 +105,10 @@ const dateStr = computed(() => {
   return `${d.getMonth() + 1}/${d.getDate()} 周${week} · ${meal}`
 })
 
-// 食物 emoji 兜底（菜名无 emoji 字段时按关键字推一个，对齐原型：番茄炒蛋→🍅，蒜蓉菠菜→🥬，清蒸鲈鱼→🐟）
+/** 无封面图时的占位首字（DESIGN.md §10.4：不用食物 emoji 顶替图片）。 */
 function pickEmoji(name: string, idx = 0): string {
-  if (!name) return ['🍅', '🐟', '🥬', '🍖', '🍲'][idx % 5]
-  // 食材优先（原型风格是配主食材，不是配做法）
-  if (/番茄|西红柿/.test(name)) return '🍅'
-  if (/菠|芹|青菜|生菜|油菜|韭菜|空心菜|白菜|蒜蓉/.test(name)) return '🥬'
-  if (/黄瓜|冬瓜|南瓜|苦瓜|丝瓜/.test(name)) return '🥒'
-  if (/鱼|虾|蟹|贝|鲈|带鱼|三文鱼/.test(name)) return '🐟'
-  if (/蛋/.test(name)) return '🥚'
-  if (/鸡|鸭|鹅/.test(name)) return '🍗'
-  if (/牛|羊|猪|肉|排骨|里脊/.test(name)) return '🍖'
-  if (/汤|煲|炖/.test(name)) return '🍲'
-  if (/面|粉|米线/.test(name)) return '🍜'
-  if (/豆腐|豆干/.test(name)) return '🥘'
-  return ['🍅', '🐟', '🥬', '🍖', '🍲'][(name.length + idx) % 5]
+  if (!name) return '菜'
+  return name.trim().charAt(0) || '菜'
 }
 
 const SUB_TAGS = [
@@ -255,7 +244,7 @@ onShow(() => {
   background: rgba(255, 255, 255, 0.25);
   display: flex; align-items: center; justify-content: center;
 }
-.rec-emoji { font-size: 48rpx; }
+.rec-emoji { font-size: 36rpx; font-weight: 700; color: #4A382A; opacity: 0.75; }
 .rec-dish-info { flex: 1; display: flex; flex-direction: column; gap: 4rpx; }
 .rec-dish-name { font-size: 32rpx; font-weight: 800; }
 .rec-dish-meta { font-size: 20rpx; opacity: 0.9; }
@@ -286,7 +275,15 @@ onShow(() => {
 .tag-yellow { color: #E5A938; }
 .tag-orange { color: #E89150; }
 .sub-dish { display: flex; align-items: center; gap: 14rpx; margin-top: 12rpx; }
-.sub-emoji { font-size: 36rpx; }
+.sub-emoji {
+  width: 56rpx; height: 56rpx;
+  border-radius: 14rpx;
+  background: #FBF0DD;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 28rpx; font-weight: 700;
+  color: rgba(74, 56, 42, 0.45);
+}
 .sub-name { font-size: 26rpx; font-weight: 800; color: #4A382A; }
 .sub-meta { display: block; font-size: 18rpx; color: #9C8C7A; margin-top: 8rpx; }
 
@@ -333,7 +330,7 @@ onShow(() => {
   align-items: center;
   gap: 14rpx;
 }
-.recent-emoji { font-size: 32rpx; }
+.recent-emoji { font-size: 30rpx; font-weight: 700; color: rgba(74, 56, 42, 0.5); }
 .recent-info { display: flex; flex-direction: column; gap: 2rpx; }
 .recent-name { font-size: 22rpx; color: #6E5C49; font-weight: 700; }
 .recent-time { font-size: 18rpx; color: #9C8C7A; }

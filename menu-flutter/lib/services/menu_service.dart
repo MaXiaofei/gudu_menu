@@ -36,6 +36,11 @@ class MenuService {
     return MenuDetail.fromJson(data as Map<String, dynamic>);
   }
 
+  /// 删除食集：DELETE /menu/{id}。
+  static Future<void> deleteMenu(int id) async {
+    await ApiClient.instance.delete('/menu/$id');
+  }
+
   /// 新建食集：POST /menu（MenuSaveDTO），返回新食集 id。
   /// [name] 食集名，[dishIds] 初始菜品 id 列表。
   static Future<int> createMenu(String name, {List<int>? dishIds}) async {

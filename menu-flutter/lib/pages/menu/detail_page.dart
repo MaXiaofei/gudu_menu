@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
 import '../../models/menu.dart';
@@ -749,6 +750,7 @@ class _Placeholder extends StatelessWidget {
 }
 
 /// 菜品行：直接用后端冗余的菜名（dishes 带 dishName）。
+/// 点击进入菜谱详情（复用 /dish/:id），通过 extra 隐藏底部操作按钮。
 class _DishRow extends StatelessWidget {
   final int dishId;
   final String? dishName;
@@ -758,7 +760,9 @@ class _DishRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
-    return Container(
+    return InkWell(
+      onTap: () => context.push('/dish/$dishId', extra: {'showActions': false}),
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
         decoration: BoxDecoration(
             border: Border(top: BorderSide(color: t.border))),
@@ -776,9 +780,12 @@ class _DishRow extends StatelessWidget {
               '× ${servingFactor?.toStringAsFixed(1) ?? '1.0'} 份',
               style: t.textStyles.sm.copyWith(color: t.caption),
             ),
+            const SizedBox(width: AppTokens.sp4),
+            Icon(Icons.chevron_right, size: 18, color: t.caption),
           ],
         ),
-      );
+      ),
+    );
   }
 }
 

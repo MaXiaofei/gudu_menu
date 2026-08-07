@@ -113,7 +113,7 @@ button {
 }
 button::after { border: none; }
 
-/* 隐藏原生 tabBar，改用自定义 CustomTabBar 组件渲染（emoji + 凸起智荐 FAB） */
+/* 隐藏原生 tabBar，改用自定义 CustomTabBar 组件渲染（u-icon 矢量图标 + 凸起推荐 FAB） */
 uni-tabbar,
 .uni-tabbar,
 .uni-app--showlayout--tabbar .uni-tabbar-bottom {
