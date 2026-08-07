@@ -45,6 +45,16 @@ public class MenuController {
         return R.ok(null);
     }
 
+    /** 修改/删除食集中某道菜的备注（note 空串=删除备注，原型菜行「加备注/忌口…」）。 */
+    public record NoteReq(String note) {}
+
+    @PutMapping("/{menuId}/dish/{dishId}/note")
+    public R<?> updateDishNote(@PathVariable Long menuId, @PathVariable Long dishId,
+                               @RequestBody NoteReq req) {
+        svc.updateDishNote(menuId, dishId, req == null ? null : req.note());
+        return R.ok(null);
+    }
+
     @DeleteMapping("/{id}")
     public R<?> del(@PathVariable Long id) {
         svc.removeById(id);

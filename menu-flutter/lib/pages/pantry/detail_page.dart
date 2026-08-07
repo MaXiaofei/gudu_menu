@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
 import '../../services/pantry_service.dart';
+import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/status_chip.dart';
 
@@ -60,15 +61,35 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
+    final d = _detail;
+    // DESIGN.md §13：去掉「食材详情」AppBar；食材名 + 副信息移入 BackHeader。
+    // 加载中/错误时 BackHeader 不传 title（只显箭头）。
     return Scaffold(
-      appBar: AppBar(title: const Text('食材详情')),
-      body: _loading
-          ? const LoadingView()
-          : _error != null
-              ? EmptyView(text: '加载失败：$_error')
-              : _detail == null
-                  ? const EmptyView(text: '食材不存在')
-                  : _buildBody(t),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            BackHeader(
+              title: d?.displayName,
+              subtitle: d == null
+                  ? null
+                  : Text(
+                      '系统记 ${_fmt(d.totalAmount)} ${d.unitName ?? ''}',
+                      style: t.textStyles.sm.copyWith(color: t.caption),
+                    ),
+            ),
+            Expanded(
+              child: _loading
+                  ? const LoadingView()
+                  : _error != null
+                      ? EmptyView(text: '加载失败：$_error')
+                      : d == null
+                          ? const EmptyView(text: '食材不存在')
+                          : _buildBody(t),
+            ),
+          ],
+        ),
+      ),
       bottomNavigationBar: _detail == null || _saving
           ? null
           : SafeArea(
@@ -87,15 +108,6 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
                       ),
                       child: const Text('保存', style: TextStyle(fontWeight: FontWeight.w800)),
                     ),
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-                      ),
-                      child: const Text('返回'),
-                    ),
                   ],
                 ),
               ),
@@ -110,7 +122,7 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 食材头
+        // 食材头（名称 + 系统记已移入 BackHeader，这里留头像 + 库存状态徽）
         Row(children: [
           Container(
             width: 48, height: 48,
@@ -118,15 +130,7 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
             alignment: Alignment.center,
             child: Text(d.displayName.characters.first, style: t.textStyles.h3.copyWith(color: _t.primaryDeep)),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(d.displayName, style: t.textStyles.subtitle),
-              const SizedBox(height: 2),
-              Text('系统记 ${_fmt(d.totalAmount)} ${d.unitName ?? ''}',
-                  style: t.textStyles.sectionLabel),
-            ]),
-          ),
+          const Spacer(),
           StatusChip(label: stockLabel(d.status), color: color),
         ]),
         const SizedBox(height: 20),

@@ -8,6 +8,8 @@ import '../../models/menu.dart';
 import '../../models/nutrition_metric.dart';
 import '../../services/dish_service.dart';
 import '../../services/menu_service.dart';
+import '../../widgets/action_bar.dart';
+import '../../widgets/error_view.dart';
 import '../../widgets/image_viewer.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/nutrition_grid.dart';
@@ -266,66 +268,76 @@ class _DishDetailPageState extends State<DishDetailPage> {
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
+    // DESIGN.md §13：去掉「菜品详情」废话标签 AppBar；菜名移进 BackHeader（箭头行+sp8+真实名 h3）。
+    // 加载中/错误时 BackHeader 不传 title（只显箭头）。
     return Scaffold(
-        appBar: AppBar(title: const Text('菜品详情')),
-        body: _loading
-            ? const LoadingView()
-            : _detail == null
-                ? const EmptyView(text: '加载详情失败')
-                : ListView(
-                    children: [
-                      if (_detail!.dish.coverUrl != null &&
-                          _detail!.dish.coverUrl!.isNotEmpty)
-                        _thumbnailImage(
-                          _detail!.dish.coverUrl!,
-                          width: double.infinity,
-                          height: 220,
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.all(AppTokens.sp16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(_detail!.dish.name,
-                                style: t.textStyles.h2),
-                            const SizedBox(height: AppTokens.sp8),
-                            Text(
-                              '备料 ${_detail!.dish.prepTime ?? 0}分 · 烹饪 ${_detail!.dish.cookTime ?? 0}分 · 难度 ${_detail!.dish.difficulty ?? '-'}/5',
-                              style: t.textStyles.sm.copyWith(color: t.caption),
+        body: SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          BackHeader(
+            title: _detail?.dish.name,
+            subtitle: _detail == null
+                ? null
+                : Text(
+                    '备料 ${_detail!.dish.prepTime ?? 0}分 · 烹饪 ${_detail!.dish.cookTime ?? 0}分 · 难度 ${_detail!.dish.difficulty ?? '-'}/5',
+                    style: t.textStyles.sm.copyWith(color: t.caption),
+                  ),
+          ),
+          Expanded(
+            child: _loading
+                ? const LoadingView()
+                : _detail == null
+                    ? ErrorView(text: '加载详情失败', onRetry: _load) // §14.1 错误态
+                    : ListView(
+                        children: [
+                          if (_detail!.dish.coverUrl != null &&
+                              _detail!.dish.coverUrl!.isNotEmpty)
+                            _thumbnailImage(
+                              _detail!.dish.coverUrl!,
+                              width: double.infinity,
+                              height: 220,
                             ),
-                            if (_dishTags.isNotEmpty) ...[
-                              const SizedBox(height: AppTokens.sp8),
-                              Wrap(
-                                spacing: AppTokens.sp8,
-                                runSpacing: AppTokens.sp4,
-                                children: _dishTags
-                                    .map((tag) => Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: t.primarySoft,
-                                            borderRadius: BorderRadius.circular(
-                                                AppTokens.rSm),
-                                          ),
-                                          child: Text(tag,
-                                              style: t.textStyles.xs.copyWith(color: t.primary)),
-                                        ))
-                                    .toList(),
+                          // 标签 + 备注（菜名/副信息已移入 BackHeader）
+                          if (_dishTags.isNotEmpty || (_detail!.dish.note ?? '').isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                  AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, 0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (_dishTags.isNotEmpty) ...[
+                                    Wrap(
+                                      spacing: AppTokens.sp8,
+                                      runSpacing: AppTokens.sp4,
+                                      children: _dishTags
+                                          .map((tag) => Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: t.primarySoft,
+                                                  borderRadius: BorderRadius.circular(
+                                                      AppTokens.rSm),
+                                                ),
+                                                child: Text(tag,
+                                                    style: t.textStyles.xs.copyWith(color: t.primary)),
+                                              ))
+                                          .toList(),
+                                    ),
+                                  ],
+                                  if ((_detail!.dish.note ?? '').isNotEmpty) ...[
+                                    const SizedBox(height: AppTokens.sp8),
+                                    Text(_detail!.dish.note!,
+                                        style: t.textStyles.sm),
+                                  ],
+                                ],
                               ),
-                            ],
-                            if ((_detail!.dish.note ?? '').isNotEmpty) ...[
-                              const SizedBox(height: AppTokens.sp8),
-                              Text(_detail!.dish.note!,
-                                  style: t.textStyles.sm),
-                            ],
+                            ),
+                          if (_metrics.isNotEmpty && _nutrition.isNotEmpty) ...[
+                            const _SectionTitle('营养（份数 1）'),
+                            NutritionGrid(metrics: _metrics, values: _nutrition),
                           ],
-                        ),
-                      ),
-                      if (_metrics.isNotEmpty && _nutrition.isNotEmpty) ...[
-                        const _SectionTitle('营养（份数 1）'),
-                        NutritionGrid(metrics: _metrics, values: _nutrition),
-                      ],
-                      // 用料（份数 1）
+                          // 用料（份数 1）
                       if (_detail!.ingredients.isNotEmpty) ...[
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
@@ -460,7 +472,11 @@ class _DishDetailPageState extends State<DishDetailPage> {
                       const SizedBox(height: AppTokens.sp24),
                     ],
                   ),
-      );
+            ),
+          ], // Column children
+        ), // Column
+      ), // SafeArea
+    ); // Scaffold
   }
 }
 

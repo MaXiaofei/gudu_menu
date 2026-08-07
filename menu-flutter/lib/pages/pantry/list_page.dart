@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
 import '../../services/pantry_service.dart';
+import '../../widgets/action_bar.dart';
+import '../../widgets/error_view.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/status_chip.dart';
 
@@ -56,28 +58,39 @@ class _PantryListPageState extends State<PantryListPage> {
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('库存'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.playlist_add),
-            tooltip: '批量添加',
-            onPressed: () => context.push('/pantry/add'),
-          ),
-        ],
+      // DESIGN.md §13：Tab 主页无标题，顶部用 ActionBar 放操作（批量添加图标右对齐）。
+      // 状态栏由 ActionBar 内置 AnnotatedRegion 控制（奶油底+深色字）。
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            ActionBar(
+              action: IconButton(
+                icon: const Icon(Icons.playlist_add),
+                tooltip: '批量添加',
+                onPressed: () => context.push('/pantry/add'),
+              ),
+            ),
+            Expanded(
+              child: _loading
+                  ? const LoadingView()
+                  : _error != null
+                      ? ErrorView(text: '加载失败', onRetry: _load) // §14.1：错误态用 ErrorView，不再用 EmptyView 顶替
+                      : RefreshIndicator(
+                          onRefresh: _load,
+                          child: _grouped == null || _grouped!.items.isEmpty
+                              ? ListView(
+                                  children: const [
+                                    SizedBox(height: 200),
+                                    Center(child: EmptyView(text: '暂无库存')),
+                                  ],
+                                )
+                              : _buildBody(t),
+                        ),
+            ),
+          ],
+        ),
       ),
-      body: _loading
-          ? const LoadingView()
-          : _error != null
-              ? EmptyView(text: '加载失败：$_error')
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: _grouped == null || _grouped!.items.isEmpty
-                      ? ListView(
-                          children: const [SizedBox(height: 200), Center(child: EmptyView(text: '暂无库存'))],
-                        )
-                      : _buildBody(t),
-                ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await context.push('/pantry/add');

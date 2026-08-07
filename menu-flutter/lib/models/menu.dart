@@ -53,7 +53,7 @@ class Menu {
   }
 }
 
-/// 食集→菜关联（后端 MenuDish + 冗余菜名/封面）。
+/// 食集→菜关联（后端 MenuDish + 冗余菜名/封面/备注）。
 class MenuDish {
   final int id;
   final int menuId;
@@ -64,6 +64,8 @@ class MenuDish {
   final String? dishName;
   /// 菜封面图。
   final String? coverUrl;
+  /// 该菜在食集中的备注（如「宝宝那份少盐」；null/空 = 无备注）。
+  final String? note;
 
   const MenuDish({
     required this.id,
@@ -72,6 +74,7 @@ class MenuDish {
     this.servingFactor,
     this.dishName,
     this.coverUrl,
+    this.note,
   });
 
   factory MenuDish.fromJson(Map<String, dynamic> j) => MenuDish(
@@ -81,20 +84,28 @@ class MenuDish {
         servingFactor: (j['servingFactor'] as num?)?.toDouble(),
         dishName: j['dishName'] as String?,
         coverUrl: j['coverUrl'] as String?,
+        note: j['note'] as String?,
       );
 }
 
-/// 食集详情聚合（后端 MenuService.MenuDetail record：`{ menu, dishes }`）。
+/// 食集详情聚合（后端 MenuService.MenuDetail record：`{ menu, dishes, totalMinutes }`）。
 class MenuDetail {
   final Menu menu;
   final List<MenuDish> dishes;
+  /// 总烹饪分钟（Σ 各菜 cookTime，原型副标题「约 N 分钟」）。
+  final int totalMinutes;
 
-  const MenuDetail({required this.menu, required this.dishes});
+  const MenuDetail({
+    required this.menu,
+    required this.dishes,
+    this.totalMinutes = 0,
+  });
 
   factory MenuDetail.fromJson(Map<String, dynamic> j) => MenuDetail(
         menu: Menu.fromJson(j['menu'] as Map<String, dynamic>),
         dishes: ((j['dishes'] ?? const []) as List)
             .map((e) => MenuDish.fromJson(e as Map<String, dynamic>))
             .toList(),
+        totalMinutes: (j['totalMinutes'] as num?)?.toInt() ?? 0,
       );
 }

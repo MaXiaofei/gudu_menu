@@ -30,10 +30,17 @@ class MenuService {
     );
   }
 
-  /// 详情：GET /menu/{id} → { menu, dishes:[{dishId, servingFactor, ...}] }。
+  /// 详情：GET /menu/{id} → { menu, dishes:[{dishId, servingFactor, ...}], totalMinutes }。
   static Future<MenuDetail> detail(int id) async {
     final data = await ApiClient.instance.get('/menu/$id');
     return MenuDetail.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// 修改/删除食集中某道菜的备注：PUT /menu/{menuId}/dish/{dishId}/note。
+  /// [note] 空串 = 删除备注（后端置 null，前端回显「加备注/忌口…」占位）。
+  static Future<void> updateDishNote(int menuId, int dishId, String note) async {
+    await ApiClient.instance.put('/menu/$menuId/dish/$dishId/note',
+        body: {'note': note});
   }
 
   /// 删除食集：DELETE /menu/{id}。

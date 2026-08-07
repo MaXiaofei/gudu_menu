@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/image_helper.dart';
 import '../../models/menu.dart';
 import '../../models/prep.dart';
 import '../../services/menu_service.dart';
 import '../../services/prep_service.dart';
 import '../../services/shopping_service.dart';
+import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
 
 /// 食集详情（对应 menu-mini/src/pages/menu/Detail.vue）。
@@ -70,29 +72,57 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     final ready = !_loading && _detail != null;
+    final m = _detail?.menu;
+    // DESIGN.md §13：去掉「食集详情」AppBar；食集名 + 副信息 + 状态胶囊移入 BackHeader。
+    // 加载中/错误时 BackHeader 不传 title（只显箭头）。
     return Scaffold(
-      appBar: AppBar(title: const Text('食集详情')),
-      body: !ready
-          ? (_loading
-              ? const LoadingView()
-              : const EmptyView(text: '加载详情失败'))
-          : Column(
-              children: [
-                _buildTabBar(),
-                Expanded(
-                  child: IndexedStack(
-                    index: _tabIndex,
-                    children: [
-                      _DishesTab(detail: _detail!),
-                      _PrepTab(menuId: widget.id),
-                      _ShoppingTab(menuId: widget.id),
-                      const _Placeholder(title: '一起吃', desc: '协同点菜 · 即将上线'),
-                    ],
-                  ),
-                ),
-              ],
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            BackHeader(
+              title: m?.name,
+              action: m == null
+                  ? null
+                  : (m.isDone
+                      ? const _StatusChip('已完成', AppTokens.success)
+                      : const _StatusChip('进行中', AppTokens.warning)),
+              subtitle: m == null
+                  ? null
+                  : Text(
+                      '${_relativeDate(m.createdAt)} · 份数 ${m.servingCount ?? 1} · '
+                      '关联 ${_detail!.dishes.length} 道菜 · 约 ${_detail!.totalMinutes} 分钟',
+                      style: t.textStyles.sm.copyWith(color: t.caption),
+                    ),
             ),
+            Expanded(
+              child: !ready
+                  ? (_loading
+                      ? const LoadingView()
+                      : const EmptyView(text: '加载详情失败'))
+                  : Column(
+                      children: [
+                        _buildTabBar(),
+                        Expanded(
+                          child: IndexedStack(
+                            index: _tabIndex,
+                            children: [
+                              _DishesTab(detail: _detail!, onNoteChanged: _load),
+                              _PrepTab(menuId: widget.id),
+                              _ShoppingTab(menuId: widget.id),
+                              const _Placeholder(
+                                  title: '一起吃', desc: '协同点菜 · 即将上线'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
       bottomNavigationBar: ready
           ? SafeArea(
               child: Padding(
@@ -168,43 +198,24 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
 /// Tab 0：菜品列表（原 _buildBody 内容）。
 class _DishesTab extends StatelessWidget {
   final MenuDetail detail;
-  const _DishesTab({required this.detail});
+  /// 备注修改成功后刷新详情。
+  final VoidCallback onNoteChanged;
+  const _DishesTab({required this.detail, required this.onNoteChanged});
 
   @override
   Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    final m = detail.menu;
+    // 食集名 + 状态胶囊 + 份数副信息已移入 BackHeader（§13.2）。
     return ListView(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(AppTokens.sp16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(m.name, style: t.textStyles.h3),
-                  ),
-                  if (m.isDone)
-                    const _StatusChip('已完成', AppTokens.success)
-                  else
-                    const _StatusChip('进行中', AppTokens.warning),
-                ],
-              ),
-              const SizedBox(height: AppTokens.sp8),
-              Text(
-                '份数 ${m.servingCount ?? 1} · 关联 ${detail.dishes.length} 道菜',
-                style: t.textStyles.sm.copyWith(color: t.caption),
-              ),
-            ],
-          ),
-        ),
         const _SectionTitle('包含菜品'),
         ...detail.dishes.map((d) => _DishRow(
+              menuId: detail.menu.id,
               dishId: d.dishId,
               dishName: d.dishName,
               servingFactor: d.servingFactor,
+              coverUrl: d.coverUrl,
+              note: d.note,
+              onNoteChanged: onNoteChanged,
             )),
         const SizedBox(height: AppTokens.sp24),
       ],
@@ -749,40 +760,187 @@ class _Placeholder extends StatelessWidget {
   }
 }
 
-/// 菜品行：直接用后端冗余的菜名（dishes 带 dishName）。
-/// 点击进入菜谱详情（复用 /dish/:id），通过 extra 隐藏底部操作按钮。
+/// 菜品行（原型 menu-detail-cai.html）：38px 缩略图 + 菜名/份数 + 备注行。
+/// 整行可点进菜谱详情（复用 /dish/:id，extra 隐藏底部操作按钮）；
+/// 备注可点弹输入框修改，清空提交 = 删除备注（回显「加备注/忌口…」）。
 class _DishRow extends StatelessWidget {
+  final int menuId;
   final int dishId;
   final String? dishName;
   final double? servingFactor;
-  const _DishRow({required this.dishId, this.dishName, this.servingFactor});
+  final String? coverUrl;
+  final String? note;
+  /// 备注修改成功后的回调（上层刷新详情）。
+  final VoidCallback onNoteChanged;
+  const _DishRow({
+    required this.menuId,
+    required this.dishId,
+    this.dishName,
+    this.servingFactor,
+    this.coverUrl,
+    this.note,
+    required this.onNoteChanged,
+  });
+
+  /// 弹备注输入框（预填当前值）；确定 → 调接口 → 回调刷新。
+  Future<void> _editNote(BuildContext context) async {
+    final ctrl = TextEditingController(text: note ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('菜备注'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 255,
+          decoration: const InputDecoration(
+            hintText: '如：宝宝那份少盐',
+            isDense: true,
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: const Text('确定')),
+        ],
+      ),
+    );
+    if (result == null) return;
+    final trimmed = result.trim();
+    try {
+      await MenuService.updateDishNote(menuId, dishId, trimmed);
+      if (context.mounted) onNoteChanged();
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('备注更新失败')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
+    final name =
+        (dishName == null || dishName!.isEmpty) ? '菜 #$dishId' : dishName!;
+    final hasNote = note != null && note!.isNotEmpty;
+    final hasCover = coverUrl != null && coverUrl!.isNotEmpty;
+    final thumbUrl = hasCover
+        ? ImageHelper.toThumbnail(ImageHelper.toAbsolute(coverUrl!))
+        : null;
+
     return InkWell(
       onTap: () => context.push('/dish/$dishId', extra: {'showActions': false}),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
+        padding: const EdgeInsets.fromLTRB(
+            AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp8),
         decoration: BoxDecoration(
             border: Border(top: BorderSide(color: t.border))),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                (dishName == null || dishName!.isEmpty)
-                    ? '菜 #$dishId'
-                    : dishName!,
-                style: t.textStyles.md.copyWith(color: t.title),
+            Row(
+              children: [
+                // 38px 缩略图，10px 圆角（原型 width:38px;border-radius:10px）
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 38,
+                    height: 38,
+                    child: thumbUrl != null
+                        ? Image.network(
+                            thumbUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _thumbPlaceholder(t, name),
+                            loadingBuilder: (_, child, progress) =>
+                                progress == null ? child : _thumbPlaceholder(t, name),
+                          )
+                        : _thumbPlaceholder(t, name),
+                  ),
+                ),
+                const SizedBox(width: AppTokens.sp8),
+                Expanded(
+                  child: Text(name,
+                      style: t.textStyles.md.copyWith(color: t.title),
+                      overflow: TextOverflow.ellipsis),
+                ),
+                Text(
+                  '× ${servingFactor?.toStringAsFixed(1) ?? '1.0'} 份',
+                  style: t.textStyles.sm.copyWith(color: t.caption),
+                ),
+                const SizedBox(width: AppTokens.sp4),
+                Icon(Icons.chevron_right, size: 18, color: t.caption),
+              ],
+            ),
+            // 备注行（原型 dashed 分隔）：有备注=浅橙胶囊，无备注=灰字占位；点击弹输入框
+            GestureDetector(
+              onTap: () => _editNote(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: t.border.withValues(alpha: 0.8)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text('备注', style: t.textStyles.tiny),
+                    const SizedBox(width: AppTokens.sp8),
+                    Expanded(
+                      child: hasNote
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppTokens.sp8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: t.secondary,
+                                borderRadius:
+                                    BorderRadius.circular(AppTokens.rSm),
+                              ),
+                              child: Text(
+                                note!,
+                                style: t.textStyles.tiny
+                                    .copyWith(color: t.title),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            )
+                          : Text(
+                              '加备注/忌口…',
+                              style: t.textStyles.tiny
+                                  .copyWith(color: t.caption),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                    ),
+                    const SizedBox(width: AppTokens.sp8),
+                    Icon(Icons.edit_outlined, size: 14, color: t.caption),
+                  ],
+                ),
               ),
             ),
-            Text(
-              '× ${servingFactor?.toStringAsFixed(1) ?? '1.0'} 份',
-              style: t.textStyles.sm.copyWith(color: t.caption),
-            ),
-            const SizedBox(width: AppTokens.sp4),
-            Icon(Icons.chevron_right, size: 18, color: t.caption),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 无封面图时的缩略占位：奶油底 + 菜名首字（DESIGN.md §10.4，不用 emoji 顶替）。
+  Widget _thumbPlaceholder(AppTokens t, String name) {
+    final initial = name.trim().isNotEmpty ? name.trim().characters.first : '菜';
+    return Container(
+      color: t.secondary,
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: t.textStyles.sm.copyWith(
+          color: t.title.withAlpha(115), // ≈ 0.45 透明度
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -820,4 +978,17 @@ class _StatusChip extends StatelessWidget {
               color: color, fontWeight: FontWeight.w600)),
     );
   }
+}
+
+/// 相对日期：今天 / 昨天 / N 天前 / M/D（对齐食集列表页，不引第三方库）。
+String _relativeDate(DateTime? dt) {
+  if (dt == null) return '';
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final that = DateTime(dt.year, dt.month, dt.day);
+  final diff = today.difference(that).inDays;
+  if (diff <= 0) return '今天';
+  if (diff == 1) return '昨天';
+  if (diff < 7) return '$diff 天前';
+  return '${dt.month}/${dt.day}';
 }

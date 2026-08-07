@@ -7,6 +7,7 @@ import '../../core/app_theme.dart';
 import '../../services/dailylog_service.dart';
 import '../../services/mealplan_service.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/action_bar.dart';
 
 /// 智能荐菜：输入预算/范围/筛选 → AI 推荐菜品组合。
 class AiRecommendPage extends StatefulWidget {
@@ -64,10 +65,17 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('智能荐菜')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // DESIGN.md §13：Tab 主页无标题（不放「智能荐菜」），顶部用 ActionBar。
+      // 推荐 tab 无操作，ActionBar() 不传 action → 返回 SizedBox.shrink。
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const ActionBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -186,6 +194,10 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             ],
           ],
         ]),
+              ),
+            ), // Expanded → SingleChildScrollView
+          ], // Column
+        ),
       ),
     );
   }

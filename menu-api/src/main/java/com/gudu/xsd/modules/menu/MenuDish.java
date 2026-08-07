@@ -20,4 +20,7 @@ public class MenuDish {
 
     /** 该菜在该菜单的份数。 */
     private BigDecimal servingFactor;
+
+    /** 该菜在食集中的备注（如「宝宝那份少盐」；空=无备注）。V40 加。 */
+    private String note;
 }

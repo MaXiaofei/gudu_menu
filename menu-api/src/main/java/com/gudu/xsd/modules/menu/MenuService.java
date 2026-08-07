@@ -109,24 +109,46 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         }
     }
 
-    /** 详情：菜单 + 关联菜品列表（每项冗余菜名/封面，避免前端逐菜 GET /dish/{id} 取名 N+1）。 */
+    /** 详情：菜单 + 关联菜品列表（每项冗余菜名/封面/备注，避免前端逐菜 GET /dish/{id} 取名 N+1）。
+     *  totalMinutes = Σ 各菜烹饪时间（原型副标题「约 N 分钟」）。 */
     public MenuDetail detail(Long id) {
         Menu menu = getById(id);
         List<MenuDish> mds = menuDishMapper.selectList(
                 new QueryWrapper<MenuDish>().eq("menu_id", id).orderByAsc("id"));
-        if (mds.isEmpty()) return new MenuDetail(menu, List.of());
+        if (mds.isEmpty()) return new MenuDetail(menu, List.of(), 0);
         // 一次批量查所有菜名/封面，消除前端 N+1（评审 gap）。
         List<Long> dishIds = mds.stream().map(MenuDish::getDishId)
                 .filter(java.util.Objects::nonNull).distinct().toList();
         Map<Long, Dish> dishById = dishIds.isEmpty() ? Map.of()
                 : dishMapper.selectBatchIds(dishIds).stream()
                         .collect(java.util.stream.Collectors.toMap(Dish::getId, d -> d, (a, b) -> a));
-        List<MenuDishVO> dishes = mds.stream().map(md -> {
+        int totalMinutes = 0;
+        List<MenuDishVO> dishes = new ArrayList<>();
+        for (MenuDish md : mds) {
             Dish d = dishById.get(md.getDishId());
-            return new MenuDishVO(md.getId(), md.getMenuId(), md.getDishId(), md.getServingFactor(),
-                    d != null ? d.getName() : null, d != null ? d.getCoverUrl() : null);
-        }).toList();
-        return new MenuDetail(menu, dishes);
+            if (d != null && d.getCookTime() != null) totalMinutes += d.getCookTime();
+            dishes.add(new MenuDishVO(md.getId(), md.getMenuId(), md.getDishId(), md.getServingFactor(),
+                    d != null ? d.getName() : null, d != null ? d.getCoverUrl() : null, md.getNote()));
+        }
+        return new MenuDetail(menu, dishes, totalMinutes);
+    }
+
+    /**
+     * 修改/删除食集中某道菜的备注。
+     * 按 menu_id + dish_id 定位行，只 update note 字段，不动其它行
+     * （不能走 saveWithDishes 整单替换——那会丢全部备注）。
+     * note 为 null 或空串 = 删除备注。
+     */
+    public boolean updateDishNote(Long menuId, Long dishId, String note) {
+        if (menuId == null || dishId == null) return false;
+        List<MenuDish> rows = menuDishMapper.selectList(new QueryWrapper<MenuDish>()
+                .eq("menu_id", menuId).eq("dish_id", dishId));
+        if (rows.isEmpty()) return false;
+        for (MenuDish md : rows) {
+            md.setNote((note == null || note.isBlank()) ? null : note.trim());
+            menuDishMapper.updateById(md);
+        }
+        return true;
     }
 
     /** 菜单汇总：各菜份数营养（复用 NutritionCalcService）+ 价格，调 MenuCalcService 纯函数。 */
@@ -167,11 +189,12 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         return sum;
     }
 
-    /** MenuDish 视图：冗余菜名/封面，避免前端逐菜 GET /dish/{id} 取名（评审 N+1）。 */
+    /** MenuDish 视图：冗余菜名/封面/备注，避免前端逐菜 GET /dish/{id} 取名（评审 N+1）。 */
     public record MenuDishVO(Long id, Long menuId, Long dishId, BigDecimal servingFactor,
-                             String dishName, String coverUrl) {}
+                             String dishName, String coverUrl, String note) {}
 
-    public record MenuDetail(Menu menu, List<MenuDishVO> dishes) {}
+    /** 食集详情：menu + 菜列表 + 总烹饪分钟（Σ 各菜 cookTime，原型副标题「约 N 分钟」）。 */
+    public record MenuDetail(Menu menu, List<MenuDishVO> dishes, int totalMinutes) {}
 
     public record MenuSummary(BigDecimal totalPrice, Map<Long, BigDecimal> totalNutrition) {}
 }

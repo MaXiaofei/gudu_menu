@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../stores/auth_store.dart';
 import '../stores/member_store.dart';
+import '../widgets/action_bar.dart';
 import '../widgets/app_card.dart';
 
 /// 「设置」页（首页右上角设置图标进入）：用户信息 + 设置项 + 退出登录。
@@ -17,11 +18,17 @@ class ProfilePage extends StatelessWidget {
     final member = context.watch<MemberStore>();
     return Scaffold(
       backgroundColor: t.bg,
-      appBar: AppBar(title: const Text('设置')),
+      // DESIGN.md §13：Tab 主页无标题（不放「设置」），顶部用 ActionBar。
+      // 我的 tab 无操作，ActionBar() 不传 action → 返回 SizedBox.shrink。
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp32),
+        bottom: false,
+        child: Column(
           children: [
+            const ActionBar(),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp32),
+                children: [
             // 用户头部卡
             AppCard(
               child: Row(
@@ -97,8 +104,11 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
+              ), // ListView
+            ), // Expanded
+          ], // Column children
+        ), // Column
+      ), // SafeArea
     );
   }
 }

@@ -48,7 +48,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
   static const Color info = Color(0xFF4FA0D0);
 
   /// 圆角阶梯（7 档，对齐 DESIGN.md §4）
-  /// 实际值：4 / 8 / 12 / 16 / 22 / 999
+  /// 实际值：2 / 4 / 8 / 12 / 16 / 22 / 999
+  static const double r2 = 2;   // 小色条 / 进度条 / 细分割块
   static const double rXs = 4;
   static const double rSm = 8;
   static const double rMd = 12;  // 修正：14 → 12（原型 45 次使用 12px）
@@ -56,15 +57,18 @@ class AppTokens extends ThemeExtension<AppTokens> {
   static const double rXl = 22;
   static const double rPill = 999;
 
-  /// 间距阶梯（8 档，对齐 DESIGN.md §6）
+  /// 间距阶梯（10 档，对齐 DESIGN.md §6）
+  /// 实际值：2 / 4 / 6 / 8 / 10 / 12 / 16 / 20 / 24 / 32
   static const double sp2 = 2;
   static const double sp4 = 4;
+  static const double sp6 = 6;   // 小间距：胶囊内边距 / 胶囊间 gap（页面实际在用 6px 共 35 处）
   static const double sp8 = 8;
+  static const double sp10 = 10; // 列表项内边距 / 紧凑卡片 padding（实际在用 10px 共 7 处）
   static const double sp12 = 12;
   static const double sp16 = 16;
+  static const double sp20 = 20; // 区块间距 / 较大留白（实际在用 20px 共 3 处）
   static const double sp24 = 24;
   static const double sp32 = 32;
-  static const double sp48 = 48;
 
   /// 语义化文字样式（11 档，对齐 tokens.json typography.scale）。
   /// 用法：`final ts = t.textStyles;` → `ts.pageTitle` / `ts.cardTitle` / `ts.body` 等。
@@ -214,14 +218,16 @@ ThemeData buildBrandTheme(AppTokens t) {
     splashColor: t.primary.withValues(alpha: 0.12),
     highlightColor: t.primary.withValues(alpha: 0.10),
     extensions: [t],
+    // DESIGN.md §13：去掉橙色顶栏色块。AppBar 背景改奶油底、深色字，
+    // 与 ActionBar/BackHeader 的奶油顶栏统一；残留的 AppBar 用法自动跟随。
     appBarTheme: AppBarTheme(
-      backgroundColor: t.primary,
-      foregroundColor: Colors.white,
+      backgroundColor: t.bg,
+      foregroundColor: t.title,
       centerTitle: true,
       elevation: 0,
       scrolledUnderElevation: 0,
-      titleTextStyle: const TextStyle(
-        color: Colors.white,
+      titleTextStyle: TextStyle(
+        color: t.title,
         fontSize: 18,
         fontWeight: FontWeight.bold,
       ),

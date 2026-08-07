@@ -6,6 +6,7 @@ import '../../core/app_theme.dart';
 import '../../models/dish.dart';
 import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
+import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
 
 /// 排序：cooked=做过最多；latest=最新。
@@ -113,10 +114,13 @@ class _DishListPageState extends State<DishListPage> {
     final t = AppTokens.of(context);
     return Scaffold(
       backgroundColor: t.bg,
+      // DESIGN.md §13：Tab 主页无标题（不放「菜谱」），顶部用 ActionBar。
+      // 菜谱页无操作，ActionBar() 不传 action → 返回 SizedBox.shrink。
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            _buildTopBar(t),
+            const ActionBar(),
             _buildSearchBox(t),
             if (_tags.isNotEmpty) _buildTagBar(t),
             _buildSortBar(t),
@@ -152,24 +156,6 @@ class _DishListPageState extends State<DishListPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 浅色顶栏：‹ 菜谱 空（原型行10-14，非主色 AppBar）。
-  Widget _buildTopBar(AppTokens t) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppTokens.sp12, AppTokens.sp12, AppTokens.sp12, AppTokens.sp4),
-      child: Row(
-        children: [
-          // 返回（tab 页其实不用返回，但原型有 ‹；这里留空占位保持视觉对称）
-          const SizedBox(width: 24),
-          const Spacer(),
-          Text('菜谱', style: t.textStyles.pageTitle),
-          const Spacer(),
-          const SizedBox(width: 24),
-        ],
       ),
     );
   }

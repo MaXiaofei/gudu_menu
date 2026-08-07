@@ -5,6 +5,7 @@ import '../../core/app_theme.dart';
 import '../../core/image_helper.dart';
 import '../../models/menu.dart';
 import '../../services/menu_service.dart';
+import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
 
 /// 食集列表（对应后端 GET /menu）。
@@ -234,10 +235,29 @@ class _MenuListPageState extends State<MenuListPage> {
     final t = AppTokens.of(context);
     return Scaffold(
       backgroundColor: t.bg,
+      // DESIGN.md §13：Tab 主页无标题（不放「食集」）。
+      // 「新建食集」胶囊按钮搬到 ActionBar 的 action 槽，右对齐独占一行。
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            _buildTopBar(t),
+            ActionBar(
+              action: GestureDetector(
+                onTap: _createMenu,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: t.primary,
+                    borderRadius: BorderRadius.circular(AppTokens.rPill),
+                  ),
+                  child: Text(
+                    '新建食集',
+                    style: t.textStyles.tiny.copyWith(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
             _buildStatusBar(t),
             Expanded(
               child: _firstLoading
@@ -290,35 +310,6 @@ class _MenuListPageState extends State<MenuListPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 浅色顶栏：大标题「食集」 + 右上「新建食集」橙色胶囊按钮。
-  Widget _buildTopBar(AppTokens t) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp4),
-      child: Row(
-        children: [
-          Text('食集', style: t.textStyles.h2),
-          const Spacer(),
-          GestureDetector(
-            onTap: _createMenu,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
-              decoration: BoxDecoration(
-                color: t.primary,
-                borderRadius: BorderRadius.circular(AppTokens.rPill),
-              ),
-              child: Text(
-                '新建食集',
-                style: t.textStyles.tiny.copyWith(color: Colors.white),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
