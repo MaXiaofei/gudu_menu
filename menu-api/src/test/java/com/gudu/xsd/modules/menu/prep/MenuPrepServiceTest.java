@@ -20,7 +20,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * MenuPrepService 单测：mock mapper，真实 PrepAggregator（已单测）。
- * 覆盖：主料/调料统一装配 / 共用高亮 / 状态关联 / 进度计数（含调料） / upsert。
+ * 覆盖：主料/调料分组装配 / 共用高亮 / 状态关联 / 进度计数（含调料） / upsert。
  * 范式照 {@link com.gudu.xsd.modules.menu.MenuServiceTest}。
  */
 class MenuPrepServiceTest {
@@ -107,9 +107,9 @@ class MenuPrepServiceTest {
         assertThat(vo.readyCount()).isEqualTo(0);
     }
 
-    /** 调味料品类(30)：也进 items 计入进度（调料需备料、可勾选）。 */
+    /** 调味料品类(30)：折叠到 condiments，但计入总数与进度。 */
     @Test
-    void getPrep_调味料_进items计入进度() {
+    void getPrep_调味料_折叠到condiments_计入进度() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
                 menu(1L), List.of(md(1L, 1L, 10L, "1", "清炒虾仁")), 0));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 16L, "10")));
@@ -118,11 +118,30 @@ class MenuPrepServiceTest {
 
         MenuPrepVO vo = svc.getPrep(1L);
 
-        assertThat(vo.items()).hasSize(1);
-        assertThat(vo.items().get(0).ingredientName()).isEqualTo("食用油");
-        assertThat(vo.condiments()).isEmpty();
+        assertThat(vo.items()).isEmpty();
+        assertThat(vo.condiments()).hasSize(1);
+        assertThat(vo.condiments().get(0).ingredientName()).isEqualTo("食用油");
         assertThat(vo.totalCount()).isEqualTo(1);  // 调料计入总数
         assertThat(vo.readyCount()).isEqualTo(0);
+    }
+
+    /** 调料 READY 计入 readyCount（主料+调料全量统计）。 */
+    @Test
+    void getPrep_调料READY_计入进度() {
+        when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
+                menu(1L), List.of(md(1L, 1L, 10L, "1", "清炒虾仁")), 0));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 16L, "10")));
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(16L, "食用油", 30L)));
+        MenuPrepStatus ready = new MenuPrepStatus();
+        ready.setMenuId(1L);
+        ready.setIngredientId(16L);
+        ready.setStatus("READY");
+        when(menuPrepStatusMapper.selectList(any())).thenReturn(List.of(ready));
+
+        MenuPrepVO vo = svc.getPrep(1L);
+
+        assertThat(vo.condiments().get(0).status()).isEqualTo("READY");
+        assertThat(vo.readyCount()).isEqualTo(1);
     }
 
     /** 两菜共用一料：shared=true、dishCount=2、dishNames 含两菜、grams 合并。 */

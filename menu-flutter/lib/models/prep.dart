@@ -2,9 +2,9 @@
 //
 // 后端 `GET /menu/{id}/prep` 返回 `MenuPrep`：
 // `{ items:[PrepItem], condiments:[PrepItem], readyCount, totalCount }`
-// - items：全部用料（含调味料），需备料、计入进度。
-// - condiments：后端已不再折叠调料，恒为空（保留字段兼容旧客户端）。
-// - readyCount/totalCount：进度（已备 / 共需备料）。
+// - items：主料（purchaseCategoryId != 调味料），需备料。
+// - condiments：调料折叠组（purchaseCategoryId = 调味料），与菜分组显示。
+// - readyCount/totalCount：进度（主料 + 调料全部计入，调料也可勾选）。
 
 /// 备料状态（后端 PrepStatus enum 名）。
 enum PrepStatus {

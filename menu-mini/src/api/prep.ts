@@ -20,13 +20,13 @@ export interface PrepItem {
 
 /** 备菜聚合（后端 MenuPrepVO record）。 */
 export interface MenuPrepVO {
-  /** 全部用料（含调味料，需备料、计入进度）。 */
+  /** 主料（purchaseCategoryId != 调味料）。 */
   items: PrepItem[]
-  /** 后端已不再折叠调料，恒为空（保留字段兼容）。 */
+  /** 调料折叠组（purchaseCategoryId=调味料，与菜分组显示、计入进度）。 */
   condiments: PrepItem[]
-  /** 已备数（items 中 status=READY 的数量）。 */
+  /** 已备数（items + condiments 中 status=READY 的数量）。 */
   readyCount: number
-  /** 共需备料数（= items.length，含调料）。 */
+  /** 共需备料数（= items.length + condiments.length，含调料）。 */
   totalCount: number
 }
 

@@ -11,7 +11,7 @@ import '../../widgets/status_chip.dart';
 
 /// 库存主页（三色分组版，对齐 pantry-page.html 原型）。
 ///
-/// 结构：顶部三色汇总条（够 N / 低 N / 缺 N）→ 按 缺→低→够 分组列表 →
+/// 结构：顶部筛选条（全部/缺/低/够，带计数，替代三色汇总条）→ 按 缺→低→够 分组列表 →
 /// 每行点整行进食材详情页盘点 → 右上角「添加」（手动入库）+「去采购」（采购闭环）。
 class PantryListPage extends StatefulWidget {
   const PantryListPage({super.key});
@@ -27,6 +27,13 @@ class _PantryListPageState extends State<PantryListPage> {
   PantryGrouped? _grouped;
   bool _loading = true;
   String? _error;
+
+  /// 筛选档：all / none / low / enough（缺省「全部」）。
+  /// nullable 兜底：热重载时旧 State 实例没有本字段，避免 null 崩溃。
+  String? _filter = 'all';
+
+  /// 生效中的筛选档（null 兜底「全部」）。
+  String get _activeFilter => _filter ?? 'all';
 
   @override
   void initState() {
@@ -143,16 +150,27 @@ class _PantryListPageState extends State<PantryListPage> {
 
   Widget _buildBody(AppTokens t) {
     final g = _grouped!;
-    final noneItems = g.items.where((i) => i.status == 'NONE').toList();
-    final lowItems = g.items.where((i) => i.status == 'LOW').toList();
-    final enoughItems = g.items.where((i) => i.status == 'ENOUGH').toList();
+    final f = _activeFilter;
+    // 按筛选取组（全部 = 三组都显）
+    final showNone = f == 'all' || f == 'none';
+    final showLow = f == 'all' || f == 'low';
+    final showEnough = f == 'all' || f == 'enough';
+    final noneItems = showNone
+        ? g.items.where((i) => i.status == 'NONE').toList()
+        : const <PantryGroupedItem>[];
+    final lowItems = showLow
+        ? g.items.where((i) => i.status == 'LOW').toList()
+        : const <PantryGroupedItem>[];
+    final enoughItems = showEnough
+        ? g.items.where((i) => i.status == 'ENOUGH').toList()
+        : const <PantryGroupedItem>[];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
       children: [
-        // 三色汇总条
-        _buildSummaryBar(t, g),
-        const SizedBox(height: 12),
+        // 筛选条（全部/缺/低/够，替代三色汇总条，原型 pantry-page 定稿）
+        _buildFilterChips(t, g),
+        const SizedBox(height: 4),
         // 分组列表
         if (noneItems.isNotEmpty) ...[
           _buildSectionTitle(t, '缺 / 空 · ${noneItems.length}', AppTokens.error),
@@ -170,31 +188,42 @@ class _PantryListPageState extends State<PantryListPage> {
     );
   }
 
-  /// 三色汇总条：够(绿)/低(黄)/缺(红)，宽度按数量比例。
-  Widget _buildSummaryBar(AppTokens t, PantryGrouped g) {
-    final total = g.enough + g.low + g.none;
-    if (total == 0) return const SizedBox.shrink();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppTokens.rSm),
-      child: Row(
-        children: [
-          if (g.enough > 0)
-            Expanded(flex: g.enough, child: _seg(t, '${g.enough}', AppTokens.success, '够')),
-          if (g.low > 0)
-            Expanded(flex: g.low, child: _seg(t, '${g.low}', AppTokens.warning, '低')),
-          if (g.none > 0)
-            Expanded(flex: g.none, child: _seg(t, '${g.none}', AppTokens.error, '缺')),
-        ],
-      ),
+  /// 筛选条：全部 / 缺 / 低 / 够（带计数）。选中实心，未选白底描边。
+  Widget _buildFilterChips(AppTokens t, PantryGrouped g) {
+    return Row(
+      children: [
+        _chip(t, 'all', '全部', g.items.length, null),
+        const SizedBox(width: 6),
+        _chip(t, 'none', '缺', g.none, AppTokens.error),
+        const SizedBox(width: 6),
+        _chip(t, 'low', '低', g.low, AppTokens.warning),
+        const SizedBox(width: 6),
+        _chip(t, 'enough', '够', g.enough, AppTokens.success),
+      ],
     );
   }
 
-  Widget _seg(AppTokens t, String count, Color color, String label) {
-    return Container(
-      color: color,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Text('$label $count',
-          style: t.textStyles.chip.copyWith(color: Colors.white)),
+  /// 单个筛选 chip：选中实心（全部=深棕底，缺/低/够=各自三色底）白字；
+  /// 未选白底 + 描边，文字用三色（全部用正文色）。
+  Widget _chip(AppTokens t, String key, String label, int count, Color? color) {
+    final selected = _activeFilter == key;
+    return GestureDetector(
+      onTap: () => setState(() => _filter = key),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? (color ?? t.title) : t.card,
+          border: selected ? null : Border.all(color: t.border),
+          borderRadius: BorderRadius.circular(AppTokens.rPill),
+        ),
+        child: Text(
+          '$label $count',
+          style: t.textStyles.tiny.copyWith(
+            color: selected ? Colors.white : (color ?? t.body),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
     );
   }
 

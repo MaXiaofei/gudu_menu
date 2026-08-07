@@ -21,13 +21,18 @@ import java.util.stream.Collectors;
 /**
  * 备菜服务（备菜模块 Plan C）。
  *
- * <p>{@link #getPrep(Long)} 聚合食集各菜用料（×servingFactor，不减库存）→ 备料状态关联 +
- * 共用高亮 + 进度计数。主料与调料（purchaseCategoryId=调味料品类）统一进 items，
- * 全部计入备菜总数与进度（用户要求调料也是备料动作，需可勾选）。
+ * <p>{@link #getPrep(Long)} 聚合食集各菜用料（×servingFactor，不减库存）→ 主料/调料分组 +
+ * 备料状态关联 + 共用高亮 + 进度计数。{@link #updateStatus} upsert 备料状态。
+ *
+ * <p>主料进 items；调料（purchaseCategoryId=调味料品类）折叠到 condiments。两者都计入
+ * readyCount/totalCount（调料也是备料动作，可勾选、算进度）。
  */
 @Service
 @RequiredArgsConstructor
 public class MenuPrepService {
+
+    /** 调味料品类 id（shopping 已用，盐/油/豉油 折叠到 condiments 组）。 */
+    private static final long CONDIMENT_CATEGORY_ID = 30L;
 
     private final MenuService menuService;
     private final DishIngredientMapper dishIngredientMapper;
@@ -35,7 +40,7 @@ public class MenuPrepService {
     private final MenuPrepStatusMapper menuPrepStatusMapper;
     private final PrepAggregator aggregator;
 
-    /** GET /menu/{id}/prep：聚合全量用料 + 备料状态 + 共用高亮 + 进度（含调料）。 */
+    /** GET /menu/{id}/prep：聚合全量用料 + 备料状态 + 共用高亮 + 调料分组 + 进度（含调料）。 */
     public MenuPrepVO getPrep(Long menuId) {
         MenuService.MenuDetail md = menuService.detail(menuId);
         List<MenuService.MenuDishVO> dishes = md.dishes();
@@ -63,7 +68,7 @@ public class MenuPrepService {
         // 3. 聚合（纯函数，已单测）
         List<PrepAggregator.PrepLine> lines = aggregator.aggregate(usages);
 
-        // 4. 批量查 ingredient（name）
+        // 4. 批量查 ingredient（name + purchaseCategoryId 判调料）
         List<Long> ingIds = lines.stream().map(PrepAggregator.PrepLine::ingredientId).toList();
         Map<Long, Ingredient> ingById = ingIds.isEmpty() ? Map.of()
                 : ingredientMapper.selectBatchIds(ingIds).stream()
@@ -81,20 +86,28 @@ public class MenuPrepService {
                 d -> d.dishName() != null ? d.dishName() : ("菜#" + d.dishId()),
                 (a, b) -> a));
 
-        // 7. 组装：全部进 items（调料不再折叠），进度含全部行
+        // 7. 组装：主料/调料分组 + 进度（两者都计入 totalCount/readyCount）
         List<PrepItemVO> items = new ArrayList<>();
+        List<PrepItemVO> condiments = new ArrayList<>();
         int readyCount = 0;
         for (PrepAggregator.PrepLine line : lines) {
             Ingredient ing = ingById.get(line.ingredientId());
             String name = ing != null && ing.getName() != null ? ing.getName() : ("食材#" + line.ingredientId());
+            boolean isCondiment = ing != null && ing.getPurchaseCategoryId() != null
+                    && ing.getPurchaseCategoryId() == CONDIMENT_CATEGORY_ID;
             List<String> dishNames = line.dishIds().stream()
                     .map(dishNameById::get).filter(Objects::nonNull).toList();
             String status = statusByIng.getOrDefault(line.ingredientId(), PrepStatus.PENDING.name());
-            items.add(new PrepItemVO(line.ingredientId(), name, line.totalGrams(),
-                    line.dishCount(), dishNames, status, line.dishCount() >= 2));
+            PrepItemVO vo = new PrepItemVO(line.ingredientId(), name, line.totalGrams(),
+                    line.dishCount(), dishNames, status, line.dishCount() >= 2);
+            if (isCondiment) {
+                condiments.add(vo);
+            } else {
+                items.add(vo);
+            }
             if (PrepStatus.READY.name().equals(status)) readyCount++;
         }
-        return new MenuPrepVO(items, List.of(), readyCount, items.size());
+        return new MenuPrepVO(items, condiments, readyCount, items.size() + condiments.size());
     }
 
     /** PUT /menu/{id}/prep/{ingredientId}：upsert 备料状态（无则 insert，有则 update）。 */
