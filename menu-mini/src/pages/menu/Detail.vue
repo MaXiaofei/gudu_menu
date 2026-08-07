@@ -188,8 +188,8 @@
       class="share-canvas"
     ></canvas>
 
-    <!-- 底部整集做菜（Plan A）；完成态加「去评价」 -->
-    <view class="bottom-actions" v-if="detail">
+    <!-- 底部整集做菜（Plan A）仅菜 tab 显示；完成态加「去评价」 -->
+    <view class="bottom-actions" v-if="detail && tabIndex === 0">
       <button
         class="cook-menu-btn"
         :disabled="cooking || detail.menu.status === 'DONE'"

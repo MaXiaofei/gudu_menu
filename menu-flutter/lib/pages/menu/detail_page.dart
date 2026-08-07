@@ -160,7 +160,8 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
           ],
         ),
       ),
-      bottomNavigationBar: ready
+      // 底部操作区仅菜 tab 显示（原型：整集做/去评价属菜品维度，备菜/采购/一起吃不重复出现）
+      bottomNavigationBar: (ready && _tabIndex == 0)
           ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp12),
