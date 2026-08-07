@@ -34,8 +34,14 @@ class _MenuAppState extends State<MenuApp> {
   void initState() {
     super.initState();
     _router = createRouter(widget.authStore);
-    // 401 未登录 → 清栈跳登录页（对应小程序 reLaunch）
-    ApiClient.instance.onUnauthorized = () => _router.go('/login');
+    // 401 未登录 → 先登出（清 AuthStore 内存态 + 持久化 token，让 router 的
+    // redirect 判断 isLoggedIn=false，登录页才不会被弹回主壳）→ 再清栈跳登录页。
+    // 只 go('/login') 不登出的话：isLoggedIn 仍为 true，redirect 会把登录页弹回 /dish，
+    // 形成"永远到不了登录页、所有页面 401"的死循环。
+    ApiClient.instance.onUnauthorized = () {
+      widget.authStore.logout();
+      _router.go('/login');
+    };
   }
 
   @override

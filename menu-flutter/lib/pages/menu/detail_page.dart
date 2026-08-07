@@ -42,6 +42,11 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
   /// 一起吃 tab 汇总数量（占位接口，协同点菜待建）。
   int _togetherCount = 0;
 
+  /// 数据版本号：每次 _load 成功 +1，作为 refreshTick 传给备菜/采购 tab。
+  /// IndexedStack 不重建子树，子 tab 靠 didUpdateWidget 比较版本号触发重载
+  ///（加菜/删菜/改备注后 _load 会刷新全部 tab，而非只刷新当前可见 tab）。
+  int _dataTick = 0;
+
   @override
   void initState() {
     super.initState();
@@ -55,7 +60,10 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
     try {
       _togetherCount = await MenuService.getTogetherCount(widget.id);
     } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+    if (mounted) setState(() {
+      _loading = false;
+      _dataTick++;
+    });
   }
 
   /// 整集做菜：POST /menu/{id}/cook。
@@ -122,10 +130,12 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
                               _DishesTab(detail: _detail!, onNoteChanged: _load),
                               _PrepTab(
                                   menuId: widget.id,
+                                  refreshTick: _dataTick,
                                   onCountChanged: (c) =>
                                       setState(() => _prepCount = c)),
                               _ShoppingTab(
                                   menuId: widget.id,
+                                  refreshTick: _dataTick,
                                   onCountChanged: (c) =>
                                       setState(() => _shoppingCount = c)),
                               const _Placeholder(
@@ -235,9 +245,9 @@ class _DishesTab extends StatelessWidget {
   final VoidCallback onNoteChanged;
   const _DishesTab({required this.detail, required this.onNoteChanged});
 
-  /// 加菜：跳菜谱列表选择模式（?selectForMenu=menuId），返回后刷新。
+  /// 加菜：跳菜谱选择页（/dish-picker?menuId=），返回后刷新。
   Future<void> _addDish(BuildContext context) async {
-    await context.push('/dish?selectForMenu=${detail.menu.id}');
+    await context.push('/dish-picker?menuId=${detail.menu.id}');
     onNoteChanged();
   }
 
@@ -288,9 +298,15 @@ class _DishesTab extends StatelessWidget {
 /// Tab 1：备菜（Plan C）。加载 GET /menu/{id}/prep + 状态交互（点/长按）。
 class _PrepTab extends StatefulWidget {
   final int menuId;
+  /// 父级数据版本号：变化时（加菜/删菜等）重载，解决 IndexedStack 保留状态不刷新。
+  final int refreshTick;
   /// 备料总数（totalCount）加载后上报父级，用于 tab 汇总数量。
   final ValueChanged<int> onCountChanged;
-  const _PrepTab({required this.menuId, required this.onCountChanged});
+  const _PrepTab({
+    required this.menuId,
+    required this.refreshTick,
+    required this.onCountChanged,
+  });
   @override
   State<_PrepTab> createState() => _PrepTabState();
 }
@@ -299,11 +315,22 @@ class _PrepTabState extends State<_PrepTab> {
   MenuPrep? _prep;
   bool _loading = true;
   bool _condimentExpanded = false;
+  int _lastTick = 0;
 
   @override
   void initState() {
     super.initState();
+    _lastTick = widget.refreshTick;
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PrepTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshTick != _lastTick) {
+      _lastTick = widget.refreshTick;
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -482,7 +509,9 @@ class _PrepTabState extends State<_PrepTab> {
   }
 }
 
-/// 备菜列表行：状态 chip + 食材名 + 用量 + 共用高亮 + 来自哪些菜。
+/// 备菜列表行：食材名 + 用量 + 共用高亮 + 来自哪些菜 + 行尾状态 chip。
+/// 原型（menu-detail-beicai.html）：chip 在行尾；已备整行变淡、名称删除线、
+/// 实绿底 chip「✓ 已备」；待备白底描边 chip。
 class _PrepItemRow extends StatelessWidget {
   final PrepItem item;
   final VoidCallback onTap;
@@ -499,6 +528,7 @@ class _PrepItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
     final s = item.status;
+    final isReady = s == PrepStatus.ready;
     final chipColor = switch (s) {
       PrepStatus.ready => AppTokens.success,
       PrepStatus.thawing => AppTokens.info,
@@ -515,28 +545,13 @@ class _PrepItemRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: t.border)),
-            // 共用项淡橙底（聚焦"一次备够"）
-            color: item.shared ? t.highlight : null,
+            // 已备整行变色（浅绿底）；共用项淡橙底（聚焦"一次备够"），已备优先
+            color: isReady
+                ? AppTokens.success.withValues(alpha: 0.06)
+                : (item.shared ? t.highlight : null),
           ),
           child: Row(
             children: [
-              // 状态 chip（PENDING 白底灰边；其它浅色底 + 状态色边/字）
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
-                decoration: BoxDecoration(
-                  color: s == PrepStatus.pending ? null : chipColor.withAlpha(20),
-                  border: Border.all(
-                      color: s == PrepStatus.pending
-                          ? t.border
-                          : chipColor),
-                  borderRadius: BorderRadius.circular(AppTokens.rMd),
-                ),
-                child: Text(s.label,
-                    style: t.textStyles.sm.copyWith(
-                        color: chipColor,
-                        fontWeight: FontWeight.w600)),
-              ),
-              const SizedBox(width: AppTokens.sp12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,7 +561,12 @@ class _PrepItemRow extends StatelessWidget {
                         Flexible(
                           child: Text(item.ingredientName,
                               style: t.textStyles.md.copyWith(
-                                  fontWeight: FontWeight.w500, color: t.title)),
+                                  fontWeight: FontWeight.w500,
+                                  // 已备：名称变灰 + 删除线（原型 line-through）
+                                  color: isReady ? t.caption : t.title,
+                                  decoration: isReady
+                                      ? TextDecoration.lineThrough
+                                      : null)),
                         ),
                       ],
                     ),
@@ -566,6 +586,28 @@ class _PrepItemRow extends StatelessWidget {
               ),
               Text('${item.totalGrams.toStringAsFixed(0)}g',
                   style: t.textStyles.sm.copyWith(color: t.caption)),
+              const SizedBox(width: AppTokens.sp8),
+              // 状态 chip 在行尾（原型：待备白底描边；已备/化冻中/腌制中实底白字）
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: AppTokens.sp4),
+                decoration: BoxDecoration(
+                  color: s == PrepStatus.pending
+                      ? t.card
+                      : chipColor,
+                  border: Border.all(
+                      color: s == PrepStatus.pending
+                          ? t.border
+                          : chipColor),
+                  borderRadius: BorderRadius.circular(AppTokens.rMd),
+                ),
+                child: Text(
+                    // 原型「✓ 已备」；✓ 为几何符号非 emoji，可入 UI
+                    s == PrepStatus.ready ? '✓ ${s.label}' : s.label,
+                    style: t.textStyles.sm.copyWith(
+                        color: s == PrepStatus.pending ? chipColor : t.card,
+                        fontWeight: FontWeight.w600)),
+              ),
             ],
           ),
         ),
@@ -578,9 +620,15 @@ class _PrepItemRow extends StatelessWidget {
 /// 勾选已购走 PUT /shopping/item/{id}/purchased（0→1 后端回写 pantry，Plan D）。
 class _ShoppingTab extends StatefulWidget {
   final int menuId;
+  /// 父级数据版本号：变化时重载（与备菜 tab 同机制）。
+  final int refreshTick;
   /// 采购项数量（items.length）加载后上报父级，用于 tab 汇总数量。
   final ValueChanged<int> onCountChanged;
-  const _ShoppingTab({required this.menuId, required this.onCountChanged});
+  const _ShoppingTab({
+    required this.menuId,
+    required this.refreshTick,
+    required this.onCountChanged,
+  });
   @override
   State<_ShoppingTab> createState() => _ShoppingTabState();
 }
@@ -590,11 +638,22 @@ class _ShoppingTabState extends State<_ShoppingTab> {
   bool _loading = true;
   String? _err;
   final Map<int, int> _purchOverride = {}; // 乐观：itemId → purchased(0/1)
+  int _lastTick = 0;
 
   @override
   void initState() {
     super.initState();
+    _lastTick = widget.refreshTick;
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ShoppingTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshTick != _lastTick) {
+      _lastTick = widget.refreshTick;
+      _load();
+    }
   }
 
   Future<void> _load() async {

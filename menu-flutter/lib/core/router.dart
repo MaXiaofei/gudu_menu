@@ -102,6 +102,14 @@ GoRouter createRouter(AuthStore auth) {
       GoRoute(
           path: '/create-dish',
           builder: (_, __) => const CreateDishPage()),
+      // 菜谱选择页（从食集详情「+ 加菜」进来，?menuId=<id> 选择模式）
+      GoRoute(
+        path: '/dish-picker',
+        builder: (_, s) => DishListPage(
+          selectForMenuId: int.tryParse(
+              s.uri.queryParameters['menuId'] ?? ''),
+        ),
+      ),
       // 食集详情（整集做菜落点）
       GoRoute(
         path: '/menu/:id',

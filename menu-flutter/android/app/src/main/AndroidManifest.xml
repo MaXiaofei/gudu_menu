@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 访问远程 API 必需：release 包没有此权限会全部请求失败 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="咕嘟小食单"
         android:name="${applicationName}"
