@@ -5,13 +5,14 @@ import '../../core/app_theme.dart';
 import '../../services/pantry_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/status_chip.dart';
 
-/// 库存主页（三色分组版，对齐 pantry-page-preview.html 原型）。
+/// 库存主页（三色分组版，对齐 pantry-page.html 原型）。
 ///
 /// 结构：顶部三色汇总条（够 N / 低 N / 缺 N）→ 按 缺→低→够 分组列表 →
-/// 每行点整行进食材详情页盘点 → 右下浮动「添加」进手动添加页。
+/// 每行点整行进食材详情页盘点 → 右上角「添加」（手动入库）+「去采购」（采购闭环）。
 class PantryListPage extends StatefulWidget {
   const PantryListPage({super.key});
 
@@ -65,10 +66,29 @@ class _PantryListPageState extends State<PantryListPage> {
         child: Column(
           children: [
             ActionBar(
-              action: IconButton(
-                icon: const Icon(Icons.playlist_add),
-                tooltip: '批量添加',
-                onPressed: () => context.push('/pantry/add'),
+              action: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 「添加」（手动入库）：原型 FAB 上移，放「去采购」左侧
+                  _topButton(
+                    label: '添加',
+                    filled: false,
+                    onTap: () async {
+                      await context.push('/pantry/add');
+                      _load(); // 手动添加后刷新
+                    },
+                  ),
+                  const SizedBox(width: AppTokens.sp8),
+                  // 「去采购」：主操作（采购闭环），右对齐独占一行（原型定稿）
+                  _topButton(
+                    label: '去采购',
+                    filled: true,
+                    onTap: () async {
+                      await context.push('/shopping');
+                      _load(); // 采购勾选会回写库存，返回后刷新
+                    },
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -91,13 +111,32 @@ class _PantryListPageState extends State<PantryListPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await context.push('/pantry/add');
-          _load(); // 返回后刷新
-        },
-        backgroundColor: _t.primary,
-        child: Text('添加', style: _t.textStyles.cardTitle.copyWith(color: Colors.white)),
+    );
+  }
+
+  /// 顶栏胶囊按钮：`filled` 实心主按钮（去采购，原型 #E89150）/ 空心次按钮（添加）。
+  Widget _topButton({
+    required String label,
+    required bool filled,
+    required VoidCallback onTap,
+  }) {
+    final t = AppTokens.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
+        decoration: BoxDecoration(
+          color: filled ? t.primary : null,
+          border: filled ? null : Border.all(color: t.primary),
+          borderRadius: BorderRadius.circular(AppTokens.rPill),
+        ),
+        child: Text(
+          label,
+          style: t.textStyles.tiny.copyWith(
+            color: filled ? Colors.white : t.primary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }
@@ -189,6 +228,9 @@ class _PantryListPageState extends State<PantryListPage> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
+              // 食材前置缩略图：无图走首字色块占位（DESIGN.md §10.4）
+              InitialAvatar(name: item.displayName, size: 40),
+              const SizedBox(width: AppTokens.sp12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

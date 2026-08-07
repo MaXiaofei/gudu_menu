@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../services/pantry_service.dart';
 import '../../widgets/action_bar.dart';
+import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/status_chip.dart';
 
@@ -122,14 +123,10 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 食材头（名称 + 系统记已移入 BackHeader，这里留头像 + 库存状态徽）
+        // 食材头（名称 + 系统记已移入 BackHeader，这里留缩略图 + 库存状态徽）。
+        // 缩略图：无图走首字色块占位（DESIGN.md §10.4），尺寸对齐原型 52px。
         Row(children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(color: t.primarySoft, borderRadius: BorderRadius.circular(AppTokens.rMd)),
-            alignment: Alignment.center,
-            child: Text(d.displayName.characters.first, style: t.textStyles.h3.copyWith(color: _t.primaryDeep)),
-          ),
+          InitialAvatar(name: d.displayName, size: 52),
           const Spacer(),
           StatusChip(label: stockLabel(d.status), color: color),
         ]),
