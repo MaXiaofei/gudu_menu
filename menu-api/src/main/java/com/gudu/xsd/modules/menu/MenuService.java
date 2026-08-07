@@ -144,9 +144,13 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         List<MenuDish> rows = menuDishMapper.selectList(new QueryWrapper<MenuDish>()
                 .eq("menu_id", menuId).eq("dish_id", dishId));
         if (rows.isEmpty()) return false;
+        String value = (note == null || note.isBlank()) ? null : note.trim();
         for (MenuDish md : rows) {
-            md.setNote((note == null || note.isBlank()) ? null : note.trim());
-            menuDishMapper.updateById(md);
+            // 用 LambdaUpdateWrapper.set 强制写 note（含 null 也要 SET，
+            // updateById 默认跳过 null 字段，删除备注会失效）
+            menuDishMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MenuDish>()
+                    .eq(MenuDish::getId, md.getId())
+                    .set(MenuDish::getNote, value));
         }
         return true;
     }
