@@ -8,7 +8,7 @@
 # 流程：
 #   1. 检出代码（GitHub 云端）
 #   2. Maven 打包 jar（复用依赖缓存，约 3 分钟）
-#   3. scp jar 到服务器 /tmp/menu-api-deploy.jar
+#   3. scp jar + deploy.sh 到服务器 /tmp（源文件须在 workspace 下，scp-action 跑在容器里）
 #   4. SSH 执行 deploy.sh（docker cp + restart + 健康检查）
 #
 # 需要配置的 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）：
@@ -83,34 +83,27 @@ jobs:
         working-directory: menu-api
         run: mvn -B clean package -Dmaven.test.skip=true
 
-      # 5. 确认 jar 产物并重命名（deploy.sh 期望固定文件名）
-      - name: Prepare jar
+      # 5. 确认 jar 产物 + deploy.sh，统一放到 workspace 内的 deploy-artifacts/
+      #    （appleboy/scp-action 跑在 Docker 容器里，只挂载 GITHUB_WORKSPACE，
+      #     看不到 runner 的 /tmp，所以源文件必须放在 workspace 下）
+      - name: Prepare artifacts
         run: |
-          cp menu-api/target/*.jar /tmp/menu-api-deploy.jar
-          ls -lh /tmp/menu-api-deploy.jar
+          mkdir -p deploy-artifacts
+          cp menu-api/target/*.jar deploy-artifacts/menu-api-deploy.jar
+          cp scripts/deploy.sh deploy-artifacts/deploy.sh
+          ls -lh deploy-artifacts/
 
-      # 6. scp jar 到服务器（appleboy/scp-action 从 GITHUB_WORKSPACE 或绝对路径找）
-      - name: Upload jar to server
+      # 6. scp jar + deploy.sh 到服务器 /tmp（一次传两个，strip_components 去掉目录层）
+      - name: Upload artifacts to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASS }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          source: "/tmp/menu-api-deploy.jar"
+          source: "deploy-artifacts/menu-api-deploy.jar,deploy-artifacts/deploy.sh"
           target: "/tmp"
-          overwrite: true
-
-      # 7. scp deploy.sh 到服务器
-      - name: Upload deploy script
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASS }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: "scripts/deploy.sh"
-          target: "/tmp"
+          strip_components: 1
           overwrite: true
 
       # 8. SSH 执行部署（jar 已在 /tmp/menu-api-deploy.jar）
