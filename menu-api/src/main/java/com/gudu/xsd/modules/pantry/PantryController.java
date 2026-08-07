@@ -55,6 +55,7 @@ public class PantryController {
         private Long unitId;
         private String sourceNote;
         private LocalDate expireDate;
+        private String storage;
     }
 
     /** 手动扣减库存 */
@@ -107,7 +108,7 @@ public class PantryController {
     @PostMapping("/manual")
     public R<?> manualAdd(@RequestBody ManualAddReq req) {
         svc.manualAdd(req.getIngredientId(), req.getName(), req.getAmount(),
-                req.getUnitId(), req.getSourceNote(), req.getExpireDate());
+                req.getUnitId(), req.getSourceNote(), req.getExpireDate(), req.getStorage());
         return R.ok(null);
     }
 

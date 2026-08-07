@@ -26,10 +26,12 @@ class IngredientService {
     return (result as num).toInt();
   }
 
-  /// 全部食材列表（id + name）：GET /ingredient?pageSize=1000
+  /// 全部食材列表（id + name + 现有库存 + 主单位）：GET /ingredient?pageSize=1000
   ///
   /// 例外于 DESIGN.md §12.1（列表须分页）：用于建菜/采购选食材下拉，需全量。
-  static Future<List<DictItem>> listAll() async {
+  /// V41：后端挂 stockAmount/stockUnitName（现有 X 个 · 单位，手动添加页用）；
+  /// 旧后端无此字段时兜底 0 / null。
+  static Future<List<IngredientItem>> listAll() async {
     final data = await ApiClient.instance.get('/ingredient', query: {
       'pageNum': 1,
       'pageSize': 1000,
@@ -37,7 +39,7 @@ class IngredientService {
     final records = (data is Map) ? data['records'] : null;
     if (records is List) {
       return records
-          .map((e) => DictItem.fromJson(e as Map<String, dynamic>))
+          .map((e) => IngredientItem.fromJson(e as Map<String, dynamic>))
           .toList();
     }
     return [];
@@ -63,5 +65,34 @@ class DictItem {
   factory DictItem.fromJson(Map<String, dynamic> j) => DictItem(
         id: (j['id'] as num).toInt(),
         name: (j['name'] ?? '') as String,
+      );
+}
+
+/// 食材库项（手动添加「库里已有」用）：id + name + 当前库存余量 + 主单位。
+/// V41：stockAmount/stockUnitName 来自后端；旧后端缺字段时兜底 0 / null。
+class IngredientItem {
+  final int id;
+  final String name;
+
+  /// 当前库存余量（pantry SUM(amount)，主单位）。
+  final double stockAmount;
+
+  /// 主单位名（可空）。
+  final String? unitName;
+
+  const IngredientItem({
+    required this.id,
+    required this.name,
+    this.stockAmount = 0,
+    this.unitName,
+  });
+
+  factory IngredientItem.fromJson(Map<String, dynamic> j) => IngredientItem(
+        id: (j['id'] as num).toInt(),
+        name: (j['name'] ?? '') as String,
+        stockAmount: (j['stockAmount'] as num?)?.toDouble() ?? 0,
+        unitName: (j['stockUnitName'] as String?)?.trim().isNotEmpty == true
+            ? j['stockUnitName'] as String
+            : null,
       );
 }

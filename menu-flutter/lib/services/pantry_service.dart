@@ -112,7 +112,7 @@ class PantryService {
     });
   }
 
-  /// 手动添加：POST /pantry/manual
+  /// 手动添加：POST /pantry/manual（V41 支持 storage 存放方式）
   static Future<void> manualAdd({
     int? ingredientId,
     String? name,
@@ -120,6 +120,7 @@ class PantryService {
     int? unitId,
     required String sourceNote,
     String? expireDate,
+    String? storage,
   }) async {
     await ApiClient.instance.post('/pantry/manual', body: {
       if (ingredientId != null) 'ingredientId': ingredientId,
@@ -128,6 +129,7 @@ class PantryService {
       if (unitId != null) 'unitId': unitId,
       'sourceNote': sourceNote,
       if (expireDate != null) 'expireDate': expireDate,
+      if (storage != null) 'storage': storage,
     });
   }
 }

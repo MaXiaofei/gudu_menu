@@ -16,7 +16,7 @@ Widget _themed(Widget child) => MaterialApp(
 /// 筛选条（全部/缺/低/够）替代三色汇总条 + 点选筛档 + 行缩略图 + 右上角按钮。
 void main() {
   // 三档各 2/1/2 条，覆盖 缺/低/够
-  Map<String, dynamic> _grouped() => {
+  Map<String, dynamic> grouped() => {
         'summary': {'enough': 2, 'low': 1, 'none': 2},
         'items': [
           {
@@ -86,7 +86,7 @@ void main() {
 
   Future<void> pumpList(WidgetTester tester) async {
     installMock((options) {
-      if (options.path == '/pantry/grouped') return okResponse(_grouped());
+      if (options.path == '/pantry/grouped') return okResponse(grouped());
       return okResponse({});
     });
     await tester.pumpWidget(_themed(const PantryListPage()));

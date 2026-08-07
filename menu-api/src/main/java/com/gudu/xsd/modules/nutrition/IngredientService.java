@@ -4,12 +4,17 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.gudu.xsd.modules.dict.SysDict;
+import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientNutritionMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientUnitGramMapper;
 import com.gudu.xsd.modules.nutrition.mapper.NutritionMetricMapper;
+import com.gudu.xsd.modules.pantry.Pantry;
+import com.gudu.xsd.modules.pantry.mapper.PantryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +31,20 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
     private final IngredientNutritionMapper nutMapper;
     private final NutritionMetricMapper metricMapper;
     private final IngredientUnitGramMapper unitGramMapper;
+
+    /** 库存聚合（V41：现有量）。运行期由 setter 注入；测试中为 null 时跳过库存填充。 */
+    private PantryMapper pantryMapper;
+    private DictMapper dictMapper;
+
+    @Autowired
+    public void setPantryMapper(PantryMapper pantryMapper) {
+        this.pantryMapper = pantryMapper;
+    }
+
+    @Autowired
+    public void setDictMapper(DictMapper dictMapper) {
+        this.dictMapper = dictMapper;
+    }
 
     /** 保存食材，并整体替换其营养 EAV（新增/复用同一路径）。 */
     @Transactional
@@ -96,9 +115,14 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         // 一次 IN 批量取全部营养，消除 N+1
         Map<Long, Map<Long, BigDecimal>> nutByIngredient = nutritionBatch(
                 ings.stream().map(Ingredient::getId).collect(Collectors.toList()));
+        // 一次批量取库存余量（V41），消除 N+1
+        Map<Long, StockAgg> stockByIngredient = stockMap(
+                ings.stream().map(Ingredient::getId).collect(Collectors.toList()));
+        Map<Long, String> unitName = unitNameMap();
         return ings.stream()
                 .map(ing -> toVO(ing, metricNameById,
-                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap())))
+                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap()),
+                        stockByIngredient.get(ing.getId()), unitName))
                 .collect(Collectors.toList());
     }
 
@@ -123,9 +147,14 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         // 一次 IN 批量取本页全部营养，消除 N+1
         Map<Long, Map<Long, BigDecimal>> nutByIngredient = nutritionBatch(
                 page.getRecords().stream().map(Ingredient::getId).collect(Collectors.toList()));
+        // 一次批量取库存余量（V41），消除 N+1
+        Map<Long, StockAgg> stockByIngredient = stockMap(
+                page.getRecords().stream().map(Ingredient::getId).collect(Collectors.toList()));
+        Map<Long, String> unitName = unitNameMap();
         List<IngredientVO> voRecords = page.getRecords().stream()
                 .map(ing -> toVO(ing, metricNameById,
-                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap())))
+                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap()),
+                        stockByIngredient.get(ing.getId()), unitName))
                 .collect(Collectors.toList());
         // IPage 是接口，直接转换 records；用 setRecords 保留分页元信息
         Page<IngredientVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
@@ -134,11 +163,13 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
     }
 
     /**
-     * 组装 VO：拷贝食材字段，把预取的 metricId->value 映射成 metric name->value。
-     * 营养由调用方批量预取后传入（ingredientId 对应的那一份），不在本方法内再查 DB。
+     * 组装 VO：拷贝食材字段，把预取的 metricId->value 映射成 metric name->value，
+     * 挂上预取的库存余量（stock 可为 null：无库存数据时余量记 0，单位回退食材默认单位）。
+     * 营养/库存/单位名均由调用方批量预取后传入，不在本方法内再查 DB。
      */
     private IngredientVO toVO(Ingredient ing, Map<Long, String> metricNameById,
-                              Map<Long, BigDecimal> metricIdToValue) {
+                              Map<Long, BigDecimal> metricIdToValue, StockAgg stock,
+                              Map<Long, String> unitName) {
         IngredientVO vo = new IngredientVO();
         BeanUtils.copyProperties(ing, vo);
         Map<String, BigDecimal> named = new HashMap<>();
@@ -149,7 +180,51 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
             }
         }
         vo.setNutrition(named);
+
+        // V41 库存余量：主单位 = 库存批次单位，无批次回退食材默认单位
+        Long unitId = stock != null && stock.unitId() != null ? stock.unitId() : ing.getUnitId();
+        BigDecimal amount = stock != null ? stock.amount() : BigDecimal.ZERO;
+        vo.setStockAmount(amount);
+        vo.setStockUnitId(unitId);
+        vo.setStockUnitName(unitName.get(unitId));
         return vo;
+    }
+
+    /** 库存聚合记录：食材当前余量 + 主单位 id。 */
+    public record StockAgg(BigDecimal amount, Long unitId) {}
+
+    /**
+     * 批量取库存余量（V41）：pantry 按 ingredient_id + unit_id 聚合 SUM(amount)，
+     * 每食材取余量最大的单位行作主单位（同食材应同单位，与 PantryService.grouped 同约定）。
+     * pantryMapper 为 null（单测）时返回空 map，调用方按 0 + 默认单位兜底。
+     */
+    private Map<Long, StockAgg> stockMap(List<Long> ingredientIds) {
+        Map<Long, StockAgg> result = new HashMap<>();
+        if (pantryMapper == null || ingredientIds == null || ingredientIds.isEmpty()) {
+            return result;
+        }
+        List<Pantry> rows = pantryMapper.selectList(new QueryWrapper<Pantry>()
+                .select("ingredient_id", "unit_id", "SUM(amount) amount")
+                .in("ingredient_id", ingredientIds)
+                .groupBy("ingredient_id", "unit_id"));
+        for (Pantry p : rows) {
+            result.merge(p.getIngredientId(),
+                    new StockAgg(nz(p.getAmount()), p.getUnitId()),
+                    (a, b) -> a.amount().compareTo(b.amount()) >= 0 ? a : b);
+        }
+        return result;
+    }
+
+    /** null 安全归零。 */
+    private BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
+    }
+
+    /** 单位字典（sys_dict group=unit）id -> name。 */
+    private Map<Long, String> unitNameMap() {
+        if (dictMapper == null) return new HashMap<>();
+        return dictMapper.selectList(new QueryWrapper<SysDict>().eq("dict_group", "unit"))
+                .stream().collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
     }
 
     // ===================== 单位换算（用户可编辑） =====================

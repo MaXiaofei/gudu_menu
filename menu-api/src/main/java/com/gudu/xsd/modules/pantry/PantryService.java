@@ -553,10 +553,11 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
      * @param unitId       单位（可空，空则用食材默认单位）
      * @param sourceNote   来源备注（朋友送/赠品/旧库存补登/其他）
      * @param expireDate   过期日（可空）
+     * @param storage      存放方式（常温/冷藏/冷冻，可空）。V41。
      */
     @org.springframework.transaction.annotation.Transactional
     public void manualAdd(Long ingredientId, String name, BigDecimal amount, Long unitId,
-                          String sourceNote, LocalDate expireDate) {
+                          String sourceNote, LocalDate expireDate, String storage) {
         if ((ingredientId == null) && (name == null || name.isBlank())) {
             throw new BizException("食材 id 和名称至少填一项");
         }
@@ -589,6 +590,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         p.setAmount(amount);
         p.setUnitId(unitId);
         p.setExpireDate(expireDate);
+        p.setStorage(storage);
         p.setGrams(unitConvert == null ? null
                 : unitConvert.toGramsFor(ingredientId, amount, unitId));
         save(p);

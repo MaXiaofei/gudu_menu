@@ -121,8 +121,7 @@ class IngredientServiceTest {
     }
 
     @Test
-    void pageWithNutrition_只对本页id批量查一次营养() {
-        when(metricMapper.selectList(any())).thenReturn(List.of(metric(1L, "calorie")));
+    void pageWithNutrition_只对本页id批量查一次营养() {        when(metricMapper.selectList(any())).thenReturn(List.of(metric(1L, "calorie")));
         // ServiceImpl.page(page, qw) 内部调 baseMapper.selectPage(page, qw)
         Page<Ingredient> page = new Page<>(1, 10);
         page.setTotal(2L);
@@ -169,5 +168,72 @@ class IngredientServiceTest {
         assertThat(r).containsOnly(
                 Map.entry(1L, new BigDecimal("19")),
                 Map.entry(2L, new BigDecimal("0.9")));
+    }
+
+    // ---------- V41 库存余量（现有 X 个 · 单位，手动添加页用） ----------
+
+    @Test
+    void pageWithNutrition_挂库存余量与主单位() {
+        when(metricMapper.selectList(any())).thenReturn(List.of(metric(1L, "calorie")));
+        Page<Ingredient> page = new Page<>(1, 10);
+        page.setTotal(2L);
+        page.setRecords(List.of(ing(1L, "番茄"), ing(2L, "鸡蛋")));
+        when(baseMapper.selectPage(any(), any())).thenReturn(page);
+
+        // pantry 聚合：番茄 2 个（有批次单位），鸡蛋无批次（走默认单位回退）
+        com.gudu.xsd.modules.pantry.mapper.PantryMapper pantryMapper =
+                mock(com.gudu.xsd.modules.pantry.mapper.PantryMapper.class);
+        com.gudu.xsd.modules.pantry.Pantry p = new com.gudu.xsd.modules.pantry.Pantry();
+        p.setIngredientId(1L);
+        p.setAmount(new BigDecimal("2"));
+        p.setUnitId(3L);
+        when(pantryMapper.selectList(any())).thenReturn(List.of(p));
+        org.springframework.test.util.ReflectionTestUtils.setField(svc, "pantryMapper", pantryMapper);
+        // 单位字典：id=3 个，id=4 kg（鸡蛋默认单位）
+        com.gudu.xsd.modules.dict.mapper.DictMapper dictMapper =
+                mock(com.gudu.xsd.modules.dict.mapper.DictMapper.class);
+        List<com.gudu.xsd.modules.dict.SysDict> units = new java.util.ArrayList<>();
+        com.gudu.xsd.modules.dict.SysDict u3 = new com.gudu.xsd.modules.dict.SysDict();
+        u3.setId(3L); u3.setName("个"); units.add(u3);
+        com.gudu.xsd.modules.dict.SysDict u4 = new com.gudu.xsd.modules.dict.SysDict();
+        u4.setId(4L); u4.setName("kg"); units.add(u4);
+        when(dictMapper.selectList(any())).thenReturn(units);
+        org.springframework.test.util.ReflectionTestUtils.setField(svc, "dictMapper", dictMapper);
+
+        // 鸡蛋默认单位 kg（id=4）
+        List<Ingredient> records = page.getRecords();
+        records.get(1).setUnitId(4L);
+
+        IngredientPageQuery q = new IngredientPageQuery();
+        q.setPageNum(1);
+        q.setPageSize(10);
+        var r = svc.pageWithNutrition(q);
+
+        assertThat(r.getRecords()).hasSize(2);
+        // 番茄：库存批次 2 个（单位=3 个）
+        IngredientVO tomato = r.getRecords().get(0);
+        assertThat(tomato.getStockAmount()).isEqualByComparingTo("2");
+        assertThat(tomato.getStockUnitName()).isEqualTo("个");
+        // 鸡蛋：无批次 → 0 + 默认单位 kg
+        IngredientVO egg = r.getRecords().get(1);
+        assertThat(egg.getStockAmount()).isEqualByComparingTo("0");
+        assertThat(egg.getStockUnitName()).isEqualTo("kg");
+    }
+
+    @Test
+    void pageWithNutrition_pantryMapper为null_余量记0不查DB() {
+        when(metricMapper.selectList(any())).thenReturn(List.of());
+        Page<Ingredient> page = new Page<>(1, 10);
+        page.setTotal(1L);
+        page.setRecords(List.of(ing(1L, "番茄")));
+        when(baseMapper.selectPage(any(), any())).thenReturn(page);
+        // 不注入 pantryMapper（保持 setUp 初始状态 null）
+
+        IngredientPageQuery q = new IngredientPageQuery();
+        q.setPageNum(1);
+        q.setPageSize(10);
+        var r = svc.pageWithNutrition(q);
+
+        assertThat(r.getRecords().get(0).getStockAmount()).isEqualByComparingTo("0");
     }
 }

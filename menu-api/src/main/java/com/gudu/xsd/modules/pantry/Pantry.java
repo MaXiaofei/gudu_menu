@@ -33,6 +33,9 @@ public class Pantry {
 
     private LocalDate expireDate;
 
+    /** 存放方式：常温/冷藏/冷冻（手动添加批次属性，可空）。V41。 */
+    private String storage;
+
     private LocalDateTime updateTime;
 
     @TableLogic
