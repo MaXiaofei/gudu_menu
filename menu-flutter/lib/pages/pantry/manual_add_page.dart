@@ -298,6 +298,9 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               foregroundColor: Colors.white,
               disabledBackgroundColor: t.border,
               disabledForegroundColor: Colors.white,
+              // 显式有限 minimumSize：全局主题是 Size(inf,48)（全宽 CTA），
+              // 本按钮在 Center（宽松约束）里会触发 "infinite width" 布局崩溃
+              minimumSize: const Size(200, 48),
               padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
             ),
@@ -533,6 +536,9 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: t.primary,
               foregroundColor: Colors.white,
+              // 显式有限 minimumSize：全局主题是 Size(inf,48)（全宽 CTA），
+              // 本按钮在 Center（宽松约束）里会触发 "infinite width" 布局崩溃
+              minimumSize: const Size(220, 48),
               padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
             ),

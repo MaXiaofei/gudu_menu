@@ -104,6 +104,9 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _t.primary,
                         foregroundColor: Colors.white,
+                        // 显式有限 minimumSize：全局主题是 Size(inf,48)（全宽 CTA），
+                        // 本按钮在 Row（无界宽）里会触发 "infinite width" 布局崩溃
+                        minimumSize: const Size(200, 48),
                         padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
                       ),
