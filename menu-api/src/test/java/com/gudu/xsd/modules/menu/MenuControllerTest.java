@@ -2,7 +2,6 @@ package com.gudu.xsd.modules.menu;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gudu.xsd.common.PageQuery;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -81,7 +80,7 @@ class MenuControllerTest {
     void 菜单分页_返回200_and_分页结构() throws Exception {
         Page<Menu> page = new Page<>(1, 10, 1);
         page.setRecords(List.of(menu(1L, "周末菜单")));
-        org.mockito.Mockito.doReturn(page).when(svc).page(any(PageQuery.class));
+        org.mockito.Mockito.doReturn(page).when(svc).page(any(MenuPageQuery.class));
 
         mvc.perform(get("/menu").param("pageNum", "1").param("pageSize", "10"))
                 .andExpect(status().isOk())
