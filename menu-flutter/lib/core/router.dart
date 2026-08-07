@@ -47,9 +47,15 @@ GoRouter createRouter(AuthStore auth) {
         builder: (context, state, navigationShell) =>
             MainShell(navigationShell: navigationShell),
         branches: [
-          // 0. 菜谱
+          // 0. 菜谱（支持 ?selectForMenu=<menuId> 选择模式：从食集详情加菜进来）
           StatefulShellBranch(routes: [
-            GoRoute(path: '/dish', builder: (_, __) => const DishListPage()),
+            GoRoute(
+              path: '/dish',
+              builder: (_, s) => DishListPage(
+                selectForMenuId: int.tryParse(
+                    s.uri.queryParameters['selectForMenu'] ?? ''),
+              ),
+            ),
           ]),
           // 1. 食集
           StatefulShellBranch(routes: [

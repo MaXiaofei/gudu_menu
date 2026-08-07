@@ -55,6 +55,19 @@ public class MenuController {
         return R.ok(null);
     }
 
+    /** 从食集中移除某道菜（原型菜行行尾 ✕）。 */
+    @DeleteMapping("/{menuId}/dish/{dishId}")
+    public R<?> removeDish(@PathVariable Long menuId, @PathVariable Long dishId) {
+        svc.removeDish(menuId, dishId);
+        return R.ok(null);
+    }
+
+    /** 一起吃 tab 汇总数量（占位，协同点菜待建）。 */
+    @GetMapping("/{id}/together-count")
+    public R<Integer> togetherCount(@PathVariable Long id) {
+        return R.ok(svc.getTogetherCount(id));
+    }
+
     @DeleteMapping("/{id}")
     public R<?> del(@PathVariable Long id) {
         svc.removeById(id);

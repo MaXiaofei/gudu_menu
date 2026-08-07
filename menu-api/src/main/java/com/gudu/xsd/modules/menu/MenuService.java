@@ -155,6 +155,22 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         return true;
     }
 
+    /**
+     * 从食集中移除某道菜（删除 menu_dish 行，不动其它菜和食集本身）。
+     * 行级删除，不走 saveWithDishes 整单替换（那会重建全部关联行）。
+     */
+    public boolean removeDish(Long menuId, Long dishId) {
+        if (menuId == null || dishId == null) return false;
+        int deleted = menuDishMapper.delete(new QueryWrapper<MenuDish>()
+                .eq("menu_id", menuId).eq("dish_id", dishId));
+        return deleted > 0;
+    }
+
+    /** 一起吃 tab 数量（占位：协同点菜功能待建，先返回 0 让前端可显示汇总数量）。 */
+    public int getTogetherCount(Long menuId) {
+        return 0;
+    }
+
     /** 菜单汇总：各菜份数营养（复用 NutritionCalcService）+ 价格，调 MenuCalcService 纯函数。 */
     public MenuSummary summary(Long id) {
         MenuDetail md = detail(id);

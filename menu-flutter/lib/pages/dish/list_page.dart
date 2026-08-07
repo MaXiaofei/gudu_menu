@@ -6,6 +6,7 @@ import '../../core/app_theme.dart';
 import '../../models/dish.dart';
 import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
+import '../../services/menu_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
 
@@ -14,8 +15,12 @@ enum _SortMode { cooked, latest }
 
 /// 菜库列表（按原型 cookbook-search.html 左屏）。
 /// 浅色顶栏 + 纯搜索框 + 分类标签条 + 排序 + 卡片式列表。
+///
+/// [selectForMenuId] 非空 = 选择模式：从食集详情「+ 加菜」进来，
+/// 点菜卡直接加入该食集并返回（原型「加菜（去菜谱找）」）。
 class DishListPage extends StatefulWidget {
-  const DishListPage({super.key});
+  final int? selectForMenuId;
+  const DishListPage({super.key, this.selectForMenuId});
   @override
   State<DishListPage> createState() => _DishListPageState();
 }
@@ -121,6 +126,7 @@ class _DishListPageState extends State<DishListPage> {
         child: Column(
           children: [
             const ActionBar(),
+            if (widget.selectForMenuId != null) _buildSelectHint(t),
             _buildSearchBox(t),
             if (_tags.isNotEmpty) _buildTagBar(t),
             _buildSortBar(t),
@@ -149,7 +155,13 @@ class _DishListPageState extends State<DishListPage> {
                                     ),
                                   );
                                 }
-                                return _DishCard(dish: _dishes[i]);
+                                final dish = _dishes[i];
+                                return _DishCard(
+                                  dish: dish,
+                                  onTapOverride: widget.selectForMenuId != null
+                                      ? () => _addToMenu(dish)
+                                      : null,
+                                );
                               },
                             ),
                     ),
@@ -158,6 +170,42 @@ class _DishListPageState extends State<DishListPage> {
         ),
       ),
     );
+  }
+
+  /// 选择模式提示条（从食集详情「+ 加菜」进来时显示）。
+  Widget _buildSelectHint(AppTokens t) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, AppTokens.sp4, 14, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.sp12, vertical: 8),
+        decoration: BoxDecoration(
+          color: t.highlight,
+          borderRadius: BorderRadius.circular(AppTokens.rSm),
+          border: Border.all(color: t.primarySoft),
+        ),
+        child: Text('选择要加入的菜',
+            style: t.textStyles.sm.copyWith(color: t.title)),
+      ),
+    );
+  }
+
+  /// 选择模式：把菜加入目标食集，提示后返回。
+  Future<void> _addToMenu(Dish dish) async {
+    final menuId = widget.selectForMenuId!;
+    try {
+      await MenuService.addDishToMenu(menuId, dish.id, dishName: dish.name);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已加入食集')));
+      context.pop();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('加入失败')));
+      }
+    }
   }
 
   /// 搜索框：白底 + 1.5px 主色描边 + 12px圆角。
@@ -303,7 +351,9 @@ class _DishListPageState extends State<DishListPage> {
 /// （44px缩略图 + 菜名 + 做过N次·时间）（原型行40-71）。
 class _DishCard extends StatelessWidget {
   final Dish dish;
-  const _DishCard({required this.dish});
+  /// 选择模式：非空时点击走此回调（加菜），否则默认进菜谱详情。
+  final VoidCallback? onTapOverride;
+  const _DishCard({required this.dish, this.onTapOverride});
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +364,7 @@ class _DishCard extends StatelessWidget {
         : null;
 
     return GestureDetector(
-      onTap: () => context.push('/dish/${dish.id}'),
+      onTap: onTapOverride ?? () => context.push('/dish/${dish.id}'),
       child: Container(
       margin: const EdgeInsets.only(bottom: 7),
       padding: const EdgeInsets.all(10),

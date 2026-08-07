@@ -43,6 +43,17 @@ class MenuService {
         body: {'note': note});
   }
 
+  /// 从食集中移除某道菜：DELETE /menu/{menuId}/dish/{dishId}（原型菜行 ✕）。
+  static Future<void> removeDishFromMenu(int menuId, int dishId) async {
+    await ApiClient.instance.delete('/menu/$menuId/dish/$dishId');
+  }
+
+  /// 一起吃 tab 汇总数量：GET /menu/{id}/together-count（占位，协同点菜待建返回 0）。
+  static Future<int> getTogetherCount(int menuId) async {
+    final data = await ApiClient.instance.get('/menu/$menuId/together-count');
+    return (data as num?)?.toInt() ?? 0;
+  }
+
   /// 删除食集：DELETE /menu/{id}。
   static Future<void> deleteMenu(int id) async {
     await ApiClient.instance.delete('/menu/$id');

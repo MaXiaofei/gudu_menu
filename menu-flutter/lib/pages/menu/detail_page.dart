@@ -35,6 +35,13 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
   bool _loading = true;
   int _tabIndex = 0;
 
+  /// 备菜 tab 汇总数量（_PrepTab 加载后回调上报）。
+  int _prepCount = 0;
+  /// 采购 tab 汇总数量（_ShoppingTab 加载后回调上报）。
+  int _shoppingCount = 0;
+  /// 一起吃 tab 汇总数量（占位接口，协同点菜待建）。
+  int _togetherCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +51,9 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
   Future<void> _load() async {
     try {
       _detail = await MenuService.detail(widget.id);
+    } catch (_) {}
+    try {
+      _togetherCount = await MenuService.getTogetherCount(widget.id);
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
@@ -110,8 +120,14 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
                             index: _tabIndex,
                             children: [
                               _DishesTab(detail: _detail!, onNoteChanged: _load),
-                              _PrepTab(menuId: widget.id),
-                              _ShoppingTab(menuId: widget.id),
+                              _PrepTab(
+                                  menuId: widget.id,
+                                  onCountChanged: (c) =>
+                                      setState(() => _prepCount = c)),
+                              _ShoppingTab(
+                                  menuId: widget.id,
+                                  onCountChanged: (c) =>
+                                      setState(() => _shoppingCount = c)),
                               const _Placeholder(
                                   title: '一起吃', desc: '协同点菜 · 即将上线'),
                             ],
@@ -158,13 +174,30 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
         ),
         child: Row(
           children: [
-            for (int i = 0; i < _tabs.length; i++) _tabItem(i, _tabs[i]),
+            for (int i = 0; i < _tabs.length; i++)
+              _tabItem(i, _tabs[i], _tabCount(i)),
           ],
         ),
       );
   }
 
-  Widget _tabItem(int idx, String label) {
+  /// 各 tab 汇总数量（原型「菜 · 3」；备菜/采购由子 tab 加载后上报，一起吃占位 0）。
+  int _tabCount(int idx) {
+    switch (idx) {
+      case 0:
+        return _detail?.dishes.length ?? 0;
+      case 1:
+        return _prepCount;
+      case 2:
+        return _shoppingCount;
+      case 3:
+        return _togetherCount;
+      default:
+        return 0;
+    }
+  }
+
+  Widget _tabItem(int idx, String label, int count) {
     final t = AppTokens.of(context);
     final selected = _tabIndex == idx;
     return Expanded(
@@ -182,7 +215,7 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
             ),
           ),
           child: Text(
-            label,
+            '$label · $count',
             textAlign: TextAlign.center,
             style: t.textStyles.body.copyWith(
               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
@@ -198,12 +231,19 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
 /// Tab 0：菜品列表（原 _buildBody 内容）。
 class _DishesTab extends StatelessWidget {
   final MenuDetail detail;
-  /// 备注修改成功后刷新详情。
+  /// 备注/删菜修改成功后刷新详情。
   final VoidCallback onNoteChanged;
   const _DishesTab({required this.detail, required this.onNoteChanged});
 
+  /// 加菜：跳菜谱列表选择模式（?selectForMenu=menuId），返回后刷新。
+  Future<void> _addDish(BuildContext context) async {
+    await context.push('/dish?selectForMenu=${detail.menu.id}');
+    onNoteChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
     // 食集名 + 状态胶囊 + 份数副信息已移入 BackHeader（§13.2）。
     return ListView(
       children: [
@@ -217,6 +257,28 @@ class _DishesTab extends StatelessWidget {
               note: d.note,
               onNoteChanged: onNoteChanged,
             )),
+        // 加菜入口（原型「+ 加菜（去菜谱找）」虚线框）
+        GestureDetector(
+          onTap: () => _addDish(context),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(
+                AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, 0),
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              border: Border.all(color: t.primary, width: 1.5),
+              borderRadius: BorderRadius.circular(AppTokens.rMd),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('+', style: t.textStyles.md.copyWith(color: t.primary)),
+                const SizedBox(width: AppTokens.sp4),
+                Text('加菜（去菜谱找）',
+                    style: t.textStyles.md.copyWith(color: t.primary)),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: AppTokens.sp24),
       ],
     );
@@ -226,7 +288,9 @@ class _DishesTab extends StatelessWidget {
 /// Tab 1：备菜（Plan C）。加载 GET /menu/{id}/prep + 状态交互（点/长按）。
 class _PrepTab extends StatefulWidget {
   final int menuId;
-  const _PrepTab({required this.menuId});
+  /// 备料总数（totalCount）加载后上报父级，用于 tab 汇总数量。
+  final ValueChanged<int> onCountChanged;
+  const _PrepTab({required this.menuId, required this.onCountChanged});
   @override
   State<_PrepTab> createState() => _PrepTabState();
 }
@@ -246,7 +310,10 @@ class _PrepTabState extends State<_PrepTab> {
     try {
       _prep = await PrepService.getPrep(widget.menuId);
     } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      widget.onCountChanged(_prep?.totalCount ?? 0);
+      setState(() => _loading = false);
+    }
   }
 
   /// 点 chip：PENDING ↔ READY。
@@ -511,7 +578,9 @@ class _PrepItemRow extends StatelessWidget {
 /// 勾选已购走 PUT /shopping/item/{id}/purchased（0→1 后端回写 pantry，Plan D）。
 class _ShoppingTab extends StatefulWidget {
   final int menuId;
-  const _ShoppingTab({required this.menuId});
+  /// 采购项数量（items.length）加载后上报父级，用于 tab 汇总数量。
+  final ValueChanged<int> onCountChanged;
+  const _ShoppingTab({required this.menuId, required this.onCountChanged});
   @override
   State<_ShoppingTab> createState() => _ShoppingTabState();
 }
@@ -538,7 +607,10 @@ class _ShoppingTabState extends State<_ShoppingTab> {
     } catch (_) {
       _err = '加载采购清单失败';
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      widget.onCountChanged(_vo?.items.length ?? 0);
+      setState(() => _loading = false);
+    }
   }
 
   Future<void> _generate() async {
@@ -822,6 +894,35 @@ class _DishRow extends StatelessWidget {
     }
   }
 
+  /// 从食集移除这道菜：确认弹窗 → 调接口 → 回调刷新（原型菜行行尾 ✕）。
+  Future<void> _removeDish(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('移出食集'),
+        content: Text('确认将「${dishName ?? '菜 #$dishId'}」移出食集？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('移出')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await MenuService.removeDishFromMenu(menuId, dishId);
+      if (context.mounted) onNoteChanged();
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('移出失败')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
@@ -920,6 +1021,18 @@ class _DishRow extends StatelessWidget {
                     ),
                     const SizedBox(width: AppTokens.sp8),
                     Icon(Icons.edit_outlined, size: 14, color: t.caption),
+                    const SizedBox(width: AppTokens.sp8),
+                    // 移出食集（原型菜行行尾 ✕）
+                    GestureDetector(
+                      onTap: () => _removeDish(context),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Text('✕',
+                            style: t.textStyles.md
+                                .copyWith(color: t.caption)),
+                      ),
+                    ),
                   ],
                 ),
               ),
