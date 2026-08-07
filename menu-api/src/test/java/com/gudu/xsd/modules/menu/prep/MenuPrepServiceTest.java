@@ -49,7 +49,7 @@ class MenuPrepServiceTest {
     }
 
     private MenuService.MenuDishVO md(Long id, Long menuId, Long dishId, String factor, String name) {
-        return new MenuService.MenuDishVO(id, menuId, dishId, new BigDecimal(factor), name, null);
+        return new MenuService.MenuDishVO(id, menuId, dishId, new BigDecimal(factor), name, null, null);
     }
 
     private DishIngredient di(Long dishId, Long ingId, String grams) {
@@ -70,7 +70,7 @@ class MenuPrepServiceTest {
 
     private void stubEmpty(Long menuId) {
         when(menuService.detail(menuId)).thenReturn(
-                new MenuService.MenuDetail(menu(menuId), List.of()));
+                new MenuService.MenuDetail(menu(menuId), List.of(), 0));
     }
 
     // ---------------- getPrep ----------------
@@ -90,7 +90,7 @@ class MenuPrepServiceTest {
     @Test
     void getPrep_单菜单主料_进items_状态默认PENDING() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
-                menu(1L), List.of(md(1L, 1L, 10L, "1", "番茄炒蛋"))));
+                menu(1L), List.of(md(1L, 1L, 10L, "1", "番茄炒蛋")), 0));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 1L, "300")));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(1L, "番茄", 1L)));
         when(menuPrepStatusMapper.selectList(any())).thenReturn(List.of());
@@ -111,7 +111,7 @@ class MenuPrepServiceTest {
     @Test
     void getPrep_调味料_折叠到condiments_不计进度() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
-                menu(1L), List.of(md(1L, 1L, 10L, "1", "清炒虾仁"))));
+                menu(1L), List.of(md(1L, 1L, 10L, "1", "清炒虾仁")), 0));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 16L, "10")));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(16L, "食用油", 30L)));
         when(menuPrepStatusMapper.selectList(any())).thenReturn(List.of());
@@ -130,7 +130,7 @@ class MenuPrepServiceTest {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
                 menu(1L), List.of(
                         md(1L, 1L, 10L, "1", "番茄炒蛋"),
-                        md(2L, 1L, 20L, "1", "番茄汤"))));
+                        md(2L, 1L, 20L, "1", "番茄汤")), 0));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(
                 di(10L, 1L, "100"), di(20L, 1L, "200")));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(1L, "番茄", 1L)));
@@ -150,7 +150,7 @@ class MenuPrepServiceTest {
     @Test
     void getPrep_status关联_DB有READY则取DB值计入进度() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
-                menu(1L), List.of(md(1L, 1L, 10L, "1", "番茄炒蛋"))));
+                menu(1L), List.of(md(1L, 1L, 10L, "1", "番茄炒蛋")), 0));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 1L, "300")));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(1L, "番茄", 1L)));
         MenuPrepStatus ready = new MenuPrepStatus();

@@ -93,7 +93,9 @@ class MenuControllerTest {
     void 菜单详情_返回menu_and_dishes() throws Exception {
         MenuService.MenuDetail detail = new MenuService.MenuDetail(
                 menu(1L, "工作日菜单"),
-                List.of(new MenuService.MenuDishVO(1L, 1L, 1L, BigDecimal.ONE, "番茄炒蛋", null)));
+                List.of(new MenuService.MenuDishVO(
+                        1L, 1L, 1L, BigDecimal.ONE, "番茄炒蛋", null, null)),
+                0);
         given(svc.detail(eq(1L))).willReturn(detail);
 
         mvc.perform(get("/menu/1"))
