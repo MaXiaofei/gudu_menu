@@ -1,62 +1,56 @@
 #!/bin/bash
 # ============================================================
-# 咕嘟小食单 · 服务器端部署脚本
-# 由 GitHub Actions 通过 SSH 调用，负责将新 jar 部署到 Docker 容器。
+# 咕嘟小食单 · 服务器端部署脚本（方案 A：服务器自构建）
 #
-# 用法：
-#   ENV=staging ./deploy.sh    # 部署到测试环境 (menu-api-staging, 端口 9090)
-#   ENV=prod ./deploy.sh       # 部署到生产环境 (menu-api, 端口 80)
+# 由 GitHub Actions 通过 SSH 调用。服务器 git pull 最新代码后，
+# 用 docker compose 重建 menu-api 镜像（多阶段构建，maven 在容器内），
+# 不再跨境传 jar。
 #
-# 前提：jar 文件已由 GitHub Actions scp 到服务器 /tmp/menu-api-deploy.jar
+# 用法（由 CI 调用，ENV 通过环境变量传入）：
+#   ENV=staging bash scripts/deploy.sh   # 测试环境 (端口 9090)
+#   ENV=prod    bash scripts/deploy.sh   # 生产环境 (端口 80)
+#
+# 前提：
+#   - 本脚本在仓库根目录下执行（git pull 后 scripts/deploy.sh 即最新）
+#   - 对应环境的容器已 docker compose up 起来过（本次只 rebuild + 重启 menu-api）
 # ============================================================
 set -euo pipefail
 
 ENV="${ENV:-staging}"
-JAR_SRC="/tmp/menu-api-deploy.jar"
+SERVICE="menu-api"
 
-# 根据环境选择容器名
+# 根据环境选 compose 文件 + project 名 + 健康检查 URL
 if [ "$ENV" = "prod" ]; then
-  CONTAINER="menu-api"
+  COMPOSE_FILE="docker-compose.prod.yml"
+  PROJECT_OPT=""
   HEALTH_URL="http://localhost:80/gudu/doc.html"
 else
-  CONTAINER="menu-api-staging"
+  COMPOSE_FILE="docker-compose.staging.yml"
+  PROJECT_OPT="-p gudu-staging"
   HEALTH_URL="http://localhost:9090/gudu/doc.html"
 fi
 
 echo "============================================================"
 echo "  部署环境: $ENV"
-echo "  容器名:   $CONTAINER"
-echo "  时间:     $(date '+%Y-%m-%d %H:%M:%S')"
+echo "  compose: $COMPOSE_FILE $PROJECT_OPT"
+echo "  时间:    $(date '+%Y-%m-%d %H:%M:%S')"
 echo "============================================================"
 
-# 1. 检查 jar 文件
-if [ ! -f "$JAR_SRC" ]; then
-  echo "❌ jar 文件不存在: $JAR_SRC"
-  exit 1
-fi
+# 1. 构建新镜像（多阶段构建：容器内 maven 打包，复用 layer 缓存）
+echo "→ docker compose build $SERVICE..."
+docker compose $PROJECT_OPT -f "$COMPOSE_FILE" build "$SERVICE"
 
-JAR_SIZE=$(du -h "$JAR_SRC" | cut -f1)
-echo "✅ jar 文件就绪 ($JAR_SIZE)"
+# 2. 重启容器（加载新镜像，--no-deps 不动 mysql/redis）
+echo "→ 重启 $SERVICE..."
+docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
 
-# 2. docker cp 替换容器内的 jar
-echo "→ 替换容器内 jar..."
-docker cp "$JAR_SRC" "$CONTAINER:/app/app.jar"
-echo "✅ jar 已复制到容器"
-
-# 3. 重启容器（加载新 jar）
-echo "→ 重启容器 $CONTAINER..."
-docker restart "$CONTAINER"
-echo "✅ 容器已重启"
-
-# 4. 健康检查（等待 Spring Boot 启动，最多 120 秒）
+# 3. 健康检查（等待 Spring Boot 启动，最多 120 秒）
 echo "→ 等待应用启动（健康检查）..."
 MAX_WAIT=24  # 24 × 5s = 120s
 for i in $(seq 1 $MAX_WAIT); do
   HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 5 "$HEALTH_URL" 2>/dev/null || echo "000")
   if [ "$HTTP_CODE" = "200" ]; then
     echo "✅ 应用已启动 (HTTP $HTTP_CODE, 等待 $((i*5))s)"
-    # 清理临时文件
-    rm -f "$JAR_SRC"
     echo "✅ 部署完成: $ENV @ $(date '+%Y-%m-%d %H:%M:%S')"
     exit 0
   fi
@@ -65,5 +59,5 @@ for i in $(seq 1 $MAX_WAIT); do
 done
 
 echo "❌ 健康检查超时（120s 内未启动）"
-echo "  查看日志: docker logs $CONTAINER --tail 30"
+echo "  查看日志: docker compose $PROJECT_OPT -f $COMPOSE_FILE logs --tail 30 $SERVICE"
 exit 1

@@ -6,10 +6,9 @@
 #   - push 到 feat/mvp 分支 → 部署测试环境 (staging, 端口 9090)
 #
 # 流程（方案 A：服务器自构建，不跨境传 jar）：
-#   GitHub runner 只判断环境 + 发起 SSH；
-#   服务器上 git pull 最新代码 → docker compose build menu-api
-#   （多阶段构建，maven 在容器内跑）→ 重启容器 → 健康检查。
-#   只跨境拉源码（MB 级），构建在服务器本地完成，避免传 80MB jar。
+#   GitHub runner 只判断环境 + 发起 SSH（单行命令）；
+#   服务器 git pull 最新源码（MB 级）→ scripts/deploy.sh 负责
+#   docker compose build（多阶段，maven 在容器内）→ 重启 → 健康检查。
 #
 # 需要配置的 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）：
 #   - SSH_HOST：服务器 IP（如 49.232.3.201）
@@ -57,7 +56,8 @@ jobs:
       DEPLOY_ENV: ${{ needs.determine-env.outputs.env }}
 
     steps:
-      # SSH 执行部署脚本（服务器上 git pull + 构建 + 重启 + 健康检查）
+      # SSH 到服务器：cd 部署目录 → git pull → 调 deploy.sh（构建+重启+健康检查）
+      # 单行命令调用，避免 ssh-action 多行 script 内容丢失的已知问题
       - name: Deploy to ${{ env.DEPLOY_ENV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -66,65 +66,10 @@ jobs:
           password: ${{ secrets.SSH_PASS }}
           port: ${{ secrets.SSH_PORT || 22 }}
           envs: DEPLOY_ENV
+          command_timeout: 15m
           script_stop: true
           script: |
-            set -euo pipefail
-            ENV="${DEPLOY_ENV:-staging}"
-
-            # 根据环境选部署目录与 compose 文件
-            if [ "$ENV" = "prod" ]; then
-              DEPLOY_DIR="/root/gudu"
-              COMPOSE_FILE="docker-compose.prod.yml"
-              SERVICE="menu-api"
-              HEALTH_URL="http://localhost:80/gudu/doc.html"
-              PROJECT_OPT=""
-            else
-              DEPLOY_DIR="/root/gudu-staging"
-              COMPOSE_FILE="docker-compose.staging.yml"
-              SERVICE="menu-api"
-              HEALTH_URL="http://localhost:9090/gudu/doc.html"
-              PROJECT_OPT="-p gudu-staging"
-            fi
-
-            echo "============================================================"
-            echo "  部署环境: $ENV"
-            echo "  目录:     $DEPLOY_DIR"
-            echo "  时间:     $(date '+%Y-%m-%d %H:%M:%S')"
-            echo "============================================================"
-
-            cd "$DEPLOY_DIR"
-
-            # 1. 拉取最新代码（源码 MB 级，跨境可接受）
-            echo "→ git pull..."
-            git fetch --all --prune
-            BRANCH=$(git rev-parse --abbrev-ref HEAD)
-            git reset --hard "origin/$BRANCH"
-
-            # 2. 构建新镜像（多阶段构建：容器内 maven 打包，复用 layer 缓存）
-            echo "→ docker compose build $SERVICE..."
-            docker compose $PROJECT_OPT -f "$COMPOSE_FILE" build "$SERVICE"
-
-            # 3. 重启容器（加载新镜像）
-            echo "→ 重启 $SERVICE..."
-            docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
-
-            # 4. 健康检查（等待 Spring Boot 启动，最多 120 秒）
-            echo "→ 等待应用启动（健康检查）..."
-            MAX_WAIT=24  # 24 × 5s = 120s
-            for i in $(seq 1 $MAX_WAIT); do
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 5 "$HEALTH_URL" 2>/dev/null || echo "000")
-              if [ "$HTTP_CODE" = "200" ]; then
-                echo "✅ 应用已启动 (HTTP $HTTP_CODE, 等待 $((i*5))s)"
-                echo "✅ 部署完成: $ENV @ $(date '+%Y-%m-%d %H:%M:%S')"
-                exit 0
-              fi
-              echo "  [$((i*5))s] 启动中... (HTTP $HTTP_CODE)"
-              sleep 5
-            done
-
-            echo "❌ 健康检查超时（120s 内未启动）"
-            echo "  查看日志: docker compose $PROJECT_OPT -f $COMPOSE_FILE logs --tail 30 $SERVICE"
-            exit 1
+            set -e; if [ "$DEPLOY_ENV" = "prod" ]; then D=/root/gudu; else D=/root/gudu-staging; fi; cd "$D" && git fetch --all --prune && git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)" && ENV="$DEPLOY_ENV" bash scripts/deploy.sh
 
       # 部署结果通知
       - name: Deploy status
