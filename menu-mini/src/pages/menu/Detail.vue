@@ -402,14 +402,16 @@ async function toggleShop(it: ShoppingItemVO) {
 const unpurchasedItems = computed(() =>
   shopVO.value?.items.filter((it) => effShop(it) === 0) ?? [])
 
-/** 复制文字：未购项按「名称 + 用量」逐行拼，标题带日期。 */
+/** 复制文字：未购项按「名称 + 用量」逐行拼，标题带食集名 + 日期。 */
 function copyShopText() {
   const now = new Date()
+  const menuName = detail.value?.menu.name || ''
+  const head = menuName ? `${menuName} · 采购清单` : '采购清单'
   const lines = unpurchasedItems.value.map((it) => {
     const amt = shopItemAmount(it)
     return amt ? `${shopItemName(it)} ${amt}` : shopItemName(it)
   })
-  const text = [`采购清单 · ${now.getMonth() + 1} 月 ${now.getDate()} 日`, ...lines].join('\n')
+  const text = [`${head} · ${now.getMonth() + 1} 月 ${now.getDate()} 日`, ...lines].join('\n')
   uni.setClipboardData({
     data: text,
     success: () => uni.showToast({ title: '采购清单已复制', icon: 'none' }),
@@ -439,9 +441,10 @@ function drawShareImage(items: ShoppingItemVO[]) {
   const ctx = uni.createCanvasContext('shopShareCanvas')
   ctx.setFillStyle('#FFFFFF')
   ctx.fillRect(0, 0, W, H)
+  const menuName = detail.value?.menu.name || ''
   ctx.setFillStyle('#4A382A')
   ctx.setFontSize(18)
-  ctx.fillText('采购清单', 20, 40)
+  ctx.fillText(menuName ? `${menuName} · 采购清单` : '采购清单', 20, 40)
   ctx.setFillStyle('#9C8C7A')
   ctx.setFontSize(12)
   ctx.fillText(`${new Date().getMonth() + 1} 月 ${new Date().getDate()} 日`, 20, 64)

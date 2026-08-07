@@ -146,6 +146,7 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
                                   menuId: widget.id,
                                   refreshTick: _dataTick,
                                   isDone: _detail!.menu.isDone,
+                                  menuName: _detail!.menu.name ?? '',
                                   onCountChanged: (c) =>
                                       setState(() => _shoppingCount = c)),
                               const _Placeholder(
@@ -731,11 +732,14 @@ class _ShoppingTab extends StatefulWidget {
   final ValueChanged<int> onCountChanged;
   /// 已完成食集：勾选禁用（只读展示）。
   final bool isDone;
+  /// 食集名（分享清单标题前缀，如「宝宝辅食餐 · 采购清单」）。
+  final String menuName;
   const _ShoppingTab({
     required this.menuId,
     required this.refreshTick,
     required this.onCountChanged,
     required this.isDone,
+    required this.menuName,
   });
   @override
   State<_ShoppingTab> createState() => _ShoppingTabState();
@@ -872,7 +876,7 @@ class _ShoppingTabState extends State<_ShoppingTab> {
           top: 0,
           child: RepaintBoundary(
             key: _shareBoundaryKey,
-            child: _ShareCard(items: unpurchased),
+            child: _ShareCard(menuName: widget.menuName, items: unpurchased),
           ),
         ),
       ],
@@ -920,13 +924,16 @@ class _ShoppingTabState extends State<_ShoppingTab> {
     );
   }
 
-  /// 复制文字：未购项按「名称 + 用量」逐行拼，标题带日期。
+  /// 复制文字：未购项按「名称 + 用量」逐行拼，标题带食集名 + 日期。
   Future<void> _copyText(AppTokens t, List<ShoppingItemVO> items) async {
     final now = DateTime.now();
     final lines = items.map((it) => it.amountText.isEmpty
         ? it.displayName
         : '${it.displayName} ${it.amountText}');
-    final text = ['采购清单 · ${now.month} 月 ${now.day} 日', ...lines].join('\n');
+    final title = widget.menuName.isEmpty
+        ? '采购清单 · ${now.month} 月 ${now.day} 日'
+        : '${widget.menuName} · 采购清单 · ${now.month} 月 ${now.day} 日';
+    final text = [title, ...lines].join('\n');
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -1385,10 +1392,11 @@ String _relativeDate(DateTime? dt) {
   return '${dt.month}/${dt.day}';
 }
 
-/// 分享卡片（仅截图用，置于屏幕外）：白底 + 采购清单标题 + 未购项列表。
+/// 分享卡片（仅截图用，置于屏幕外）：白底 + 食集名·采购清单标题 + 未购项列表。
 class _ShareCard extends StatelessWidget {
+  final String menuName;
   final List<ShoppingItemVO> items;
-  const _ShareCard({required this.items});
+  const _ShareCard({required this.menuName, required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -1402,7 +1410,7 @@ class _ShareCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('采购清单',
+          Text(menuName.isEmpty ? '采购清单' : '$menuName · 采购清单',
               style: t.textStyles.pageTitle.copyWith(color: t.title)),
           Text('${now.month} 月 ${now.day} 日',
               style: t.textStyles.caption.copyWith(color: t.caption)),
