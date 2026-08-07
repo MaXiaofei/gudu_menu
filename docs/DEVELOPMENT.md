@@ -100,6 +100,45 @@ bash scripts/check-prototype-sync.sh
 
 ---
 
+## 五、调试与验证
+
+### 默认调试方式：macOS 手机窗口
+
+```bash
+cd menu-flutter && flutter run -d macos
+```
+
+- macOS 窗口已固定为 **390×844 手机尺寸**（`macos/Runner/MainFlutterWindow.swift`），支持热重载，可直接截图看渲染效果（纯视觉样式如删除线/底色只有截图能确认）
+- **不打包、不启动 Android 模拟器作为常规调试**——模拟器启动慢、易卡死，还要重新登录，验证成本远高于收益
+
+### 何时才用 Android 模拟器
+
+仅限 Android 特有行为：权限弹窗、applicationId/包名、通知/推送、剪贴板等。
+
+```bash
+cd menu-flutter && flutter build apk --debug
+adb install -r build/app/outputs/flutter-apk/app-debug.apk
+adb shell am start -n com.maxiaofei.menu_flutter/.MainActivity
+```
+
+### 纯接口/数据逻辑验证：curl 直查 staging，不启 UI
+
+```bash
+# 登录（注意：字段是 username 不是 phone；token 是裸值，不带 Bearer 前缀）
+TOKEN=$(curl -s -X POST http://49.232.3.201:9090/gudu/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}' | jq -r .data.token)
+curl -s "http://49.232.3.201:9090/gudu/menu/3/prep" -H "Authorization: $TOKEN"
+```
+
+### 提交前检查
+
+- 后端：`mvn clean test-compile`（**必须 clean**，增量编译曾掩盖编译错误）+ 跑改动相关的单测
+- 前端：`flutter analyze`（不新增 error；既有 info 不扩）
+- 界面改动：按上面「三、同步检查」跑 `scripts/check-prototype-sync.sh`
+
+---
+
 ## 附：快速判断流程图
 
 ```
