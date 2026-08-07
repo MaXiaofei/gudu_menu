@@ -29,6 +29,8 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
@@ -308,6 +310,35 @@ class ShoppingServiceTest {
         doReturn(List.of()).when(spied).list(any(Wrapper.class));
 
         assertThat(spied.getByMenu(999L)).isNull();
+    }
+
+    // ===================== 完成态：markPurchasedByMenu（整集做） =====================
+
+    /** 整集做完成：食集采购清单全部标记已购（只置位，不回写库存）。 */
+    @Test
+    void 按食集标记已购_清单项全置purchased_不回写库存() {
+        ShoppingService spied = spy(svc);
+        ShoppingList sl = new ShoppingList();
+        sl.setId(5L);
+        sl.setSourceMenuId(1L);
+        doReturn(List.of(sl)).when(spied).list(any(Wrapper.class));
+
+        spied.markPurchasedByMenu(1L);
+
+        verify(itemMapper).update(isNull(), argThat(w ->
+                w.getSqlSet() != null && w.getSqlSet().contains("purchased")));
+        verify(pantryService, never()).stockUpByIngredient(any(), any(), any(), any());
+    }
+
+    /** 食集未生成采购清单：静默跳过。 */
+    @Test
+    void 按食集标记已购_无清单_跳过() {
+        ShoppingService spied = spy(svc);
+        doReturn(List.of()).when(spied).list(any(Wrapper.class));
+
+        spied.markPurchasedByMenu(1L);
+
+        verify(itemMapper, never()).update(any(), any());
     }
 
     private static Pantry pantry(long ingId, String grams) {

@@ -6,8 +6,11 @@ import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuMapper;
+import com.gudu.xsd.modules.menu.prep.MenuPrepStatus;
+import com.gudu.xsd.modules.menu.prep.mapper.MenuPrepStatusMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.pantry.PantryService;
+import com.gudu.xsd.modules.shopping.ShoppingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -34,6 +37,8 @@ class CookServiceTest {
     @Mock CookingRecordMapper cookingRecordMapper;
     @Mock PantryService pantryService;
     @Mock IngredientMapper ingredientMapper;
+    @Mock MenuPrepStatusMapper menuPrepStatusMapper;
+    @Mock ShoppingService shoppingService;
 
     private CookService cookService;
 
@@ -41,7 +46,8 @@ class CookServiceTest {
     void setup() {
         MockitoAnnotations.openMocks(this);
         cookService = new CookService(menuMapper, menuDishMapper, dishIngredientMapper,
-                cookingRecordMapper, pantryService, new NeedAggregator(), ingredientMapper);
+                cookingRecordMapper, pantryService, new NeedAggregator(), ingredientMapper,
+                menuPrepStatusMapper, shoppingService);
         // 模拟 MyBatis insert 回填 id（生产 @TableId(AUTO) 会回填，mock 默认不回填）
         when(cookingRecordMapper.insert(any(CookingRecord.class))).thenAnswer(inv -> {
             inv.getArgument(0, CookingRecord.class).setId(1L);
@@ -82,6 +88,34 @@ class CookServiceTest {
         verify(cookingRecordMapper, times(1)).insert(any(CookingRecord.class));   // 每菜一条
         verify(menuMapper).updateById(argThat(m -> "DONE".equals(((Menu) m).getStatus())
                 && ((Menu) m).getFinishedAt() != null));
+        // 完成态：备菜置 READY（upsert）+ 采购清单全勾选
+        verify(menuPrepStatusMapper).insert(argThat(mps -> mps.getMenuId() == 7L
+                && mps.getIngredientId() == 10L && "READY".equals(mps.getStatus())));
+        verify(shoppingService).markPurchasedByMenu(7L);
+    }
+
+    /** 已有备料状态：置 READY 走 update 而非 insert。 */
+    @Test
+    void cookByMenu_备料已有状态_走update置READY() {
+        Menu menu = new Menu();
+        menu.setId(7L);
+        when(menuMapper.selectById(7L)).thenReturn(menu);
+        when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "1")));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100")));
+        when(pantryService.deductByIngredient(eq(10L), eq(new BigDecimal("100"))))
+                .thenReturn(new PantryService.DeductResult(10L, "番茄", new BigDecimal("100"), BigDecimal.ZERO, List.of()));
+        MenuPrepStatus existing = new MenuPrepStatus();
+        existing.setId(3L);
+        existing.setMenuId(7L);
+        existing.setIngredientId(10L);
+        existing.setStatus("PENDING");
+        when(menuPrepStatusMapper.selectOne(any())).thenReturn(existing);
+
+        cookService.cookByMenu(7L, 99L);
+
+        verify(menuPrepStatusMapper, never()).insert(any());
+        verify(menuPrepStatusMapper).updateById(argThat(m -> "READY".equals(((MenuPrepStatus) m).getStatus())));
+        verify(shoppingService).markPurchasedByMenu(7L);
     }
 
     @Test

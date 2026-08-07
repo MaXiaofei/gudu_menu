@@ -83,8 +83,8 @@
                   v-for="it in prep.items"
                   :key="it.ingredientId"
                   :class="['prep-row', { shared: it.shared }]"
-                  @click="togglePrep(it)"
-                  @longpress="longPressPrep(it)"
+                  @click="!isDone && togglePrep(it)"
+                  @longpress="!isDone && longPressPrep(it)"
                 >
                   <text :class="['prep-chip', chipClass(it.status)]">{{ statusLabel(it.status) }}</text>
                   <view class="prep-main">
@@ -109,13 +109,13 @@
               <text class="condiment-arrow">{{ condimentExpanded ? '▾' : '▸' }}</text>
             </view>
             <view v-if="condimentExpanded" class="yh-card prep-card condiment-card">
-              <view
-                v-for="it in prep.condiments"
-                :key="it.ingredientId"
-                :class="['prep-row', { shared: it.shared }]"
-                @click="togglePrep(it)"
-                @longpress="longPressPrep(it)"
-              >
+            <view
+              v-for="it in prep.condiments"
+              :key="it.ingredientId"
+              :class="['prep-row', { shared: it.shared }]"
+              @click="!isDone && togglePrep(it)"
+              @longpress="!isDone && longPressPrep(it)"
+            >
                 <text :class="['prep-chip', chipClass(it.status)]">{{ statusLabel(it.status) }}</text>
                 <view class="prep-main">
                   <view class="prep-name-row">
@@ -136,14 +136,14 @@
           <view v-if="shopLoading" class="prep-loading">加载采购中…</view>
           <view v-else-if="!shopVO" class="shop-empty">
             <text class="shop-empty-title">尚未生成采购清单</text>
-            <button class="shop-gen-btn" @click="generateShop">按食集生成</button>
+            <button class="shop-gen-btn" :disabled="isDone" @click="generateShop">按食集生成</button>
           </view>
           <view v-else class="yh-card shop-card">
             <view
               v-for="it in shopVO.items"
               :key="it.id"
               :class="['shop-row', { bought: effShop(it) === 1 }]"
-              @click="toggleShop(it)"
+              @click="!isDone && toggleShop(it)"
             >
               <text :class="['shop-check', effShop(it) === 1 ? 'on' : 'off']">
                 {{ effShop(it) === 1 ? '✓' : '○' }}
@@ -175,7 +175,7 @@
 
     <view v-else class="loading">加载中…</view>
 
-    <!-- 底部整集做菜（Plan A） -->
+    <!-- 底部整集做菜（Plan A）；完成态加「去评价」 -->
     <view class="bottom-actions" v-if="detail">
       <button
         class="cook-menu-btn"
@@ -183,6 +183,9 @@
         @click="onCookMenu"
       >
         {{ cooking ? '做菜中…' : (detail.menu.status === 'DONE' ? '已完成' : '整集做菜') }}
+      </button>
+      <button v-if="detail.menu.status === 'DONE'" class="review-btn" @click="goReview">
+        去评价
       </button>
     </view>
   </view>
@@ -202,6 +205,9 @@ const tabIndex = ref(0)
 const detail = ref<MenuDetailVO | null>(null)
 const menuId = ref(0)
 const cooking = ref(false)
+
+/** 已完成食集：整集做后各 tab 只读（备菜/采购交互禁用）。 */
+const isDone = computed(() => detail.value?.menu.status === 'DONE')
 
 // 备菜（Plan C）：惰性加载，切到备菜 Tab 才拉
 const prep = ref<MenuPrepVO | null>(null)
@@ -396,6 +402,20 @@ async function onCookMenu() {
   } finally {
     cooking.value = false
   }
+}
+
+/** 完成态「去评价」：选食集里的一道菜 → 菜谱评价页。 */
+function goReview() {
+  const dishes = detail.value?.dishes ?? []
+  if (!dishes.length) return
+  uni.showActionSheet({
+    itemList: dishes.map((d) => d.dishName || `菜 #${d.dishId}`),
+    success: (res) => {
+      const picked = dishes[res.tapIndex]
+      if (!picked) return
+      uni.navigateTo({ url: `/pages/dish/Review?dishId=${picked.dishId}` })
+    },
+  })
 }
 
 function goBack() {
@@ -744,4 +764,17 @@ function goBack() {
 }
 .cook-menu-btn::after { border: none; }
 .cook-menu-btn[disabled] { opacity: 0.6; }
+/* 完成态「去评价」：描边橙字（对齐 Flutter OutlinedButton + AppTokens.warning）。 */
+.review-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  font-size: 30rpx;
+  margin-top: 16rpx;
+  background: #FFFFFF;
+  color: #E5A938;
+  border: 3rpx solid #E5A938;
+  border-radius: 16rpx;
+}
+.review-btn::after { border: none; }
 </style>

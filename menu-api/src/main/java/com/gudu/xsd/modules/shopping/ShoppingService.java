@@ -1,6 +1,7 @@
 package com.gudu.xsd.modules.shopping;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -303,6 +304,24 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                 .orderByDesc("created_at").last("LIMIT 1"));
         if (rows.isEmpty()) return null;
         return getDetail(rows.get(0).getId());
+    }
+
+    /**
+     * 整集做菜完成时把该食集的采购清单全部标记已购。
+     *
+     * <p>只置 purchased=1，不回写 pantry——cookMenu 已按用量扣过库存，勾选再入库会重复加。
+     * 未生成清单（无 source_menu_id 命中）时静默跳过。
+     */
+    public void markPurchasedByMenu(Long menuId) {
+        if (menuId == null) return;
+        List<ShoppingList> lists = list(new QueryWrapper<ShoppingList>()
+                .eq("source_menu_id", menuId));
+        if (lists.isEmpty()) return;
+        List<Long> listIds = lists.stream().map(ShoppingList::getId).toList();
+        itemMapper.update(null, new UpdateWrapper<ShoppingItem>()
+                .in("list_id", listIds)
+                .eq("purchased", 0)
+                .set("purchased", 1));
     }
 
     /** 分页查采购清单（后台管理，不含 items，按创建时间倒序）。 */

@@ -127,15 +127,20 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
                           child: IndexedStack(
                             index: _tabIndex,
                             children: [
-                              _DishesTab(detail: _detail!, onNoteChanged: _load),
+                              _DishesTab(
+                                  detail: _detail!,
+                                  isDone: _detail!.menu.isDone,
+                                  onNoteChanged: _load),
                               _PrepTab(
                                   menuId: widget.id,
                                   refreshTick: _dataTick,
+                                  isDone: _detail!.menu.isDone,
                                   onCountChanged: (c) =>
                                       setState(() => _prepCount = c)),
                               _ShoppingTab(
                                   menuId: widget.id,
                                   refreshTick: _dataTick,
+                                  isDone: _detail!.menu.isDone,
                                   onCountChanged: (c) =>
                                       setState(() => _shoppingCount = c)),
                               const _Placeholder(
@@ -153,26 +158,104 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
           ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp12),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTokens.success,
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  onPressed:
-                      (_detail!.menu.isDone || _cooking) ? null : _cookMenu,
-                  child: _cooking
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : Text(_detail!.menu.isDone ? '已完成' : '整集做菜'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTokens.success,
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      onPressed:
+                          (_detail!.menu.isDone || _cooking) ? null : _cookMenu,
+                      child: _cooking
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(_detail!.menu.isDone ? '已完成' : '整集做菜'),
+                    ),
+                    // 完成态：整集做后显「去评价」（选一道菜进评价页）
+                    if (_detail!.menu.isDone)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppTokens.sp8),
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            side: BorderSide(
+                                color: AppTokens.warning, width: 1.5),
+                          ),
+                          onPressed: () => _goReview(context),
+                          child: Text('去评价',
+                              style: t.textStyles.md.copyWith(
+                                  color: AppTokens.warning,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             )
           : null,
     );
+  }
+
+  /// 完成态「去评价」：弹窗选食集里的一道菜 → 进菜谱评价页。
+  Future<void> _goReview(BuildContext context) async {
+    final dishes = _detail?.dishes ?? const [];
+    if (dishes.isEmpty) return;
+    final tt = AppTokens.of(context);
+    final picked = await showModalBottomSheet<MenuDish>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppTokens.sp16),
+              child: Text('选择要评价的菜',
+                  style: tt.textStyles.cardTitle.copyWith(color: tt.title)),
+            ),
+            for (final d in dishes)
+              ListTile(
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: d.coverUrl != null && d.coverUrl!.isNotEmpty
+                        ? Image.network(
+                            ImageHelper.toThumbnail(
+                                ImageHelper.toAbsolute(d.coverUrl!)),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const SizedBox(),
+                          )
+                        : Container(
+                            color: tt.secondary,
+                            alignment: Alignment.center,
+                            child: Text(
+                                (d.dishName != null &&
+                                        d.dishName!.isNotEmpty
+                                    ? d.dishName!.characters.first
+                                    : '菜'),
+                                style: tt.textStyles.sm
+                                    .copyWith(color: tt.caption)),
+                          ),
+                  ),
+                ),
+                title: Text(d.dishName ?? '菜 #${d.dishId}',
+                    style: tt.textStyles.md.copyWith(color: tt.title)),
+                onTap: () => Navigator.pop(ctx, d),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    await context.push('/dish/${picked.dishId}/review');
   }
 
   Widget _buildTabBar() {
@@ -243,7 +326,13 @@ class _DishesTab extends StatelessWidget {
   final MenuDetail detail;
   /// 备注/删菜修改成功后刷新详情。
   final VoidCallback onNoteChanged;
-  const _DishesTab({required this.detail, required this.onNoteChanged});
+  /// 已完成（整集做后）：隐藏加菜入口，行内按钮全部禁用。
+  final bool isDone;
+  const _DishesTab({
+    required this.detail,
+    required this.onNoteChanged,
+    required this.isDone,
+  });
 
   /// 加菜：跳菜谱选择页（/dish-picker?menuId=），返回后刷新。
   Future<void> _addDish(BuildContext context) async {
@@ -265,30 +354,32 @@ class _DishesTab extends StatelessWidget {
               servingFactor: d.servingFactor,
               coverUrl: d.coverUrl,
               note: d.note,
+              readOnly: isDone,
               onNoteChanged: onNoteChanged,
             )),
-        // 加菜入口（原型「+ 加菜（去菜谱找）」虚线框）
-        GestureDetector(
-          onTap: () => _addDish(context),
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(
-                AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, 0),
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              border: Border.all(color: t.primary, width: 1.5),
-              borderRadius: BorderRadius.circular(AppTokens.rMd),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('+', style: t.textStyles.md.copyWith(color: t.primary)),
-                const SizedBox(width: AppTokens.sp4),
-                Text('加菜（去菜谱找）',
-                    style: t.textStyles.md.copyWith(color: t.primary)),
-              ],
+        // 加菜入口（原型「+ 加菜（去菜谱找）」虚线框）；已完成不显示
+        if (!isDone)
+          GestureDetector(
+            onTap: () => _addDish(context),
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(
+                  AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, 0),
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                border: Border.all(color: t.primary, width: 1.5),
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('+', style: t.textStyles.md.copyWith(color: t.primary)),
+                  const SizedBox(width: AppTokens.sp4),
+                  Text('加菜（去菜谱找）',
+                      style: t.textStyles.md.copyWith(color: t.primary)),
+                ],
+              ),
             ),
           ),
-        ),
         const SizedBox(height: AppTokens.sp24),
       ],
     );
@@ -302,10 +393,13 @@ class _PrepTab extends StatefulWidget {
   final int refreshTick;
   /// 备料总数（totalCount）加载后上报父级，用于 tab 汇总数量。
   final ValueChanged<int> onCountChanged;
+  /// 已完成食集：状态 chip 不可点（只读展示）。
+  final bool isDone;
   const _PrepTab({
     required this.menuId,
     required this.refreshTick,
     required this.onCountChanged,
+    required this.isDone,
   });
   @override
   State<_PrepTab> createState() => _PrepTabState();
@@ -435,8 +529,9 @@ class _PrepTabState extends State<_PrepTab> {
         const _SectionTitle('备料清单'),
         ...p.items.map((it) => _PrepItemRow(
               item: it,
-              onTap: () => _toggle(it),
-              onLongPress: () => _longPress(it),
+              // 已完成：chip 不可点
+              onTap: widget.isDone ? null : () => _toggle(it),
+              onLongPress: widget.isDone ? null : () => _longPress(it),
             )),
         // 调料折叠组（与菜分组；计入总数/进度，文案不再写「无需备料」）
         if (p.condiments.isNotEmpty) ...[
@@ -446,8 +541,9 @@ class _PrepTabState extends State<_PrepTab> {
             ...p.condiments.map((it) => _PrepItemRow(
                   item: it,
                   isCondiment: true,
-                  onTap: () => _toggle(it),
-                  onLongPress: () => _longPress(it),
+                  // 已完成：chip 不可点
+                  onTap: widget.isDone ? null : () => _toggle(it),
+                  onLongPress: widget.isDone ? null : () => _longPress(it),
                 )),
         ],
         const SizedBox(height: AppTokens.sp24),
@@ -517,8 +613,9 @@ class _PrepTabState extends State<_PrepTab> {
 /// 实绿底 chip「✓ 已备」；待备白底描边 chip。
 class _PrepItemRow extends StatelessWidget {
   final PrepItem item;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  /// 可空：已完成食集传 null 禁用（chip 不可点）。
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final bool isCondiment;
   const _PrepItemRow({
     required this.item,
@@ -627,10 +724,13 @@ class _ShoppingTab extends StatefulWidget {
   final int refreshTick;
   /// 采购项数量（items.length）加载后上报父级，用于 tab 汇总数量。
   final ValueChanged<int> onCountChanged;
+  /// 已完成食集：勾选禁用（只读展示）。
+  final bool isDone;
   const _ShoppingTab({
     required this.menuId,
     required this.refreshTick,
     required this.onCountChanged,
+    required this.isDone,
   });
   @override
   State<_ShoppingTab> createState() => _ShoppingTabState();
@@ -723,7 +823,8 @@ class _ShoppingTabState extends State<_ShoppingTab> {
                   style: t.textStyles.md.copyWith(color: t.caption)),
               const SizedBox(height: AppTokens.sp16),
               ElevatedButton.icon(
-                onPressed: _generate,
+                // 已完成：生成禁用
+                onPressed: widget.isDone ? null : _generate,
                 icon: const Icon(Icons.shopping_cart_outlined),
                 label: const Text('按食集生成'),
                 style: ElevatedButton.styleFrom(
@@ -753,7 +854,8 @@ class _ShoppingTabState extends State<_ShoppingTab> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _toggle(it),
+        // 已完成：勾选禁用（只读展示）
+        onTap: widget.isDone ? null : () => _toggle(it),
         hoverColor: t.primary.withValues(alpha: 0.08),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
@@ -904,6 +1006,8 @@ class _DishRow extends StatelessWidget {
   final double? servingFactor;
   final String? coverUrl;
   final String? note;
+  /// 已完成食集：行点击/备注/移出全部禁用（只读展示）。
+  final bool readOnly;
   /// 备注修改成功后的回调（上层刷新详情）。
   final VoidCallback onNoteChanged;
   const _DishRow({
@@ -913,6 +1017,7 @@ class _DishRow extends StatelessWidget {
     this.servingFactor,
     this.coverUrl,
     this.note,
+    this.readOnly = false,
     required this.onNoteChanged,
   });
 
@@ -997,7 +1102,9 @@ class _DishRow extends StatelessWidget {
         : null;
 
     return InkWell(
-      onTap: () => context.push('/dish/$dishId', extra: {'showActions': false}),
+      onTap: readOnly
+          ? null
+          : () => context.push('/dish/$dishId', extra: {'showActions': false}),
       child: Container(
         padding: const EdgeInsets.fromLTRB(
             AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp8),
@@ -1042,7 +1149,7 @@ class _DishRow extends StatelessWidget {
             ),
             // 备注行（原型 dashed 分隔）：有备注=浅橙胶囊，无备注=灰字占位；点击弹输入框
             GestureDetector(
-              onTap: () => _editNote(context),
+              onTap: readOnly ? null : () => _editNote(context),
               behavior: HitTestBehavior.opaque,
               child: Container(
                 width: double.infinity,
@@ -1084,9 +1191,9 @@ class _DishRow extends StatelessWidget {
                     const SizedBox(width: AppTokens.sp8),
                     Icon(Icons.edit_outlined, size: 14, color: t.caption),
                     const SizedBox(width: AppTokens.sp8),
-                    // 移出食集（原型菜行行尾 ✕）
+                    // 移出食集（原型菜行行尾 ✕）；已完成禁用
                     GestureDetector(
-                      onTap: () => _removeDish(context),
+                      onTap: readOnly ? null : () => _removeDish(context),
                       behavior: HitTestBehavior.opaque,
                       child: Padding(
                         padding: const EdgeInsets.all(4),

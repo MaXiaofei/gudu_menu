@@ -8,9 +8,13 @@ import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuMapper;
+import com.gudu.xsd.modules.menu.prep.MenuPrepStatus;
+import com.gudu.xsd.modules.menu.prep.PrepStatus;
+import com.gudu.xsd.modules.menu.prep.mapper.MenuPrepStatusMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.pantry.PantryService;
+import com.gudu.xsd.modules.shopping.ShoppingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +35,9 @@ import java.util.stream.Collectors;
  * （带 menuId/servingFactor/source/memo）→ 整集做把 menu 标 DONE。
  *
  * 扣减规则（铁律）：扣到 0 为止、pantry 不记负，扣不动的欠量写 cooking_record.memo。
+ *
+ * 完成态（整集做）：备菜全部置 READY + 采购清单全部勾选（只置位、不回写库存），
+ * 前端各 tab 进入只读展示。
  */
 @Service
 @RequiredArgsConstructor
@@ -47,6 +54,8 @@ public class CookService {
     private final PantryService pantryService;
     private final NeedAggregator needAggregator;
     private final IngredientMapper ingredientMapper;
+    private final MenuPrepStatusMapper menuPrepStatusMapper;
+    private final ShoppingService shoppingService;
 
     /** 整集做：聚合食集各菜用量 → 扣减 → 每菜写 record → menu 标完成。 */
     @Transactional
@@ -79,6 +88,10 @@ public class CookService {
         menu.setStatus(MENU_STATUS_DONE);
         menu.setFinishedAt(LocalDateTime.now());
         menuMapper.updateById(menu);
+
+        // 完成态：备菜全部置 READY（主料+调料），采购清单全部勾选（只置位不回写库存）
+        markPrepReady(menuId, needByIng.keySet());
+        shoppingService.markPurchasedByMenu(menuId);
 
         return new CookResult(menuId, deductions, shortages, recordIds);
     }
@@ -166,5 +179,25 @@ public class CookService {
         return shortages.entrySet().stream()
                 .map(e -> e.getKey() + ":" + e.getValue().setScale(0, RoundingMode.HALF_UP) + "g")
                 .collect(Collectors.joining(";"));
+    }
+
+    /** 完成态：食集全部用料（主料+调料）备料状态置 READY（upsert，同 MenuPrepService.updateStatus）。 */
+    private void markPrepReady(Long menuId, java.util.Set<Long> ingredientIds) {
+        if (ingredientIds == null || ingredientIds.isEmpty()) return;
+        for (Long ingId : ingredientIds) {
+            MenuPrepStatus existing = menuPrepStatusMapper.selectOne(
+                    new QueryWrapper<MenuPrepStatus>()
+                            .eq("menu_id", menuId).eq("ingredient_id", ingId));
+            if (existing == null) {
+                MenuPrepStatus mps = new MenuPrepStatus();
+                mps.setMenuId(menuId);
+                mps.setIngredientId(ingId);
+                mps.setStatus(PrepStatus.READY.name());
+                menuPrepStatusMapper.insert(mps);
+            } else {
+                existing.setStatus(PrepStatus.READY.name());
+                menuPrepStatusMapper.updateById(existing);
+            }
+        }
     }
 }
