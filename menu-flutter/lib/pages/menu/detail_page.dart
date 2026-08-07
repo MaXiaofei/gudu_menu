@@ -1,5 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/image_helper.dart';
@@ -743,6 +748,9 @@ class _ShoppingTabState extends State<_ShoppingTab> {
   final Map<int, int> _purchOverride = {}; // 乐观：itemId → purchased(0/1)
   int _lastTick = 0;
 
+  /// 屏幕外分享卡片（RepaintBoundary 截图 → 图片分享）。
+  final GlobalKey _shareBoundaryKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -837,15 +845,117 @@ class _ShoppingTabState extends State<_ShoppingTab> {
         ),
       );
     }
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
+    // 未勾选（还没买）的项 = 分享内容
+    final unpurchased = vo.items.where((it) => _eff(it) == 0).toList();
+    return Stack(
+      children: [
+        Column(
+          children: [
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  children: [
+                    ...vo.items.map((it) => _itemCard(it)),
+                    const SizedBox(height: AppTokens.sp24),
+                  ],
+                ),
+              ),
+            ),
+            // 底部分享条（原型 menu-detail-caigou.html：复制文字 / 转图片分享）
+            _buildShareBar(t, unpurchased),
+          ],
+        ),
+        // 屏幕外分享卡片：仅用于截图（RepaintBoundary.toImage），不参与显示
+        Positioned(
+          left: -10000,
+          top: 0,
+          child: RepaintBoundary(
+            key: _shareBoundaryKey,
+            child: _ShareCard(items: unpurchased),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 底部分享条：未勾选采购项 → 复制文字 / 转图片分享。
+  /// 已完成或没有未购项时禁用。
+  Widget _buildShareBar(AppTokens t, List<ShoppingItemVO> unpurchased) {
+    final disabled = widget.isDone || unpurchased.isEmpty;
+    return Container(
+      decoration: BoxDecoration(
+        color: t.card,
+        border: Border(top: BorderSide(color: t.border)),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+          AppTokens.sp16, AppTokens.sp10, AppTokens.sp16, AppTokens.sp12),
+      child: Row(
         children: [
-          ...vo.items.map((it) => _itemCard(it)),
-          const SizedBox(height: AppTokens.sp24),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: disabled ? null : () => _copyText(t, unpurchased),
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('复制文字'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: t.primary,
+                side: BorderSide(color: t.primary, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppTokens.sp8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: disabled ? null : () => _shareImage(t, unpurchased),
+              icon: const Icon(Icons.image_outlined, size: 16),
+              label: const Text('转图片分享'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: t.primary,
+                side: BorderSide(color: t.primary, width: 1.5),
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  /// 复制文字：未购项按「名称 + 用量」逐行拼，标题带日期。
+  Future<void> _copyText(AppTokens t, List<ShoppingItemVO> items) async {
+    final now = DateTime.now();
+    final lines = items.map((it) => it.amountText.isEmpty
+        ? it.displayName
+        : '${it.displayName} ${it.amountText}');
+    final text = ['采购清单 · ${now.month} 月 ${now.day} 日', ...lines].join('\n');
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('采购清单已复制')));
+    }
+  }
+
+  /// 转图片分享：截图屏幕外分享卡片 → PNG → 系统分享面板（share_plus）。
+  Future<void> _shareImage(AppTokens t, List<ShoppingItemVO> items) async {
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      final boundary = _shareBoundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 3);
+      final bytes =
+          (await image.toByteData(format: ui.ImageByteFormat.png))!
+              .buffer
+              .asUint8List();
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, mimeType: 'image/png', name: 'shopping_list.png')],
+        text: '采购清单',
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('生成分享图片失败')));
+      }
+    }
   }
 
   Widget _itemCard(ShoppingItemVO it) {
@@ -1273,4 +1383,47 @@ String _relativeDate(DateTime? dt) {
   if (diff == 1) return '昨天';
   if (diff < 7) return '$diff 天前';
   return '${dt.month}/${dt.day}';
+}
+
+/// 分享卡片（仅截图用，置于屏幕外）：白底 + 采购清单标题 + 未购项列表。
+class _ShareCard extends StatelessWidget {
+  final List<ShoppingItemVO> items;
+  const _ShareCard({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    final now = DateTime.now();
+    return Container(
+      width: 320,
+      padding: const EdgeInsets.all(20),
+      color: Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('采购清单',
+              style: t.textStyles.pageTitle.copyWith(color: t.title)),
+          Text('${now.month} 月 ${now.day} 日',
+              style: t.textStyles.caption.copyWith(color: t.caption)),
+          const SizedBox(height: 12),
+          for (final it in items)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(it.displayName,
+                        style: t.textStyles.md.copyWith(color: t.title)),
+                  ),
+                  if (it.amountText.isNotEmpty)
+                    Text(it.amountText,
+                        style: t.textStyles.sm.copyWith(color: t.caption)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

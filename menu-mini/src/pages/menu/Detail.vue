@@ -161,6 +161,11 @@
               <text class="shop-name" style="color: #9C8C7A;">本食集暂无采购项</text>
             </view>
           </view>
+          <!-- 底部分享（未购项 → 复制文字 / 转图片保存到相册） -->
+          <view v-if="unpurchasedItems.length" class="shop-share">
+            <button class="share-btn" @click="copyShopText">复制文字</button>
+            <button class="share-btn" @click="shareShopImage">转图片分享</button>
+          </view>
         </template>
 
         <!-- Tab 3：一起吃（占位） -->
@@ -174,6 +179,14 @@
     </view>
 
     <view v-else class="loading">加载中…</view>
+
+    <!-- 分享图 canvas（屏幕外，仅绘制用） -->
+    <canvas
+      v-if="detail"
+      canvas-id="shopShareCanvas"
+      id="shopShareCanvas"
+      class="share-canvas"
+    ></canvas>
 
     <!-- 底部整集做菜（Plan A）；完成态加「去评价」 -->
     <view class="bottom-actions" v-if="detail">
@@ -383,6 +396,82 @@ async function toggleShop(it: ShoppingItemVO) {
     delete purchOverride.value[it.id]
     uni.showToast({ title: '更新失败', icon: 'none' })
   }
+}
+
+/** 未勾选（还没买）的采购项 = 分享内容。 */
+const unpurchasedItems = computed(() =>
+  shopVO.value?.items.filter((it) => effShop(it) === 0) ?? [])
+
+/** 复制文字：未购项按「名称 + 用量」逐行拼，标题带日期。 */
+function copyShopText() {
+  const now = new Date()
+  const lines = unpurchasedItems.value.map((it) => {
+    const amt = shopItemAmount(it)
+    return amt ? `${shopItemName(it)} ${amt}` : shopItemName(it)
+  })
+  const text = [`采购清单 · ${now.getMonth() + 1} 月 ${now.getDate()} 日`, ...lines].join('\n')
+  uni.setClipboardData({
+    data: text,
+    success: () => uni.showToast({ title: '采购清单已复制', icon: 'none' }),
+  })
+}
+
+/** 转图片分享：canvas 绘制未购项 → 保存到相册（先授权）。 */
+function shareShopImage() {
+  const items = unpurchasedItems.value
+  if (!items.length) return
+  uni.authorize({
+    scope: 'scope.writePhotosAlbum',
+    success: () => drawShareImage(items),
+    fail: () => uni.showModal({
+      title: '需要相册权限',
+      content: '保存分享图片需要访问相册，请在设置中开启',
+      showCancel: false,
+      success: () => uni.openSetting(),
+    }),
+  })
+}
+
+function drawShareImage(items: ShoppingItemVO[]) {
+  const W = 320
+  const H = 90 + items.length * 40 + 30
+  // 旧版 canvas-id 接口：尺寸按 style 固定，这里直接按 W×H 绘制
+  const ctx = uni.createCanvasContext('shopShareCanvas')
+  ctx.setFillStyle('#FFFFFF')
+  ctx.fillRect(0, 0, W, H)
+  ctx.setFillStyle('#4A382A')
+  ctx.setFontSize(18)
+  ctx.fillText('采购清单', 20, 40)
+  ctx.setFillStyle('#9C8C7A')
+  ctx.setFontSize(12)
+  ctx.fillText(`${new Date().getMonth() + 1} 月 ${new Date().getDate()} 日`, 20, 64)
+  items.forEach((it, i) => {
+    const y = 100 + i * 40
+    ctx.setFillStyle('#4A382A')
+    ctx.setFontSize(15)
+    ctx.fillText(shopItemName(it), 20, y)
+    const amt = shopItemAmount(it)
+    if (amt) {
+      ctx.setFillStyle('#9C8C7A')
+      ctx.setFontSize(12)
+      ctx.fillText(amt, 240, y)
+    }
+  })
+  ctx.draw(false, () => {
+    uni.canvasToTempFilePath({
+      canvasId: 'shopShareCanvas',
+      width: W,
+      height: H,
+      success: (r) => {
+        uni.saveImageToPhotosAlbum({
+          filePath: r.tempFilePath,
+          success: () => uni.showToast({ title: '已保存到相册', icon: 'none' }),
+          fail: () => uni.showToast({ title: '保存失败', icon: 'none' }),
+        })
+      },
+      fail: () => uni.showToast({ title: '生成图片失败', icon: 'none' }),
+    })
+  })
 }
 
 /** 整集做菜：POST /menu/{id}/cook。 */
@@ -777,4 +866,30 @@ function goBack() {
   border-radius: 16rpx;
 }
 .review-btn::after { border: none; }
+/* 分享 canvas（屏幕外，仅绘制用） */
+.share-canvas {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 320px;
+  height: 480px;
+}
+/* 采购分享条（对齐原型 menu-detail-caigou.html 底部分享） */
+.shop-share {
+  display: flex;
+  gap: 16rpx;
+  margin: 24rpx 28rpx 8rpx;
+}
+.share-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  background: #FFFFFF;
+  color: #D17A3C;
+  border: 3rpx solid #E89150;
+  border-radius: 16rpx;
+}
+.share-btn::after { border: none; }
 </style>
