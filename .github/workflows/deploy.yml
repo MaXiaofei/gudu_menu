@@ -57,7 +57,7 @@ jobs:
       DEPLOY_ENV: ${{ needs.determine-env.outputs.env }}
 
     steps:
-      # SSH 执行部署脚本（服务器上的 deploy.sh 负责 git pull + 构建 + 重启 + 健康检查）
+      # SSH 执行部署脚本（服务器上 git pull + 构建 + 重启 + 健康检查）
       - name: Deploy to ${{ env.DEPLOY_ENV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -68,9 +68,8 @@ jobs:
           envs: DEPLOY_ENV
           script_stop: true
           script: |
-            ENV=$DEPLOY_ENV bash -s <<'REMOTE'
             set -euo pipefail
-            ENV="${ENV:-staging}"
+            ENV="${DEPLOY_ENV:-staging}"
 
             # 根据环境选部署目录与 compose 文件
             if [ "$ENV" = "prod" ]; then
@@ -78,11 +77,13 @@ jobs:
               COMPOSE_FILE="docker-compose.prod.yml"
               SERVICE="menu-api"
               HEALTH_URL="http://localhost:80/gudu/doc.html"
+              PROJECT_OPT=""
             else
               DEPLOY_DIR="/root/gudu-staging"
               COMPOSE_FILE="docker-compose.staging.yml"
               SERVICE="menu-api"
               HEALTH_URL="http://localhost:9090/gudu/doc.html"
+              PROJECT_OPT="-p gudu-staging"
             fi
 
             echo "============================================================"
@@ -96,20 +97,16 @@ jobs:
             # 1. 拉取最新代码（源码 MB 级，跨境可接受）
             echo "→ git pull..."
             git fetch --all --prune
-            git reset --hard origin/"$(git rev-parse --abbrev-ref HEAD)"
-            git pull --ff-only || echo "  (已是最新或 fast-forward 失败，已 reset 到远端)"
+            BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            git reset --hard "origin/$BRANCH"
 
             # 2. 构建新镜像（多阶段构建：容器内 maven 打包，复用 layer 缓存）
             echo "→ docker compose build $SERVICE..."
-            docker compose -f "$COMPOSE_FILE" build "$SERVICE"
+            docker compose $PROJECT_OPT -f "$COMPOSE_FILE" build "$SERVICE"
 
             # 3. 重启容器（加载新镜像）
             echo "→ 重启 $SERVICE..."
-            if [ "$ENV" = "prod" ]; then
-              docker compose -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
-            else
-              docker compose -p gudu-staging -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
-            fi
+            docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
 
             # 4. 健康检查（等待 Spring Boot 启动，最多 120 秒）
             echo "→ 等待应用启动（健康检查）..."
@@ -126,9 +123,8 @@ jobs:
             done
 
             echo "❌ 健康检查超时（120s 内未启动）"
-            echo "  查看日志: docker compose -f $COMPOSE_FILE logs --tail 30 $SERVICE"
+            echo "  查看日志: docker compose $PROJECT_OPT -f $COMPOSE_FILE logs --tail 30 $SERVICE"
             exit 1
-            REMOTE
 
       # 部署结果通知
       - name: Deploy status
