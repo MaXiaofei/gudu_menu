@@ -101,32 +101,6 @@
                 </view>
               </view>
             </view>
-
-            <!-- 调料折叠 -->
-            <view v-if="prep.condiments.length" class="condiment-header" @click="condimentExpanded = !condimentExpanded">
-              <u-icon name="tags" :size="22" color="#6E5C49" />
-              <text class="condiment-title">调料 {{ prep.condiments.length }} 样 · 无需备料</text>
-              <text class="condiment-arrow">{{ condimentExpanded ? '▾' : '▸' }}</text>
-            </view>
-            <view v-if="condimentExpanded" class="yh-card prep-card condiment-card">
-              <view
-                v-for="it in prep.condiments"
-                :key="it.ingredientId"
-                :class="['prep-row', { shared: it.shared }]"
-                @click="togglePrep(it)"
-                @longpress="longPressPrep(it)"
-              >
-                <text :class="['prep-chip', chipClass(it.status)]">{{ statusLabel(it.status) }}</text>
-                <view class="prep-main">
-                  <view class="prep-name-row">
-                    <text class="prep-name">{{ it.ingredientName }}</text>
-                    <text v-if="it.shared" class="prep-shared">共用</text>
-                  </view>
-                  <text v-if="it.dishNames.length" class="prep-sub">{{ prepSub(it) }}</text>
-                </view>
-                <text class="prep-grams">{{ Math.round(it.totalGrams) }}g</text>
-              </view>
-            </view>
           </template>
           <view v-else class="prep-loading">加载备菜失败</view>
         </template>
@@ -206,7 +180,6 @@ const cooking = ref(false)
 // 备菜（Plan C）：惰性加载，切到备菜 Tab 才拉
 const prep = ref<MenuPrepVO | null>(null)
 const prepLoading = ref(false)
-const condimentExpanded = ref(false)
 
 // 采购（Plan E）：惰性加载，切到采购 Tab 才拉
 const shopVO = ref<ShoppingListVO | null>(null)
@@ -299,7 +272,7 @@ async function updatePrep(it: PrepItem, next: PrepStatus) {
   }
 }
 
-/** 重算进度（仅 items，调料不计）。 */
+/** 重算进度（调料已并入 items，全部计入）。 */
 function recomputeReady() {
   if (!prep.value) return
   prep.value.readyCount = prep.value.items.filter((x) => x.status === 'READY').length
@@ -565,7 +538,6 @@ function goBack() {
 
 /* 备菜行 */
 .prep-card { padding: 8rpx 32rpx; margin-top: 0; }
-.prep-card.condiment-card { margin: 0 28rpx; }
 .prep-row {
   display: flex;
   align-items: center;
@@ -614,19 +586,6 @@ function goBack() {
   white-space: nowrap;
 }
 .prep-grams { font-size: 26rpx; color: #9C8C7A; }
-
-/* 调料折叠头 */
-.condiment-header {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin: 24rpx 28rpx 12rpx;
-  padding: 20rpx 28rpx;
-  background: #FBF0DD;
-  border-radius: 16rpx;
-}
-.condiment-title { flex: 1; font-size: 26rpx; color: #6E5C49; }
-.condiment-arrow { font-size: 26rpx; color: #9C8C7A; }
 
 /* 占位 */
 .placeholder {

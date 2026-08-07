@@ -314,7 +314,6 @@ class _PrepTab extends StatefulWidget {
 class _PrepTabState extends State<_PrepTab> {
   MenuPrep? _prep;
   bool _loading = true;
-  bool _condimentExpanded = false;
   int _lastTick = 0;
 
   @override
@@ -398,7 +397,7 @@ class _PrepTabState extends State<_PrepTab> {
     }
   }
 
-  /// 重建 _prep（改某食材 status + 重算 readyCount；调料改 status 不影响进度）。
+  /// 重建 _prep（改某食材 status + 重算 readyCount；调料已并入 items 一并计进度）。
   MenuPrep _rebuiltWith(int ingredientId, PrepStatus next) {
     final p = _prep;
     if (p == null) {
@@ -409,15 +408,11 @@ class _PrepTabState extends State<_PrepTab> {
         .map((it) =>
             it.ingredientId == ingredientId ? it.copyWithStatus(next) : it)
         .toList();
-    final condiments = p.condiments
-        .map((it) =>
-            it.ingredientId == ingredientId ? it.copyWithStatus(next) : it)
-        .toList();
     final readyCount =
         items.where((it) => it.status == PrepStatus.ready).length;
     return MenuPrep(
       items: items,
-      condiments: condiments,
+      condiments: p.condiments,
       readyCount: readyCount,
       totalCount: p.totalCount,
     );
@@ -432,22 +427,12 @@ class _PrepTabState extends State<_PrepTab> {
       children: [
         _buildProgress(p),
         const _SectionTitle('备料清单'),
+        // 调料已并入 items（后端不折叠，全部计入总数/进度）
         ...p.items.map((it) => _PrepItemRow(
               item: it,
               onTap: () => _toggle(it),
               onLongPress: () => _longPress(it),
             )),
-        if (p.condiments.isNotEmpty) ...[
-          const SizedBox(height: AppTokens.sp8),
-          _buildCondimentHeader(p.condiments.length),
-          if (_condimentExpanded)
-            ...p.condiments.map((it) => _PrepItemRow(
-                  item: it,
-                  isCondiment: true,
-                  onTap: () => _toggle(it),
-                  onLongPress: () => _longPress(it),
-                )),
-        ],
         const SizedBox(height: AppTokens.sp24),
       ],
     );
@@ -484,29 +469,6 @@ class _PrepTabState extends State<_PrepTab> {
       ),
     );
   }
-
-  Widget _buildCondimentHeader(int count) {
-    final t = AppTokens.of(context);
-    return Material(
-      color: t.secondary,
-      child: InkWell(
-        onTap: () => setState(() => _condimentExpanded = !_condimentExpanded),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
-          child: Row(
-            children: [
-              Text('调料 $count 样 · 无需备料',
-                  style: t.textStyles.sm),
-              const Spacer(),
-              Icon(
-                  _condimentExpanded ? Icons.expand_less : Icons.expand_more,
-                  color: t.caption),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// 备菜列表行：食材名 + 用量 + 共用高亮 + 来自哪些菜 + 行尾状态 chip。
@@ -516,12 +478,10 @@ class _PrepItemRow extends StatelessWidget {
   final PrepItem item;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  final bool isCondiment;
   const _PrepItemRow({
     required this.item,
     required this.onTap,
     required this.onLongPress,
-    this.isCondiment = false,
   });
 
   @override

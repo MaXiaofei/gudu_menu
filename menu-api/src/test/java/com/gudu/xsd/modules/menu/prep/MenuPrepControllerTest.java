@@ -64,15 +64,17 @@ class MenuPrepControllerTest {
 
     private final ObjectMapper om = new ObjectMapper();
 
-    /** GET /menu/{id}/prep：返回 items + condiments + 进度。 */
+    /** GET /menu/{id}/prep：返回 items（含调料）+ 进度。 */
     @Test
     void 备菜列表_返回200_and_items_进度() throws Exception {
         MenuPrepVO vo = new MenuPrepVO(
-                List.of(new PrepItemVO(1L, "番茄", new BigDecimal("300"), 2,
-                        List.of("番茄炒蛋", "番茄汤"), "READY", true)),
-                List.of(new PrepItemVO(16L, "食用油", new BigDecimal("30"), 1,
-                        List.of("番茄炒蛋"), "PENDING", false)),
-                1, 1);
+                List.of(
+                        new PrepItemVO(1L, "番茄", new BigDecimal("300"), 2,
+                                List.of("番茄炒蛋", "番茄汤"), "READY", true),
+                        new PrepItemVO(16L, "食用油", new BigDecimal("30"), 1,
+                                List.of("番茄炒蛋"), "PENDING", false)),
+                List.of(),
+                1, 2);
         given(svc.getPrep(eq(1L))).willReturn(vo);
 
         mvc.perform(get("/menu/1/prep"))
@@ -81,8 +83,9 @@ class MenuPrepControllerTest {
                 .andExpect(jsonPath("$.data.items[0].ingredientName").value("番茄"))
                 .andExpect(jsonPath("$.data.items[0].shared").value(true))
                 .andExpect(jsonPath("$.data.items[0].status").value("READY"))
-                .andExpect(jsonPath("$.data.condiments[0].ingredientName").value("食用油"))
-                .andExpect(jsonPath("$.data.totalCount").value(1))
+                .andExpect(jsonPath("$.data.items[1].ingredientName").value("食用油"))
+                .andExpect(jsonPath("$.data.condiments").isEmpty())
+                .andExpect(jsonPath("$.data.totalCount").value(2))
                 .andExpect(jsonPath("$.data.readyCount").value(1));
     }
 
