@@ -5,11 +5,11 @@
 #   - push 到 main 分支    → 部署生产环境 (prod, 端口 80)
 #   - push 到 feat/mvp 分支 → 部署测试环境 (staging, 端口 9090)
 #
-# 流程：
-#   1. 检出代码（GitHub 云端）
-#   2. Maven 打包 jar（复用依赖缓存，约 3 分钟）
-#   3. scp jar + deploy.sh 到服务器 /tmp（源文件须在 workspace 下，scp-action 跑在容器里）
-#   4. SSH 执行 deploy.sh（docker cp + restart + 健康检查）
+# 流程（方案 A：服务器自构建，不跨境传 jar）：
+#   GitHub runner 只判断环境 + 发起 SSH；
+#   服务器上 git pull 最新代码 → docker compose build menu-api
+#   （多阶段构建，maven 在容器内跑）→ 重启容器 → 健康检查。
+#   只跨境拉源码（MB 级），构建在服务器本地完成，避免传 80MB jar。
 #
 # 需要配置的 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）：
 #   - SSH_HOST：服务器 IP（如 49.232.3.201）
@@ -48,8 +48,8 @@ jobs:
             echo "SHOULD_DEPLOY=false" >> $GITHUB_OUTPUT
           fi
 
-  # 构建 jar 并部署
-  build-and-deploy:
+  # SSH 到服务器，让服务器自己 git pull + docker build
+  deploy:
     needs: determine-env
     if: needs.determine-env.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
@@ -57,56 +57,7 @@ jobs:
       DEPLOY_ENV: ${{ needs.determine-env.outputs.env }}
 
     steps:
-      # 1. 检出代码
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # 2. 配置 JDK
-      - name: Setup JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      # 3. Maven 缓存（加速依赖下载，首次约 5 分钟，后续约 30 秒）
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('menu-api/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      # 4. Maven 打包（跳过测试编译和运行，CI 只负责构建产物）
-      #    -Dmaven.test.skip=true 跳过测试代码编译（MenuControllerTest 有历史编译错误，待修）
-      - name: Build jar
-        working-directory: menu-api
-        run: mvn -B clean package -Dmaven.test.skip=true
-
-      # 5. 确认 jar 产物 + deploy.sh，统一放到 workspace 内的 deploy-artifacts/
-      #    （appleboy/scp-action 跑在 Docker 容器里，只挂载 GITHUB_WORKSPACE，
-      #     看不到 runner 的 /tmp，所以源文件必须放在 workspace 下）
-      - name: Prepare artifacts
-        run: |
-          mkdir -p deploy-artifacts
-          cp menu-api/target/*.jar deploy-artifacts/menu-api-deploy.jar
-          cp scripts/deploy.sh deploy-artifacts/deploy.sh
-          ls -lh deploy-artifacts/
-
-      # 6. scp jar + deploy.sh 到服务器 /tmp（一次传两个，strip_components 去掉目录层）
-      - name: Upload artifacts to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASS }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: "deploy-artifacts/menu-api-deploy.jar,deploy-artifacts/deploy.sh"
-          target: "/tmp"
-          strip_components: 1
-          overwrite: true
-
-      # 8. SSH 执行部署（jar 已在 /tmp/menu-api-deploy.jar）
+      # SSH 执行部署脚本（服务器上的 deploy.sh 负责 git pull + 构建 + 重启 + 健康检查）
       - name: Deploy to ${{ env.DEPLOY_ENV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -115,11 +66,71 @@ jobs:
           password: ${{ secrets.SSH_PASS }}
           port: ${{ secrets.SSH_PORT || 22 }}
           envs: DEPLOY_ENV
+          script_stop: true
           script: |
-            chmod +x /tmp/deploy.sh
-            ENV=$DEPLOY_ENV /tmp/deploy.sh
+            ENV=$DEPLOY_ENV bash -s <<'REMOTE'
+            set -euo pipefail
+            ENV="${ENV:-staging}"
 
-      # 9. 部署结果通知
+            # 根据环境选部署目录与 compose 文件
+            if [ "$ENV" = "prod" ]; then
+              DEPLOY_DIR="/root/gudu"
+              COMPOSE_FILE="docker-compose.prod.yml"
+              SERVICE="menu-api"
+              HEALTH_URL="http://localhost:80/gudu/doc.html"
+            else
+              DEPLOY_DIR="/root/gudu-staging"
+              COMPOSE_FILE="docker-compose.staging.yml"
+              SERVICE="menu-api"
+              HEALTH_URL="http://localhost:9090/gudu/doc.html"
+            fi
+
+            echo "============================================================"
+            echo "  部署环境: $ENV"
+            echo "  目录:     $DEPLOY_DIR"
+            echo "  时间:     $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "============================================================"
+
+            cd "$DEPLOY_DIR"
+
+            # 1. 拉取最新代码（源码 MB 级，跨境可接受）
+            echo "→ git pull..."
+            git fetch --all --prune
+            git reset --hard origin/"$(git rev-parse --abbrev-ref HEAD)"
+            git pull --ff-only || echo "  (已是最新或 fast-forward 失败，已 reset 到远端)"
+
+            # 2. 构建新镜像（多阶段构建：容器内 maven 打包，复用 layer 缓存）
+            echo "→ docker compose build $SERVICE..."
+            docker compose -f "$COMPOSE_FILE" build "$SERVICE"
+
+            # 3. 重启容器（加载新镜像）
+            echo "→ 重启 $SERVICE..."
+            if [ "$ENV" = "prod" ]; then
+              docker compose -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
+            else
+              docker compose -p gudu-staging -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
+            fi
+
+            # 4. 健康检查（等待 Spring Boot 启动，最多 120 秒）
+            echo "→ 等待应用启动（健康检查）..."
+            MAX_WAIT=24  # 24 × 5s = 120s
+            for i in $(seq 1 $MAX_WAIT); do
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 5 "$HEALTH_URL" 2>/dev/null || echo "000")
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "✅ 应用已启动 (HTTP $HTTP_CODE, 等待 $((i*5))s)"
+                echo "✅ 部署完成: $ENV @ $(date '+%Y-%m-%d %H:%M:%S')"
+                exit 0
+              fi
+              echo "  [$((i*5))s] 启动中... (HTTP $HTTP_CODE)"
+              sleep 5
+            done
+
+            echo "❌ 健康检查超时（120s 内未启动）"
+            echo "  查看日志: docker compose -f $COMPOSE_FILE logs --tail 30 $SERVICE"
+            exit 1
+            REMOTE
+
+      # 部署结果通知
       - name: Deploy status
         if: always()
         run: |
