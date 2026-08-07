@@ -98,7 +98,13 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         if (menu.getServingCount() == null) {
             menu.setServingCount(1);
         }
-        saveOrUpdate(menu);
+        // 显式判断：id 非 null 走 update，避免 saveOrUpdate 智能判断在
+        // 某些场景错走 insert（Duplicate entry for key 'menu.PRIMARY'）
+        if (menu.getId() != null) {
+            updateById(menu);
+        } else {
+            save(menu);
+        }
         menuDishMapper.delete(new QueryWrapper<MenuDish>().eq("menu_id", menu.getId()));
         if (dto.getDishes() != null) {
             for (MenuDish md : dto.getDishes()) {
