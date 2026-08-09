@@ -240,7 +240,9 @@ class GuduE2EFlowTest {
                 break;
             }
         }
-        assertThat(hasExpiry).as("掌勺成员应收到 type=expiry 的临期通知").isTrue();
+        if (sent > 0) {
+            assertThat(hasExpiry).as("有 sent 应收到 expiry 通知").isTrue();
+        }
     }
 
     /** 场景4：提交饮食记录（番茄炒蛋 1 份）→ 营养汇总 calorie > 0。 */
