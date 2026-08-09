@@ -113,15 +113,15 @@ class FoodLogServiceTest {
         assertThat(vo.summary().topDishes().get(0)).isEqualTo("番茄炒蛋"); // dish 1/2/3 各 1 次，取前 3
 
         // 时间轴：食集一顿（3 道、用完 2 样、用了一些 1 样）+ 单菜直做一顿（用完 1 样）
-        assertThat(vo.timeline()).hasSize(2);
-        FoodLogService.Meal meal = vo.timeline().get(0);
+        assertThat(vo.records()).hasSize(2);
+        FoodLogService.Meal meal = vo.records().get(0);
         assertThat(meal.menuId()).isEqualTo(10L);
         assertThat(meal.name()).isEqualTo("今晚的饭");
         assertThat(meal.dishCount()).isEqualTo(3);
         assertThat(meal.dishNames()).containsExactly("番茄炒蛋", "清蒸鲈鱼", "蒜蓉菠菜");
         assertThat(meal.usedUpCount()).isEqualTo(2);
         assertThat(meal.partialCount()).isEqualTo(1);
-        FoodLogService.Meal standalone = vo.timeline().get(1);
+        FoodLogService.Meal standalone = vo.records().get(1);
         assertThat(standalone.menuId()).isNull();
         assertThat(standalone.usedUpCount()).isEqualTo(1);
     }
@@ -137,8 +137,8 @@ class FoodLogServiceTest {
 
         FoodLogService.MonthVO vo = svc.month(99L, 2026, 7, FoodLogService.MEAL_DINNER, null, null, 1, 20);
 
-        assertThat(vo.timeline()).hasSize(1);
-        assertThat(vo.timeline().get(0).name()).isEqualTo("A");
+        assertThat(vo.records()).hasSize(1);
+        assertThat(vo.records().get(0).name()).isEqualTo("A");
     }
 
     @Test
@@ -155,8 +155,8 @@ class FoodLogServiceTest {
 
         FoodLogService.MonthVO vo = svc.month(99L, 2026, 7, null, null, true, 1, 20);
 
-        assertThat(vo.timeline()).hasSize(1);
-        assertThat(vo.timeline().get(0).menuId()).isEqualTo(10L);
+        assertThat(vo.records()).hasSize(1);
+        assertThat(vo.records().get(0).menuId()).isEqualTo(10L);
     }
 
     // ===================== byDish =====================
@@ -283,7 +283,7 @@ class FoodLogServiceTest {
 
         assertThat(vo.summary().meals()).isEqualTo(2);   // 1 食集 + 1 单菜直做（跨月）
         assertThat(vo.summary().cookDays()).isEqualTo(2);
-        assertThat(vo.timeline()).hasSize(2);
+        assertThat(vo.records()).hasSize(2);
     }
 
 
@@ -307,10 +307,10 @@ class FoodLogServiceTest {
         FoodLogService.MonthVO page2 = svc.month(99L, 2026, 7, null, null, null, 2, 1);
 
         assertThat(page1.total()).isEqualTo(2);
-        assertThat(page1.timeline()).hasSize(1);
-        assertThat(page1.timeline().get(0).menuId()).isEqualTo(10L); // 第 1 页=食集那顿
-        assertThat(page2.timeline()).hasSize(1);
-        assertThat(page2.timeline().get(0).menuId()).isNull();       // 第 2 页=单菜直做
+        assertThat(page1.records()).hasSize(1);
+        assertThat(page1.records().get(0).menuId()).isEqualTo(10L); // 第 1 页=食集那顿
+        assertThat(page2.records()).hasSize(1);
+        assertThat(page2.records().get(0).menuId()).isNull();       // 第 2 页=单菜直做
         assertThat(page1.summary().meals()).isEqualTo(2);             // 统计卡不受分页影响
     }
 }

@@ -29,7 +29,7 @@ public class FoodLogController {
                                            @RequestParam(required = false) String source,
                                            @RequestParam(required = false) Boolean reviewed,
                                            @RequestParam(defaultValue = "1") int pageNum,
-                                           @RequestParam(defaultValue = "20") int pageSize) {
+                                           @RequestParam(defaultValue = "15") int pageSize) {
         int[] ym = parseMonth(month);
         return R.ok(svc.month(currentMemberId(), ym[0], ym[1], meal, source, reviewed,
                 pageNum, pageSize));

@@ -62,16 +62,16 @@ class FoodLogControllerTest {
         FoodLogService.Meal meal = new FoodLogService.Meal(10L, "今晚的饭",
                 LocalDateTime.of(2026, 7, 2, 19, 20), 3, 2,
                 List.of("番茄炒蛋", "清蒸鲈鱼"), 2, 1, false);
-        given(svc.month(any(), eq(2026), eq(7), eq(null), eq(null), eq(null), eq(1), eq(20)))
-                .willReturn(new FoodLogService.MonthVO(summary, List.of(meal), 1));
+        given(svc.month(any(), eq(2026), eq(7), eq(null), eq(null), eq(null), eq(1), eq(15)))
+                .willReturn(new FoodLogService.MonthVO(summary, List.of(meal), 1, 1, 15));
 
         mvc.perform(get("/food-log/month").param("month", "2026-07"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.summary.meals").value(18))
                 .andExpect(jsonPath("$.data.summary.cookDays").value(12))
-                .andExpect(jsonPath("$.data.timeline[0].name").value("今晚的饭"))
-                .andExpect(jsonPath("$.data.timeline[0].usedUpCount").value(2));
-        verify(svc).month(any(), eq(2026), eq(7), eq(null), eq(null), eq(null), eq(1), eq(20));
+                .andExpect(jsonPath("$.data.records[0].name").value("今晚的饭"))
+                .andExpect(jsonPath("$.data.records[0].usedUpCount").value(2));
+        verify(svc).month(any(), eq(2026), eq(7), eq(null), eq(null), eq(null), eq(1), eq(15));
     }
 
     @Test

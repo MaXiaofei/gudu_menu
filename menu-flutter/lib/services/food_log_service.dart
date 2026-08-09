@@ -7,7 +7,7 @@ class FoodLogService {
 
   /// month=0 表示全年范围（年视图：统计卡+时间轴同构）；时间轴分页滚动加载。
   static Future<FoodLogMonth> month(int year, int month,
-      {int pageNum = 1, int pageSize = 20}) async {
+      {int pageNum = 1, int pageSize = 15}) async {
     final data = await ApiClient.instance.get('/food-log/month', query: {
       'month': month > 0 ? '$year-${month.toString().padLeft(2, '0')}' : '$year',
       'pageNum': pageNum,
@@ -48,19 +48,22 @@ class FoodLogService {
 
 // ===== 模型 =====
 
+/// 响应结构对齐 DESIGN.md §12.3：records/total/current/size。
 class FoodLogMonth {
   final FoodLogSummary summary;
-  final List<FoodLogMeal> timeline;
+  final List<FoodLogMeal> records;
   final int total;
+  final int size;
 
-  FoodLogMonth({required this.summary, required this.timeline, required this.total});
+  FoodLogMonth({required this.summary, required this.records, required this.total, required this.size});
 
   factory FoodLogMonth.fromJson(Map<String, dynamic> j) => FoodLogMonth(
         summary: FoodLogSummary.fromJson(j['summary'] as Map<String, dynamic>),
-        timeline: ((j['timeline'] as List?) ?? const [])
+        records: ((j['records'] as List?) ?? const [])
             .map((e) => FoodLogMeal.fromJson(e as Map<String, dynamic>))
             .toList(),
         total: (j['total'] as num?)?.toInt() ?? 0,
+        size: (j['size'] as num?)?.toInt() ?? 15,
       );
 }
 

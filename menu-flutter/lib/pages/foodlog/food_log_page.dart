@@ -34,8 +34,8 @@ class _FoodLogPageState extends State<FoodLogPage> {
   FoodLogByDish? _byDishData;
   bool _loading = true;
 
-  // 时间轴分页
-  static const _pageSize = 20;
+  // 时间轴分页（§12.2 默认每页 15 条）
+  static const _pageSize = 15;
   final _scroll = ScrollController();
   int _page = 1;
   bool _hasMore = true;
@@ -71,11 +71,13 @@ class _FoodLogPageState extends State<FoodLogPage> {
       setState(() {
         _monthData = FoodLogMonth(
           summary: next.summary,
-          timeline: [...?_monthData?.timeline, ...next.timeline],
+          records: [...?_monthData?.records, ...next.records],
           total: next.total,
+          size: next.size,
         );
         _page++;
-        _hasMore = (_monthData?.timeline.length ?? 0) < next.total;
+        // §12.3 启发式：本页满页 → 可能还有下一页
+        _hasMore = next.records.length == _pageSize;
       });
     } catch (_) {}
     if (mounted) setState(() => _loadingMore = false);
@@ -92,7 +94,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
       } else {
         _monthData = await FoodLogService.month(_year, range,
             pageNum: 1, pageSize: _pageSize);
-        _hasMore = (_monthData?.timeline.length ?? 0) < (_monthData?.total ?? 0);
+        _hasMore = (_monthData?.records.length ?? 0) == _pageSize;
       }
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
@@ -343,7 +345,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
         ],
       );
     }
-    final meals = data?.timeline ?? const <FoodLogMeal>[];
+    final meals = data?.records ?? const <FoodLogMeal>[];
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(

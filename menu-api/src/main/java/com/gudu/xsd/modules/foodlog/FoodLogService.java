@@ -102,7 +102,7 @@ public class FoodLogService {
                                 month > 0 ? new Object[]{year, month} : new Object[]{year})
                         .orderByAsc("cooked_at"));
         if (records.isEmpty()) {
-            return new MonthVO(new Summary(0, 0, 0, List.of()), List.of(), 0);
+            return new MonthVO(new Summary(0, 0, 0, List.of()), List.of(), 0, pageNum, pageSize);
         }
 
         // 一顿饭 = 按 menu_id 分组（null 每条单独一顿）
@@ -139,7 +139,7 @@ public class FoodLogService {
         int from = Math.max(0, (pageNum - 1) * pageSize);
         int to = Math.min(total, from + pageSize);
         List<Meal> page = from >= total ? List.of() : meals.subList(from, to);
-        return new MonthVO(summary, page, total);
+        return new MonthVO(summary, page, total, pageNum, pageSize);
     }
 
     /** 组装一顿饭（整集做：取组内第一条 memo 解析用材；单菜直做：直接解析）。 */
@@ -367,7 +367,8 @@ public class FoodLogService {
 
     public record Summary(int meals, int dishes, int cookDays, List<String> topDishes) {}
 
-    public record MonthVO(Summary summary, List<Meal> timeline, int total) {}
+    /** 响应结构对齐 §12.3：records/total/current/size；records=时间轴分页列表。 */
+    public record MonthVO(Summary summary, List<Meal> records, int total, int current, int size) {}
 
     public record Meal(Long menuId, String name, LocalDateTime cookedAt, int dishCount,
                        Integer servingCount, List<String> dishNames,
