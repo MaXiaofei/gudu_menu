@@ -11,6 +11,10 @@
   .top { background: #FDFAF4; padding: 14px 16px 10px; border-bottom: 1px solid #F0E6D6; }
   .top h1 { font-size: 19px; font-weight: 800; }
   .top .sub { font-size: 11px; color: #9C8C7A; margin-top: 3px; }
+  .top .me { display: inline-flex; align-items: center; gap: 4px; background: #FBF0DD;
+            border-radius: 99px; padding: 3px 10px; font-size: 11px; color: #6E5C49; margin-top: 6px; }
+  .top .me b { color: #4A382A; }
+  .top .me .pen { font-size: 12px; color: #D17A3C; font-weight: 800; }
   .sec { padding: 12px 16px 4px; font-size: 11px; font-weight: 800; color: #9C8C7A; letter-spacing: 1px; }
   .card { background: #FFFFFF; border: 1px solid #F0E6D6; border-radius: 12px; margin: 0 12px 8px; padding: 10px 12px; }
   .card .name { font-size: 13px; font-weight: 800; color: #4A382A; }
@@ -42,6 +46,8 @@
   .modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 280px;
            background: #fff; border-radius: 16px; padding: 18px; display: none; z-index: 9; }
   .modal .t { font-size: 15px; font-weight: 800; text-align: center; }
+  .modal .inp { width: 100%; border: 1px solid #F0E6D6; border-radius: 10px; padding: 10px 12px; font-size: 13px;
+                margin-top: 12px; outline: none; background: #FDFAF4; color: #4A382A; }
   .modal .b { display: flex; gap: 8px; margin-top: 16px; }
   .modal button { flex: 1; border: none; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 13px; }
   .modal .cancel { background: #F5EFE6; color: #6E5C49; }
@@ -53,6 +59,9 @@
 <div class="top">
   <h1 id="menuName">聚餐点菜</h1>
   <div class="sub" id="menuSub"></div>
+  <div class="me" id="meRow" style="display:none" onclick="showNickname()">
+    <span>我是 <b id="meName"></b></span><span class="pen">✎</span>
+  </div>
 </div>
 
 <div id="codeView" class="login" style="display:none">
@@ -61,15 +70,6 @@
     <div style="font-size:11px;color:#9C8C7A;margin:4px 0 12px">朋友把 6 位口令发给你了？在这里输入</div>
     <input id="codeInput" placeholder="6 位口令，如 7K9F2M" maxlength="6" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')doCode()">
     <button class="btn-primary" style="margin:14px 0 0" onclick="doCode()">进入</button>
-  </div>
-</div>
-
-<div id="loginView" class="login" style="display:none">
-  <div class="card" style="margin:0;padding:16px">
-    <div style="font-size:15px;font-weight:800">进来点菜</div>
-    <div style="font-size:11px;color:#9C8C7A;margin:4px 0 12px">输入你的昵称，朋友们能看到你点了什么</div>
-    <input id="nicknameInput" placeholder="昵称，如：小王" maxlength="16">
-    <button class="btn-primary" style="margin:14px 0 0" onclick="doJoin()">进入</button>
   </div>
 </div>
 
@@ -96,6 +96,14 @@
   <div class="b">
     <button class="cancel" onclick="hideDel()">取消</button>
     <button class="ok" onclick="doDel()">删</button>
+  </div>
+</div>
+<div class="modal" id="nicknameModal">
+  <div class="t">改昵称</div>
+  <input class="inp" id="nicknameInput" maxlength="16" placeholder="昵称，如：小王">
+  <div class="b">
+    <button class="cancel" onclick="hideNickname()">取消</button>
+    <button class="ok" onclick="saveNickname()">确定</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -137,7 +145,16 @@ function fmtTime(iso) {
   return (d.getMonth() + 1) + '/' + d.getDate();
 }
 
-// ============ 进入 ============
+/// 匿名昵称：食客 + 2 位字母 + 1 位数字（可点铅笔改）。
+function anonName() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let s = '';
+  for (let i = 0; i < 2; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  s += Math.floor(Math.random() * 10);
+  return '食客' + s;
+}
+
+// ============ 进入（匿名，不强制昵称） ============
 async function init() {
   if (!token) {
     // 无链接（朋友只拿到 6 位口令）：显示口令输入
@@ -147,20 +164,19 @@ async function init() {
   try {
     const info = await api('invite/' + token);
     menuId = info.menuId;
-    $('menuName').textContent = info.menuName || '聚餐';
-    $('menuSub').textContent = info.dishCount + ' 道菜 · 朋友一起点';
+    showMenuInfo(info);
     if (guestKey) {
       enter();
     } else {
-      $('loginView').style.display = 'block';
-      $('nicknameInput').value = nickname;
+      // 自动生成匿名昵称加入，无需用户输入
+      await autoJoin();
     }
   } catch (e) {
     toast(e.message || '邀请链接无效');
   }
 }
 
-/// 口令进入：校验后拿到 token，走正常进入流程（昵称输入/直接进入）。
+/// 口令进入：校验后拿到 token，继续匿名进入流程。
 async function doCode() {
   const code = $('codeInput').value.trim().toUpperCase();
   if (code.length !== 6) { toast('输入 6 位口令'); return; }
@@ -168,38 +184,65 @@ async function doCode() {
     const info = await api('invite/code/' + encodeURIComponent(code));
     token = info.token;
     menuId = info.menuId;
-    $('menuName').textContent = info.menuName || '聚餐';
-    $('menuSub').textContent = info.dishCount + ' 道菜 · 朋友一起点';
+    showMenuInfo(info);
     $('codeView').style.display = 'none';
     if (guestKey) {
       enter();
     } else {
-      $('loginView').style.display = 'block';
-      $('nicknameInput').value = nickname;
+      await autoJoin();
     }
   } catch (e) { toast(e.message || '口令无效'); }
 }
 
-async function doJoin() {
-  const name = $('nicknameInput').value.trim();
-  if (!name) { toast('先输入昵称'); return; }
+function showMenuInfo(info) {
+  $('menuName').textContent = info.menuName || '聚餐';
+  $('menuSub').textContent = info.dishCount + ' 道菜 · 朋友一起点';
+}
+
+/// 匿名加入：无 guestKey 时自动生成昵称并 join。
+async function autoJoin() {
+  if (!nickname) nickname = anonName();
   try {
-    const r = await api('invite/' + token + '/join', 'POST', { nickname: name });
+    const r = await api('invite/' + token + '/join', 'POST', { nickname: nickname });
     guestKey = r.guestKey || '';
-    nickname = name;
+    nickname = r.guestKey ? nickname : nickname;
     if (guestKey) localStorage.setItem('tj_guest_' + token, guestKey);
-    localStorage.setItem('tj_nick_' + token, name);
-    menuId = r.menuId;
+    localStorage.setItem('tj_nick_' + token, nickname);
     enter();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(e.message || '加入失败'); }
 }
 
 function enter() {
-  $('loginView').style.display = 'none';
   $('mainView').style.display = 'block';
   $('bar').style.display = 'flex';
+  $('meRow').style.display = 'inline-flex';
+  $('meName').textContent = nickname;
   load();
   setInterval(load, 10000);
+}
+
+// ============ 昵称修改（铅笔） ============
+function showNickname() {
+  $('nicknameInput').value = nickname;
+  $('mask').style.display = 'block';
+  $('nicknameModal').style.display = 'block';
+  setTimeout(() => $('nicknameInput').focus(), 100);
+}
+function hideNickname() {
+  $('mask').style.display = 'none';
+  $('nicknameModal').style.display = 'none';
+}
+async function saveNickname() {
+  const name = $('nicknameInput').value.trim();
+  if (!name) { toast('昵称不能为空'); return; }
+  try {
+    await api('menu/' + menuId + '/together/nickname', 'PUT', { nickname: name });
+    nickname = name;
+    localStorage.setItem('tj_nick_' + token, nickname);
+    $('meName').textContent = nickname;
+    hideNickname();
+    load();
+  } catch (e) { toast(e.message); }
 }
 
 // ============ 清单（轮询） ============

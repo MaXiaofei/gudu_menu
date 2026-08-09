@@ -154,17 +154,14 @@ public class TogetherService {
                 joinMapper.insert(join);
             }
         } else {
-            // H5 访客：同食集同昵称复用（刷新丢 key 可找回）；否则新建 guest_key
-            MenuJoin join = joinMapper.selectOne(new QueryWrapper<MenuJoin>()
-                    .eq("menu_id", inv.getMenuId()).eq("nickname", name).isNull("member_id"));
-            if (join == null) {
-                join = new MenuJoin();
-                join.setMenuId(inv.getMenuId());
-                join.setNickname(name);
-                join.setGuestKey(UUID.randomUUID().toString().replace("-", ""));
-                join.setLastActiveAt(LocalDateTime.now());
-                joinMapper.insert(join);
-            }
+            // H5 访客：每次进入新建 guest_key（不按昵称复用——匿名昵称会重复，复用会串身份；
+            // 刷新丢 key 只是多一条孤儿记录，无害）
+            MenuJoin join = new MenuJoin();
+            join.setMenuId(inv.getMenuId());
+            join.setNickname(name);
+            join.setGuestKey(UUID.randomUUID().toString().replace("-", ""));
+            join.setLastActiveAt(LocalDateTime.now());
+            joinMapper.insert(join);
             guestKey = join.getGuestKey();
         }
         Menu menu = menuMapper.selectById(inv.getMenuId());
@@ -209,6 +206,20 @@ public class TogetherService {
                 new QueryWrapper<MenuInvite>().eq("menu_id", menuId));
         InviteVO inviteVO = inv == null ? null : new InviteVO(inv.getCode(), inv.getToken());
         return new TogetherVO(members, dishes, activities, inviteVO);
+    }
+
+    // ===================== 昵称 =====================
+
+    /** 修改昵称（已加入成员；H5 顶部昵称 ✎ 铅笔编辑）。 */
+    @Transactional
+    public void updateNickname(Long menuId, Identity identity, String nickname) {
+        MenuJoin me = resolveJoin(menuId, identity, false);
+        String name = nickname == null ? "" : nickname.trim();
+        if (name.isEmpty() || name.length() > 32) {
+            throw new BizException("昵称 1-32 个字");
+        }
+        me.setNickname(name);
+        joinMapper.updateById(me);
     }
 
     // ===================== 加菜 / 删菜 =====================

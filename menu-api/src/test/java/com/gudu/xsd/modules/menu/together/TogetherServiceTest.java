@@ -166,7 +166,6 @@ class TogetherServiceTest {
     @Test
     void 访客加入_首次创建guestKey() {
         given(inviteMapper.selectOne(any())).willReturn(invite("ABC123", "tok"));
-        given(joinMapper.selectOne(any())).willReturn(null);
         given(joinMapper.insert(any())).willAnswer(inv -> {
             ((MenuJoin) inv.getArgument(0)).setId(1L);
             return 1;
@@ -183,15 +182,22 @@ class TogetherServiceTest {
     }
 
     @Test
-    void 访客加入_同昵称复用guestKey() {
+    void 访客加入_每次新建guestKey不按昵称复用() {
         given(inviteMapper.selectOne(any())).willReturn(invite("ABC123", "tok"));
-        given(joinMapper.selectOne(any())).willReturn(join(null, "guest-1", "小王"));
+        given(joinMapper.insert(any())).willAnswer(inv -> {
+            ((MenuJoin) inv.getArgument(0)).setId(2L);
+            return 1;
+        });
         given(menuMapper.selectById(7L)).willReturn(menu(7L, "今晚的饭"));
 
-        TogetherService.JoinVO vo = svc.join("tok", "小王", null);
+        // 同昵称再来一次：也是新建（匿名昵称会重复，复用会串身份）
+        TogetherService.JoinVO v1 = svc.join("tok", "食客AB1", null);
+        TogetherService.JoinVO v2 = svc.join("tok", "食客AB1", null);
 
-        assertThat(vo.guestKey()).isEqualTo("guest-1");
-        verify(joinMapper, never()).insert(any());
+        assertThat(v1.guestKey()).isNotBlank();
+        assertThat(v2.guestKey()).isNotBlank();
+        assertThat(v1.guestKey()).isNotEqualTo(v2.guestKey());
+        verify(joinMapper, org.mockito.Mockito.times(2)).insert(any());
     }
 
     @Test
@@ -288,6 +294,37 @@ class TogetherServiceTest {
         ArgumentCaptor<MenuJoin> cap = ArgumentCaptor.forClass(MenuJoin.class);
         verify(joinMapper).insert(cap.capture());
         assertThat(cap.getValue().getMemberId()).isEqualTo(1L);
+    }
+
+    // ===================== 昵称修改 =====================
+
+    @Test
+    void 修改昵称_已加入访客_更新join昵称() {
+        MenuJoin me = join(null, "guest-1", "食客AB1");
+        given(joinMapper.selectOne(any())).willReturn(me);
+
+        svc.updateNickname(7L, TogetherService.Identity.guest("guest-1"), " 小王 ");
+
+        assertThat(me.getNickname()).isEqualTo("小王");
+        verify(joinMapper).updateById(me);
+    }
+
+    @Test
+    void 修改昵称_昵称为空_抛异常() {
+        MenuJoin me = join(null, "guest-1", "食客AB1");
+        given(joinMapper.selectOne(any())).willReturn(me);
+
+        assertThatThrownBy(() -> svc.updateNickname(7L, TogetherService.Identity.guest("guest-1"), "  "))
+                .hasMessageContaining("昵称");
+        verify(joinMapper, never()).updateById(any());
+    }
+
+    @Test
+    void 修改昵称_未加入_抛异常() {
+        given(joinMapper.selectOne(any())).willReturn(null);
+
+        assertThatThrownBy(() -> svc.updateNickname(7L, TogetherService.Identity.guest("nobody"), "小王"))
+                .hasMessageContaining("加入聚餐");
     }
 
     // ===================== 加菜 =====================

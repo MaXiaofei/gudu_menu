@@ -72,10 +72,22 @@ public class TogetherController {
         return R.ok(null);
     }
 
+    /** 修改昵称（已加入成员；H5 顶部昵称 ✎ 铅笔编辑）。 */
+    @PutMapping("/menu/{id}/together/nickname")
+    public R<?> updateNickname(@PathVariable Long id, @RequestBody NicknameReq req) {
+        svc.updateNickname(id, identity(), req == null ? null : req.getNickname());
+        return R.ok(null);
+    }
+
     // ===================== 请求体 / 身份 =====================
 
     @Data
     public static class JoinReq {
+        private String nickname;
+    }
+
+    @Data
+    public static class NicknameReq {
         private String nickname;
     }
 
