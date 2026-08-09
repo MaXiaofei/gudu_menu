@@ -138,12 +138,18 @@ class _FoodLogPageState extends State<FoodLogPage> {
         bottom: false,
         child: Column(
           children: [
-            // 日期组件行（§13.1 无标题，右对齐）
+            // 顶部行：返回箭头（左）+ 日期组件 + 月|年 切换（右）
+            // 返回与月份切换箭头分居左右，避免混淆（§13.3 BackHeader 箭头行）
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  GestureDetector(
+                    onTap: () => context.pop(),
+                    child: Text('‹',
+                        style: TextStyle(fontSize: 22, color: _t.title, fontWeight: FontWeight.w800)),
+                  ),
+                  const Spacer(),
                   _dateCapsule(),
                   const SizedBox(width: 8),
                   _modeSwitch(),

@@ -77,7 +77,7 @@ class _FoodLogDetailPageState extends State<FoodLogDetailPage> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(children: [
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () => context.pop(),
                   child: Text('‹',
                       style: TextStyle(fontSize: 20, color: _t.title, fontWeight: FontWeight.w800)),
                 ),
