@@ -27,9 +27,12 @@ public class FoodLogController {
     public R<FoodLogService.MonthVO> month(@RequestParam String month,
                                            @RequestParam(required = false) String meal,
                                            @RequestParam(required = false) String source,
-                                           @RequestParam(required = false) Boolean reviewed) {
+                                           @RequestParam(required = false) Boolean reviewed,
+                                           @RequestParam(defaultValue = "1") int pageNum,
+                                           @RequestParam(defaultValue = "20") int pageSize) {
         int[] ym = parseMonth(month);
-        return R.ok(svc.month(currentMemberId(), ym[0], ym[1], meal, source, reviewed));
+        return R.ok(svc.month(currentMemberId(), ym[0], ym[1], meal, source, reviewed,
+                pageNum, pageSize));
     }
 
     /** 按菜汇总：次数降序，每项带最近时间 + ★综合均分（未评价不显示）。 */

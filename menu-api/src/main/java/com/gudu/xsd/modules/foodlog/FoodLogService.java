@@ -91,7 +91,8 @@ public class FoodLogService {
     // ===================== 月视图：统计卡 + 时间轴 =====================
 
     public MonthVO month(Long memberId, int year, int month,
-                         String meal, String source, Boolean reviewed) {
+                         String meal, String source, Boolean reviewed,
+                         int pageNum, int pageSize) {
         List<CookingRecord> records = cookingRecordMapper.selectList(
                 new QueryWrapper<CookingRecord>()
                         .eq(memberId != null, "member_id", memberId)
@@ -101,7 +102,7 @@ public class FoodLogService {
                                 month > 0 ? new Object[]{year, month} : new Object[]{year})
                         .orderByAsc("cooked_at"));
         if (records.isEmpty()) {
-            return new MonthVO(new Summary(0, 0, 0, List.of()), List.of());
+            return new MonthVO(new Summary(0, 0, 0, List.of()), List.of(), 0);
         }
 
         // 一顿饭 = 按 menu_id 分组（null 每条单独一顿）
@@ -133,7 +134,12 @@ public class FoodLogService {
         }
 
         Summary summary = buildSummary(records, dishNames, meal, source, reviewed);
-        return new MonthVO(summary, meals);
+        // 时间轴分页（内存切片：分组在内存完成，SQL 分页会破坏「一顿饭」分组）
+        int total = meals.size();
+        int from = Math.max(0, (pageNum - 1) * pageSize);
+        int to = Math.min(total, from + pageSize);
+        List<Meal> page = from >= total ? List.of() : meals.subList(from, to);
+        return new MonthVO(summary, page, total);
     }
 
     /** 组装一顿饭（整集做：取组内第一条 memo 解析用材；单菜直做：直接解析）。 */
@@ -361,7 +367,7 @@ public class FoodLogService {
 
     public record Summary(int meals, int dishes, int cookDays, List<String> topDishes) {}
 
-    public record MonthVO(Summary summary, List<Meal> timeline) {}
+    public record MonthVO(Summary summary, List<Meal> timeline, int total) {}
 
     public record Meal(Long menuId, String name, LocalDateTime cookedAt, int dishCount,
                        Integer servingCount, List<String> dishNames,

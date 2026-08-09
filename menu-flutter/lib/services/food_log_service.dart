@@ -5,10 +5,13 @@ import '../../core/api_client.dart';
 class FoodLogService {
   // ===== 月视图：统计卡 + 时间轴 =====
 
-  /// month=0 表示全年范围（年视图：统计卡+时间轴同构）。
-  static Future<FoodLogMonth> month(int year, int month) async {
+  /// month=0 表示全年范围（年视图：统计卡+时间轴同构）；时间轴分页滚动加载。
+  static Future<FoodLogMonth> month(int year, int month,
+      {int pageNum = 1, int pageSize = 20}) async {
     final data = await ApiClient.instance.get('/food-log/month', query: {
       'month': month > 0 ? '$year-${month.toString().padLeft(2, '0')}' : '$year',
+      'pageNum': pageNum,
+      'pageSize': pageSize,
     });
     return FoodLogMonth.fromJson(data as Map<String, dynamic>);
   }
@@ -48,14 +51,16 @@ class FoodLogService {
 class FoodLogMonth {
   final FoodLogSummary summary;
   final List<FoodLogMeal> timeline;
+  final int total;
 
-  FoodLogMonth({required this.summary, required this.timeline});
+  FoodLogMonth({required this.summary, required this.timeline, required this.total});
 
   factory FoodLogMonth.fromJson(Map<String, dynamic> j) => FoodLogMonth(
         summary: FoodLogSummary.fromJson(j['summary'] as Map<String, dynamic>),
         timeline: ((j['timeline'] as List?) ?? const [])
             .map((e) => FoodLogMeal.fromJson(e as Map<String, dynamic>))
             .toList(),
+        total: (j['total'] as num?)?.toInt() ?? 0,
       );
 }
 

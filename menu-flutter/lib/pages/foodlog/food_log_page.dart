@@ -34,20 +34,65 @@ class _FoodLogPageState extends State<FoodLogPage> {
   FoodLogByDish? _byDishData;
   bool _loading = true;
 
+  // 时间轴分页
+  static const _pageSize = 20;
+  final _scroll = ScrollController();
+  int _page = 1;
+  bool _hasMore = true;
+  bool _loadingMore = false;
+
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients || _loadingMore || !_hasMore) return;
+    final pos = _scroll.position;
+    if (pos.pixels >= pos.maxScrollExtent - 120) _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_tab != 'timeline') return;
+    setState(() => _loadingMore = true);
+    try {
+      final range = _yearMode ? 0 : _month;
+      final next = await FoodLogService.month(_year, range,
+          pageNum: _page + 1, pageSize: _pageSize);
+      if (!mounted) return;
+      setState(() {
+        _monthData = FoodLogMonth(
+          summary: next.summary,
+          timeline: [...?_monthData?.timeline, ...next.timeline],
+          total: next.total,
+        );
+        _page++;
+        _hasMore = (_monthData?.timeline.length ?? 0) < next.total;
+      });
+    } catch (_) {}
+    if (mounted) setState(() => _loadingMore = false);
   }
 
   Future<void> _load() async {
     setState(() => _loading = _monthData == null && _byDishData == null);
     try {
       final range = _yearMode ? 0 : _month; // 年模式=全年范围
+      _page = 1;
+      _hasMore = true;
       if (_tab == 'byDish') {
         _byDishData = await FoodLogService.byDish(_year, range);
       } else {
-        _monthData = await FoodLogService.month(_year, range);
+        _monthData = await FoodLogService.month(_year, range,
+            pageNum: 1, pageSize: _pageSize);
+        _hasMore = (_monthData?.timeline.length ?? 0) < (_monthData?.total ?? 0);
       }
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
@@ -302,12 +347,23 @@ class _FoodLogPageState extends State<FoodLogPage> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
+        controller: _scroll,
         padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
         children: [
           if (meals.isEmpty)
             const Padding(padding: EdgeInsets.only(top: 80), child: EmptyView(text: '本月还没有做菜记录'))
-          else
+          else ...[
             ...meals.map((m) => _timelineRow(m)),
+            if (_loadingMore)
+              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LoadingView())
+            else if (!_hasMore && meals.length >= _pageSize)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text('共 ${meals.length} 顿',
+                    style: _t.textStyles.sm.copyWith(color: _t.caption),
+                    textAlign: TextAlign.center),
+              ),
+          ],
         ],
       ),
     );

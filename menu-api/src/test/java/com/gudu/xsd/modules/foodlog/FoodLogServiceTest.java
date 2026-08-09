@@ -104,7 +104,7 @@ class FoodLogServiceTest {
                 ing(1, "番茄"), ing(2, "鸡蛋"), ing(3, "盐"), ing(5, "葱")));
         when(reviewMapper.selectList(any())).thenReturn(List.of());
 
-        FoodLogService.MonthVO vo = svc.month(99L, 2026, 7, null, null, null);
+        FoodLogService.MonthVO vo = svc.month(99L, 2026, 7, null, null, null, 1, 20);
 
         // 统计卡：顿饭 2（1 食集 + 1 单菜直做）、道菜 4、做饭天数 2、最常做按 dishId 计数
         assertThat(vo.summary().meals()).isEqualTo(2);
@@ -135,7 +135,7 @@ class FoodLogServiceTest {
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of());
         when(reviewMapper.selectList(any())).thenReturn(List.of());
 
-        FoodLogService.MonthVO vo = svc.month(99L, 2026, 7, FoodLogService.MEAL_DINNER, null, null);
+        FoodLogService.MonthVO vo = svc.month(99L, 2026, 7, FoodLogService.MEAL_DINNER, null, null, 1, 20);
 
         assertThat(vo.timeline()).hasSize(1);
         assertThat(vo.timeline().get(0).name()).isEqualTo("A");
@@ -153,7 +153,7 @@ class FoodLogServiceTest {
         rv.setMenuId(10L);
         when(reviewMapper.selectList(any())).thenReturn(List.of(rv)); // 10 已评价
 
-        FoodLogService.MonthVO vo = svc.month(99L, 2026, 7, null, null, true);
+        FoodLogService.MonthVO vo = svc.month(99L, 2026, 7, null, null, true, 1, 20);
 
         assertThat(vo.timeline()).hasSize(1);
         assertThat(vo.timeline().get(0).menuId()).isEqualTo(10L);
@@ -279,11 +279,39 @@ class FoodLogServiceTest {
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of());
         when(reviewMapper.selectList(any())).thenReturn(List.of());
 
-        FoodLogService.MonthVO vo = svc.month(99L, 2026, 0, null, null, null);
+        FoodLogService.MonthVO vo = svc.month(99L, 2026, 0, null, null, null, 1, 20);
 
         assertThat(vo.summary().meals()).isEqualTo(2);   // 1 食集 + 1 单菜直做（跨月）
         assertThat(vo.summary().cookDays()).isEqualTo(2);
         assertThat(vo.timeline()).hasSize(2);
+    }
+
+
+    @Test
+    void month_时间轴分页_切片返回并给总数() {
+        // 2 顿（1 食集 + 1 单菜直做），pageSize=1 → 每页 1 条
+        LocalDateTime t1 = LocalDateTime.of(2026, 7, 2, 19, 20);
+        LocalDateTime t2 = LocalDateTime.of(2026, 7, 5, 12, 0);
+        when(cookingRecordMapper.selectList(any())).thenReturn(List.of(
+                rec(1, 10L, 1, t1, "用完:1,2;用了一些:3"),
+                rec(2, 10L, 2, t1, "用完:1,2;用了一些:3"),
+                rec(3, 10L, 3, t1, "用完:1,2;用了一些:3"),
+                rec(4, null, 4, t2, "用完:5")));
+        when(menuMapper.selectBatchIds(List.of(10L))).thenReturn(List.of(menu(10L, "今晚的饭")));
+        when(dishMapper.selectBatchIds(any())).thenReturn(List.of(
+                dish(1, "番茄炒蛋"), dish(2, "清蒸鲈鱼"), dish(3, "蒜蓉菠菜"), dish(4, "红烧肉")));
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of());
+        when(reviewMapper.selectList(any())).thenReturn(List.of());
+
+        FoodLogService.MonthVO page1 = svc.month(99L, 2026, 7, null, null, null, 1, 1);
+        FoodLogService.MonthVO page2 = svc.month(99L, 2026, 7, null, null, null, 2, 1);
+
+        assertThat(page1.total()).isEqualTo(2);
+        assertThat(page1.timeline()).hasSize(1);
+        assertThat(page1.timeline().get(0).menuId()).isEqualTo(10L); // 第 1 页=食集那顿
+        assertThat(page2.timeline()).hasSize(1);
+        assertThat(page2.timeline().get(0).menuId()).isNull();       // 第 2 页=单菜直做
+        assertThat(page1.summary().meals()).isEqualTo(2);             // 统计卡不受分页影响
     }
 }
 
