@@ -125,7 +125,26 @@ class _DishListPageState extends State<DishListPage> {
         bottom: false,
         child: Column(
           children: [
-            const ActionBar(),
+            // Tab 主页无标题（ActionBar）；picker 模式（食集「+ 加菜」push 进入）顶部加返回箭头行
+            if (widget.selectForMenuId != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => context.pop(),
+                      child: Text('‹',
+                          style: TextStyle(
+                              fontSize: 22,
+                              color: t.title,
+                              fontWeight: FontWeight.w800)),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+              )
+            else
+              const ActionBar(),
             if (widget.selectForMenuId != null) _buildSelectHint(t),
             _buildSearchBox(t),
             if (_tags.isNotEmpty) _buildTagBar(t),
