@@ -48,6 +48,8 @@ enum PrepStatus {
 class PrepItem {
   final int ingredientId;
   final String ingredientName;
+  /// 库存档位 ENOUGH/LOW/NONE（家里：充足/不足/用完，B5）。
+  final String? stockLevel;
   /// 聚合总克数（已 ×servingFactor，不减库存）。
   final double totalGrams;
   /// 被几道菜用到。
@@ -61,6 +63,7 @@ class PrepItem {
   const PrepItem({
     required this.ingredientId,
     required this.ingredientName,
+    this.stockLevel,
     required this.totalGrams,
     required this.dishCount,
     required this.dishNames,
@@ -71,6 +74,7 @@ class PrepItem {
   factory PrepItem.fromJson(Map<String, dynamic> j) => PrepItem(
         ingredientId: (j['ingredientId'] as num).toInt(),
         ingredientName: (j['ingredientName'] ?? '') as String,
+        stockLevel: j['stockLevel'] as String?,
         totalGrams: (j['totalGrams'] as num?)?.toDouble() ?? 0,
         dishCount: (j['dishCount'] as num?)?.toInt() ?? 0,
         dishNames: ((j['dishNames'] ?? const []) as List)
@@ -83,6 +87,7 @@ class PrepItem {
   PrepItem copyWithStatus(PrepStatus s) => PrepItem(
         ingredientId: ingredientId,
         ingredientName: ingredientName,
+        stockLevel: stockLevel,
         totalGrams: totalGrams,
         dishCount: dishCount,
         dishNames: dishNames,

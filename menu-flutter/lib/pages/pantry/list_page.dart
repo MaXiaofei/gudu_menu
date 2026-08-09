@@ -76,9 +76,9 @@ class _PantryListPageState extends State<PantryListPage> {
               action: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 「添加」（手动入库）：原型 FAB 上移，放「去采购」左侧
+                  // 「入库」：统一入库弹窗（采购/朋友送/旧库存补登），放「去采购」左侧
                   _topButton(
-                    label: '添加',
+                    label: '入库',
                     filled: false,
                     onTap: () async {
                       await context.push('/pantry/add');
@@ -156,13 +156,13 @@ class _PantryListPageState extends State<PantryListPage> {
     final showLow = f == 'all' || f == 'low';
     final showEnough = f == 'all' || f == 'enough';
     final noneItems = showNone
-        ? g.items.where((i) => i.status == 'NONE').toList()
+        ? g.items.where((i) => i.level == 'NONE').toList()
         : const <PantryGroupedItem>[];
     final lowItems = showLow
-        ? g.items.where((i) => i.status == 'LOW').toList()
+        ? g.items.where((i) => i.level == 'LOW').toList()
         : const <PantryGroupedItem>[];
     final enoughItems = showEnough
-        ? g.items.where((i) => i.status == 'ENOUGH').toList()
+        ? g.items.where((i) => i.level == 'ENOUGH').toList()
         : const <PantryGroupedItem>[];
 
     return ListView(
@@ -173,15 +173,15 @@ class _PantryListPageState extends State<PantryListPage> {
         const SizedBox(height: 4),
         // 分组列表
         if (noneItems.isNotEmpty) ...[
-          _buildSectionTitle(t, '缺 / 空 · ${noneItems.length}', AppTokens.error),
+          _buildSectionTitle(t, '用完 · ${noneItems.length}', AppTokens.error),
           ...noneItems.map((i) => _buildRow(t, i)),
         ],
         if (lowItems.isNotEmpty) ...[
-          _buildSectionTitle(t, '偏低 · ${lowItems.length}', AppTokens.warning),
+          _buildSectionTitle(t, '不足 · ${lowItems.length}', AppTokens.warning),
           ...lowItems.map((i) => _buildRow(t, i)),
         ],
         if (enoughItems.isNotEmpty) ...[
-          _buildSectionTitle(t, '够 · ${enoughItems.length}', AppTokens.success),
+          _buildSectionTitle(t, '充足 · ${enoughItems.length}', AppTokens.success),
           ...enoughItems.map((i) => _buildRow(t, i)),
         ],
       ],
@@ -194,11 +194,11 @@ class _PantryListPageState extends State<PantryListPage> {
       children: [
         _chip(t, 'all', '全部', g.items.length, null),
         const SizedBox(width: 6),
-        _chip(t, 'none', '缺', g.none, AppTokens.error),
+        _chip(t, 'none', '用完', g.none, AppTokens.error),
         const SizedBox(width: 6),
-        _chip(t, 'low', '低', g.low, AppTokens.warning),
+        _chip(t, 'low', '不足', g.low, AppTokens.warning),
         const SizedBox(width: 6),
-        _chip(t, 'enough', '够', g.enough, AppTokens.success),
+        _chip(t, 'enough', '充足', g.enough, AppTokens.success),
       ],
     );
   }
@@ -235,9 +235,9 @@ class _PantryListPageState extends State<PantryListPage> {
     );
   }
 
-  /// 单行：食材名 + 来源标签 + 数量 + 进入箭头
+  /// 单行：食材名 + 上次变动 + 档位文字 + 进入箭头（点行进详情改档位）。
   Widget _buildRow(AppTokens t, PantryGroupedItem item) {
-    final color = stockColor(item.status);
+    final color = stockColor(item.level);
     final hasSource = item.sourceLabel.isNotEmpty;
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
@@ -251,7 +251,7 @@ class _PantryListPageState extends State<PantryListPage> {
         borderRadius: BorderRadius.circular(AppTokens.rMd),
         onTap: () async {
           await context.push('/pantry/${item.ingredientId}');
-          _load(); // 详情页盘点后刷新
+          _load(); // 详情页改档位后刷新
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -270,7 +270,7 @@ class _PantryListPageState extends State<PantryListPage> {
                     Text(
                       hasSource
                           ? '${item.sourceLabel} ${item.sourceSub}'
-                          : (item.status == 'NONE' ? '本来就没有' : '无变动记录'),
+                          : (item.level == 'NONE' ? '本来就没有' : '无变动记录'),
                       style: t.textStyles.tiny.copyWith(
                         color: hasSource && item.sourceLabel == '手动' ? _t.primary : t.caption,
                         fontWeight: hasSource && item.sourceLabel == '手动' ? FontWeight.w700 : FontWeight.normal,
@@ -279,8 +279,8 @@ class _PantryListPageState extends State<PantryListPage> {
                   ],
                 ),
               ),
-              Text(item.displayAmount,
-                  style: t.textStyles.sm.copyWith(color: color)),
+              Text(item.levelLabel,
+                  style: t.textStyles.sm.copyWith(color: color, fontWeight: FontWeight.w800)),
               const SizedBox(width: 6),
               Icon(Icons.chevron_right, size: 18, color: t.caption),
             ],

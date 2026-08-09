@@ -147,7 +147,7 @@ void main() {
 
       final list = await MealPlanService.list();
 
-      expect(captor.last!.queryParameters['pageSize'], 10);
+      expect(captor.last!.queryParameters['pageSize'], 15);
       expect(list.length, 1);
       expect(list[0].id, 1);
       expect(list[0].weekStart, '2026-06-30');

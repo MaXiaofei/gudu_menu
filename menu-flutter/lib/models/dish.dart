@@ -98,17 +98,21 @@ class DishIngredient {
   final int ingredientId;
   final String? ingredientName;
   final double grams;
+  /// 库存档位 ENOUGH/LOW/NONE（家里：充足/不足/用完；后端批量回填）。
+  final String? stockLevel;
 
   const DishIngredient({
     required this.ingredientId,
     this.ingredientName,
     this.grams = 0,
+    this.stockLevel,
   });
 
   factory DishIngredient.fromJson(Map<String, dynamic> j) => DishIngredient(
         ingredientId: (j['ingredientId'] as num?)?.toInt() ?? 0,
         ingredientName: j['ingredientName'] as String?,
         grams: (j['grams'] as num?)?.toDouble() ?? 0,
+        stockLevel: j['stockLevel'] as String?,
       );
 
   String get displayName => ingredientName ?? '#$ingredientId';

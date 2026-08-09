@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_theme.dart';
@@ -72,6 +73,12 @@ class ProfilePage extends StatelessWidget {
                     icon: Icons.people_outline,
                     label: '家庭成员',
                     onTap: () {},
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  _SettingTile(
+                    icon: Icons.star_outline,
+                    label: '我的评价',
+                    onTap: () => context.push('/my-reviews'),
                   ),
                   const Divider(height: 1, indent: 56),
                   _SettingTile(

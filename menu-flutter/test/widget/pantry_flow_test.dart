@@ -29,21 +29,12 @@ void main() {
           'items': [
             {
               'ingredientId': 1,
-              'ingredientName': '番茄',
-              'unitName': '个',
-              'totalAmount': 0,
-              'totalGrams': 0,
-              'status': 'NONE',
+              'ingredientName': '番茄',              'level': 'NONE',
               'lastChange': null,
             },
             {
               'ingredientId': 2,
-              'ingredientName': '大米',
-              'unitName': 'kg',
-              'lowThreshold': 1,
-              'totalAmount': 2,
-              'totalGrams': 2000,
-              'status': 'ENOUGH',
+              'ingredientName': '大米',              'level': 'ENOUGH',
               'lastChange': null,
             },
           ],
@@ -53,13 +44,8 @@ void main() {
         return okResponse({
           'ingredientId': 1,
           'ingredientName': '番茄',
-          'unitId': 1,
-          'unitName': null,
-          'lowThreshold': 0.00,
-          'totalAmount': 0.00,
-          'totalGrams': 0.00,
-          'thresholdGrams': 0,
-          'status': 'NONE',
+          'unitId': 1,          'thresholdGrams': 0,
+          'level': 'NONE',
           'changes': [],
         });
       }
@@ -96,12 +82,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(PantryListPage), findsOneWidget);
 
-    // 点某一行 → 详情页完整渲染（返回图标 + 加减盘 + 保存按钮）
+    // 点某一行 → 详情页完整渲染（返回图标 + 3 档单选 + 保存按钮）
     await tester.tap(find.text('番茄'));
     await tester.pumpAndSettle();
     expect(find.byType(PantryDetailPage), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
-    expect(find.text('实际数了多少？'), findsOneWidget);
+    expect(find.text('现在家里是什么情况？'), findsOneWidget);
     expect(find.text('保存'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -112,19 +98,19 @@ void main() {
     await tester.tap(find.text('库存').last);
     await tester.pumpAndSettle();
 
-    // 右上角「添加」→ 选食材页（下一步按钮不崩）
-    await tester.tap(find.text('添加'));
+    // 右上角「入库」→ 选食材页（下一步按钮不崩）
+    await tester.tap(find.text('入库'));
     await tester.pumpAndSettle();
     expect(find.byType(PantryManualAddPage), findsOneWidget);
     expect(find.text('下一步'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    // 选中食材 → 下一步 → 填数量页（入库按钮不崩）
+    // 选中食材 → 下一步 → 定档位+来源页（入库按钮不崩）
     await tester.tap(find.text('番茄'));
     await tester.pump();
     await tester.tap(find.byType(ElevatedButton).last);
     await tester.pumpAndSettle();
-    expect(find.textContaining('入库 ·'), findsOneWidget);
+    expect(find.text('入库'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }

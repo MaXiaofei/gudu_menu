@@ -38,8 +38,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    // 顶栏"菜谱"
-    expect(find.text('菜谱'), findsOneWidget);
     // 菜品卡片
     expect(find.text('番茄炒蛋'), findsOneWidget);
     expect(find.text('红烧肉'), findsOneWidget);

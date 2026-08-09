@@ -76,119 +76,73 @@ class DishService {
     return (result as num).toInt();
   }
 
-  /// 单菜直做（不入食集）：POST /dish/{id}/cook-now?servings=N
-  /// 扣 pantry + 写 cooking_record，返回 CookResult（含扣减/欠量/记录 id）。
-  static Future<CookResult> cookNow(int dishId, {int servings = 1}) async {
-    final data = await ApiClient.instance.post(
-      '/dish/$dishId/cook-now',
-      query: {'servings': servings},
-    );
-    return CookResult.fromJson(data as Map<String, dynamic>);
+  /// 做菜确认弹窗数据：GET /menu/{id}/cook-materials
+  /// （本次用到的食材 + 当前档位 + 是否调料；不落库、不判断够不够）。
+  static Future<CookMaterials> cookMaterials(int menuId) async {
+    final data = await ApiClient.instance.get('/menu/$menuId/cook-materials');
+    return CookMaterials.fromJson(data as Map<String, dynamic>);
   }
 }
 
-/// 做菜结果（CookController CookResult）。
+/// 做菜确认弹窗数据（后端 CookMaterialsVO）。
 ///
-/// - `menuId`：整集做菜时为食集 id；单菜直做（cook-now）为 null。
-/// - `deductions`：各食材扣减明细列表（含实扣/欠量/批次/食材名）。
-/// - `shortages`：欠量 Map（ingredientId → 克数），非空表示库存不够。
-/// - `cookingRecordIds`：本次生成的 cooking_record id 列表。
-class CookResult {
-  final int? menuId;
-  final List<DeductResult> deductions;
-  final Map<int, double> shortages;
-  final List<int> cookingRecordIds;
+/// - `items`：本次用到的食材（聚合用量 + 当前档位 + 是否调料，调料默认"用了一些"）。
+class CookMaterials {
+  final int menuId;
+  final List<CookMaterialItem> items;
 
-  const CookResult({
-    this.menuId,
-    required this.deductions,
-    required this.shortages,
-    required this.cookingRecordIds,
-  });
+  const CookMaterials({required this.menuId, required this.items});
 
-  factory CookResult.fromJson(Map<String, dynamic> j) {
-    Map<int, double> parseNumKeyMap(dynamic v) {
-      if (v is! Map) return {};
-      return Map.fromEntries(
-        v.entries.where((e) => e.value != null).map(
-              (e) => MapEntry(
-                int.parse(e.key.toString()),
-                (e.value as num).toDouble(),
-              ),
-            ),
-      );
-    }
-
-    return CookResult(
-      menuId: (j['menuId'] as num?)?.toInt(),
-      deductions: ((j['deductions'] ?? const []) as List)
-          .map((e) => DeductResult.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      shortages: parseNumKeyMap(j['shortages']),
-      cookingRecordIds: ((j['cookingRecordIds'] ?? []) as List)
-          .map((e) => (e as num).toInt())
-          .toList(),
-    );
-  }
-
-  bool get hasShortage => shortages.isNotEmpty;
-
-  /// 欠量食材名列表（供 UI 展示"缺：番茄 80g、鸡蛋 5g"）。
-  List<String> get shortageNames => deductions
-      .where((d) => d.shortageGrams > 0)
-      .map((d) => d.ingredientName != null && d.ingredientName!.isNotEmpty
-          ? '${d.ingredientName} ${d.shortageGrams.toStringAsFixed(0)}g'
-          : '食材#${d.ingredientId} ${d.shortageGrams.toStringAsFixed(0)}g')
-      .toList();
-}
-
-/// 单食材扣减明细（后端 PantryService.DeductResult）。
-///
-/// - `ingredientId`/`ingredientName`：食材 id 与冗余名（后端批量回填）。
-/// - `deductedGrams`：实际从 pantry 扣掉的克数。
-/// - `shortageGrams`：欠量克数（>0 表示库存不够）。
-/// - `batches`：逐批扣减明细（pantryId/扣量/余量）。
-class DeductResult {
-  final int ingredientId;
-  final String? ingredientName;
-  final double deductedGrams;
-  final double shortageGrams;
-  final List<DeductBatch> batches;
-
-  const DeductResult({
-    required this.ingredientId,
-    this.ingredientName,
-    required this.deductedGrams,
-    required this.shortageGrams,
-    required this.batches,
-  });
-
-  factory DeductResult.fromJson(Map<String, dynamic> j) => DeductResult(
-        ingredientId: (j['ingredientId'] as num).toInt(),
-        ingredientName: j['ingredientName'] as String?,
-        deductedGrams: (j['deductedGrams'] as num? ?? 0).toDouble(),
-        shortageGrams: (j['shortageGrams'] as num? ?? 0).toDouble(),
-        batches: ((j['batches'] ?? const []) as List)
-            .map((e) => DeductBatch.fromJson(e as Map<String, dynamic>))
+  factory CookMaterials.fromJson(Map<String, dynamic> j) => CookMaterials(
+        menuId: (j['menuId'] as num).toInt(),
+        items: ((j['items'] ?? const []) as List)
+            .map((e) => CookMaterialItem.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }
 
-/// 扣减批次明细（后端 DeductResult.BatchOut）。
-class DeductBatch {
-  final int pantryId;
-  final double deductedGrams;
-  final double remainGrams;
+/// 弹窗里的一项食材。
+class CookMaterialItem {
+  final int ingredientId;
+  final String? ingredientName;
+  /// 聚合用量（显示用，不参与任何库存判断）。
+  final double needGrams;
+  /// 当前档位 ENOUGH / LOW / NONE。
+  final String level;
+  /// 是否调料（采购品类=调味料，默认"用了一些"）。
+  final bool isCondiment;
 
-  const DeductBatch({
-    required this.pantryId,
-    required this.deductedGrams,
-    required this.remainGrams,
+  const CookMaterialItem({
+    required this.ingredientId,
+    this.ingredientName,
+    required this.needGrams,
+    required this.level,
+    required this.isCondiment,
   });
 
-  factory DeductBatch.fromJson(Map<String, dynamic> j) => DeductBatch(
-        pantryId: (j['pantryId'] as num).toInt(),
-        deductedGrams: (j['deductedGrams'] as num? ?? 0).toDouble(),
-        remainGrams: (j['remainGrams'] as num? ?? 0).toDouble(),
+  factory CookMaterialItem.fromJson(Map<String, dynamic> j) => CookMaterialItem(
+        ingredientId: (j['ingredientId'] as num).toInt(),
+        ingredientName: j['ingredientName'] as String?,
+        needGrams: (j['needGrams'] as num?)?.toDouble() ?? 0,
+        level: j['level'] as String? ?? 'NONE',
+        isCondiment: j['isCondiment'] as bool? ?? false,
+      );
+}
+
+/// 做菜确认结果（CookController CookResult，V42）。
+///
+/// - `menuId`：整集做菜的食集 id。
+/// - `cookingRecordIds`：本次写入的 cooking_record id 列表。
+class CookResult {
+  final int? menuId;
+  final List<int> cookingRecordIds;
+
+  const CookResult({this.menuId, required this.cookingRecordIds});
+
+  factory CookResult.fromJson(Map<String, dynamic> j) => CookResult(
+        menuId: (j['menuId'] as num?)?.toInt(),
+        cookingRecordIds: ((j['cookingRecordIds'] ?? const []) as List)
+            .map((e) => (e as num).toInt())
+            .toList(),
       );
 }

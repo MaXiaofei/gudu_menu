@@ -71,9 +71,38 @@ class ShoppingService {
     return (result as num).toInt();
   }
 
-  /// 切换已购：PUT /shopping/item/{id}/purchased
-  static Future<void> togglePurchased(int itemId) async {
-    await ApiClient.instance.put('/shopping/item/$itemId/purchased');
+  /// 切换已购：PUT /shopping/item/{id}/purchased（0→1 时入库设档位，level 可空默认充足）
+  static Future<void> togglePurchased(int itemId, {String? level}) async {
+    await ApiClient.instance.put('/shopping/item/$itemId/purchased', body: {
+      if (level != null) 'level': level,
+    });
+  }
+
+  /// 批量保存入库：POST /shopping/restock（勾选的采购项一次性入库，默认记充足）
+  static Future<RestockResult> restock(List<int> itemIds) async {
+    final data = await ApiClient.instance.post('/shopping/restock', body: {
+      'itemIds': itemIds,
+    });
+    return RestockResult.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// 撤回入库：POST /shopping/item/{id}/undo-restock（恢复入库前档位并删项）
+  static Future<void> undoRestock(int itemId) async {
+    await ApiClient.instance.post('/shopping/item/$itemId/undo-restock');
+  }
+
+  /// 清单改名：PUT /shopping/{id}/name（自定义采购 ✎）
+  static Future<void> renameList(int listId, String name) async {
+    await ApiClient.instance.put('/shopping/$listId/name', body: {'name': name});
+  }
+
+  /// 备菜一键加采购：POST /shopping/from-prep（勾选的食材送进该食集采购清单，无则新建）。
+  static Future<int> fromPrep(int menuId, List<int> ingredientIds) async {
+    final data = await ApiClient.instance.post('/shopping/from-prep', body: {
+      'menuId': menuId,
+      'ingredientIds': ingredientIds,
+    });
+    return (data as num).toInt();
   }
 
   /// 更新采购量：PUT /shopping/item/{id}
@@ -112,6 +141,7 @@ class ShoppingService {
 class ShoppingList {
   final int id;
   final int? sourcePlanId;
+  final String? name;
   final String? timeRange;
   final String? startDate;
   final String? endDate;
@@ -120,6 +150,7 @@ class ShoppingList {
   const ShoppingList({
     required this.id,
     this.sourcePlanId,
+    this.name,
     this.timeRange,
     this.startDate,
     this.endDate,
@@ -129,6 +160,7 @@ class ShoppingList {
   factory ShoppingList.fromJson(Map<String, dynamic> j) => ShoppingList(
         id: (j['id'] as num).toInt(),
         sourcePlanId: (j['sourcePlanId'] as num?)?.toInt(),
+        name: j['name'] as String?,
         timeRange: j['timeRange'] as String?,
         startDate: j['startDate'] as String?,
         endDate: j['endDate'] as String?,
@@ -155,6 +187,7 @@ class ShoppingList {
 /// 采购单详情 VO。
 class ShoppingListVO {
   final int id;
+  final String? name;
   final String? timeRange;
   final String? startDate;
   final String? endDate;
@@ -164,6 +197,7 @@ class ShoppingListVO {
 
   const ShoppingListVO({
     required this.id,
+    this.name,
     this.timeRange,
     this.startDate,
     this.endDate,
@@ -192,6 +226,7 @@ class ShoppingListVO {
     }
     return ShoppingListVO(
       id: (j['id'] as num).toInt(),
+      name: j['name'] as String?,
       timeRange: j['timeRange'] as String?,
       startDate: j['startDate'] as String?,
       endDate: j['endDate'] as String?,
@@ -284,4 +319,17 @@ class ShoppingItemVO {
     if (v == v.roundToDouble()) return v.toInt().toString();
     return v.toStringAsFixed(1);
   }
+}
+
+/// 批量入库结果（POST /shopping/restock）。
+class RestockResult {
+  final int restocked;
+  final int markedOnly;
+
+  const RestockResult({required this.restocked, required this.markedOnly});
+
+  factory RestockResult.fromJson(Map<String, dynamic> j) => RestockResult(
+        restocked: (j['restocked'] as num?)?.toInt() ?? 0,
+        markedOnly: (j['markedOnly'] as num?)?.toInt() ?? 0,
+      );
 }

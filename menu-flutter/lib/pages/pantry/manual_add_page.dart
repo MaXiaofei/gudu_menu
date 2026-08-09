@@ -7,11 +7,11 @@ import '../../widgets/action_bar.dart';
 import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
 
-/// 手动添加页（别人送/赠品/旧库存补登，对齐 pantry-manual-add.html 两屏）。
+/// 入库页（V42 档位版，对齐 pantry-manual-add.html 两屏）。
 ///
-/// ① 选食材（搜库里有 / 新建档）→ ② 填数量 + 批次属性 + 来源备注 → 入库。
-/// 产生带「手动」来源标签的新记录，区别于详情页盘点（纠偏、不带标签）。
-/// V41：批次属性「存放」存 pantry.storage，「保质期」按天数折成过期日 expireDate。
+/// ① 选食材（搜库里已有 / 新建档，填名字就行不用单位）→
+/// ② 定档位（充足默认 / 不足）+ 来源备注 → 入库。
+/// 不再填数量/单位/保质期——库存是模糊档位，不是账本。
 class PantryManualAddPage extends StatefulWidget {
   const PantryManualAddPage({super.key});
 
@@ -23,30 +23,27 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
   /// 主题 token 缓存。
   AppTokens get _t => AppTokens.of(context);
 
-  // 步骤：0=选食材，1=填数量+来源
+  // 步骤：0=选食材，1=定档位+来源
   int _step = 0;
 
   // 选中的食材（库里已有）
   IngredientItem? _selected;
-  // 新建档：搜索框输入的名字，勾选「新建食材并添加」后生效
+  // 新建档：搜索框输入的名字，勾选「新建食材并入库」后生效
   bool _newMode = false;
   String _newName = '';
 
-  // 食材列表 + 搜索
+  // 食材列表 + 搜索 + 家里档位 map
   List<IngredientItem> _ingredients = [];
+  Map<int, String> _levelByIng = {}; // ingredientId → 档位（家里状态展示）
   bool _loading = true;
   String _query = '';
 
-  // 数量 + 批次属性 + 来源
-  double _amount = 1;
+  // 档位 + 来源
+  String _level = StockLevel.enough; // 入库默认充足
   String _sourceNote = '朋友送';
-  String? _storage; // 常温/冷藏/冷冻
-  int? _shelfDays; // 保质期天数 → expireDate = 今天 + N
   bool _saving = false;
 
   static const _sourceOptions = ['朋友送', '赠品', '旧库存补登', '其他'];
-  static const _storageOptions = ['常温', '冷藏', '冷冻'];
-  static const _shelfOptions = [3, 7, 15, 30, 60, 90];
 
   @override
   void initState() {
@@ -56,10 +53,17 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
 
   Future<void> _load() async {
     try {
-      final list = await IngredientService.listAll();
+      final results = await Future.wait([
+        IngredientService.listAll(),
+        PantryService.listGrouped(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _ingredients = list;
+        _ingredients = results[0] as List<IngredientItem>;
+        final grouped = results[1] as PantryGrouped;
+        _levelByIng = {
+          for (final it in grouped.items) it.ingredientId: it.level,
+        };
         _loading = false;
       });
     } catch (_) {
@@ -78,16 +82,10 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
   /// 已选食材名（库里已有 / 新建档）。
   String get _name => _selected?.name ?? _newName;
 
-  /// 当前余量（库里已有有值，新建档 0）。
-  double get _stock => _selected?.stockAmount ?? 0;
-
-  String? get _unitName => _selected?.unitName;
-
   bool get _canNext => _selected != null || _newMode;
 
   @override
   Widget build(BuildContext context) {
-    // 顶部 ‹：① 返回退出；② 返回选食材
     return PopScope(
       canPop: _step == 0,
       onPopInvokedWithResult: (didPop, _) {
@@ -99,7 +97,6 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
           bottom: false,
           child: Column(
             children: [
-              // DESIGN.md §13.1：录入页 BackHeader 只渲染返回箭头行
               const BackHeader(),
               Expanded(
                 child: _loading && _step == 0
@@ -123,8 +120,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp8),
             children: [
-              // 头说明（对齐原型：标题 + 一句场景说明）
-              Text('选食材', style: t.textStyles.h3),
+              Text('入库', style: t.textStyles.h3),
               const SizedBox(height: 4),
               Text('朋友送 / 赠品 / 之前忘记登的旧库存，记一笔进来',
                   style: t.textStyles.sm.copyWith(color: t.caption)),
@@ -134,7 +130,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               TextField(
                 onChanged: (v) => setState(() => _query = v),
                 decoration: InputDecoration(
-                  hintText: '搜食材名 / 扫码',
+                  hintText: '搜食材名',
                   hintStyle: t.textStyles.sm.copyWith(color: t.caption),
                   filled: true,
                   fillColor: t.card,
@@ -164,7 +160,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
                     border: Border.all(color: t.border),
                     borderRadius: BorderRadius.circular(AppTokens.rSm),
                   ),
-                  child: Text('搜不到，试试下面「新建食材并添加」',
+                  child: Text('搜不到，试试下面「新建食材并入库」',
                       textAlign: TextAlign.center,
                       style: t.textStyles.sm.copyWith(color: t.caption)),
                 )
@@ -198,12 +194,12 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
     );
   }
 
-  /// 库里已有行：食材名 + 现有 X 个 · 单位 + 选/已选（点行选中，已选高亮）。
+  /// 库里已有行：食材名 + 家里档位 + 选/已选（点行选中，已选高亮）。
   Widget _ingredientTile(IngredientItem i) {
     final t = _t;
     final selected = _selected?.id == i.id;
-    final unit = (i.unitName == null || i.unitName!.isEmpty) ? '' : ' ${i.unitName}';
-    final stockTxt = '现有 ${_fmt(i.stockAmount)}$unit';
+    final levelLabel = StockLevel.label(_levelByIng[i.id]);
+    final homeText = levelLabel.isEmpty ? '' : '家里：$levelLabel';
     return InkWell(
       onTap: () => setState(() {
         _selected = i;
@@ -218,15 +214,14 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(i.name, style: t.textStyles.cardTitle),
-                  const SizedBox(height: 2),
-                  Text(
-                    unit.isEmpty ? stockTxt : '$stockTxt · ${i.unitName}',
-                    style: t.textStyles.tiny.copyWith(color: t.caption),
-                  ),
+                  if (homeText.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(homeText, style: t.textStyles.tiny.copyWith(color: t.caption)),
+                    ),
                 ],
               ),
             ),
-            // 选/已选（原型：已选 = 橙底白字胶囊）
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
               decoration: BoxDecoration(
@@ -263,17 +258,17 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
                 })
             : null,
         child: DashedBorder(
-          color: _newMode ? t.primary : t.primary,
+          color: t.primary,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 11),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('+ 新建食材并添加',
+                Text('+ 新建食材并入库',
                     style: t.textStyles.sm.copyWith(color: t.primary, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 2),
                 Text(
-                  enabled ? '「$q」建档同时入库' : '填名字 + 单位，建档同时入库',
+                  enabled ? '「$q」建档同时入库' : '填个名字就行，不用填单位',
                   style: t.textStyles.tiny.copyWith(color: t.caption),
                 ),
               ],
@@ -311,7 +306,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
     );
   }
 
-  // ===== ② 填数量 + 批次属性 + 来源 =====
+  // ===== ② 定档位 + 来源 =====
 
   Widget _buildStep1() {
     final t = _t;
@@ -321,7 +316,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp8),
             children: [
-              // 食材头（对齐详情页：52px 缩略图 + 名称 + 现有量）
+              // 食材头（52px 缩略图 + 名称 + 家里状态）
               Row(
                 children: [
                   InitialAvatar(name: _name.isEmpty ? '食' : _name, size: 52),
@@ -340,43 +335,17 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               ),
               const SizedBox(height: 20),
 
-              // 加减盘
-              Text('这次进来多少？', style: t.textStyles.caption),
+              // 档位选择（入库：充足默认 / 不足）
+              Text('这次进来，家里算哪档？', style: t.textStyles.caption),
               const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 22),
-                decoration: BoxDecoration(
-                  color: t.card,
-                  border: Border.all(color: t.border),
-                  borderRadius: BorderRadius.circular(AppTokens.rLg),
-                ),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  _circleBtn(Icons.remove, () => setState(() => _amount = (_amount - 1).clamp(0, 999999))),
-                  const SizedBox(width: 26),
-                  Column(children: [
-                    Text(_fmt(_amount), style: t.textStyles.display.copyWith(height: 1)),
-                    const SizedBox(height: 4),
-                    Text(_unitName ?? '', style: t.textStyles.tiny.copyWith(color: t.caption)),
-                  ]),
-                  const SizedBox(width: 26),
-                  _circleBtn(Icons.add, () => setState(() => _amount = (_amount + 1).clamp(0, 999999))),
-                ]),
-              ),
+              Row(children: [
+                _levelCard(StockLevel.enough, '充足', '默认'),
+                const SizedBox(width: 7),
+                _levelCard(StockLevel.low, '不足', '只买了一点'),
+              ]),
               const SizedBox(height: 14),
 
-              // 批次属性：日期（今天）/ 存放 / 保质期
-              Row(
-                children: [
-                  _attrCard('日期', '今天 ${_fmtMonthDay(DateTime.now())}', onTap: null),
-                  const SizedBox(width: 7),
-                  _attrCard('存放', _storage ?? '未设', onTap: _pickStorage),
-                  const SizedBox(width: 7),
-                  _attrCard('保质期', _shelfDays != null ? '$_shelfDays 天' : '未设', onTap: _pickShelf),
-                ],
-              ),
-              const SizedBox(height: 14),
-
-              // 来源备注：手动标签下挂什么说明（会显示在这条记录上）
+              // 来源备注
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -411,7 +380,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               ),
               const SizedBox(height: 12),
 
-              // 说明条：和盘点的边界
+              // 说明条
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -420,7 +389,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
                   borderRadius: BorderRadius.circular(AppTokens.rSm),
                 ),
                 child: Text(
-                  '这笔记作 手动 +${_fmt(_amount)}，会带「手动」来源标签。区别于盘点：盘点只改已有项的差额、不带标签。',
+                  '这笔记作 手动 · $_sourceNote，$_name 变为「${StockLevel.label(_level)}」。不用填买了多少、不用填单位——库存是档位，不是账本。',
                   style: t.textStyles.sectionLabel.copyWith(color: t.body, height: 1.5),
                 ),
               ),
@@ -432,101 +401,44 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
     );
   }
 
-  /// 食材头副文案：现有 X 个 · 手动新增一笔（新建档：现有 0 · 手动新增一笔）。
+  /// 食材头副文案：家里当前状态（新建档：新食材，家里还没有）。
   String _stockSub() {
-    final unit = (_unitName == null || _unitName!.isEmpty) ? '' : ' $_unitName';
-    return '现有 ${_fmt(_stock)}$unit · 手动新增一笔';
+    final levelLabel = _selected == null ? '' : StockLevel.label(_levelByIng[_selected!.id]);
+    if (_selected == null) return '新建档 · 家里还没有';
+    return '家里：${levelLabel.isEmpty ? '还没有' : levelLabel} · 入库记一笔';
   }
 
-  /// 批次属性卡：小标签 + 值（可点选；日期卡为静态「今天」）。
-  Widget _attrCard(String label, String value, {VoidCallback? onTap}) {
+  /// 档位卡片（2 选 1，选中主色描边）。
+  Widget _levelCard(String level, String title, String sub) {
     final t = _t;
-    final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: t.card,
-        border: Border.all(color: t.border),
-        borderRadius: BorderRadius.circular(AppTokens.rSm),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: t.textStyles.tiny.copyWith(color: t.caption)),
-          const SizedBox(height: 3),
-          Text(value,
-              style: t.textStyles.sectionLabel.copyWith(
-                color: value == '未设' ? t.caption : t.title,
-                fontWeight: FontWeight.w700,
-              )),
-        ],
-      ),
-    );
-    if (onTap == null) return card;
-    return Expanded(child: GestureDetector(onTap: onTap, child: card));
-  }
-
-  /// 存放选择：常温/冷藏/冷冻（弹层单选，存 pantry.storage）。
-  Future<void> _pickStorage() async {
-    final v = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: _t.card,
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final s in _storageOptions)
-                ListTile(
-                  title: Text(s, textAlign: TextAlign.center),
-                  onTap: () => Navigator.pop(ctx, s),
-                ),
-              ListTile(
-                title: Text('不设', textAlign: TextAlign.center,
-                    style: _t.textStyles.sectionLabel.copyWith(color: _t.caption)),
-                onTap: () => Navigator.pop(ctx, ''),
-              ),
-            ],
+    final selected = _level == level;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _level = level),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+          decoration: BoxDecoration(
+            color: t.bg,
+            border: Border.all(color: selected ? t.primary : t.border, width: selected ? 2 : 1),
+            borderRadius: BorderRadius.circular(AppTokens.rMd),
           ),
+          child: Column(children: [
+            Text(title,
+                style: t.textStyles.md.copyWith(
+                  color: t.title,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                )),
+            const SizedBox(height: 2),
+            Text(sub, style: t.textStyles.tiny.copyWith(color: t.caption)),
+          ]),
         ),
       ),
     );
-    if (v == null) return;
-    setState(() => _storage = v.isEmpty ? null : v);
   }
 
-  /// 保质期选择：3/7/15/30/60/90 天（折成过期日 expireDate 入库）。
-  Future<void> _pickShelf() async {
-    final v = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: _t.card,
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final d in _shelfOptions)
-                ListTile(
-                  title: Text('$d 天', textAlign: TextAlign.center),
-                  onTap: () => Navigator.pop(ctx, d),
-                ),
-              ListTile(
-                title: Text('不设', textAlign: TextAlign.center,
-                    style: _t.textStyles.sectionLabel.copyWith(color: _t.caption)),
-                onTap: () => Navigator.pop(ctx, 0),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (v == null) return;
-    setState(() => _shelfDays = v == 0 ? null : v);
-  }
-
-  /// ② 底栏：入库 · N 个（带单位）。
+  /// ② 底栏：入库。
   Widget _bottomBar1() {
     final t = _t;
-    final unit = (_unitName == null || _unitName!.isEmpty) ? '' : ' $_unitName';
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -542,27 +454,10 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
             ),
-            child: Text(_saving ? '入库中…' : '入库 · ${_fmt(_amount)}$unit',
+            child: Text(_saving ? '入库中…' : '入库',
                 style: const TextStyle(fontWeight: FontWeight.w800)),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _circleBtn(IconData icon, VoidCallback onTap) {
-    final t = AppTokens.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: t.card,
-          border: Border.all(color: t.border),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 20, color: t.primary),
       ),
     );
   }
@@ -575,17 +470,11 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
     }
     setState(() => _saving = true);
     try {
-      // 保质期 → 过期日：今天 + N 天（yyyy-MM-dd）
-      final expire = _shelfDays == null
-          ? null
-          : _dateStr(DateTime.now().add(Duration(days: _shelfDays!)));
       await PantryService.manualAdd(
         ingredientId: _selected?.id,
         name: _selected == null ? name : null,
-        amount: _amount,
+        level: _level,
         sourceNote: _sourceNote,
-        expireDate: expire,
-        storage: _storage,
       );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -596,16 +485,6 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
-  static String _fmt(double v) {
-    if (v == v.roundToDouble()) return v.toInt().toString();
-    return v.toStringAsFixed(1);
-  }
-
-  static String _fmtMonthDay(DateTime d) => '${d.month}/${d.day}';
-
-  static String _dateStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
 /// 虚线边框容器（新建食材入口用，对齐原型 dashed border）。
@@ -635,7 +514,6 @@ class _DashedPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     const dashWidth = 5.0, dashSpace = 4.0;
     final rrect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(10));
-    // 简化：画虚线圆角矩形路径
     final path = Path()..addRRect(rrect);
     final metrics = path.computeMetrics();
     for (final metric in metrics) {

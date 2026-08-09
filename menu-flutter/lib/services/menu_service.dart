@@ -48,7 +48,7 @@ class MenuService {
     await ApiClient.instance.delete('/menu/$menuId/dish/$dishId');
   }
 
-  /// 一起吃 tab 汇总数量：GET /menu/{id}/together-count（占位，协同点菜待建返回 0）。
+  /// 聚餐 tab 汇总数量：GET /menu/{id}/together-count（占位，协同点菜待建返回 0）。
   static Future<int> getTogetherCount(int menuId) async {
     final data = await ApiClient.instance.get('/menu/$menuId/together-count');
     return (data as num?)?.toInt() ?? 0;
@@ -119,11 +119,17 @@ class MenuService {
     await ApiClient.instance.put('/menu', body: body);
   }
 
-  /// 整集做菜：POST /menu/{id}/cook。
-  /// 扣 pantry + 每菜写 cooking_record + 食集标 DONE，返回 CookResult
-  /// （含扣减/欠量/记录 id）。
-  static Future<CookResult> cookMenu(int menuId) async {
-    final data = await ApiClient.instance.post('/menu/$menuId/cook');
+  /// 整集做菜确认：POST /menu/{id}/cook，body 带 usedUp/partiallyUsed。
+  /// 按用户确认更新档位 + 写 cooking_record + 食集标 DONE。
+  static Future<CookResult> cookMenu(
+    int menuId, {
+    List<int> usedUp = const [],
+    List<int> partiallyUsed = const [],
+  }) async {
+    final data = await ApiClient.instance.post('/menu/$menuId/cook', body: {
+      'usedUp': usedUp,
+      'partiallyUsed': partiallyUsed,
+    });
     return CookResult.fromJson(data as Map<String, dynamic>);
   }
 }

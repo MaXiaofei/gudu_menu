@@ -7,10 +7,10 @@ import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/status_chip.dart';
 
-/// 食材详情页（盘点纠偏 + 变动明细，对齐 pantry-page-preview.html 右屏）。
+/// 食材详情页（V42 改档位：3 档单选 + 变动流水，对齐 pantry-page.html 右屏）。
 ///
-/// 点库存页某行进入。顶部食材信息 + 当前合计；中部加减盘（输入实际数量，
-/// 显示系统差 ±N）；底部明细时间线（最近 6 条流水）。保存调盘点接口。
+/// 点库存页某行进入。顶部食材信息 + 当前档位徽；中部 3 档单选（充足/不足/用完）；
+/// 底部明细时间线（最近 6 条流水，stock_log）。保存调 PUT /pantry/{id}/level。
 class PantryDetailPage extends StatefulWidget {
   final int ingredientId;
   const PantryDetailPage({super.key, required this.ingredientId});
@@ -27,9 +27,16 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
   bool _loading = true;
   String? _error;
 
-  /// 盘点输入值（实际数了多少，按食材默认单位）。
-  double _countValue = 0;
+  /// 选中档位（默认当前档位）。
+  String _selectedLevel = StockLevel.none;
   bool _saving = false;
+
+  /// 3 档选项：值 → (标题, 副文案, 颜色)。
+  static const _options = [
+    (StockLevel.enough, '充足', '还有不少', AppTokens.success),
+    (StockLevel.low, '不足', '剩一点点', AppTokens.warning),
+    (StockLevel.none, '用完', '用光了', AppTokens.error),
+  ];
 
   @override
   void initState() {
@@ -47,7 +54,7 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
       if (!mounted) return;
       setState(() {
         _detail = d;
-        _countValue = d.totalAmount; // 默认填当前值，用户改完算差
+        _selectedLevel = d.level;
         _loading = false;
       });
     } catch (e) {
@@ -63,8 +70,6 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
     final d = _detail;
-    // DESIGN.md §13：去掉「食材详情」AppBar；食材名 + 副信息移入 BackHeader。
-    // 加载中/错误时 BackHeader 不传 title（只显箭头）。
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -75,7 +80,7 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
               subtitle: d == null
                   ? null
                   : Text(
-                      '系统记 ${_fmt(d.totalAmount)} ${d.unitName ?? ''}',
+                      d.levelLabel,
                       style: t.textStyles.sm.copyWith(color: t.caption),
                     ),
             ),
@@ -121,43 +126,21 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
 
   Widget _buildBody(AppTokens t) {
     final d = _detail!;
-    final delta = _countValue - d.totalAmount;
-    final color = stockColor(d.status);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 食材头（名称 + 系统记已移入 BackHeader，这里留缩略图 + 库存状态徽）。
-        // 缩略图：无图走首字色块占位（DESIGN.md §10.4），尺寸对齐原型 52px。
+        // 食材头（名称 + 档位徽）
         Row(children: [
           InitialAvatar(name: d.displayName, size: 52),
           const Spacer(),
-          StatusChip(label: stockLabel(d.status), color: color),
+          StatusChip(label: d.levelLabel, color: stockColor(d.level)),
         ]),
         const SizedBox(height: 20),
 
-        // 加减盘
-        Text('实际数了多少？', style: t.textStyles.caption),
+        // 3 档单选
+        Text('现在家里是什么情况？', style: t.textStyles.caption),
         const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: BoxDecoration(
-            color: t.bg,
-            border: Border.all(color: t.border),
-            borderRadius: BorderRadius.circular(AppTokens.rLg),
-          ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _circleBtn(Icons.remove, AppTokens.error, () => setState(() => _countValue = (_countValue - 1).clamp(0, 999999))),
-            const SizedBox(width: 24),
-            Column(children: [
-              Text(_fmt(_countValue), style: t.textStyles.display.copyWith(height: 1)),
-              const SizedBox(height: 4),
-              Text('${d.unitName ?? ''} · 系统差 ${delta >= 0 ? '+' : ''}${_fmt(delta)}',
-                  style: t.textStyles.tiny.copyWith(color: delta.abs() < 0.01 ? _t.caption : _t.primary)),
-            ]),
-            const SizedBox(width: 24),
-            _circleBtn(Icons.add, AppTokens.success, () => setState(() => _countValue = (_countValue + 1).clamp(0, 999999))),
-          ]),
-        ),
+        ..._options.map((o) => _levelCard(t, o.$1, o.$2, o.$3, o.$4)),
         const SizedBox(height: 12),
 
         // 说明条
@@ -168,7 +151,7 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
             borderRadius: BorderRadius.circular(AppTokens.rSm),
           ),
           child: Text(
-            '纠正差额会记一笔「盘点」，下次做菜扣减更准。区别于「添加」手动入库（带来源标签）。',
+            '选「用完」记一笔用完了，选「不足」记用了一些。昨天用完忘记的，现在补上就行。',
             style: t.textStyles.sectionLabel.copyWith(color: t.body, height: 1.5),
           ),
         ),
@@ -194,16 +177,16 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
               children: d.changes.map((c) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(children: [
-                  StatusChip(label: c.sourceLabel, color: _sourceColor(c.source), fontSize: 10),
+                  StatusChip(label: c.actionLabel, color: _actionColor(c.action), fontSize: 10),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      c.sourceNote != null && c.sourceNote!.isNotEmpty ? c.sourceNote! : _fmtTime(c.createTime),
+                      c.note != null && c.note!.isNotEmpty ? c.note! : c.changeText,
                       style: t.textStyles.sectionLabel.copyWith(color: t.body),
                     ),
                   ),
-                  Text(c.deltaText,
-                      style: t.textStyles.sectionLabel.copyWith(color: c.delta >= 0 ? AppTokens.success : AppTokens.error)),
+                  Text(_fmtTime(c.createTime),
+                      style: t.textStyles.meta.copyWith(color: t.caption)),
                 ]),
               )).toList(),
             ),
@@ -212,29 +195,50 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
     );
   }
 
-  Widget _circleBtn(IconData icon, Color color, VoidCallback onTap) {
-    final t = AppTokens.of(context);
+  /// 3 档单选卡片：选中主色实心圆点 + 主色描边；未选灰描边。
+  Widget _levelCard(AppTokens t, String level, String title, String desc, Color color) {
+    final selected = _selectedLevel == level;
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => setState(() => _selectedLevel = level),
       child: Container(
-        width: 40, height: 40,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: t.card, border: Border.all(color: t.border),
-          shape: BoxShape.circle,
+          color: t.bg,
+          border: Border.all(color: selected ? t.primary : t.border, width: selected ? 2 : 1),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
         ),
-        child: Icon(icon, size: 20, color: color),
+        child: Row(children: [
+          Container(
+            width: 20, height: 20,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? t.primary : null,
+              border: Border.all(color: selected ? t.primary : t.border, width: 1.5),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Row(children: [
+              Text(title, style: t.textStyles.md.copyWith(color: t.title, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 8),
+              Text(desc, style: t.textStyles.sm.copyWith(color: t.caption)),
+            ]),
+          ),
+        ]),
       ),
     );
   }
 
-  Color _sourceColor(String source) {
-    switch (source) {
-      case 'cook': return AppTokens.error;
-      case 'purchase': return AppTokens.success;
-      case 'inventory': return AppTokens.info;
-      case 'manual': return _t.primary;
-      default: return AppTokens.of(context).caption;
-    }
+  Color _actionColor(String action) {
+    final t = AppTokens.of(context);
+    return switch (action) {
+      'cook' => AppTokens.error,
+      'cook_partial' => AppTokens.warning,
+      'purchase' => AppTokens.success,
+      'undo' => t.caption,
+      _ => t.primary, // manual
+    };
   }
 
   String _fmtTime(String? iso) {
@@ -249,7 +253,7 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
     if (d == null) return;
     setState(() => _saving = true);
     try {
-      await PantryService.adjust(widget.ingredientId, _countValue);
+      await PantryService.setLevel(widget.ingredientId, _selectedLevel);
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
@@ -258,10 +262,5 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  static String _fmt(double v) {
-    if (v == v.roundToDouble()) return v.toInt().toString();
-    return v.toStringAsFixed(1);
   }
 }

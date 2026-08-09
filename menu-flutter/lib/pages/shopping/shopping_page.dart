@@ -1,15 +1,21 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/app_theme.dart';
-import '../../core/api_client.dart';
 import '../../services/shopping_service.dart';
 import '../../widgets/loading_empty.dart';
 
-/// 采购清单页。
+/// 采购清单页（V42：采购唯一家园）。
 ///
-/// 列表页：按时间倒序展示所有采购单，点击进详情，FAB 新建。
-/// 详情/生成页：4 个 Tab（周计划/菜品/菜单/自定义文本） + 采购单内容管理。
+/// 列表页：所有采购单（食集备菜一键加采购生成 / 自定义新建）+「+ 新建清单」。
+/// 详情页：全选 + 勾选=本地选择态（不逐项写库）→ 底部「保存入库 · N 项」批量；
+/// 行尾 ✕：未入库=移除确认；已入库=撤回入库确认（恢复入库前档位）。
+/// 分享：右上角 → 全屏预览页（所见即所得）→ 复制文字 / 转图片。
+/// 自定义采购：空清单「添加」弹窗（名称+数量单位一框、逐条添加、行尾删除）+ 标题旁 ✎ 改名。
 class ShoppingPage extends StatefulWidget {
   const ShoppingPage({super.key});
   @override
@@ -20,7 +26,6 @@ class _ShoppingPageState extends State<ShoppingPage> {
   // 列表
   List<ShoppingList> _lists = [];
   bool _loading = true;
-  // 分页：每页 15 条（DESIGN.md §12.2），滚动到底加载更多
   static const _pageSize = 15;
   final _scroll = ScrollController();
   int _page = 1;
@@ -31,22 +36,16 @@ class _ShoppingPageState extends State<ShoppingPage> {
   ShoppingListVO? _detail;
   bool _detailLoading = false;
 
-  // 生成模式
-  String _genType = 'plan'; // plan/dish/menu/custom
-  final _customTextCtrl = TextEditingController();
+  /// 勾选本地选择态（未入库项 itemId，不逐项写库）。
+  final Set<int> _selectedItems = {};
 
-  // 生成数据源
-  List<Map<String, dynamic>> _plans = [];
-  List<Map<String, dynamic>> _dishes = [];
-  List<Map<String, dynamic>> _menus = [];
-  int? _selectedPlanId;
-  List<int> _selectedDishIds = [];
-  int? _selectedMenuId;
-  bool _genLoading = false;
-  bool _genDataLoading = false;
-  String _dishSearch = '';
+  /// 分享预览视图（true 时替代详情视图）。
+  bool _showShare = false;
 
-  // 手动添加
+  /// 分享卡片截图 key（转图片用）。
+  final GlobalKey _shareBoundaryKey = GlobalKey();
+
+  // 手动添加（自定义采购）弹窗状态
   final _addNameCtrl = TextEditingController();
   final _addAmountCtrl = TextEditingController();
 
@@ -60,7 +59,6 @@ class _ShoppingPageState extends State<ShoppingPage> {
   @override
   void dispose() {
     _scroll.dispose();
-    _customTextCtrl.dispose();
     _addNameCtrl.dispose();
     _addAmountCtrl.dispose();
     super.dispose();
@@ -78,7 +76,6 @@ class _ShoppingPageState extends State<ShoppingPage> {
     if (mounted) setState(() => _loading = false);
   }
 
-  /// 滚动到底加载下一页。
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
@@ -101,7 +98,11 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   Future<void> _openDetail(int id) async {
-    setState(() => _detailLoading = true);
+    setState(() {
+      _detailLoading = true;
+      _selectedItems.clear();
+      _showShare = false;
+    });
     try {
       _detail = await ShoppingService.detail(id);
     } catch (_) {
@@ -111,7 +112,11 @@ class _ShoppingPageState extends State<ShoppingPage> {
   }
 
   void _closeDetail() {
-    setState(() => _detail = null);
+    setState(() {
+      _detail = null;
+      _selectedItems.clear();
+      _showShare = false;
+    });
     _loadLists();
   }
 
@@ -121,38 +126,23 @@ class _ShoppingPageState extends State<ShoppingPage> {
         .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
   }
 
-  // ===== 分享 =====
+  // ===== 新建清单（自定义采购） =====
 
-  String _buildShareText() {
-    if (_detail == null) return '';
-    final buf = StringBuffer();
-    buf.writeln('采购单 #${_detail!.id}  ${_detail!.sourceLabel}');
-    if (_detail!.startDate != null) {
-      buf.writeln('${_detail!.startDate} ~ ${_detail!.endDate}');
+  Future<void> _createList() async {
+    try {
+      final id = await ShoppingService.createEmpty();
+      if (!mounted) return;
+      _openDetail(id);
+    } catch (_) {
+      _snack('创建失败');
     }
-    buf.writeln();
-    for (final entry in _detail!.grouped.entries) {
-      final catName = _detail!.categoryNames[entry.key] ?? '其他';
-      buf.writeln('$catName：');
-      for (final item in entry.value) {
-        final check = item.isPurchased ? '✓' : '[ ]';
-        buf.writeln('  $check ${item.displayName}  ${item.amountText}');
-      }
-    }
-    buf.writeln();
-    buf.writeln('—— 来自：咕嘟小食单');
-    return buf.toString();
-  }
-
-  void _share() {
-    final text = _buildShareText();
-    if (text.isNotEmpty) Share.share(text);
   }
 
   // ===== UI: 列表视图 =====
 
   @override
   Widget build(BuildContext context) {
+    if (_showShare && _detail != null) return _buildShareView();
     if (_detail != null) return _buildDetailView();
     return _buildListView();
   }
@@ -160,11 +150,23 @@ class _ShoppingPageState extends State<ShoppingPage> {
   Widget _buildListView() {
     final t = AppTokens.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('采购清单')),
+      appBar: AppBar(
+        title: const Text('采购清单'),
+        actions: [
+          // 操作行：新建（自定义采购入口）
+          TextButton.icon(
+            onPressed: _createList,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('新建清单'),
+            style: TextButton.styleFrom(foregroundColor: t.primary),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: _loading
           ? const LoadingView()
           : _lists.isEmpty
-              ? Center(child: Text('暂无采购单', style: TextStyle(color: t.caption)))
+              ? _buildEmpty(t)
               : RefreshIndicator(
                   onRefresh: _loadLists,
                   child: ListView.builder(
@@ -178,21 +180,28 @@ class _ShoppingPageState extends State<ShoppingPage> {
                           child: LoadingView(),
                         );
                       }
-                      final l = _lists[i];
-                      return _buildListCard(l);
+                      return _buildListCard(_lists[i]);
                     },
                   ),
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          try {
-            final id = await ShoppingService.createEmpty();
-            if (mounted) _openDetail(id);
-          } catch (e) {
-            _snack('创建失败');
-          }
-        },
-        child: const Icon(Icons.add),
+    );
+  }
+
+  /// 空态引导：清单来源（备菜一键加采购 / 新建自定义清单）。
+  Widget _buildEmpty(AppTokens t) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('还没有采购清单', style: t.textStyles.md.copyWith(color: t.title)),
+            const SizedBox(height: 8),
+            Text('清单来自食集：去食集详情 → 备菜 Tab →「一键加采购」；\n或者点右上角「+ 新建清单」自己列',
+                textAlign: TextAlign.center,
+                style: t.textStyles.sm.copyWith(color: t.caption, height: 1.7)),
+          ],
+        ),
       ),
     );
   }
@@ -202,6 +211,9 @@ class _ShoppingPageState extends State<ShoppingPage> {
     final seq = (l.id % 100) + 1;
     final time = l.createdAt ?? '';
     final displayTime = time.length >= 16 ? time.substring(5, 16) : time;
+    final title = l.name != null && l.name!.isNotEmpty
+        ? l.name!
+        : '采购单 · ${l.sourceLabel} · 第$seq 单';
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
@@ -213,8 +225,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           backgroundColor: t.primary.withAlpha(25),
           child: Text('#$seq', style: t.textStyles.sm.copyWith(color: t.primary)),
         ),
-        title: Text('采购单 · ${l.sourceLabel} · 第$seq 单',
-            style: t.textStyles.body.copyWith(fontWeight: FontWeight.w600)),
+        title: Text(title, style: t.textStyles.body.copyWith(fontWeight: FontWeight.w600)),
         subtitle: Text(l.dateRange.isNotEmpty ? l.dateRange : displayTime,
             style: t.textStyles.sm.copyWith(color: t.caption)),
         trailing: Icon(Icons.chevron_right, color: t.caption),
@@ -248,7 +259,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
     }
   }
 
-  // ===== UI: 详情/生成视图 =====
+  // ===== UI: 详情视图 =====
 
   Widget _buildDetailView() {
     final t = AppTokens.of(context);
@@ -256,27 +267,25 @@ class _ShoppingPageState extends State<ShoppingPage> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _closeDetail),
-        title: Text('采购单 #${d.id}'),
+        title: _buildTitle(t, d),
         actions: [
-          IconButton(icon: const Icon(Icons.share), onPressed: _share),
+          IconButton(icon: const Icon(Icons.share), onPressed: _openShare),
         ],
       ),
       body: _detailLoading
           ? const LoadingView()
           : Column(
               children: [
-                // 生成区
-                if (d.items.isEmpty) _buildGenerateSection(),
-                // 详情
+                // 全选行（§15：有勾选必须提供全选）
+                if (d.items.isNotEmpty) _buildSelectAllRow(t),
                 Expanded(
                   child: d.items.isEmpty
-                      ? Center(child: Text('暂无采购项，上方生成或下方添加',
-                          style: TextStyle(color: t.caption)))
+                      ? _buildEmptyDetail(t)
                       : ListView(
                           padding: const EdgeInsets.all(12),
                           children: [
                             _buildDetailHeader(d),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             for (final entry in d.grouped.entries)
                               _buildCategorySection(
                                   entry.key, d.categoryNames[entry.key] ?? '其他', entry.value),
@@ -298,6 +307,19 @@ class _ShoppingPageState extends State<ShoppingPage> {
                       label: const Text('手动添加'),
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: t.primary,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                      onPressed: _selectedItems.isEmpty ? null : _saveRestock,
+                      child: Text('保存入库 · ${_selectedItems.length} 项'),
+                    ),
+                  ),
                 ]),
               ),
             )
@@ -305,339 +327,91 @@ class _ShoppingPageState extends State<ShoppingPage> {
     );
   }
 
-  Widget _buildGenerateSection() {
-    final t = AppTokens.of(context);
-    return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: t.highlight,
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('从哪里生成', style: t.textStyles.cardTitle),
-        const SizedBox(height: 8),
-        Row(children: [
-          _genTab('plan', '周计划'),
-          _genTab('dish', '菜品'),
-          _genTab('menu', '菜单'),
-          _genTab('custom', '自定义'),
-        ]),
-        const SizedBox(height: 8),
-        if (_genDataLoading)
-          const Padding(padding: EdgeInsets.all(12), child: LoadingView())
-        else if (_genType == 'plan')
-          _buildPlanPicker()
-        else if (_genType == 'dish')
-          _buildDishPicker()
-        else if (_genType == 'menu')
-          _buildMenuPicker()
-        else ...[
-          TextField(
-            controller: _customTextCtrl,
-            maxLines: 5,
-            decoration: InputDecoration(
-              hintText: '输入采购内容，每行一项：\n土豆 3斤\n排骨 2斤\n生抽 1瓶',
-              filled: true, fillColor: t.card,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
-            ),
-          ),
-          const SizedBox(height: 8),
+  /// 标题：自定义清单显示 name + ✎ 改名；食集清单显示「采购单 #N」。
+  Widget _buildTitle(AppTokens t, ShoppingListVO d) {
+    final hasName = d.name != null && d.name!.isNotEmpty;
+    return GestureDetector(
+      onTap: hasName ? _showRenameSheet : null,
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(hasName ? d.name! : '采购单 #${d.id}',
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        if (hasName) ...[
+          const SizedBox(width: 4),
+          Icon(Icons.edit_outlined, size: 16, color: t.primary),
         ],
-        SizedBox(
-          height: 44,
-          child: ElevatedButton(
-            onPressed: _genLoading ? null : _doGenerate,
-            child: _genLoading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text('生成清单', style: t.textStyles.body),
-          ),
-        ),
       ]),
     );
   }
 
-  void _onGenTypeChange(String type) {
-    setState(() { _genType = type; _loadGenData(); });
-  }
-
-  Future<void> _loadGenData() async {
-    setState(() => _genDataLoading = true);
-    try {
-      if (_genType == 'plan') {
-        final d = await ApiClient.instance.get('/mealplan', query: {'pageNum': 1, 'pageSize': 50});
-        _plans = (d is Map && d['records'] is List) ? (d['records'] as List).cast<Map<String, dynamic>>() : [];
-      } else if (_genType == 'dish') {
-        final d = await ApiClient.instance.get('/dish/search', query: {'pageNum': 1, 'pageSize': 100});
-        _dishes = (d is Map && d['records'] is List) ? (d['records'] as List).cast<Map<String, dynamic>>() : [];
-      } else if (_genType == 'menu') {
-        final d = await ApiClient.instance.get('/menu', query: {'pageNum': 1, 'pageSize': 50});
-        _menus = (d is Map && d['records'] is List) ? (d['records'] as List).cast<Map<String, dynamic>>() : [];
-      }
-    } catch (_) {}
-    if (mounted) setState(() => _genDataLoading = false);
-  }
-
-  Future<void> _doGenerate() async {
-    if (_genLoading) return;
-    setState(() => _genLoading = true);
-    try {
-      int? newId;
-      if (_genType == 'plan' && _selectedPlanId != null) {
-        newId = await ShoppingService.generateFrom('plan', sourceId: _selectedPlanId);
-      } else if (_genType == 'dish' && _selectedDishIds.isNotEmpty) {
-        newId = await ShoppingService.generateFrom('dish', sourceIds: _selectedDishIds);
-      } else if (_genType == 'menu' && _selectedMenuId != null) {
-        newId = await ShoppingService.generateFrom('menu', sourceId: _selectedMenuId);
-      } else if (_genType == 'custom') {
-        newId = await ShoppingService.generateFromText(_customTextCtrl.text.trim());
-      }
-      if (newId != null) {
-        _snack('已生成');
-        _customTextCtrl.clear();
-        setState(() { _genLoading = false; });
-        _openDetail(newId);
-        return;
-      }
-      _snack('请先选择数据源');
-    } catch (e) { _snack('生成失败'); }
-    if (mounted) setState(() => _genLoading = false);
-  }
-
-  Widget _genTab(String type, String label) {
-    final t = AppTokens.of(context);
-    final active = _genType == type;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _onGenTypeChange(type),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: active ? t.primary : t.card,
-            borderRadius: BorderRadius.circular(AppTokens.rSm),
-          ),
-          child: Text(label, textAlign: TextAlign.center,
-              style: t.textStyles.sm.copyWith(
-                  color: active ? t.card : t.caption,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
+  /// 全选行：勾选/取消勾选全部未入库项。
+  Widget _buildSelectAllRow(AppTokens t) {
+    final unpurchased = _detail!.items.where((it) => it.purchased == 0).toList();
+    final allSelected =
+        unpurchased.isNotEmpty && unpurchased.every((it) => _selectedItems.contains(it.id));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: t.card,
+        border: Border(bottom: BorderSide(color: t.border)),
+      ),
+      child: Row(children: [
+        GestureDetector(
+          onTap: () => setState(() {
+            if (allSelected) {
+              _selectedItems.removeAll(unpurchased.map((it) => it.id));
+            } else {
+              _selectedItems.addAll(unpurchased.map((it) => it.id));
+            }
+          }),
+          child: Row(children: [
+            Icon(
+              allSelected ? Icons.check_box : Icons.check_box_outline_blank,
+              color: allSelected ? t.primary : t.caption,
+              size: 22,
+            ),
+            const SizedBox(width: 6),
+            Text('全选', style: t.textStyles.md.copyWith(color: t.title, fontWeight: FontWeight.w600)),
+          ]),
         ),
-      ),
+        const Spacer(),
+        Text('已选 ${_selectedItems.length} 项',
+            style: t.textStyles.sm.copyWith(color: _selectedItems.isEmpty ? t.caption : t.primary)),
+      ]),
     );
   }
 
-  // ===== 生成 picker =====
-
-  Widget _buildPlanPicker() {
-    final t = AppTokens.of(context);
-    if (_plans.isEmpty) return _emptyHint('暂无周计划');
-    return SizedBox(
-      height: 44,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _plans.length,
-        itemBuilder: (_, i) {
-          final p = _plans[i];
-          final sel = _selectedPlanId == p['id'];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedPlanId = sel ? null : p['id'] as int),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: sel ? t.primary : t.card,
-                  borderRadius: BorderRadius.circular(AppTokens.rMd),
-                  border: Border.all(color: sel ? t.primary : t.border),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(p['name'] ?? '${p['weekStart']}起',
-                      style: t.textStyles.sm.copyWith(fontWeight: FontWeight.w500,
-                          color: sel ? t.card : t.title)),
-                  if (p['itemCount'] != null) ...[
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: sel ? Colors.white24 : t.primary.withAlpha(20),
-                        borderRadius: BorderRadius.circular(AppTokens.rSm),
-                      ),
-                      child: Text('${p['itemCount']}菜',
-                          style: t.textStyles.chip.copyWith(color: sel ? Colors.white70 : t.primary)),
-                    ),
-                  ],
-                ]),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildDishPicker() {
-    final t = AppTokens.of(context);
-    final filtered = _dishSearch.isEmpty
-        ? _dishes
-        : _dishes.where((d) => (d['name'] ?? '').toString().contains(_dishSearch)).toList();
-    return Column(children: [
-      if (_dishes.length > 10)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: '搜索菜品…',
-              isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              filled: true, fillColor: t.card,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm), borderSide: BorderSide(color: t.border)),
-              prefixIcon: const Icon(Icons.search, size: 18),
-              suffixIcon: _dishSearch.isNotEmpty
-                  ? GestureDetector(onTap: () => setState(() => _dishSearch = ''), child: const Icon(Icons.close, size: 18))
-                  : null,
-            ),
-            onChanged: (v) => setState(() => _dishSearch = v),
-          ),
+  /// 空清单（自定义采购）：提示 + 底栏「添加」由 bottomNavigationBar 提供。
+  Widget _buildEmptyDetail(AppTokens t) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('还没有采购项', style: t.textStyles.md.copyWith(color: t.title)),
+            const SizedBox(height: 8),
+            Text('点下方「添加」列要买的——食材、生活用品都行，当备忘单用。\n匹配到食材库的勾选后可入库，匹配不到的照常列、只标已买',
+                textAlign: TextAlign.center,
+                style: t.textStyles.sm.copyWith(color: t.caption, height: 1.7)),
+          ],
         ),
-      if (_selectedDishIds.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text('已选 ${_selectedDishIds.length} 道菜',
-              style: t.textStyles.sm.copyWith(color: t.primary)),
-        ),
-      SizedBox(
-        height: 120,
-        child: filtered.isEmpty
-            ? Center(child: Text(_dishes.isEmpty ? '暂无菜品' : '无匹配菜品',
-                style: t.textStyles.sm.copyWith(color: t.caption)))
-            : ListView.builder(
-                itemCount: filtered.take(50).length,
-                itemBuilder: (_, i) {
-                  final d = filtered[i];
-                  final id = d['id'] as int;
-                  final sel = _selectedDishIds.contains(id);
-                  return CheckboxListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    title: Text(d['name'] ?? '', style: t.textStyles.sm),
-                    value: sel,
-                    onChanged: (v) => setState(() {
-                      if (v == true) { _selectedDishIds.add(id); } else { _selectedDishIds.remove(id); }
-                    }),
-                  );
-                },
-              ),
-      ),
-    ]);
-  }
-
-  Widget _buildMenuPicker() {
-    final t = AppTokens.of(context);
-    if (_menus.isEmpty) return _emptyHint('暂无菜单');
-    return SizedBox(
-      height: 44,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _menus.length,
-        itemBuilder: (_, i) {
-          final m = _menus[i];
-          final sel = _selectedMenuId == m['id'];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedMenuId = sel ? null : m['id'] as int),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: sel ? t.primary : t.card,
-                  borderRadius: BorderRadius.circular(AppTokens.rMd),
-                  border: Border.all(color: sel ? t.primary : t.border),
-                ),
-                child: Text(m['name'] ?? '菜单 #${m['id']}',
-                    style: t.textStyles.sm.copyWith(fontWeight: FontWeight.w500,
-                        color: sel ? t.card : t.title)),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _emptyHint(String text) {
-    final t = AppTokens.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(text, style: t.textStyles.sm.copyWith(color: t.caption)),
-    );
-  }
-
-  void _showAddSheet() {
-    final t = AppTokens.of(context);
-    _addNameCtrl.clear();
-    _addAmountCtrl.clear();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.rLg))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-            left: 16, right: 16, top: 16, bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('手动添加', style: AppTokens.of(ctx).textStyles.subtitle),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _addNameCtrl,
-            decoration: InputDecoration(
-                hintText: '食材名', filled: true, fillColor: t.bg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd))),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _addAmountCtrl,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-                hintText: '数量（可留空）', filled: true, fillColor: t.bg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd))),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 44,
-            child: ElevatedButton(
-              onPressed: () async {
-                final name = _addNameCtrl.text.trim();
-                if (name.isEmpty) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('请输入食材名')));
-                  return;
-                }
-                final amt = double.tryParse(_addAmountCtrl.text.trim());
-                try {
-                  await ShoppingService.addCustomItem(_detail!.id, name, amount: amt);
-                  Navigator.pop(ctx);
-                  _openDetail(_detail!.id);
-                } catch (e) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('添加失败: $e')));
-                }
-              },
-              child: Text('添加', style: t.textStyles.body),
-            ),
-          ),
-        ]),
       ),
     );
   }
 
   Widget _buildDetailHeader(ShoppingListVO d) {
     final t = AppTokens.of(context);
+    final hasName = d.name != null && d.name!.isNotEmpty;
     return Row(children: [
       Container(
         width: 4, height: 18,
         decoration: BoxDecoration(color: t.primary, borderRadius: BorderRadius.circular(2)),
       ),
       const SizedBox(width: 8),
-      Text('${d.sourceLabel} · #${d.id}',
-          style: t.textStyles.pageTitle),
-      const Spacer(),
+      Expanded(
+        child: Text(hasName ? d.name! : '${d.sourceLabel} · #${d.id}',
+            style: t.textStyles.pageTitle),
+      ),
       Text(d.dateRange, style: t.textStyles.sm.copyWith(color: t.caption)),
     ]);
   }
@@ -653,26 +427,41 @@ class _ShoppingPageState extends State<ShoppingPage> {
     ]);
   }
 
+  /// 单项：
+  /// - 未入库：勾选框=本地选择态；行尾 ✕ = 移除确认
+  /// - 已入库：✓ 固定 + 删除线 + 已入库徽标；行尾 ✕ = 撤回入库确认
   Widget _buildItemTile(ShoppingItemVO it) {
     final t = AppTokens.of(context);
+    final bought = it.purchased == 1;
+    final selected = _selectedItems.contains(it.id);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: t.border))),
       child: Row(children: [
+        // 勾选：未入库项可点（本地选择态）；已入库项固定 ✓
         GestureDetector(
-          onTap: () async {
-            await ShoppingService.togglePurchased(it.id);
-            _openDetail(_detail!.id);
-          },
+          onTap: bought
+              ? null
+              : () => setState(() {
+                    if (!_selectedItems.remove(it.id)) {
+                      _selectedItems.add(it.id);
+                    }
+                  }),
           child: Container(
             width: 22, height: 22,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppTokens.rXs),
-              border: Border.all(color: it.isPurchased ? t.primary : t.border),
-              color: it.isPurchased ? t.primary : null,
+              border: Border.all(
+                  color: bought
+                      ? AppTokens.success
+                      : (selected ? t.primary : t.border),
+                  width: bought || selected ? 1.5 : 1),
+              color: bought ? AppTokens.success : (selected ? t.primary : null),
             ),
-            child: it.isPurchased ? Icon(Icons.check, size: 14, color: t.card) : null,
+            child: bought || selected
+                ? Icon(Icons.check, size: 14, color: t.card)
+                : null,
           ),
         ),
         const SizedBox(width: 8),
@@ -680,8 +469,8 @@ class _ShoppingPageState extends State<ShoppingPage> {
           child: Text(
             it.displayName,
             style: t.textStyles.md.copyWith(
-              color: it.isPurchased ? t.caption : t.title,
-              decoration: it.isPurchased ? TextDecoration.lineThrough : null,
+              color: bought ? t.caption : (selected ? t.title : t.title),
+              decoration: bought ? TextDecoration.lineThrough : null,
             ),
           ),
         ),
@@ -689,34 +478,26 @@ class _ShoppingPageState extends State<ShoppingPage> {
         const SizedBox(width: 8),
         _buildStockBadge(it),
         const SizedBox(width: 8),
+        // 行尾 ✕：未入库=移除；已入库=撤回入库
         GestureDetector(
-          onTap: () => _confirmDeleteItem(it),
-          child: Icon(Icons.close, size: 16, color: t.caption),
+          onTap: bought ? () => _confirmUndoRestock(it) : () => _confirmRemove(it),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(Icons.close, size: 16, color: t.caption),
+          ),
         ),
       ]),
     );
   }
 
-  /// 行尾三色余色徽章（Plan B）。
-  ///
-  /// - `RED_NONE` 🔴 没有（差 shortageGrams g）
-  /// - `YELLOW_SHORT` 🟡 差 shortageGrams g
-  /// - `GREEN_ENOUGH` 🟢 够
-  /// - stockStatus=null（customName 项或无用量）→ 灰色「手动加」
+  /// 行尾三色余量徽章（V42 档位版：家里：用完/不足/充足）。
   Widget _buildStockBadge(ShoppingItemVO it) {
     final t = AppTokens.of(context);
     final status = it.stockStatus;
-    if (status == 'RED_NONE') {
-      final short = _fmtGrams(it.shortageGrams);
-      return _badge('没有${short.isEmpty ? '' : ' 差$short'}', AppTokens.error);
-    }
-    if (status == 'YELLOW_SHORT') {
-      return _badge('差 ${_fmtGrams(it.shortageGrams)}', AppTokens.warning);
-    }
-    if (status == 'GREEN_ENOUGH') {
-      return _badge('够', AppTokens.success);
-    }
-    // null：customName 手动加项或无用量 → 灰色「手动加」
+    if (status == 'RED_NONE') return _badge('家里：用完', AppTokens.error);
+    if (status == 'YELLOW_SHORT') return _badge('家里：不足', AppTokens.warning);
+    if (status == 'GREEN_ENOUGH') return _badge('家里：充足', AppTokens.success);
+    // null：customName 手动加项或无食材关联 → 灰
     return _badge('手动加', t.caption);
   }
 
@@ -732,23 +513,36 @@ class _ShoppingPageState extends State<ShoppingPage> {
       );
   }
 
-  static String _fmtGrams(double? g) {
-    if (g == null) return '';
-    if (g == g.roundToDouble()) return '${g.toInt()}g';
-    return '${g.toStringAsFixed(1)}g';
+  // ===== 批量保存入库 / 移除 / 撤回 =====
+
+  /// 保存入库：勾选的项一次性入库（默认记充足），手动项只标已买。
+  Future<void> _saveRestock() async {
+    if (_selectedItems.isEmpty) return;
+    try {
+      final r = await ShoppingService.restock(_selectedItems.toList());
+      if (!mounted) return;
+      final msg = r.markedOnly > 0
+          ? '已入库 ${r.restocked} 项，${r.markedOnly} 项只标已买'
+          : '已入库 ${r.restocked} 项';
+      _snack(msg);
+      _openDetail(_detail!.id); // 刷新详情（清空选择态）
+    } catch (e) {
+      _snack('保存入库失败：$e');
+    }
   }
 
-  Future<void> _confirmDeleteItem(ShoppingItemVO it) async {
+  /// 未入库项 ✕：移除确认（不会丢，可从备菜一键加采购/重新生成加回）。
+  Future<void> _confirmRemove(ShoppingItemVO it) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除采购项'),
-        content: Text('确定删除「${it.displayName}」？'),
+        title: const Text('移除采购项'),
+        content: Text('移除「${it.displayName}」？\n以后要买，从备菜「一键加采购」或重新生成清单就能加回来。'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除', style: TextStyle(color: AppTokens.error))),
+              child: const Text('移除', style: TextStyle(color: AppTokens.error))),
         ],
       ),
     );
@@ -757,8 +551,375 @@ class _ShoppingPageState extends State<ShoppingPage> {
         await ShoppingService.deleteItem(it.id);
         _openDetail(_detail!.id);
       } catch (_) {
-        _snack('删除失败');
+        _snack('移除失败');
       }
     }
+  }
+
+  /// 已入库项 ✕：撤回入库确认（恢复入库前档位，流水记「撤回入库」）。
+  Future<void> _confirmUndoRestock(ShoppingItemVO it) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('撤回「${it.displayName}」的入库？'),
+        content: const Text('撤回后库存回到入库前的状态，这项从清单移除。流水里会记一笔「撤回入库」。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('留着')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('撤回入库', style: TextStyle(color: AppTokens.error))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      try {
+        await ShoppingService.undoRestock(it.id);
+        _snack('已撤回入库');
+        _openDetail(_detail!.id);
+      } catch (_) {
+        _snack('撤回失败');
+      }
+    }
+  }
+
+  // ===== 分享预览视图 =====
+
+  void _openShare() => setState(() => _showShare = true);
+
+  Widget _buildShareView() {
+    final t = AppTokens.of(context);
+    final d = _detail!;
+    // 未入库项（要买的）= 分享内容
+    final unpurchased = d.items.where((it) => it.purchased == 0).toList();
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _showShare = false)),
+        title: const Text('分享采购清单'),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: Text('预览与导出的内容、格式完全一致',
+                style: t.textStyles.sm.copyWith(color: t.caption)),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (unpurchased.isEmpty)
+                      Text('清单里的都入库了，没有要分享的项',
+                          style: t.textStyles.sm.copyWith(color: t.caption)),
+                  ],
+                ),
+                // 屏幕外分享卡片：仅用于截图（RepaintBoundary.toImage），不参与显示
+                Positioned(
+                  left: -10000,
+                  top: 0,
+                  child: RepaintBoundary(
+                    key: _shareBoundaryKey,
+                    child: _ShareCard(listName: _shareTitle(d), items: unpurchased),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            decoration: BoxDecoration(
+              color: t.card,
+              border: Border(top: BorderSide(color: t.border)),
+            ),
+            child: Column(children: [
+              _shareAction(t, '文', '复制文字', '粘贴到微信/备忘录，别人照着买', _copyShare),
+              const SizedBox(height: 8),
+              _shareAction(t, '图', '转图片分享', '生成一张清单图，发群里/相册', _shareImage),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _shareAction(AppTokens t, String icon, String title, String desc, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          border: Border.all(color: t.border, width: 1.5),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+        ),
+        child: Row(children: [
+          Container(
+            width: 34, height: 34,
+            decoration: BoxDecoration(color: t.secondary, borderRadius: BorderRadius.circular(10)),
+            alignment: Alignment.center,
+            child: Text(icon, style: t.textStyles.sm.copyWith(color: t.primaryDeep)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: t.textStyles.md.copyWith(color: t.title, fontWeight: FontWeight.w800)),
+              Text(desc, style: t.textStyles.sm.copyWith(color: t.caption)),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  /// 分享标题：自定义清单名 或 食集清单「采购单 #N」。
+  String _shareTitle(ShoppingListVO d) {
+    final hasName = d.name != null && d.name!.isNotEmpty;
+    return hasName ? d.name! : '采购单 #${d.id}';
+  }
+
+  /// 分享文字：标题 + 日期 + 未入库项逐行「名称 用量」。
+  Future<void> _copyShare() async {
+    final d = _detail!;
+    final now = DateTime.now();
+    final lines = d.items
+        .where((it) => it.purchased == 0)
+        .map((it) => it.amountText.isEmpty
+            ? it.displayName
+            : '${it.displayName} ${it.amountText}')
+        .toList();
+    final text = [
+      '${_shareTitle(d)} · ${now.month} 月 ${now.day} 日',
+      ...lines,
+    ].join('\n');
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) _snack('采购清单已复制');
+  }
+
+  /// 转图片分享：截图屏幕外分享卡片 → PNG → 系统分享面板（share_plus）。
+  Future<void> _shareImage() async {
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      final boundary = _shareBoundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 3);
+      final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!
+          .buffer
+          .asUint8List();
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, mimeType: 'image/png', name: 'shopping_list.png')],
+        text: '采购清单',
+      );
+    } catch (_) {
+      if (mounted) _snack('生成分享图片失败');
+    }
+  }
+
+  // ===== 手动添加（自定义采购） =====
+
+  /// 添加弹窗：名称 + 数量单位一个框（如 2斤），逐条添加、行尾删除、最后保存。
+  void _showAddSheet() {
+    final t = AppTokens.of(context);
+    final rows = <(String, String)>[]; // (名称, 数量文本)
+    final nameCtrl = TextEditingController();
+    final amountCtrl = TextEditingController();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.rLg))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+              left: 16, right: 16, top: 16, bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('添加采购项', style: AppTokens.of(ctx).textStyles.subtitle),
+            const SizedBox(height: 4),
+            Text('食材、生活用品都可以记（当备忘单用）',
+                style: t.textStyles.sm.copyWith(color: t.caption)),
+            const SizedBox(height: 12),
+            // 输入行：名称 + 数量单位一个框 + 添加
+            Row(children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: nameCtrl,
+                  decoration: InputDecoration(
+                      hintText: '名称',
+                      isDense: true,
+                      filled: true,
+                      fillColor: t.bg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd))),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: amountCtrl,
+                  decoration: InputDecoration(
+                      hintText: '数量+单位 · 如 2斤',
+                      isDense: true,
+                      filled: true,
+                      fillColor: t.bg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd))),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: t.primary, foregroundColor: Colors.white),
+                onPressed: () {
+                  final name = nameCtrl.text.trim();
+                  if (name.isEmpty) return;
+                  setSheetState(() {
+                    rows.add((name, amountCtrl.text.trim()));
+                    nameCtrl.clear();
+                    amountCtrl.clear();
+                  });
+                },
+                child: const Text('添加'),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            // 已添加列表：行尾 ✕ 删除
+            if (rows.isNotEmpty) ...[
+              Text('已添加 ${rows.length} 种', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+              const SizedBox(height: 4),
+              for (int i = 0; i < rows.length; i++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(
+                        '${rows[i].$1}${rows[i].$2.isEmpty ? '' : '  ${rows[i].$2}'}',
+                        style: t.textStyles.md.copyWith(color: t.title),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setSheetState(() => rows.removeAt(i)),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.close, size: 16),
+                      ),
+                    ),
+                  ]),
+                ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () async {
+                  if (rows.isEmpty) {
+                    ScaffoldMessenger.of(ctx)
+                        .showSnackBar(const SnackBar(content: Text('先添加至少一项')));
+                    return;
+                  }
+                  try {
+                    for (final (name, amountText) in rows) {
+                      // 数量单位一个框：解析数字部分，单位忽略（备忘单场景够用）
+                      final amount = double.tryParse(RegExp(r'\d+(\.\d+)?').firstMatch(amountText)?.group(0) ?? '');
+                      await ShoppingService.addCustomItem(_detail!.id, name, amount: amount);
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    _openDetail(_detail!.id);
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('添加失败: $e')));
+                    }
+                  }
+                },
+                child: Text(rows.isEmpty ? '保存' : '添加 · 保存 ${rows.length} 种'),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// 改名弹窗（自定义采购 ✎）。
+  Future<void> _showRenameSheet() async {
+    final t = AppTokens.of(context);
+    final d = _detail!;
+    final ctrl = TextEditingController(text: d.name ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('修改清单名称'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('列表页和分享内容会同步显示新名字',
+              style: t.textStyles.sm.copyWith(color: t.caption)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: '清单名称',
+              isDense: true,
+              filled: true,
+              fillColor: t.bg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('保存')),
+        ],
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+    try {
+      await ShoppingService.renameList(d.id, result);
+      _openDetail(d.id);
+    } catch (_) {
+      _snack('改名失败');
+    }
+  }
+}
+
+/// 分享卡片（仅截图用，置于屏幕外）：白底 + 清单名·日期 + 未入库项列表。
+class _ShareCard extends StatelessWidget {
+  final String listName;
+  final List<ShoppingItemVO> items;
+  const _ShareCard({required this.listName, required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    final now = DateTime.now();
+    return Container(
+      width: 320,
+      padding: const EdgeInsets.all(20),
+      color: Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(listName, style: t.textStyles.pageTitle.copyWith(color: t.title)),
+          Text('${now.month} 月 ${now.day} 日',
+              style: t.textStyles.caption.copyWith(color: t.caption)),
+          const SizedBox(height: 12),
+          for (final it in items)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(it.displayName,
+                        style: t.textStyles.md.copyWith(color: t.title)),
+                  ),
+                  if (it.amountText.isNotEmpty)
+                    Text(it.amountText,
+                        style: t.textStyles.sm.copyWith(color: t.caption)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

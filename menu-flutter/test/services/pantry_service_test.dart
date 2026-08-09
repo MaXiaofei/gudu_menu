@@ -126,24 +126,6 @@ void main() {
     });
   });
 
-  group('PantryService.deduct', () {
-    test('POST /pantry/{id}/deduct → {remain}', () async {
-      final captor = installMock((_) => okResponse({'remain': 2.5}));
-
-      final remain = await PantryService.deduct(8, 1.5);
-
-      expect(captor.last!.path, '/pantry/8/deduct');
-      expect(captor.last!.data, {'amount': 1.5});
-      expect(remain, 2.5);
-    });
-
-    test('无 remain → 0', () async {
-      installMock((_) => okResponse({}));
-
-      expect(await PantryService.deduct(8, 1), 0);
-    });
-  });
-
   group('PantryVO.fromJson + 展示字段', () {
     test('完整字段 + displayName/displayAmount', () {
       final v = PantryVO.fromJson({
@@ -294,37 +276,29 @@ void main() {
     });
   });
 
-  // ===================== V39 三色分组 / 详情 / 盘点 / 手动添加 =====================
+  // ===================== V42 档位版：分组 / 详情 / 设档位 / 手动添加 =====================
 
   group('PantryService.listGrouped', () {
-    test('GET /pantry/grouped → 解析 summary + items', () async {
+    test('GET /pantry/grouped → 解析 summary + 档位 items', () async {
       final captor = installMock((_) => okResponse({
             'summary': {'enough': 2, 'low': 1, 'none': 3},
             'items': [
               {
                 'ingredientId': 1,
                 'ingredientName': '鸡蛋',
-                'unitName': '个',
-                'totalAmount': 0,
-                'totalGrams': 0,
-                'status': 'NONE',
+                'level': 'NONE',
                 'lastChange': {
                   'source': 'cook',
-                  'delta': -6,
                   'createTime': '2026-08-04T12:00:00',
                 },
               },
               {
                 'ingredientId': 2,
                 'ingredientName': '苹果',
-                'unitName': '个',
-                'totalAmount': 4,
-                'totalGrams': 200,
-                'status': 'ENOUGH',
+                'level': 'ENOUGH',
                 'lastChange': {
                   'source': 'manual',
                   'sourceNote': '朋友送',
-                  'delta': 4,
                   'createTime': '2026-08-04T12:00:00',
                 },
               },
@@ -339,27 +313,30 @@ void main() {
       expect(g.none, 3);
       expect(g.items.length, 2);
       expect(g.items[0].ingredientName, '鸡蛋');
-      expect(g.items[0].status, 'NONE');
-      expect(g.items[0].sourceLabel, '做菜');
-      expect(g.items[0].sourceSub, '-6');
+      expect(g.items[0].level, 'NONE');
+      expect(g.items[0].levelLabel, '用完');
+      expect(g.items[0].sourceLabel, '用完了');
+      expect(g.items[0].sourceSub, '8/4');
       expect(g.items[1].sourceLabel, '手动');
-      expect(g.items[1].sourceSub, '+4 · 朋友送');
-      expect(g.items[1].displayAmount, '4 个');
+      expect(g.items[1].sourceSub, '朋友送');
     });
   });
 
   group('PantryService.itemDetail', () {
-    test('GET /pantry/item → 合计 + 阈值克数 + 流水', () async {
+    test('GET /pantry/item → 档位 + 流水', () async {
       final captor = installMock((_) => okResponse({
             'ingredientId': 1,
             'ingredientName': '鸡蛋',
-            'unitName': '个',
-            'totalAmount': 1,
-            'totalGrams': 50,
-            'thresholdGrams': 150,
-            'status': 'LOW',
+            'level': 'LOW',
             'changes': [
-              {'id': 1, 'ingredientId': 1, 'source': 'inventory', 'delta': 1, 'createTime': '2026-08-04T12:00:00'},
+              {
+                'id': 1,
+                'ingredientId': 1,
+                'action': 'purchase',
+                'beforeLevel': 'NONE',
+                'afterLevel': 'ENOUGH',
+                'createTime': '2026-08-04T12:00:00',
+              },
             ],
           }));
 
@@ -368,37 +345,33 @@ void main() {
       expect(captor.last!.path, '/pantry/item');
       expect(captor.last!.queryParameters['ingredientId'], 1);
       expect(d.ingredientName, '鸡蛋');
-      expect(d.totalAmount, 1);
-      expect(d.status, 'LOW');
+      expect(d.level, 'LOW');
+      expect(d.levelLabel, '不足');
       expect(d.changes.length, 1);
-      expect(d.changes[0].sourceLabel, '盘点');
-      expect(d.changes[0].deltaText, '+1 g');
+      expect(d.changes[0].actionLabel, '采购');
+      expect(d.changes[0].changeText, '用完 → 充足');
     });
   });
 
-  group('PantryService.adjust', () {
-    test('POST /pantry/adjust body 含 ingredientId/newAmount', () async {
+  group('PantryService.setLevel', () {
+    test('PUT /pantry/{id}/level body 含 level/note', () async {
       final captor = installMock((_) => okResponse(null));
 
-      await PantryService.adjust(1, 5, sourceNote: '冰箱角落找到');
+      await PantryService.setLevel(1, 'ENOUGH', note: '朋友送了一袋');
 
-      expect(captor.last!.path, '/pantry/adjust');
-      expect(captor.last!.method, 'POST');
-      expect(captor.last!.data, {
-        'ingredientId': 1,
-        'newAmount': 5,
-        'sourceNote': '冰箱角落找到',
-      });
+      expect(captor.last!.path, '/pantry/1/level');
+      expect(captor.last!.method, 'PUT');
+      expect(captor.last!.data, {'level': 'ENOUGH', 'note': '朋友送了一袋'});
     });
   });
 
   group('PantryService.manualAdd', () {
-    test('POST /pantry/manual body 含 sourceNote', () async {
+    test('POST /pantry/manual body 含 level/sourceNote', () async {
       final captor = installMock((_) => okResponse(null));
 
       await PantryService.manualAdd(
         ingredientId: 2,
-        amount: 4,
+        level: 'LOW',
         sourceNote: '朋友送',
       );
 
@@ -406,7 +379,7 @@ void main() {
       expect(captor.last!.method, 'POST');
       expect(captor.last!.data, {
         'ingredientId': 2,
-        'amount': 4,
+        'level': 'LOW',
         'sourceNote': '朋友送',
       });
     });
@@ -416,30 +389,57 @@ void main() {
 
       await PantryService.manualAdd(
         name: '新食材',
-        amount: 1,
+        level: 'ENOUGH',
         sourceNote: '其他',
       );
 
       expect(captor.last!.data, {
         'name': '新食材',
-        'amount': 1,
+        'level': 'ENOUGH',
         'sourceNote': '其他',
       });
       expect(captor.last!.data.containsKey('ingredientId'), isFalse);
     });
   });
 
-  group('PantryChangeLog.sourceLabel', () {
-    test('四种来源映射中文', () {
-      expect(PantryChangeLog.fromJson({'id': 1, 'ingredientId': 1, 'source': 'cook', 'delta': -1}).sourceLabel, '做菜');
-      expect(PantryChangeLog.fromJson({'id': 1, 'ingredientId': 1, 'source': 'purchase', 'delta': 1}).sourceLabel, '采购');
-      expect(PantryChangeLog.fromJson({'id': 1, 'ingredientId': 1, 'source': 'inventory', 'delta': 1}).sourceLabel, '盘点');
-      expect(PantryChangeLog.fromJson({'id': 1, 'ingredientId': 1, 'source': 'manual', 'delta': 1}).sourceLabel, '手动');
+  group('StockLevel 文案', () {
+    test('档位中文映射', () {
+      expect(StockLevel.label('ENOUGH'), '充足');
+      expect(StockLevel.label('LOW'), '不足');
+      expect(StockLevel.label('NONE'), '用完');
+      expect(StockLevel.label(null), '');
     });
 
-    test('delta 正负 → deltaText 带符号', () {
-      expect(PantryChangeLog.fromJson({'id': 1, 'ingredientId': 1, 'source': 'cook', 'delta': 3}).deltaText, '+3 g');
-      expect(PantryChangeLog.fromJson({'id': 1, 'ingredientId': 1, 'source': 'cook', 'delta': -3}).deltaText, '-3 g');
+    test('动作中文映射', () {
+      expect(StockLevel.actionLabel('cook'), '用完了');
+      expect(StockLevel.actionLabel('cook_partial'), '用了一些');
+      expect(StockLevel.actionLabel('purchase'), '采购');
+      expect(StockLevel.actionLabel('manual'), '手动');
+      expect(StockLevel.actionLabel('undo'), '撤回入库');
+    });
+  });
+
+  group('StockLogEntry.changeText', () {
+    test('前后档位 → 变化文案', () {
+      final e = StockLogEntry.fromJson({
+        'id': 1,
+        'ingredientId': 1,
+        'action': 'cook',
+        'beforeLevel': 'ENOUGH',
+        'afterLevel': 'NONE',
+      });
+      expect(e.actionLabel, '用完了');
+      expect(e.changeText, '充足 → 用完');
+    });
+
+    test('新建档（before=null）→ 无 → 充足', () {
+      final e = StockLogEntry.fromJson({
+        'id': 1,
+        'ingredientId': 1,
+        'action': 'manual',
+        'afterLevel': 'ENOUGH',
+      });
+      expect(e.changeText, '无 → 充足');
     });
   });
 }

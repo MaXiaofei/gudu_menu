@@ -4,6 +4,9 @@ import '../pages/mealplan/mealplan_page.dart';
 import '../pages/pantry/list_page.dart';
 import '../pages/pantry/detail_page.dart';
 import '../pages/pantry/manual_add_page.dart';
+import '../pages/review/menu_review_page.dart';
+import '../pages/review/menu_review_form_page.dart';
+import '../pages/review/my_reviews_page.dart';
 import '../pages/shopping/shopping_page.dart';
 import '../pages/ai/estimate_page.dart';
 import '../pages/ai/recommend_page.dart';
@@ -117,6 +120,31 @@ GoRouter createRouter(AuthStore auth) {
           id: int.parse(s.pathParameters['id']!),
         ),
       ),
+      // 统一评价页（完成结果页/食集完成态/我的评价进入）
+      GoRoute(
+        path: '/menu/:id/review',
+        builder: (_, s) => MenuReviewPage(
+          menuId: int.parse(s.pathParameters['id']!),
+        ),
+      ),
+      // 食集整体评价表单（统一评价页点「评价 →」进入）
+      GoRoute(
+        path: '/menu/:id/review-form',
+        builder: (_, s) {
+          final extra = s.extra;
+          final menuName = (extra is Map && extra['menuName'] is String)
+              ? extra['menuName'] as String
+              : '';
+          return MenuReviewFormPage(
+            menuId: int.parse(s.pathParameters['id']!),
+            menuName: menuName,
+          );
+        },
+      ),
+      // 我的评价（我的 tab 进入）
+      GoRoute(
+          path: '/my-reviews',
+          builder: (_, __) => const MyReviewsPage()),
       // 食材库
       GoRoute(
           path: '/ingredient',

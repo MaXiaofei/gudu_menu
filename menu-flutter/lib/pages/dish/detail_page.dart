@@ -8,6 +8,7 @@ import '../../models/menu.dart';
 import '../../models/nutrition_metric.dart';
 import '../../services/dish_service.dart';
 import '../../services/menu_service.dart';
+import '../../services/review_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/image_viewer.dart';
@@ -37,6 +38,10 @@ class _DishDetailPageState extends State<DishDetailPage> {
   final int _serving = 1;
   bool _loading = true;
 
+  /// 该菜均分 + 评价数（V43：菜谱详情展示，无评价为 null）。
+  double? _avgRating;
+  int _avgCount = 0;
+
   /// 详情头部展示的标签（菜系 + 分类 + 标签去空合并）。
   List<String> get _dishTags => _detail == null
       ? const []
@@ -61,6 +66,11 @@ class _DishDetailPageState extends State<DishDetailPage> {
     } catch (_) {}
     try {
       _metrics = await DishService.metrics();
+    } catch (_) {}
+    try {
+      final (avg, count) = await ReviewService.dishAvg(widget.id);
+      _avgRating = avg;
+      _avgCount = count;
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
@@ -384,6 +394,22 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                                 fontWeight: FontWeight.w700,
                                                 color: t.title)),
                                       ),
+                                      // 家里：充足/不足/用完 徽标（V42，只标有没有不判断够不够）
+                                      if (ing.stockLevel != null)
+                                        Container(
+                                          margin: const EdgeInsets.only(right: 6),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: _stockColor(ing.stockLevel!).withAlpha(20),
+                                            borderRadius: BorderRadius.circular(AppTokens.rPill),
+                                          ),
+                                          child: Text('家里：${_stockLabel(ing.stockLevel!)}',
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _stockColor(ing.stockLevel!))),
+                                        ),
                                       Text(ing.amountText,
                                           style: TextStyle(
                                               fontSize: 13,
@@ -461,6 +487,28 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                     : const Text('加到食集'),
                               ),
                               const SizedBox(height: AppTokens.sp12),
+                              // 均分展示（V43：有评价才显示）
+                              if (_avgRating != null && _avgRating! > 0) ...[
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.star,
+                                        size: 18, color: AppTokens.warning),
+                                    const SizedBox(width: AppTokens.sp4),
+                                    Text(
+                                      _avgRating!.toStringAsFixed(1),
+                                      style: t.textStyles.md.copyWith(
+                                          color: AppTokens.warning,
+                                          fontWeight: FontWeight.w700),
+                                    ),
+                                    const SizedBox(width: AppTokens.sp6),
+                                    Text('$_avgCount 人评过',
+                                        style: t.textStyles.sm
+                                            .copyWith(color: t.caption)),
+                                  ],
+                                ),
+                                const SizedBox(height: AppTokens.sp8),
+                              ],
                               OutlinedButton(
                                 onPressed: () =>
                                     context.push('/dish/${widget.id}/review'),
@@ -492,4 +540,20 @@ class _SectionTitle extends StatelessWidget {
             style: t.textStyles.subtitle),
       );
   }
+}
+
+Color _stockColor(String level) {
+  return switch (level) {
+    'ENOUGH' => AppTokens.success,
+    'LOW' => AppTokens.warning,
+    _ => AppTokens.error,
+  };
+}
+
+String _stockLabel(String level) {
+  return switch (level) {
+    'ENOUGH' => '充足',
+    'LOW' => '不足',
+    _ => '用完',
+  };
 }

@@ -155,6 +155,66 @@ void main() {
     });
   });
 
+  group('ShoppingService restock / undoRestock / renameList / fromPrep（V42）', () {
+    test('togglePurchased 带 level → body 含 level', () async {
+      final captor = installMock((_) => okResponse(null));
+
+      await ShoppingService.togglePurchased(20, level: 'LOW');
+
+      expect(captor.last!.path, '/shopping/item/20/purchased');
+      expect(captor.last!.data, {'level': 'LOW'});
+    });
+
+    test('togglePurchased 不带 level → body 为空', () async {
+      final captor = installMock((_) => okResponse(null));
+
+      await ShoppingService.togglePurchased(20);
+
+      expect(captor.last!.path, '/shopping/item/20/purchased');
+      expect(captor.last!.data, isEmpty);
+    });
+
+    test('restock POST /shopping/restock → RestockResult 解析', () async {
+      final captor = installMock((_) => okResponse({'restocked': 3, 'markedOnly': 1}));
+
+      final r = await ShoppingService.restock([1, 2, 3, 4]);
+
+      expect(captor.last!.path, '/shopping/restock');
+      expect(captor.last!.data, {'itemIds': [1, 2, 3, 4]});
+      expect(r.restocked, 3);
+      expect(r.markedOnly, 1);
+    });
+
+    test('undoRestock POST /shopping/item/{id}/undo-restock', () async {
+      final captor = installMock((_) => okResponse(null));
+
+      await ShoppingService.undoRestock(9);
+
+      expect(captor.last!.method, 'POST');
+      expect(captor.last!.path, '/shopping/item/9/undo-restock');
+    });
+
+    test('renameList PUT /shopping/{id}/name body 含 name', () async {
+      final captor = installMock((_) => okResponse(null));
+
+      await ShoppingService.renameList(5, '周末采购');
+
+      expect(captor.last!.method, 'PUT');
+      expect(captor.last!.path, '/shopping/5/name');
+      expect(captor.last!.data, {'name': '周末采购'});
+    });
+
+    test('fromPrep POST /shopping/from-prep body 含 menuId + ingredientIds', () async {
+      final captor = installMock((_) => okResponse(7));
+
+      final listId = await ShoppingService.fromPrep(3, [10, 11]);
+
+      expect(captor.last!.path, '/shopping/from-prep');
+      expect(captor.last!.data, {'menuId': 3, 'ingredientIds': [10, 11]});
+      expect(listId, 7);
+    });
+  });
+
   group('ShoppingList.sourceLabel', () {
     test('各 timeRange 映射', () {
       expect(ShoppingList.fromJson({'id': 1, 'timeRange': 'menu'}).sourceLabel, '菜单');
