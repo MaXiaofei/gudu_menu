@@ -130,6 +130,27 @@ class TogetherServiceTest {
         assertThat(vo.menuId()).isEqualTo(7L);
         assertThat(vo.menuName()).isEqualTo("今晚的饭");
         assertThat(vo.dishCount()).isEqualTo(3);
+        assertThat(vo.token()).isEqualTo("tok");
+    }
+
+    @Test
+    void 口令进入_按code查邀请返回token和食集信息() {
+        given(inviteMapper.selectOne(any())).willReturn(invite("ABC123", "tok"));
+        given(menuMapper.selectById(7L)).willReturn(menu(7L, "今晚的饭"));
+        given(menuDishMapper.selectCount(any())).willReturn(3L);
+
+        TogetherService.InviteInfoVO vo = svc.inviteInfoByCode("abc123"); // 大小写不敏感
+
+        assertThat(vo.token()).isEqualTo("tok"); // 前端用它继续 join/轮询
+        assertThat(vo.menuName()).isEqualTo("今晚的饭");
+    }
+
+    @Test
+    void 口令进入_口令无效_抛异常() {
+        given(inviteMapper.selectOne(any())).willReturn(null);
+
+        assertThatThrownBy(() -> svc.inviteInfoByCode("ZZZZZZ"))
+                .hasMessageContaining("口令");
     }
 
     @Test

@@ -58,7 +58,8 @@ public class TogetherService {
 
     public record InviteVO(String code, String token) {}
 
-    public record InviteInfoVO(Long menuId, String menuName, int dishCount) {}
+    /** 邀请信息（含 token：口令进入场景前端需要它继续 join/轮询）。 */
+    public record InviteInfoVO(String token, Long menuId, String menuName, int dishCount) {}
 
     public record JoinVO(String guestKey, Long menuId, String menuName) {}
 
@@ -106,12 +107,25 @@ public class TogetherService {
 
     /** 邀请信息（免身份，H5 进入页校验 token）。 */
     public InviteInfoVO inviteInfo(String token) {
-        MenuInvite inv = findByToken(token);
+        return inviteInfo(findByToken(token));
+    }
+
+    /** 按 6 位口令查邀请（H5 无链接场景：朋友收到口令，在页面输入）。 */
+    public InviteInfoVO inviteInfoByCode(String code) {
+        if (code == null || code.isBlank()) throw new BizException("口令无效");
+        MenuInvite inv = inviteMapper.selectOne(
+                new QueryWrapper<MenuInvite>().eq("code", code.trim().toUpperCase()));
+        if (inv == null) throw new BizException("口令无效或已失效");
+        return inviteInfo(inv);
+    }
+
+    private InviteInfoVO inviteInfo(MenuInvite inv) {
         Menu menu = menuMapper.selectById(inv.getMenuId());
         if (menu == null) throw new BizException("食集不存在");
         Long count = menuDishMapper.selectCount(
                 new QueryWrapper<MenuDish>().eq("menu_id", inv.getMenuId()));
-        return new InviteInfoVO(inv.getMenuId(), menu.getName(), count == null ? 0 : count.intValue());
+        return new InviteInfoVO(inv.getToken(), inv.getMenuId(), menu.getName(),
+                count == null ? 0 : count.intValue());
     }
 
     /**

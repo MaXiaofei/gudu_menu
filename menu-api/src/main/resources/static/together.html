@@ -55,6 +55,15 @@
   <div class="sub" id="menuSub"></div>
 </div>
 
+<div id="codeView" class="login" style="display:none">
+  <div class="card" style="margin:0;padding:16px">
+    <div style="font-size:15px;font-weight:800">输入口令加入聚餐</div>
+    <div style="font-size:11px;color:#9C8C7A;margin:4px 0 12px">朋友把 6 位口令发给你了？在这里输入</div>
+    <input id="codeInput" placeholder="6 位口令，如 7K9F2M" maxlength="6" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')doCode()">
+    <button class="btn-primary" style="margin:14px 0 0" onclick="doCode()">进入</button>
+  </div>
+</div>
+
 <div id="loginView" class="login" style="display:none">
   <div class="card" style="margin:0;padding:16px">
     <div style="font-size:15px;font-weight:800">进来点菜</div>
@@ -130,7 +139,11 @@ function fmtTime(iso) {
 
 // ============ 进入 ============
 async function init() {
-  if (!token) { toast('邀请链接无效'); return; }
+  if (!token) {
+    // 无链接（朋友只拿到 6 位口令）：显示口令输入
+    $('codeView').style.display = 'block';
+    return;
+  }
   try {
     const info = await api('invite/' + token);
     menuId = info.menuId;
@@ -145,6 +158,26 @@ async function init() {
   } catch (e) {
     toast(e.message || '邀请链接无效');
   }
+}
+
+/// 口令进入：校验后拿到 token，走正常进入流程（昵称输入/直接进入）。
+async function doCode() {
+  const code = $('codeInput').value.trim().toUpperCase();
+  if (code.length !== 6) { toast('输入 6 位口令'); return; }
+  try {
+    const info = await api('invite/code/' + encodeURIComponent(code));
+    token = info.token;
+    menuId = info.menuId;
+    $('menuName').textContent = info.menuName || '聚餐';
+    $('menuSub').textContent = info.dishCount + ' 道菜 · 朋友一起点';
+    $('codeView').style.display = 'none';
+    if (guestKey) {
+      enter();
+    } else {
+      $('loginView').style.display = 'block';
+      $('nicknameInput').value = nickname;
+    }
+  } catch (e) { toast(e.message || '口令无效'); }
 }
 
 async function doJoin() {

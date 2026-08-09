@@ -37,6 +37,12 @@ public class TogetherController {
         return R.ok(svc.inviteInfo(token));
     }
 
+    /** 按 6 位口令查邀请（免身份，H5 无链接场景：朋友在页面输入口令进入）。 */
+    @GetMapping("/invite/code/{code}")
+    public R<TogetherService.InviteInfoVO> inviteInfoByCode(@PathVariable String code) {
+        return R.ok(svc.inviteInfoByCode(code));
+    }
+
     /** 加入聚餐：登录用户按账号 upsert；H5 访客按昵称建/复用 guest_key。 */
     @PostMapping("/invite/{token}/join")
     public R<TogetherService.JoinVO> join(@PathVariable String token, @RequestBody JoinReq req) {
