@@ -28,7 +28,9 @@ public class SaTokenConfig implements WebMvcConfigurer {
                         // V45 聚餐：邀请链接免登录（H5 访客入口/加入），聚餐清单与加菜走身份头（member 或 X-Guest-Key）
                         "/invite/**",
                         "/menu/*/together",
-                        "/menu/*/together/**"
+                        "/menu/*/together/**",
+                        // 聚餐 H5 朋友端点菜页（classpath:/static/together.html）
+                        "/together.html"
                 );
     }
 }
