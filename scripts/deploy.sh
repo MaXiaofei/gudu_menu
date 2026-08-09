@@ -47,8 +47,11 @@ echo "→ 重启 $SERVICE..."
 #    存量库的后续迁移靠这里补（V42 起全部幂等：IF NOT EXISTS / information_schema 判断）。
 #    密码从容器内 MYSQL_ROOT_PASSWORD 环境变量取，不落盘。
 echo "→ 执行增量迁移（V42+）..."
-for f in menu-api/sql/V4*.sql menu-api/sql/V5*.sql; do
+for f in menu-api/sql/V*.sql; do
   [ -f "$f" ] || continue
+  # 只跑 V42 及之后的迁移（V42 起全部幂等；V01~V41 由 initdb 在空库首启执行，勿重复跑）
+  v=$(basename "$f" | sed -E 's/^V([0-9]+)_.*/\1/')
+  [ "$v" -ge 42 ] 2>/dev/null || continue
   echo "  apply $(basename "$f")"
   docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-mysql \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" gudu' < "$f"
