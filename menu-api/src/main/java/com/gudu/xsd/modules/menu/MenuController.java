@@ -68,6 +68,20 @@ public class MenuController {
         return R.ok(svc.getTogetherCount(id));
     }
 
+    /** 再做一次（食记单条详情）：复制食集 → 新 ACTIVE 食集，返回新 id。 */
+    @PostMapping("/{id}/copy")
+    public R<Long> copy(@PathVariable Long id) {
+        return R.ok(svc.copyMenu(id, currentMemberId()));
+    }
+
+    private Long currentMemberId() {
+        try {
+            return cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     @DeleteMapping("/{id}")
     public R<?> del(@PathVariable Long id) {
         svc.removeById(id);

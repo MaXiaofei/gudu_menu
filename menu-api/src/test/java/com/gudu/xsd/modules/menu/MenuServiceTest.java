@@ -198,4 +198,52 @@ class MenuServiceTest {
         assertThat(lines.get(1).price()).isEqualByComparingTo("0");
         assertThat(lines.get(1).servingFactor()).isEqualByComparingTo("1");
     }
+
+
+// ---------------- copyMenu（再做一次） ----------------
+
+    @Test
+    void copyMenu_复制食集和菜品_新建ACTIVE() {
+        Menu src = menu(10L, 3);
+        src.setTypeId(5L);
+        src.setStatus("DONE");
+        Mockito.doReturn(src).when(svc).getById(10L);
+        MenuDish d1 = md(1L, new BigDecimal("2"));
+        d1.setNote("少辣");
+        d1.setAddedByNickname("小王");
+        Mockito.doReturn(List.of(d1)).when(menuDishMapper).selectList(any(Wrapper.class));
+        // spy saveWithDishes：捕获 dto 验证复制内容（不真写库）
+        final MenuSaveDTO[] captured = new MenuSaveDTO[1];
+        Mockito.doAnswer(inv -> {
+            captured[0] = inv.getArgument(0);
+            captured[0].getMenu().setId(99L); // 模拟 save 回填 id
+            return null;
+        }).when(svc).saveWithDishes(any(MenuSaveDTO.class));
+
+        Long newId = svc.copyMenu(10L, 88L);
+
+        assertThat(newId).isEqualTo(99L);
+        MenuSaveDTO dto = captured[0];
+        assertThat(dto.getMenu().getName()).isEqualTo("测试菜单");
+        assertThat(dto.getMenu().getStatus()).isEqualTo("ACTIVE");   // 新食集进行中
+        assertThat(dto.getMenu().getServingCount()).isEqualTo(3);
+        assertThat(dto.getMenu().getFinishedAt()).isNull();
+        assertThat(dto.getDishes()).hasSize(1);
+        MenuDish copy = dto.getDishes().get(0);
+        assertThat(copy.getDishId()).isEqualTo(1L);
+        assertThat(copy.getServingFactor()).isEqualByComparingTo("2");
+        assertThat(copy.getNote()).isEqualTo("少辣");
+        assertThat(copy.getAddedByMemberId()).isEqualTo(88L); // 归新 owner
+        assertThat(copy.getAddedByNickname()).isNull();
+        assertThat(copy.getId()).isNull();                       // 全新行
+    }
+
+    @Test
+    void copyMenu_食集不存在_抛异常() {
+        Mockito.doReturn(null).when(svc).getById(99L);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.copyMenu(99L, 1L))
+                .hasMessageContaining("食集不存在");
+    }
 }
+
+    

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.dish.Dish;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.DishQueryService;
@@ -178,6 +179,42 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     /** 一起吃 tab 数量（占位：协同点菜功能待建，先返回 0 让前端可显示汇总数量）。 */
     public int getTogetherCount(Long menuId) {
         return 0;
+    }
+
+    /**
+     * 再做一次（食记单条详情）：复制食集 + 菜品关联（份数/备注/customName），
+     * 新建为 ACTIVE（进行中）食集，added_by 归新 owner。返回新食集 id。
+     */
+    @Transactional
+    public Long copyMenu(Long menuId, Long memberId) {
+        Menu src = getById(menuId);
+        if (src == null) {
+            throw new BizException("食集不存在");
+        }
+        MenuSaveDTO dto = new MenuSaveDTO();
+        Menu copy = new Menu();
+        copy.setName(src.getName());
+        copy.setTypeId(src.getTypeId());
+        copy.setServingCount(src.getServingCount());
+        copy.setStatus("ACTIVE");
+        copy.setFinishedAt(null);
+        dto.setMenu(copy);
+
+        List<MenuDish> mds = menuDishMapper.selectList(
+                new QueryWrapper<MenuDish>().eq("menu_id", menuId).orderByAsc("id"));
+        List<MenuDish> copies = mds.stream().map(d -> {
+            MenuDish nd = new MenuDish();
+            nd.setDishId(d.getDishId());
+            nd.setCustomName(d.getCustomName());
+            nd.setServingFactor(d.getServingFactor());
+            nd.setNote(d.getNote());
+            nd.setAddedByMemberId(memberId); // 复制后统一归新 owner
+            nd.setAddedByNickname(null);
+            return nd;
+        }).toList();
+        dto.setDishes(copies);
+        saveWithDishes(dto);
+        return copy.getId();
     }
 
     /** 菜单汇总：各菜份数营养（复用 NutritionCalcService）+ 价格，调 MenuCalcService 纯函数。 */
