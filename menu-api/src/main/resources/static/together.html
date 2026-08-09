@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>聚餐点菜</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
+         background: #F5EFE6; color: #4A382A; padding-bottom: 90px; }
+  .top { background: #FDFAF4; padding: 14px 16px 10px; border-bottom: 1px solid #F0E6D6; }
+  .top h1 { font-size: 19px; font-weight: 800; }
+  .top .sub { font-size: 11px; color: #9C8C7A; margin-top: 3px; }
+  .sec { padding: 12px 16px 4px; font-size: 11px; font-weight: 800; color: #9C8C7A; letter-spacing: 1px; }
+  .card { background: #FFFFFF; border: 1px solid #F0E6D6; border-radius: 12px; margin: 0 12px 8px; padding: 10px 12px; }
+  .card .name { font-size: 13px; font-weight: 800; color: #4A382A; }
+  .card .meta { font-size: 10px; color: #9C8C7A; margin-top: 2px; }
+  .card .note { font-size: 10px; color: #B8762E; margin-top: 4px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .row .flex { flex: 1; min-width: 0; }
+  .del { color: #9C8C7A; font-weight: 800; font-size: 13px; padding: 4px 8px; border: none; background: none; }
+  .member { display: inline-flex; align-items: center; gap: 4px; background: #FBF0DD; border-radius: 99px;
+            padding: 3px 9px; font-size: 10px; color: #6E5C49; margin: 0 6px 6px 0; }
+  .member.on { background: #E89150; color: #fff; font-weight: 700; }
+  .act { font-size: 10px; color: #6E5C49; padding: 5px 16px; }
+  .act b { color: #4A382A; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-top: 1px solid #F0E6D6;
+         padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; }
+  .bar input { flex: 1; border: 1px solid #F0E6D6; border-radius: 10px; padding: 10px 12px; font-size: 13px;
+               background: #FDFAF4; color: #4A382A; outline: none; }
+  .bar button { border: none; background: #E89150; color: #fff; font-weight: 800; font-size: 13px;
+                border-radius: 10px; padding: 0 18px; }
+  .btn-primary { display: block; width: calc(100% - 24px); margin: 14px 12px 0; border: none; background: #E89150;
+                 color: #fff; font-weight: 800; font-size: 14px; padding: 12px; border-radius: 12px; }
+  .login { padding: 30px 20px; }
+  .login input { width: 100%; border: 1px solid #F0E6D6; border-radius: 12px; padding: 12px 14px; font-size: 14px;
+                 background: #fff; color: #4A382A; outline: none; }
+  .empty { text-align: center; color: #9C8C7A; font-size: 12px; padding: 24px 0; }
+  .toast { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); background: rgba(74,56,42,.9);
+           color: #fff; font-size: 13px; padding: 10px 18px; border-radius: 10px; display: none; z-index: 9; }
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; z-index: 8; }
+  .modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 280px;
+           background: #fff; border-radius: 16px; padding: 18px; display: none; z-index: 9; }
+  .modal .t { font-size: 15px; font-weight: 800; text-align: center; }
+  .modal .b { display: flex; gap: 8px; margin-top: 16px; }
+  .modal button { flex: 1; border: none; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 13px; }
+  .modal .cancel { background: #F5EFE6; color: #6E5C49; }
+  .modal .ok { background: #E89150; color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1 id="menuName">聚餐点菜</h1>
+  <div class="sub" id="menuSub"></div>
+</div>
+
+<div id="loginView" class="login" style="display:none">
+  <div class="card" style="margin:0;padding:16px">
+    <div style="font-size:15px;font-weight:800">进来点菜</div>
+    <div style="font-size:11px;color:#9C8C7A;margin:4px 0 12px">输入你的昵称，朋友们能看到你点了什么</div>
+    <input id="nicknameInput" placeholder="昵称，如：小王" maxlength="16">
+    <button class="btn-primary" style="margin:14px 0 0" onclick="doJoin()">进入</button>
+  </div>
+</div>
+
+<div id="mainView" style="display:none">
+  <div class="sec">成员</div>
+  <div id="members" style="padding:0 12px"></div>
+
+  <div class="sec">大家点了 · <span id="dishCount">0</span> 道</div>
+  <div id="dishes"></div>
+
+  <div class="sec">动态</div>
+  <div id="activities"></div>
+</div>
+
+<div class="bar" id="bar" style="display:none">
+  <input id="addInput" placeholder="想吃什么？输入菜名" maxlength="64" onkeydown="if(event.key==='Enter')doAdd()">
+  <button onclick="doAdd()">加菜</button>
+</div>
+
+<div class="modal-mask" id="mask"></div>
+<div class="modal" id="confirmDel">
+  <div class="t">删掉这道菜？</div>
+  <div style="font-size:11px;color:#9C8C7A;text-align:center;margin-top:6px" id="confirmDelName"></div>
+  <div class="b">
+    <button class="cancel" onclick="hideDel()">取消</button>
+    <button class="ok" onclick="doDel()">删</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let token = new URLSearchParams(location.search).get('token') || '';
+let guestKey = localStorage.getItem('tj_guest_' + token) || '';
+let nickname = localStorage.getItem('tj_nick_' + token) || '';
+let menuId = 0, dishCount = 0;
+let delId = null;
+
+function api(path, method, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (guestKey) headers['X-Guest-Key'] = guestKey;
+  return fetch(path, { method: method || 'GET', headers, body: body ? JSON.stringify(body) : undefined })
+    .then(r => r.json())
+    .then(res => {
+      if (res.code !== 0) throw new Error(res.msg || '请求失败');
+      return res.data;
+    });
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.style.display = 'none', 1800);
+}
+
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const diff = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (diff < 1) return '刚刚';
+  if (diff < 60) return diff + ' 分钟前';
+  if (diff < 1440) return Math.floor(diff / 60) + ' 小时前';
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}
+
+// ============ 进入 ============
+async function init() {
+  if (!token) { toast('邀请链接无效'); return; }
+  try {
+    const info = await api('invite/' + token);
+    menuId = info.menuId;
+    $('menuName').textContent = info.menuName || '聚餐';
+    $('menuSub').textContent = info.dishCount + ' 道菜 · 朋友一起点';
+    if (guestKey) {
+      enter();
+    } else {
+      $('loginView').style.display = 'block';
+      $('nicknameInput').value = nickname;
+    }
+  } catch (e) {
+    toast(e.message || '邀请链接无效');
+  }
+}
+
+async function doJoin() {
+  const name = $('nicknameInput').value.trim();
+  if (!name) { toast('先输入昵称'); return; }
+  try {
+    const r = await api('invite/' + token + '/join', 'POST', { nickname: name });
+    guestKey = r.guestKey || '';
+    nickname = name;
+    if (guestKey) localStorage.setItem('tj_guest_' + token, guestKey);
+    localStorage.setItem('tj_nick_' + token, name);
+    menuId = r.menuId;
+    enter();
+  } catch (e) { toast(e.message); }
+}
+
+function enter() {
+  $('loginView').style.display = 'none';
+  $('mainView').style.display = 'block';
+  $('bar').style.display = 'flex';
+  load();
+  setInterval(load, 10000);
+}
+
+// ============ 清单（轮询） ============
+async function load() {
+  try {
+    const data = await api('menu/' + menuId + '/together');
+    renderMembers(data.members);
+    renderDishes(data.dishes);
+    renderActs(data.activities);
+  } catch (e) { /* 静默，下次轮询 */ }
+}
+
+function renderMembers(members) {
+  $('members').innerHTML = members.map(m =>
+    '<span class="member' + (m.nickname === nickname ? ' on' : '') + '">' + esc(m.nickname) +
+    ' · ' + fmtTime(m.lastActiveAt) + '</span>').join('') || '<div class="empty">还没有人</div>';
+}
+
+function renderDishes(dishes) {
+  dishCount = dishes.length;
+  $('dishCount').textContent = dishCount;
+  $('dishes').innerHTML = dishes.map(d => {
+    const who = d.addedByNickname ? d.addedByNickname + ' 点的' : '';
+    return '<div class="card"><div class="row">' +
+      '<div class="flex"><div class="name">' + esc(d.dishName) + '</div>' +
+      '<div class="meta">' + esc(who) + (d.note ? ' · ' + esc(d.note) : '') + '</div></div>' +
+      '<button class="del" onclick="askDel(' + d.id + ',\'' + esc(d.dishName).replace(/'/g, "\\'") + '\')">✕</button>' +
+      '</div></div>';
+  }).join('') || '<div class="empty">还没人点菜，先加一道？</div>';
+}
+
+function renderActs(acts) {
+  $('activities').innerHTML = acts.map(a => {
+    const verb = a.action === 'remove' ? '删了' : '点了';
+    return '<div class="act"><b>' + esc(a.nickname) + '</b> ' + verb + '「' + esc(a.dishName) + '」 · ' +
+      fmtTime(a.createTime) + '</div>';
+  }).join('') || '<div class="empty">暂无动态</div>';
+}
+
+function esc(s) {
+  return (s == null ? '' : String(s)).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ============ 加菜 / 删菜 ============
+async function doAdd() {
+  const name = $('addInput').value.trim();
+  if (!name) return;
+  try {
+    await api('menu/' + menuId + '/together/items', 'POST', { customName: name });
+    $('addInput').value = '';
+    toast('已加「' + name + '」');
+    load();
+  } catch (e) { toast(e.message); }
+}
+
+function askDel(id, name) {
+  delId = id;
+  $('confirmDelName').textContent = '「' + name + '」';
+  $('mask').style.display = 'block';
+  $('confirmDel').style.display = 'block';
+}
+function hideDel() {
+  delId = null;
+  $('mask').style.display = 'none';
+  $('confirmDel').style.display = 'none';
+}
+async function doDel() {
+  if (!delId) return;
+  try {
+    await api('menu/' + menuId + '/together/items/' + delId, 'DELETE');
+    hideDel();
+    load();
+  } catch (e) { toast(e.message); hideDel(); }
+}
+
+init();
+</script>
+</body>
+</html>

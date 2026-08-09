@@ -94,7 +94,7 @@ class MenuControllerTest {
         MenuService.MenuDetail detail = new MenuService.MenuDetail(
                 menu(1L, "工作日菜单"),
                 List.of(new MenuService.MenuDishVO(
-                        1L, 1L, 1L, BigDecimal.ONE, "番茄炒蛋", null, null)),
+                        1L, 1L, 1L, BigDecimal.ONE, "番茄炒蛋", null, null, null, null)),
                 0);
         given(svc.detail(eq(1L))).willReturn(detail);
 

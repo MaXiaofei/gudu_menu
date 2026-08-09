@@ -51,7 +51,7 @@ class MenuPrepServiceTest {
     }
 
     private MenuService.MenuDishVO md(Long id, Long menuId, Long dishId, String factor, String name) {
-        return new MenuService.MenuDishVO(id, menuId, dishId, new BigDecimal(factor), name, null, null);
+        return new MenuService.MenuDishVO(id, menuId, dishId, new BigDecimal(factor), name, null, null, null, null);
     }
 
     private DishIngredient di(Long dishId, Long ingId, String grams) {

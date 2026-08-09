@@ -133,8 +133,11 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         for (MenuDish md : mds) {
             Dish d = dishById.get(md.getDishId());
             if (d != null && d.getCookTime() != null) totalMinutes += d.getCookTime();
+            // V45：自定义菜名（dish_id 空）用 customName 作展示名；朋友点的带 addedByNickname
             dishes.add(new MenuDishVO(md.getId(), md.getMenuId(), md.getDishId(), md.getServingFactor(),
-                    d != null ? d.getName() : null, d != null ? d.getCoverUrl() : null, md.getNote()));
+                    d != null ? d.getName() : md.getCustomName(),
+                    d != null ? d.getCoverUrl() : null,
+                    md.getNote(), md.getAddedByNickname(), md.getCustomName()));
         }
         return new MenuDetail(menu, dishes, totalMinutes);
     }
@@ -217,7 +220,8 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
 
     /** MenuDish 视图：冗余菜名/封面/备注，避免前端逐菜 GET /dish/{id} 取名（评审 N+1）。 */
     public record MenuDishVO(Long id, Long menuId, Long dishId, BigDecimal servingFactor,
-                             String dishName, String coverUrl, String note) {}
+                             String dishName, String coverUrl, String note,
+                             String addedByNickname, String customName) {}
 
     /** 食集详情：menu + 菜列表 + 总烹饪分钟（Σ 各菜 cookTime，原型副标题「约 N 分钟」）。 */
     public record MenuDetail(Menu menu, List<MenuDishVO> dishes, int totalMinutes) {}
