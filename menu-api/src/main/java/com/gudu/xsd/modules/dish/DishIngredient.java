@@ -34,4 +34,8 @@ public class DishIngredient {
     /** 食材名（非持久化，详情接口批量回填，避免前端 N+1 查名字）。 */
     @TableField(exist = false)
     private String ingredientName;
+
+    /** 库存档位 ENOUGH/LOW/NONE（非持久化，详情接口批量回填；家里：充足/不足/用完）。B5。 */
+    @TableField(exist = false)
+    private String stockLevel;
 }

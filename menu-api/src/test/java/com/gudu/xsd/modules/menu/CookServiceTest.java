@@ -2,15 +2,20 @@ package com.gudu.xsd.modules.menu;
 
 import com.gudu.xsd.modules.cookbook.CookingRecord;
 import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
+import com.gudu.xsd.modules.dict.SysDict;
+import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuMapper;
 import com.gudu.xsd.modules.menu.prep.MenuPrepStatus;
 import com.gudu.xsd.modules.menu.prep.mapper.MenuPrepStatusMapper;
+import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
+import com.gudu.xsd.modules.pantry.IngredientStock;
 import com.gudu.xsd.modules.pantry.PantryService;
-import com.gudu.xsd.modules.shopping.ShoppingService;
+import com.gudu.xsd.modules.pantry.StockLog;
+import com.gudu.xsd.modules.pantry.mapper.IngredientStockMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -18,9 +23,9 @@ import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,6 +34,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * 做菜确认测试（V42 手动库存版）：cookByMenu 按 usedUp/partiallyUsed 更新档位 + 写食记 + 食集完成；
+ * cookMaterials 返回本次用到的食材（档位 + 是否调料）。不再有扣减/欠量/自动勾选采购。
+ */
 class CookServiceTest {
 
     @Mock MenuMapper menuMapper;
@@ -37,8 +46,9 @@ class CookServiceTest {
     @Mock CookingRecordMapper cookingRecordMapper;
     @Mock PantryService pantryService;
     @Mock IngredientMapper ingredientMapper;
+    @Mock IngredientStockMapper ingredientStockMapper;
+    @Mock DictMapper dictMapper;
     @Mock MenuPrepStatusMapper menuPrepStatusMapper;
-    @Mock ShoppingService shoppingService;
 
     private CookService cookService;
 
@@ -47,8 +57,8 @@ class CookServiceTest {
         MockitoAnnotations.openMocks(this);
         cookService = new CookService(menuMapper, menuDishMapper, dishIngredientMapper,
                 cookingRecordMapper, pantryService, new NeedAggregator(), ingredientMapper,
-                menuPrepStatusMapper, shoppingService);
-        // 模拟 MyBatis insert 回填 id（生产 @TableId(AUTO) 会回填，mock 默认不回填）
+                ingredientStockMapper, dictMapper, menuPrepStatusMapper);
+        // 模拟 MyBatis insert 回填 id
         when(cookingRecordMapper.insert(any(CookingRecord.class))).thenAnswer(inv -> {
             inv.getArgument(0, CookingRecord.class).setId(1L);
             return 1;
@@ -70,86 +80,113 @@ class CookServiceTest {
         return d;
     }
 
-    @Test
-    void cookByMenu_聚合扣减写record并标完成() {
-        Menu menu = new Menu();
-        menu.setId(7L);
-        when(menuMapper.selectById(7L)).thenReturn(menu);
-        when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "2")));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100")));
-        // 每食材扣减返回够扣
-        when(pantryService.deductByIngredient(eq(10L), eq(new BigDecimal("200"))))
-                .thenReturn(new PantryService.DeductResult(10L, "番茄", new BigDecimal("200"), BigDecimal.ZERO, List.of()));
+    private Menu menu(long id) {
+        Menu m = new Menu();
+        m.setId(id);
+        return m;
+    }
 
-        CookResult r = cookService.cookByMenu(7L, 99L);
+    // ===================== cookByMenu（确认语义） =====================
+
+    @Test
+    void cookByMenu_用完和用了一些分别更新档位() {
+        when(menuMapper.selectById(7L)).thenReturn(menu(7L));
+        when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "2")));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100"), di(1, 20, "50")));
+
+        CookResult r = cookService.cookByMenu(7L, 99L, List.of(10L), List.of(20L));
 
         assertThat(r.menuId()).isEqualTo(7L);
-        assertThat(r.shortages()).isEmpty();
-        verify(cookingRecordMapper, times(1)).insert(any(CookingRecord.class));   // 每菜一条
+        verify(pantryService).useUp(10L, StockLog.ACTION_COOK, null);
+        verify(pantryService).partialUse(20L, StockLog.ACTION_COOK_PARTIAL, null);
+        // 每菜一条 cooking_record（source=menu，memo=用材总结）
+        verify(cookingRecordMapper, times(1)).insert(argThat(rec ->
+                rec.getMenuId() == 7L && "menu".equals(rec.getSource())
+                && "用完:10;用了一些:20".equals(rec.getMemo())));
+        // 食集标完成
         verify(menuMapper).updateById(argThat(m -> "DONE".equals(((Menu) m).getStatus())
                 && ((Menu) m).getFinishedAt() != null));
-        // 完成态：备菜置 READY（upsert）+ 采购清单全勾选
-        verify(menuPrepStatusMapper).insert(argThat(mps -> mps.getMenuId() == 7L
-                && mps.getIngredientId() == 10L && "READY".equals(mps.getStatus())));
-        verify(shoppingService).markPurchasedByMenu(7L);
+        // 备菜全 READY（聚合用料 10/20 两个食材）
+        verify(menuPrepStatusMapper).insert(argThat(mps -> mps.getIngredientId() == 10L));
+        verify(menuPrepStatusMapper).insert(argThat(mps -> mps.getIngredientId() == 20L));
     }
 
-    /** 已有备料状态：置 READY 走 update 而非 insert。 */
     @Test
-    void cookByMenu_备料已有状态_走update置READY() {
-        Menu menu = new Menu();
-        menu.setId(7L);
-        when(menuMapper.selectById(7L)).thenReturn(menu);
+    void cookByMenu_已完成的食集_抛异常() {
+        Menu done = menu(7L);
+        done.setStatus("DONE");
+        when(menuMapper.selectById(7L)).thenReturn(done);
+
+        assertThatThrownBy(() -> cookService.cookByMenu(7L, 99L, List.of(), List.of()))
+                .hasMessageContaining("已经做完");
+        verify(pantryService, never()).useUp(any(), any(), any());
+    }
+
+    @Test
+    void cookByMenu_用户没确认任何食材_只写食记并标完成() {
+        when(menuMapper.selectById(7L)).thenReturn(menu(7L));
         when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "1")));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100")));
-        when(pantryService.deductByIngredient(eq(10L), eq(new BigDecimal("100"))))
-                .thenReturn(new PantryService.DeductResult(10L, "番茄", new BigDecimal("100"), BigDecimal.ZERO, List.of()));
-        MenuPrepStatus existing = new MenuPrepStatus();
-        existing.setId(3L);
-        existing.setMenuId(7L);
-        existing.setIngredientId(10L);
-        existing.setStatus("PENDING");
-        when(menuPrepStatusMapper.selectOne(any())).thenReturn(existing);
 
-        cookService.cookByMenu(7L, 99L);
+        cookService.cookByMenu(7L, 99L, List.of(), List.of());
 
-        verify(menuPrepStatusMapper, never()).insert(any());
-        verify(menuPrepStatusMapper).updateById(argThat(m -> "READY".equals(((MenuPrepStatus) m).getStatus())));
-        verify(shoppingService).markPurchasedByMenu(7L);
+        verify(pantryService, never()).useUp(any(), any(), any());
+        verify(pantryService, never()).partialUse(any(), any(), any());
+        verify(cookingRecordMapper, times(1)).insert(argThat(rec -> rec.getMemo() == null));
+        verify(menuMapper).updateById(argThat(m -> "DONE".equals(((Menu) m).getStatus())));
     }
 
+    // ===================== cookMaterials（确认弹窗数据） =====================
+
     @Test
-    void cookByMenu_欠量写入memo() {
-        Menu menu = new Menu();
-        menu.setId(7L);
-        when(menuMapper.selectById(7L)).thenReturn(menu);
-        when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "1")));
+    void cookMaterials_返回食材档位和调料标记() {
+        when(menuMapper.selectById(7L)).thenReturn(menu(7L));
+        when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "2"), md(2, "1")));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(
-                di(1, 10, "100"), di(1, 20, "50")));
-        when(pantryService.deductByIngredient(eq(10L), any())).thenReturn(
-                new PantryService.DeductResult(10L, "番茄", new BigDecimal("30"), new BigDecimal("70"), List.of()));
-        when(pantryService.deductByIngredient(eq(20L), any())).thenReturn(
-                new PantryService.DeductResult(20L, "鸡蛋", new BigDecimal("50"), BigDecimal.ZERO, List.of()));
+                di(1, 10, "100"), di(1, 20, "30"), di(2, 20, "20")));
+        Ingredient tomato = new Ingredient();
+        tomato.setId(10L);
+        tomato.setName("番茄");
+        tomato.setPurchaseCategoryId(24L); // 蔬菜
+        Ingredient salt = new Ingredient();
+        salt.setId(20L);
+        salt.setName("盐");
+        salt.setPurchaseCategoryId(30L); // 调味料
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(tomato, salt));
+        when(ingredientStockMapper.selectList(any())).thenReturn(List.of(
+                stock(10L, IngredientStock.LEVEL_ENOUGH)));
+        SysDict condiment = new SysDict();
+        condiment.setId(30L);
+        condiment.setName("调味料");
+        when(dictMapper.selectList(any())).thenReturn(List.of(condiment));
 
-        CookResult r = cookService.cookByMenu(7L, 99L);
+        CookMaterialsVO vo = cookService.cookMaterials(7L);
 
-        assertThat(r.shortages()).containsEntry(10L, new BigDecimal("70"));
-        verify(cookingRecordMapper).insert(argThat(rec ->
-                rec.getMemo() != null && rec.getMemo().contains("10:70g") && "menu".equals(rec.getSource())));
+        assertThat(vo.items()).hasSize(2);
+        CookMaterialsVO.Item tomatoItem = vo.items().get(0);
+        assertThat(tomatoItem.ingredientName()).isEqualTo("番茄");
+        assertThat(tomatoItem.needGrams()).isEqualByComparingTo("200"); // 100×2 份
+        assertThat(tomatoItem.level()).isEqualTo(IngredientStock.LEVEL_ENOUGH);
+        assertThat(tomatoItem.isCondiment()).isFalse();
+        CookMaterialsVO.Item saltItem = vo.items().get(1);
+        assertThat(saltItem.needGrams()).isEqualByComparingTo("80"); // 30×2 + 20×1
+        assertThat(saltItem.level()).isEqualTo(IngredientStock.LEVEL_NONE); // 没建档默认没有
+        assertThat(saltItem.isCondiment()).isTrue();
     }
 
     @Test
-    void cookByDish_单菜直做_source为dish_不更新menu() {
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(3, 10, "100")));
-        when(pantryService.deductByIngredient(eq(10L), eq(new BigDecimal("100"))))
-                .thenReturn(new PantryService.DeductResult(10L, "番茄", new BigDecimal("100"), BigDecimal.ZERO, List.of()));
+    void cookMaterials_食集不存在_抛异常() {
+        when(menuMapper.selectById(9L)).thenReturn(null);
 
-        CookResult r = cookService.cookByDish(3L, BigDecimal.ONE, 99L);
+        assertThatThrownBy(() -> cookService.cookMaterials(9L))
+                .hasMessageContaining("食集不存在");
+    }
 
-        assertThat(r.menuId()).isNull();
-        verify(cookingRecordMapper).insert(argThat(rec ->
-                rec.getDishId() != null && rec.getDishId() == 3L
-                && "dish".equals(rec.getSource()) && rec.getMenuId() == null));
-        verify(menuMapper, never()).updateById(any());
+    private IngredientStock stock(long id, String level) {
+        IngredientStock s = new IngredientStock();
+        s.setId(id);
+        s.setIngredientId(id);
+        s.setLevel(level);
+        return s;
     }
 }

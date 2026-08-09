@@ -162,7 +162,16 @@ class ShoppingControllerTest {
         mvc.perform(put("/shopping/item/5/purchased"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
-        verify(svc).togglePurchased(5L);
+        verify(svc).togglePurchased(5L, null);
+    }
+
+    @Test
+    void 勾选已买_带入库档位_透传level() throws Exception {
+        mvc.perform(put("/shopping/item/5/purchased")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"level\":\"LOW\"}"))
+                .andExpect(status().isOk());
+        verify(svc).togglePurchased(5L, "LOW");
     }
 
     @Test

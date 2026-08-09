@@ -1,571 +1,122 @@
 package com.gudu.xsd.modules.pantry;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gudu.xsd.common.BizException;
-import com.gudu.xsd.common.PageQuery;
-import com.gudu.xsd.modules.dict.SysDict;
-import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
+import com.gudu.xsd.modules.pantry.mapper.IngredientStockMapper;
 import com.gudu.xsd.modules.pantry.mapper.PantryMapper;
-import org.springframework.beans.BeanUtils;
+import com.gudu.xsd.modules.pantry.mapper.StockLogMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 食材库存服务。
+ * 食材库存服务（V42 手动 3 档语义）。
  *
- * 纯函数 isExpiring / isLow 是算法地基（不依赖外部状态，可单测，参照 MealPlanService.detectDuplicates）。
- * CRUD + listExpiring + listLow 依赖 PantryMapper；列表 VO 的食材名/单位名按需 join。
+ * <p>用户手动维护档位（做菜确认用完 / 采购入库 / 手动修正），系统不再自动扣减、不做克数。
+ * 真相来源 = ingredient_stock + stock_log；pantry 批次表仅保留给临期通知（listExpiring）。
  *
- * 注：测试 new PantryService(null)，故显式单参构造（@Autowired 主构造）。
- * ServiceImpl 的 baseMapper 由 MyBatis-Plus 自身注入机制填充，无需在本构造里赋值。
+ * <p>注意：测试 new PantryService(null)，故显式单参构造（@Autowired 主构造）；
+ * stockMapper/logMapper 走字段注入，测试中保持 null（新逻辑不触达）。
  */
 @Service
 public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
 
     private final IngredientMapper ingredientMapper;
-    private DictMapper dictMapper;
-    private com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert;
-    private PantryChangeLogService changeLogService;
-
-    /** FIFO 扣减规划（无状态纯函数，内联持有）。 */
-    private final PantryDeductionPlanner deductionPlanner = new PantryDeductionPlanner();
+    private IngredientStockMapper stockMapper;
+    private StockLogMapper stockLogMapper;
 
     @Autowired
     public PantryService(IngredientMapper ingredientMapper) {
-        // 测试 new PantryService(null)：传 ingredientMapper，dictMapper 运行期由 ApplicationContext 注入。
-        // 为兼顾测试（单参构造）与运行期（需要 DictMapper），dictMapper 走字段注入（@Autowired 字段亦可）。
         this.ingredientMapper = ingredientMapper;
-        this.dictMapper = null; // 运行期由 setter 注入（见下），测试中保持 null 即可（纯函数不触达）
     }
 
     @Autowired
-    public void setDictMapper(DictMapper dictMapper) {
-        this.dictMapper = dictMapper;
+    public void setStockMapper(IngredientStockMapper stockMapper) {
+        this.stockMapper = stockMapper;
     }
 
     @Autowired
-    public void setUnitConvert(com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert) {
-        this.unitConvert = unitConvert;
+    public void setStockLogMapper(StockLogMapper stockLogMapper) {
+        this.stockLogMapper = stockLogMapper;
     }
 
-    @Autowired
-    public void setChangeLogService(PantryChangeLogService changeLogService) {
-        this.changeLogService = changeLogService;
-    }
-
-    // ===================== 纯函数（算法地基） =====================
+    // ===================== 档位操作（APP + 管理后台共用） =====================
 
     /**
-     * 临期判定：过期日在 [today, today+days] 闭区间内算临期。
-     * 已过期（早于 today）、无过期日（null）、超期（晚于 today+days）均不算临期。
+     * 直接设档位（采购入库 / 手动入库 / 手动修正 / 管理后台）：upsert ingredient_stock + 写流水（含前后档位）。
      *
-     * @param expireDate 过期日，可为 null
-     * @param today      今天
-     * @param days       临期窗口天数
-     */
-    public boolean isExpiring(LocalDate expireDate, LocalDate today, int days) {
-        if (expireDate == null || today == null) return false;
-        // 既未过期（>= today），又在窗口内（<= today+days）
-        return !expireDate.isBefore(today) && !expireDate.isAfter(today.plusDays(days));
-    }
-
-    /**
-     * 不足判定：余量严格小于阈值（等于不算不足）。
-     * 都非 null 才比较；任一为 null 返回 false。
-     */
-    public boolean isLow(BigDecimal amount, BigDecimal threshold) {
-        if (amount == null || threshold == null) return false;
-        return amount.compareTo(threshold) < 0;
-    }
-
-    // ===================== 列表（VO 带食材名/单位名） =====================
-
-    /**
-     * 分页查库存（后台管理）：分页查 Pantry 后逐条填食材名/单位名。
-     * 参照 IngredientService.pageWithNutrition 范式。
-     * 按 update_time 倒序。
-     */
-    public IPage<PantryVO> page(PageQuery q) {
-        IPage<Pantry> page = page(new Page<>(q.getPageNum(), q.getPageSize()),
-                new QueryWrapper<Pantry>().orderByDesc("update_time"));
-        return fillVo(page);
-    }
-
-    /**
-     * 临期查询：过期日在 [today, today+days] 的库存。按过期日升序（越近越靠前）。
-     */
-    public List<PantryVO> listExpiring(int days) {
-        LocalDate today = LocalDate.now();
-        List<Pantry> rows = list(new QueryWrapper<Pantry>()
-                .isNotNull("expire_date")
-                .ge("expire_date", today)
-                .le("expire_date", today.plusDays(days))
-                .orderByAsc("expire_date"));
-        return fillVoList(rows);
-    }
-
-    /**
-     * 不足查询（按食材聚合判）：阈值已挪到 ingredient.low_threshold（V39）。
-     * 返回所有 LOW 状态的食材聚合项。兼容旧 /pantry/low 接口。
-     */
-    public List<PantryGroupedVO.Item> listLow() {
-        return grouped().getItems().stream()
-                .filter(it -> "LOW".equals(it.getStatus()))
-                .collect(Collectors.toList());
-    }
-
-    // ===================== 内部辅助 =====================
-
-    /** 把分页 Pantry 转成 PantryVO 分页（保留 total/current/size）。 */
-    private IPage<PantryVO> fillVo(IPage<Pantry> page) {
-        Map<Long, String> ingName = ingredientNameMap(page.getRecords());
-        Map<Long, String> unitName = unitNameMap();
-        List<PantryVO> voRecords = page.getRecords().stream()
-                .map(p -> toVO(p, ingName, unitName))
-                .collect(Collectors.toList());
-        Page<PantryVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(voRecords);
-        return result;
-    }
-
-    private List<PantryVO> fillVoList(List<Pantry> rows) {
-        Map<Long, String> ingName = ingredientNameMap(rows);
-        Map<Long, String> unitName = unitNameMap();
-        return rows.stream().map(p -> toVO(p, ingName, unitName)).collect(Collectors.toList());
-    }
-
-    private PantryVO toVO(Pantry p, Map<Long, String> ingName, Map<Long, String> unitName) {
-        PantryVO vo = new PantryVO();
-        BeanUtils.copyProperties(p, vo);
-        vo.setIngredientName(ingName.get(p.getIngredientId()));
-        vo.setUnitName(unitName.get(p.getUnitId()));
-        return vo;
-    }
-
-    /** 批量取这批库存涉及的食材 id -> name 映射（食材量小，一次性查）。 */
-    private Map<Long, String> ingredientNameMap(List<Pantry> rows) {
-        List<Long> ids = rows.stream().map(Pantry::getIngredientId).distinct().collect(Collectors.toList());
-        if (ids.isEmpty()) return new HashMap<>();
-        return ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ids))
-                .stream().collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
-    }
-
-    /** 单位字典（sys_dict group=unit）id -> name。 */
-    private Map<Long, String> unitNameMap() {
-        return dictMapper.selectList(new QueryWrapper<SysDict>().eq("dict_group", "unit"))
-                .stream().collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
-    }
-
-    /** 单条保存库存（含 grams 换算）。供 controller add 调用，确保走换算。 */
-    @org.springframework.transaction.annotation.Transactional
-    public void saveWithGrams(Pantry pantry) {
-        if (pantry != null) {
-            pantry.setGrams(unitConvert == null ? null
-                    : unitConvert.toGramsFor(pantry.getIngredientId(), pantry.getAmount(), pantry.getUnitId()));
-            save(pantry);
-        }
-    }
-
-    // ===================== 采购回写（勾选入库） =====================
-
-    /**
-     * 采购回写纯函数：按食材构造入库批次 Pantry（不落库），便于单测换算/兜底逻辑。
-     *
-     * 优先用 amount + unitId 走 {@link #unitConvert} 换算克数；
-     * amount/unitId 任一为空时，退回 gramsFallback（采购项的参考克数 referenceGrams），按克入账；
-     * 两者都空 → 抛 BizException（上层据 ingredientId 判定后调，正常不会触发）。
-     */
-    public Pantry planStockUp(Long ingredientId, BigDecimal amount, Long unitId, BigDecimal gramsFallback) {
-        if (ingredientId == null) {
-            throw new BizException("食材 id 不能为空");
-        }
-        boolean hasAmountUnit = amount != null && amount.signum() > 0 && unitId != null;
-        boolean hasFallback = gramsFallback != null && gramsFallback.signum() > 0;
-        Pantry p = new Pantry();
-        p.setIngredientId(ingredientId);
-        if (hasAmountUnit) {
-            p.setAmount(amount);
-            p.setUnitId(unitId);
-            p.setGrams(unitConvert == null ? null
-                    : unitConvert.toGramsFor(ingredientId, amount, unitId));
-        } else if (hasFallback) {
-            // 兜底：直接用参考克数（采购项 referenceGrams），amount/grams 同值，unitId 留空（克）
-            p.setAmount(gramsFallback);
-            p.setGrams(gramsFallback);
-        } else {
-            throw new BizException("无可入库的数量（amount+unitId 或参考克数至少填一项）");
-        }
-        return p;
-    }
-
-    /**
-     * 采购回写：按食材入库新批次。采购清单勾选 0→1 时由 {@code ShoppingService.togglePurchased} 调。
-     * 只新增不反向扣减（1→0 不回退，库存已消耗）。
+     * @param level  ENOUGH / LOW / NONE
+     * @param action 流水动作（purchase/manual/…，见 StockLog 常量）
+     * @param note   备注（可空）
+     * @param refId  溯源（采购入库/撤回 = shopping_item.id，可空）
      */
     @org.springframework.transaction.annotation.Transactional
-    public void stockUpByIngredient(Long ingredientId, BigDecimal amount, Long unitId, BigDecimal gramsFallback) {
-        save(planStockUp(ingredientId, amount, unitId, gramsFallback));
-    }
-
-    // ===================== 扣减 =====================
-
-    /** 手动扣减库存：从指定 pantry 项扣除 amount，不低于 0。返回扣减后余量。 */
-    @org.springframework.transaction.annotation.Transactional
-    public BigDecimal deduct(Long id, BigDecimal amount) {
-        // 参数校验：id 非空
-        if (id == null) {
-            throw new BizException("库存项 id 不能为空");
-        }
-        // 参数校验：amount 非空且 > 0
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BizException("扣减数量必须大于 0");
-        }
-        Pantry p = getById(id);
-        if (p == null) {
-            throw new BizException("库存项不存在");
-        }
-        // 兜底：amount 字段可能为 null（脏数据）
-        BigDecimal current = p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO;
-        BigDecimal remain = current.subtract(amount);
-        if (remain.compareTo(BigDecimal.ZERO) < 0) {
-            remain = BigDecimal.ZERO;
-        }
-        p.setAmount(remain);
-        updateById(p);
-        return remain;
-    }
-
-    // ===================== 按食材 FIFO 扣减（做菜用） =====================
-
-    /**
-     * 按食材 FIFO 扣减：查该食材所有 grams>0 的批次（过期日升序、null 最后、id 升序），
-     * 逐批扣到 0 为止，扣不动的记 shortage 返回（pantry 不记负）。
-     *
-     * @return DeductResult 含实扣克数、欠量、各批次明细
-     */
-    @org.springframework.transaction.annotation.Transactional
-    public DeductResult deductByIngredient(Long ingredientId, BigDecimal needGrams) {
-        if (ingredientId == null) {
-            throw new BizException("食材 id 不能为空");
-        }
-        if (needGrams == null || needGrams.signum() <= 0) {
-            return new DeductResult(ingredientId, null, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
-        }
-        List<Pantry> batches = list(new QueryWrapper<Pantry>()
-                .eq("ingredient_id", ingredientId)
-                .gt("grams", 0)
-                .last("ORDER BY expire_date IS NULL, expire_date ASC, id ASC"));
-        PantryDeductionPlanner.DeductPlan plan = deductionPlanner.plan(batches, needGrams);
-        for (PantryDeductionPlanner.BatchDeduction op : plan.ops()) {
-            Pantry p = getById(op.pantryId());
-            if (p == null) continue;
-            p.setGrams(op.remainGrams());
-            if (op.newAmount() != null) {
-                p.setAmount(op.newAmount());
-            }
-            updateById(p);
-        }
-        BigDecimal shortage = plan.shortageGrams();
-        BigDecimal deducted = needGrams.subtract(shortage);
-        List<DeductResult.BatchOut> outs = plan.ops().stream()
-                .map(op -> new DeductResult.BatchOut(op.pantryId(), op.deductGrams(), op.remainGrams()))
-                .collect(Collectors.toList());
-        return new DeductResult(ingredientId, null, deducted, shortage, outs);
-    }
-
-    /** 单食材扣减结果。ingredientName 冗余食材名（由上层批量回填），供前端直接展示。 */
-    public record DeductResult(Long ingredientId,
-                               String ingredientName,
-                               BigDecimal deductedGrams,
-                               BigDecimal shortageGrams,
-                               List<BatchOut> batches) {
-        public record BatchOut(Long pantryId, BigDecimal deductedGrams, BigDecimal remainGrams) {}
-    }
-
-    // ===================== 批量添加 =====================
-
-    /** 批量添加库存：按名称匹配食材，未匹配则创建食材后关联。返回成功条数。 */
-    @org.springframework.transaction.annotation.Transactional
-    public int saveBatch(List<PantryController.BatchItem> items) {
-        // 参数校验：items 非空
-        if (items == null || items.isEmpty()) {
-            throw new BizException("采购内容不能为空");
-        }
-
-        // 预加载单位字典
-        Map<String, Long> unitNameToId = new HashMap<>();
-        if (dictMapper != null) {
-            List<SysDict> units = dictMapper.selectList(
-                    new QueryWrapper<SysDict>().eq("dict_group", "unit"));
-            for (SysDict d : units) unitNameToId.put(d.getName(), d.getId());
-        }
-
-        int count = 0;
-        for (PantryController.BatchItem item : items) {
-            if (item == null) continue;
-            if (item.getName() == null || item.getName().isBlank()) continue;
-            String name = item.getName().trim();
-
-            // 匹配已有食材
-            List<Ingredient> matched = ingredientMapper.selectList(
-                    new QueryWrapper<Ingredient>().eq("name", name).last("LIMIT 1"));
-            Long ingredientId;
-            if (!matched.isEmpty()) {
-                ingredientId = matched.get(0).getId();
-            } else {
-                Ingredient ing = new Ingredient();
-                ing.setName(name);
-                ingredientMapper.insert(ing);
-                ingredientId = ing.getId();
-            }
-
-            // 匹配单位：前端传优先，否则用 UnitMatcher 推断
-            String unitName = item.getUnit();
-            if (unitName == null || unitName.isBlank()) {
-                unitName = UnitMatcher.match(name);
-            }
-            Long unitId = unitNameToId.get(unitName);
-
-            Pantry p = new Pantry();
-            p.setIngredientId(ingredientId);
-            BigDecimal amt = item.getAmount() != null && item.getAmount().compareTo(BigDecimal.ZERO) > 0
-                    ? item.getAmount() : BigDecimal.ONE;
-            p.setAmount(amt);
-            p.setUnitId(unitId);
-            p.setExpireDate(item.getExpireDate());
-            p.setGrams(unitConvert == null ? null
-                    : unitConvert.toGramsFor(ingredientId, amt, unitId));
-            save(p);
-            count++;
-        }
-
-        if (count == 0) {
-            throw new BizException("未识别到有效的食材项");
-        }
-        return count;
-    }
-
-    // ===================== 三色分组（库存页主页，V39） =====================
-
-    /**
-     * 三色分组查询：按 ingredient_id 聚合 SUM(grams)，join ingredient 取 lowThreshold，
-     * 算 ENOUGH/LOW/NONE 三色，每项带最近一次变动来源。
-     *
-     * status 判定（按聚合克数）：
-     *   totalGrams <= 0                          → NONE（缺/空）
-     *   lowThreshold > 0 且 totalGrams < 阈值克数  → LOW（偏低）
-     *   否则                                       → ENOUGH（够）
-     *
-     * 排序：NONE → LOW → ENOUGH（缺的在前，紧迫感递减），同状态按食材名。
-     */
-    public PantryGroupedVO grouped() {
-        // 1. 聚合：按 ingredient_id 求 SUM(grams)、SUM(amount)、取任一 unitId（同食材应同单位）
-        List<Pantry> all = list(new QueryWrapper<Pantry>()
-                .select("ingredient_id", "unit_id", "SUM(amount) amount", "SUM(grams) grams")
-                .groupBy("ingredient_id", "unit_id"));
-        if (all.isEmpty()) {
-            PantryGroupedVO vo = new PantryGroupedVO();
-            vo.setSummary(new PantryGroupedVO.Summary());
-            vo.setItems(List.of());
-            return vo;
-        }
-
-        // 2. 批量取食材信息（含 lowThreshold）和单位名
-        List<Long> ingredientIds = all.stream().map(Pantry::getIngredientId).distinct().collect(Collectors.toList());
-        Map<Long, Ingredient> ingredientMap = ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ingredientIds))
-                .stream().collect(Collectors.toMap(Ingredient::getId, i -> i, (a, b) -> a));
-        Map<Long, String> unitName = unitNameMap();
-
-        // 3. 组装 item + 三色判定
-        List<PantryGroupedVO.Item> items = new java.util.ArrayList<>();
-        int enough = 0, low = 0, none = 0;
-        for (Pantry p : all) {
-            Ingredient ing = ingredientMap.get(p.getIngredientId());
-            if (ing == null) continue; // 食材被删则跳过
-
-            BigDecimal totalGrams = nz(p.getGrams());
-            BigDecimal totalAmount = nz(p.getAmount());
-            BigDecimal threshold = ing.getLowThreshold();
-            BigDecimal thresholdGrams = thresholdGrams(ing, threshold);
-
-            String status = classifyStatus(totalGrams, thresholdGrams);
-            switch (status) {
-                case "NONE": none++; break;
-                case "LOW": low++; break;
-                default: enough++; break;
-            }
-
-            PantryGroupedVO.Item item = new PantryGroupedVO.Item();
-            item.setIngredientId(p.getIngredientId());
-            item.setIngredientName(ing.getName());
-            item.setUnitId(p.getUnitId() != null ? p.getUnitId() : ing.getUnitId());
-            item.setUnitName(unitName.get(item.getUnitId()));
-            item.setLowThreshold(threshold);
-            item.setTotalAmount(totalAmount);
-            item.setTotalGrams(totalGrams);
-            item.setStatus(status);
-            item.setLastChange(lastChangeVo(p.getIngredientId()));
-            items.add(item);
-        }
-
-        // 4. 排序：NONE → LOW → ENOUGH，同状态按食材名
-        items.sort(java.util.Comparator
-                .comparingInt((PantryGroupedVO.Item it) -> statusOrder(it.getStatus()))
-                .thenComparing(it -> it.getIngredientName() == null ? "" : it.getIngredientName(),
-                        java.text.Collator.getInstance()));
-
-        PantryGroupedVO vo = new PantryGroupedVO();
-        PantryGroupedVO.Summary summary = new PantryGroupedVO.Summary();
-        summary.setEnough(enough);
-        summary.setLow(low);
-        summary.setNone(none);
-        vo.setSummary(summary);
-        vo.setItems(items);
-        return vo;
-    }
-
-    /** 食材详情：合计 + 阈值克数 + 最近 6 条变动流水。 */
-    public PantryItemDetailVO itemDetail(Long ingredientId) {
-        Ingredient ing = ingredientMapper.selectById(ingredientId);
-        if (ing == null) {
-            throw new BizException("食材不存在");
-        }
-        Map<Long, String> unitName = unitNameMap();
-
-        // 聚合该食材所有批次
-        List<Pantry> rows = list(new QueryWrapper<Pantry>()
-                .select("ingredient_id", "unit_id", "SUM(amount) amount", "SUM(grams) grams")
-                .eq("ingredient_id", ingredientId)
-                .groupBy("ingredient_id", "unit_id"));
-        BigDecimal totalGrams = rows.isEmpty() ? BigDecimal.ZERO : nz(rows.get(0).getGrams());
-        BigDecimal totalAmount = rows.isEmpty() ? BigDecimal.ZERO : nz(rows.get(0).getAmount());
-        Long unitId = rows.isEmpty() ? ing.getUnitId() : rows.get(0).getUnitId();
-        if (unitId == null) unitId = ing.getUnitId();
-
-        BigDecimal threshold = ing.getLowThreshold();
-        BigDecimal thresholdGrams = thresholdGrams(ing, threshold);
-
-        PantryItemDetailVO vo = new PantryItemDetailVO();
-        vo.setIngredientId(ingredientId);
-        vo.setIngredientName(ing.getName());
-        vo.setUnitId(unitId);
-        vo.setUnitName(unitName.get(unitId));
-        vo.setLowThreshold(threshold);
-        vo.setTotalAmount(totalAmount);
-        vo.setTotalGrams(totalGrams);
-        vo.setThresholdGrams(thresholdGrams);
-        vo.setStatus(classifyStatus(totalGrams, thresholdGrams));
-        vo.setChanges(changeLogService == null ? List.of() : changeLogService.listRecent(ingredientId, 6));
-        return vo;
-    }
-
-    // ===================== 盘点（差额纠偏，V39） =====================
-
-    /**
-     * 盘点：用户报实际数量（newAmount，按食材默认单位），后端算 delta = 目标 - 当前，
-     * 把差额落到该食材最新一批（或新建批次），写一笔 source=inventory 流水。
-     *
-     * @param ingredientId 食材
-     * @param newAmount    实际数了多少（目标值，按食材默认单位）
-     * @param sourceNote   备注（可空）
-     */
-    @org.springframework.transaction.annotation.Transactional
-    public void adjust(Long ingredientId, BigDecimal newAmount, String sourceNote) {
+    public void setLevel(Long ingredientId, String level, String action, String note, Long refId) {
         if (ingredientId == null) throw new BizException("食材 id 不能为空");
-        if (newAmount == null || newAmount.signum() < 0) throw new BizException("盘点数量不合法");
-
-        Ingredient ing = ingredientMapper.selectById(ingredientId);
-        if (ing == null) throw new BizException("食材不存在");
-
-        // 当前合计（按默认单位）
-        List<Pantry> rows = list(new QueryWrapper<Pantry>()
-                .eq("ingredient_id", ingredientId).orderByDesc("id"));
-        BigDecimal currentAmount = rows.stream()
-                .map(Pantry::getAmount).filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal delta = newAmount.subtract(currentAmount);
-        if (delta.signum() == 0) return; // 无差额，不记
-
-        Long unitId = ing.getUnitId();
-        BigDecimal deltaGrams = unitConvert == null ? null
-                : unitConvert.toGramsFor(ingredientId, delta.abs(), unitId);
-        if (deltaGrams == null) deltaGrams = delta.abs(); // 兜底按单位原值
-
-        if (delta.signum() > 0) {
-            // 盘盈：新增一笔正批次
-            Pantry p = new Pantry();
-            p.setIngredientId(ingredientId);
-            p.setAmount(delta);
-            p.setUnitId(unitId);
-            p.setGrams(deltaGrams);
-            save(p);
+        if (!isValidLevel(level)) throw new BizException("库存档位不合法");
+        IngredientStock stock = findStock(ingredientId);
+        String before = stock == null ? null : stock.getLevel();
+        if (stock == null) {
+            stock = new IngredientStock();
+            stock.setIngredientId(ingredientId);
+            stock.setLevel(level);
+            stockMapper.insert(stock);
         } else {
-            // 盘亏：从最新批次往前扣（amount + grams 同步）
-            BigDecimal toDeduct = delta.abs();
-            BigDecimal remain = toDeduct;
-            for (Pantry p : rows) {
-                if (remain.signum() <= 0) break;
-                BigDecimal amt = p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO;
-                BigDecimal take = amt.min(remain);
-                p.setAmount(amt.subtract(take));
-                // grams 按比例缩放（保持 amount/grams 一致）
-                BigDecimal g = p.getGrams() != null ? p.getGrams() : BigDecimal.ZERO;
-                if (amt.signum() > 0) {
-                    p.setGrams(g.multiply(amt.subtract(take)).divide(amt, 2, java.math.RoundingMode.HALF_UP));
-                } else {
-                    p.setGrams(BigDecimal.ZERO);
-                }
-                updateById(p);
-                remain = remain.subtract(take);
-            }
+            stock.setLevel(level);
+            stockMapper.updateById(stock);
         }
+        logAction(ingredientId, action, note, before, level, refId);
+    }
 
-        // 变动后合计克数
-        BigDecimal afterGrams = sumGrams(ingredientId);
-        if (changeLogService != null) {
-            BigDecimal signedDelta = delta.signum() > 0 ? deltaGrams : deltaGrams.negate();
-            changeLogService.log(ingredientId, PantryChangeLog.SOURCE_INVENTORY, signedDelta, afterGrams, sourceNote);
+    /** 做菜确认·用完了 → 设 NONE。 */
+    @org.springframework.transaction.annotation.Transactional
+    public void useUp(Long ingredientId, String action, String note) {
+        setLevel(ingredientId, IngredientStock.LEVEL_NONE, action, note, null);
+    }
+
+    /**
+     * 做菜确认·用了一些 → 降一档（ENOUGH→LOW）。
+     * 降级保护：LOW/NONE 不再降（不会因"用了一些"自动变成用完）；没建档的食材不动。
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void partialUse(Long ingredientId, String action, String note) {
+        if (ingredientId == null) throw new BizException("食材 id 不能为空");
+        IngredientStock stock = findStock(ingredientId);
+        if (stock == null) return;
+        if (IngredientStock.LEVEL_ENOUGH.equals(stock.getLevel())) {
+            stock.setLevel(IngredientStock.LEVEL_LOW);
+            stockMapper.updateById(stock);
+            logAction(ingredientId, action, note, IngredientStock.LEVEL_ENOUGH, IngredientStock.LEVEL_LOW, null);
         }
     }
 
-    // ===================== 手动添加（带来源标签，V39） =====================
-
     /**
-     * 手动添加：新增一笔带「手动」来源标签的库存记录（别人送/赠品/旧库存补登）。
-     * 支持库里有 / 新建档的食材。
-     *
-     * @param ingredientId 食材 id（与 name 二选一；都传以 id 为准）
-     * @param name         食材名（ingredientId 为空时按名匹配/新建）
-     * @param amount       数量
-     * @param unitId       单位（可空，空则用食材默认单位）
-     * @param sourceNote   来源备注（朋友送/赠品/旧库存补登/其他）
-     * @param expireDate   过期日（可空）
-     * @param storage      存放方式（常温/冷藏/冷冻，可空）。V41。
+     * 删除档位（管理后台删除 = 回到"没建档"；撤回入库新建档也用）：删 ingredient_stock + 记流水（after=null）。
+     * 没建档的食材直接返回（无操作）。
      */
     @org.springframework.transaction.annotation.Transactional
-    public void manualAdd(Long ingredientId, String name, BigDecimal amount, Long unitId,
-                          String sourceNote, LocalDate expireDate, String storage) {
+    public void removeLevel(Long ingredientId, String action, String note, Long refId) {
+        if (ingredientId == null) throw new BizException("食材 id 不能为空");
+        IngredientStock stock = findStock(ingredientId);
+        if (stock == null) return;
+        String before = stock.getLevel();
+        stockMapper.deleteById(stock.getId());
+        logAction(ingredientId, action, note, before, null, refId);
+    }
+
+    /** 手动入库（朋友送/赠品/旧库存补登）：按名匹配/新建食材（无需单位换算）→ 设档位。 */
+    @org.springframework.transaction.annotation.Transactional
+    public void manualAdd(Long ingredientId, String name, String level, String sourceNote) {
         if ((ingredientId == null) && (name == null || name.isBlank())) {
             throw new BizException("食材 id 和名称至少填一项");
         }
-        if (amount == null || amount.signum() <= 0) {
-            throw new BizException("数量必须大于 0");
-        }
-
-        // 解析食材：id 优先，否则按名匹配/新建
         Ingredient ing;
         if (ingredientId != null) {
             ing = ingredientMapper.selectById(ingredientId);
@@ -582,78 +133,163 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             }
             ingredientId = ing.getId();
         }
-        if (unitId == null) unitId = ing.getUnitId();
+        setLevel(ingredientId, level == null ? IngredientStock.LEVEL_ENOUGH : level,
+                StockLog.ACTION_MANUAL, sourceNote, null);
+    }
 
-        // 入库新批次
-        Pantry p = new Pantry();
-        p.setIngredientId(ingredientId);
-        p.setAmount(amount);
-        p.setUnitId(unitId);
-        p.setExpireDate(expireDate);
-        p.setStorage(storage);
-        p.setGrams(unitConvert == null ? null
-                : unitConvert.toGramsFor(ingredientId, amount, unitId));
-        save(p);
+    /** 批量读档位（采购清单 badge / 备菜徽标用）：ingredientId → level（没建档的食材不包含）。 */
+    public Map<Long, String> levelMap(List<Long> ingredientIds) {
+        List<Long> valid = ingredientIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (valid.isEmpty() || stockMapper == null) return Map.of();
+        return stockMapper.selectList(new QueryWrapper<IngredientStock>().in("ingredient_id", valid))
+                .stream().collect(Collectors.toMap(IngredientStock::getIngredientId,
+                        IngredientStock::getLevel, (a, b) -> a));
+    }
 
-        // 写流水 source=manual
-        BigDecimal afterGrams = sumGrams(ingredientId);
-        if (changeLogService != null) {
-            BigDecimal deltaGrams = p.getGrams() != null ? p.getGrams() : amount;
-            changeLogService.log(ingredientId, PantryChangeLog.SOURCE_MANUAL, deltaGrams, afterGrams, sourceNote);
+    // ===================== 列表 / 详情 =====================
+
+    /**
+     * 三色分组列表：读 ingredient_stock（每食材一行档位），分 用完/不足/充足 三组 + 汇总，
+     * 每项带最近一次变动（stock_log）。APP 库存页 + 管理后台库存页共用。
+     * 排序：NONE → LOW → ENOUGH，同状态按食材名。
+     */
+    public PantryGroupedVO grouped() {
+        List<IngredientStock> stocks = stockMapper.selectList(null);
+        if (stocks.isEmpty()) {
+            PantryGroupedVO vo = new PantryGroupedVO();
+            vo.setSummary(new PantryGroupedVO.Summary());
+            vo.setItems(List.of());
+            return vo;
         }
-    }
+        List<Long> ids = stocks.stream().map(IngredientStock::getIngredientId).distinct().collect(Collectors.toList());
+        Map<Long, Ingredient> ingMap = ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ids))
+                .stream().collect(Collectors.toMap(Ingredient::getId, i -> i, (a, b) -> a));
 
-    // ===================== 三色分组内部辅助 =====================
-
-    /** null 安全归零。 */
-    private BigDecimal nz(BigDecimal v) {
-        return v != null ? v : BigDecimal.ZERO;
-    }
-
-    /** 阈值换算成克（按食材默认单位）。unitConvert 为空时回退为阈值原值。 */
-    private BigDecimal thresholdGrams(Ingredient ing, BigDecimal threshold) {
-        if (threshold == null || threshold.signum() <= 0) return BigDecimal.ZERO;
-        if (unitConvert == null || ing.getUnitId() == null) return threshold;
-        return unitConvert.toGramsFor(ing.getId(), threshold, ing.getUnitId());
-    }
-
-    /** 三色状态判定（按克数）。 */
-    private String classifyStatus(BigDecimal totalGrams, BigDecimal thresholdGrams) {
-        if (totalGrams == null || totalGrams.signum() <= 0) return "NONE";
-        if (thresholdGrams != null && thresholdGrams.signum() > 0
-                && totalGrams.compareTo(thresholdGrams) < 0) {
-            return "LOW";
+        List<PantryGroupedVO.Item> items = new java.util.ArrayList<>();
+        int enough = 0, low = 0, none = 0;
+        for (IngredientStock s : stocks) {
+            Ingredient ing = ingMap.get(s.getIngredientId());
+            if (ing == null) continue; // 食材被删则跳过
+            String level = s.getLevel() == null ? IngredientStock.LEVEL_NONE : s.getLevel();
+            switch (level) {
+                case IngredientStock.LEVEL_NONE: none++; break;
+                case IngredientStock.LEVEL_LOW: low++; break;
+                default: enough++; break;
+            }
+            PantryGroupedVO.Item item = new PantryGroupedVO.Item();
+            item.setIngredientId(s.getIngredientId());
+            item.setIngredientName(ing.getName());
+            item.setLevel(level);
+            item.setLastChange(lastChangeVo(s.getIngredientId()));
+            items.add(item);
         }
-        return "ENOUGH";
+        items.sort(java.util.Comparator
+                .comparingInt((PantryGroupedVO.Item it) -> statusOrder(it.getLevel()))
+                .thenComparing(it -> it.getIngredientName() == null ? "" : it.getIngredientName(),
+                        java.text.Collator.getInstance()));
+
+        PantryGroupedVO vo = new PantryGroupedVO();
+        PantryGroupedVO.Summary summary = new PantryGroupedVO.Summary();
+        summary.setEnough(enough);
+        summary.setLow(low);
+        summary.setNone(none);
+        vo.setSummary(summary);
+        vo.setItems(items);
+        return vo;
     }
 
-    /** 排序用：NONE=0, LOW=1, ENOUGH=2。 */
-    private int statusOrder(String status) {
-        return switch (status) {
-            case "NONE" -> 0;
-            case "LOW" -> 1;
-            default -> 2;
-        };
+    /** 食材详情：当前档位 + 最近 6 条流水（stock_log）。 */
+    public PantryItemDetailVO itemDetail(Long ingredientId) {
+        Ingredient ing = ingredientMapper.selectById(ingredientId);
+        if (ing == null) throw new BizException("食材不存在");
+        IngredientStock stock = findStock(ingredientId);
+        PantryItemDetailVO vo = new PantryItemDetailVO();
+        vo.setIngredientId(ingredientId);
+        vo.setIngredientName(ing.getName());
+        vo.setLevel(stock == null ? IngredientStock.LEVEL_NONE : stock.getLevel());
+        vo.setChanges(logList(ingredientId, 6));
+        return vo;
     }
 
-    /** 最近变动 → LastChange VO（无变动返回 null）。 */
+    // ===================== 临期通知（pantry 批次表遗留，通知调度用） =====================
+
+    /** 临期查询：过期日在 [today, today+days] 的库存（通知调度用，读 pantry 批次表）。 */
+    public List<PantryVO> listExpiring(int days) {
+        LocalDate today = LocalDate.now();
+        List<Pantry> rows = list(new QueryWrapper<Pantry>()
+                .isNotNull("expire_date")
+                .ge("expire_date", today)
+                .le("expire_date", today.plusDays(days))
+                .orderByAsc("expire_date"));
+        return rows.stream().map(p -> {
+            PantryVO vo = new PantryVO();
+            vo.setId(p.getId());
+            vo.setIngredientId(p.getIngredientId());
+            vo.setAmount(p.getAmount());
+            vo.setUnitId(p.getUnitId());
+            vo.setExpireDate(p.getExpireDate());
+            vo.setStorage(p.getStorage());
+            vo.setUpdateTime(p.getUpdateTime());
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    /** 临期判定纯函数（listExpiring 用）。 */
+    public boolean isExpiring(LocalDate expireDate, LocalDate today, int days) {
+        if (expireDate == null || today == null) return false;
+        return !expireDate.isBefore(today) && !expireDate.isAfter(today.plusDays(days));
+    }
+
+    // ===================== 内部辅助 =====================
+
+    private IngredientStock findStock(Long ingredientId) {
+        return stockMapper.selectOne(new QueryWrapper<IngredientStock>().eq("ingredient_id", ingredientId));
+    }
+
+    private boolean isValidLevel(String level) {
+        return IngredientStock.LEVEL_ENOUGH.equals(level)
+                || IngredientStock.LEVEL_LOW.equals(level)
+                || IngredientStock.LEVEL_NONE.equals(level);
+    }
+
+    private void logAction(Long ingredientId, String action, String note,
+                           String beforeLevel, String afterLevel, Long refId) {
+        if (stockLogMapper == null) return;
+        StockLog log = new StockLog();
+        log.setIngredientId(ingredientId);
+        log.setAction(action);
+        log.setBeforeLevel(beforeLevel);
+        log.setAfterLevel(afterLevel);
+        log.setNote(note);
+        log.setRefId(refId);
+        stockLogMapper.insert(log);
+    }
+
+    private List<StockLog> logList(Long ingredientId, int limit) {
+        if (stockLogMapper == null) return List.of();
+        return stockLogMapper.selectList(new QueryWrapper<StockLog>()
+                .eq("ingredient_id", ingredientId)
+                .orderByDesc("create_time").last("LIMIT " + limit));
+    }
+
+    /** 最近一次变动（无记录返回 null）。 */
     private PantryGroupedVO.LastChange lastChangeVo(Long ingredientId) {
-        if (changeLogService == null) return null;
-        PantryChangeLog log = changeLogService.lastOne(ingredientId);
-        if (log == null) return null;
+        List<StockLog> rows = logList(ingredientId, 1);
+        if (rows.isEmpty()) return null;
+        StockLog log = rows.get(0);
         PantryGroupedVO.LastChange lc = new PantryGroupedVO.LastChange();
-        lc.setSource(log.getSource());
-        lc.setSourceNote(log.getSourceNote());
+        lc.setSource(log.getAction());
+        lc.setSourceNote(log.getNote());
         lc.setCreateTime(log.getCreateTime());
-        lc.setDelta(log.getDelta());
         return lc;
     }
 
-    /** 某食材当前合计克数。 */
-    private BigDecimal sumGrams(Long ingredientId) {
-        List<Pantry> rows = list(new QueryWrapper<Pantry>()
-                .select("SUM(grams) grams")
-                .eq("ingredient_id", ingredientId));
-        return rows.isEmpty() || rows.get(0).getGrams() == null ? BigDecimal.ZERO : rows.get(0).getGrams();
+    /** 排序用：NONE=0, LOW=1, ENOUGH=2。 */
+    private int statusOrder(String level) {
+        return switch (level) {
+            case IngredientStock.LEVEL_NONE -> 0;
+            case IngredientStock.LEVEL_LOW -> 1;
+            default -> 2;
+        };
     }
 }

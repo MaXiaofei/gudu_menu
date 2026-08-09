@@ -20,5 +20,7 @@ public record PrepItemVO(
         /** {@link PrepStatus} 名（大写）；无记录即 {@code PENDING}。 */
         String status,
         /** 是否共用项（dishCount &gt;= 2），前端 🔥 高亮便利字段。 */
-        boolean shared
+        boolean shared,
+        /** 库存档位 ENOUGH/LOW/NONE（家里：充足/不足/用完；没建档按 NONE）。B5。 */
+        String stockLevel
 ) {}

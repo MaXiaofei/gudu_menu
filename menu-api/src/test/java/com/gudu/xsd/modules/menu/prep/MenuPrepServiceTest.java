@@ -37,8 +37,10 @@ class MenuPrepServiceTest {
         dishIngredientMapper = Mockito.mock(DishIngredientMapper.class);
         ingredientMapper = Mockito.mock(IngredientMapper.class);
         menuPrepStatusMapper = Mockito.mock(MenuPrepStatusMapper.class);
+        com.gudu.xsd.modules.pantry.PantryService pantryService = Mockito.mock(com.gudu.xsd.modules.pantry.PantryService.class);
+        Mockito.when(pantryService.levelMap(Mockito.any())).thenReturn(java.util.Map.of());
         svc = new MenuPrepService(menuService, dishIngredientMapper, ingredientMapper,
-                menuPrepStatusMapper, new PrepAggregator());
+                menuPrepStatusMapper, new PrepAggregator(), pantryService);
     }
 
     private Menu menu(Long id) {

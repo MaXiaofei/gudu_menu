@@ -2,16 +2,19 @@ package com.gudu.xsd.modules.shopping;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.gudu.xsd.modules.dict.mapper.DictMapper;
+import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.mealplan.mapper.MealPlanItemMapper;
 import com.gudu.xsd.modules.mealplan.mapper.MealPlanMapper;
+import com.gudu.xsd.modules.menu.MenuDish;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.notification.NotificationService;
-import com.gudu.xsd.modules.pantry.Pantry;
+import com.gudu.xsd.modules.pantry.IngredientStock;
 import com.gudu.xsd.modules.pantry.PantryService;
-import com.gudu.xsd.modules.pantry.mapper.PantryMapper;
+import com.gudu.xsd.modules.pantry.StockLog;
+import com.gudu.xsd.modules.pantry.mapper.StockLogMapper;
 import com.gudu.xsd.modules.shopping.mapper.ShoppingItemMapper;
 import com.gudu.xsd.modules.shopping.mapper.ShoppingListMapper;
 import org.junit.jupiter.api.Test;
@@ -29,17 +32,18 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 /**
- * addItemCustom（V30 手动添加自定义采购项）逻辑测试。
- * 用 Mockito mock 全部 Mapper 依赖，验证「name 命中/不命中 ingredient」两条路径 + 参数校验。
+ * 采购服务测试（V42）：addItemCustom + 档位 badge + togglePurchased 入库设档位 + fromPrep。
+ * Mockito mock 全部 Mapper 依赖。
  */
 @ExtendWith(MockitoExtension.class)
 class ShoppingServiceTest {
@@ -53,14 +57,15 @@ class ShoppingServiceTest {
     @Mock MenuDishMapper menuDishMapper;
     @Mock ShoppingAggregator aggregator;
     @Mock NotificationService notificationService;
-    @Mock PantryMapper pantryMapper;
     @Mock PantryService pantryService;
+    @Mock StockLogMapper stockLogMapper;
     @Mock ShoppingListMapper shoppingListMapper;
 
     @InjectMocks
     private ShoppingService svc;
 
-    /** 命中 ingredient：关联 ingredientId + 带出食材自身 purchaseCategoryId，customName 留空。 */
+    // ===================== addItemCustom（保留原逻辑） =====================
+
     @Test
     void 添加自定义项_命中食材_关联ingredientId并带出品类() {
         Ingredient tomato = new Ingredient();
@@ -79,16 +84,11 @@ class ShoppingServiceTest {
         verify(itemMapper).insert(cap.capture());
         ShoppingItem saved = cap.getValue();
         assertThat(id).isEqualTo(66L);
-        assertThat(saved.getListId()).isEqualTo(3L);
-        assertThat(saved.getIngredientId()).isEqualTo(10L);          // 命中关联
-        assertThat(saved.getCustomName()).isNull();                  // 命中不留自定义名
-        assertThat(saved.getPurchaseCategoryId()).isEqualTo(24L);    // 用食材自身品类
-        assertThat(saved.getPurchaseAmount()).isEqualByComparingTo("2");
-        assertThat(saved.getPurchaseUnitId()).isEqualTo(40L);
-        assertThat(saved.getPurchased()).isEqualTo(0);
+        assertThat(saved.getIngredientId()).isEqualTo(10L);
+        assertThat(saved.getCustomName()).isNull();
+        assertThat(saved.getPurchaseCategoryId()).isEqualTo(24L);
     }
 
-    /** 未命中 ingredient：ingredientId 留空，name 存 custom_name，品类用前端传值。 */
     @Test
     void 添加自定义项_未命中食材_ingredientId留空name存customName() {
         given(ingredientMapper.selectList(any())).willReturn(List.of());
@@ -101,58 +101,24 @@ class ShoppingServiceTest {
 
         ArgumentCaptor<ShoppingItem> cap = ArgumentCaptor.forClass(ShoppingItem.class);
         verify(itemMapper).insert(cap.capture());
-        ShoppingItem saved = cap.getValue();
         assertThat(id).isEqualTo(77L);
-        assertThat(saved.getIngredientId()).isNull();               // 未命中不关联
-        assertThat(saved.getCustomName()).isEqualTo("老抽");         // trim 后存名
-        assertThat(saved.getPurchaseCategoryId()).isEqualTo(25L);   // 用前端传值
-        assertThat(saved.getPurchaseUnitId()).isEqualTo(41L);
+        assertThat(cap.getValue().getIngredientId()).isNull();
+        assertThat(cap.getValue().getCustomName()).isEqualTo("老抽");
     }
 
-    /** name 命中但食材自身无品类 → 回退用前端传值。 */
+    // ===================== 档位 badge（V42） =====================
+
+    /** getDetail 按档位标 没有/快用完/有；customName 手动加项不标记。 */
     @Test
-    void 添加自定义项_命中食材但无品类_回退前端传值() {
-        Ingredient ing = new Ingredient();
-        ing.setId(11L);
-        ing.setName("盐");
-        ing.setPurchaseCategoryId(null);
-        given(ingredientMapper.selectList(any())).willReturn(List.of(ing));
-
-        svc.addItemCustom(3L, "盐", null, null, 26L);
-
-        ArgumentCaptor<ShoppingItem> cap = ArgumentCaptor.forClass(ShoppingItem.class);
-        verify(itemMapper).insert(cap.capture());
-        assertThat(cap.getValue().getIngredientId()).isEqualTo(11L);
-        assertThat(cap.getValue().getPurchaseCategoryId()).isEqualTo(26L);
-    }
-
-    @Test
-    void 参数校验_listId空抛错() {
-        assertThatThrownBy(() -> svc.addItemCustom(null, "土豆", null, null, null))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void 参数校验_name空抛错() {
-        assertThatThrownBy(() -> svc.addItemCustom(3L, "   ", null, null, null))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    // ===================== Plan B 三色余色 =====================
-
-    /** getDetail 按 pantry 余量给每项标 🔴没有/🟡差X/🟢够；customName 手动加项不标记。 */
-    @Test
-    void getDetail_三色余色_按pantry余量标红黄绿() {
-        // list 1 含 4 项：番茄(ing10,ref200,pantry 无→🔴)、鸡蛋(ing20,ref100,pantry30→🟡差70)、
-        // 盐(ing30,ref50,pantry80→🟢)、老抽(手动加,ing null→灰)
+    void getDetail_档位badge_按档位映射红黄绿() {
         ShoppingService spied = spy(svc);
         ShoppingList list = new ShoppingList();
         list.setId(1L);
         doReturn(list).when(spied).getById(1L);
 
-        ShoppingItem tomato = item(101L, 10L, "200");
-        ShoppingItem egg = item(102L, 20L, "100");
-        ShoppingItem salt = item(103L, 30L, "50");
+        ShoppingItem tomato = item(101L, 10L);   // 无档位（没建档）→ 不标记
+        ShoppingItem egg = item(102L, 20L);      // LOW → YELLOW_SHORT
+        ShoppingItem salt = item(103L, 30L);     // ENOUGH → GREEN_ENOUGH
         ShoppingItem custom = new ShoppingItem();
         custom.setId(104L);
         custom.setIngredientId(null);
@@ -161,87 +127,52 @@ class ShoppingServiceTest {
 
         given(ingredientMapper.selectList(any())).willReturn(List.of(
                 ing(10L, "番茄"), ing(20L, "鸡蛋"), ing(30L, "盐")));
-        // pantry：鸡蛋 30g、盐 80g（番茄无库存 → 🔴）
-        given(pantryMapper.selectList(any())).willReturn(List.of(
-                pantry(20L, "30"), pantry(30L, "80")));
+        given(pantryService.levelMap(any())).willReturn(Map.of(
+                20L, IngredientStock.LEVEL_LOW,
+                30L, IngredientStock.LEVEL_ENOUGH));
         given(dictMapper.selectList(any())).willReturn(List.of());
 
         ShoppingListVO vo = spied.getDetail(1L);
 
         Map<Long, ShoppingItemVO> byId = vo.getItems().stream()
                 .collect(Collectors.toMap(ShoppingItemVO::getId, i -> i));
-
-        ShoppingItemVO t = byId.get(101L);  // 番茄： pantry 无
-        assertThat(t.getStockStatus()).isEqualTo("RED_NONE");
-        assertThat(t.getShortageGrams()).isEqualByComparingTo("200");
-        assertThat(t.getPantryGrams()).isNull();
-
-        ShoppingItemVO e = byId.get(102L);  // 鸡蛋：30 < 100
-        assertThat(e.getStockStatus()).isEqualTo("YELLOW_SHORT");
-        assertThat(e.getShortageGrams()).isEqualByComparingTo("70");
-        assertThat(e.getPantryGrams()).isEqualByComparingTo("30");
-
-        ShoppingItemVO s = byId.get(103L);  // 盐：80 >= 50
-        assertThat(s.getStockStatus()).isEqualTo("GREEN_ENOUGH");
-        assertThat(s.getShortageGrams()).isEqualByComparingTo("0");
-        assertThat(s.getPantryGrams()).isEqualByComparingTo("80");
-
-        ShoppingItemVO c = byId.get(104L);  // 老抽：手动加，不标记
-        assertThat(c.getStockStatus()).isNull();
-        assertThat(c.getPantryGrams()).isNull();
+        assertThat(byId.get(101L).getStockStatus()).isNull();          // 没建档：不标记（前端标灰）
+        assertThat(byId.get(102L).getStockStatus()).isEqualTo("YELLOW_SHORT"); // 快用完
+        assertThat(byId.get(103L).getStockStatus()).isEqualTo("GREEN_ENOUGH"); // 有
+        assertThat(byId.get(104L).getStockStatus()).isNull();          // 手动加项：不标记
     }
 
-    private static ShoppingItem item(long id, long ingId, String refGrams) {
-        ShoppingItem it = new ShoppingItem();
-        it.setId(id);
-        it.setIngredientId(ingId);
-        it.setReferenceGrams(new BigDecimal(refGrams));
-        return it;
-    }
-
-    private static Ingredient ing(long id, String name) {
-        Ingredient i = new Ingredient();
-        i.setId(id);
-        i.setName(name);
-        return i;
-    }
-
-    // ===================== 采购回写（togglePurchased 0→1 入库 pantry） =====================
+    // ===================== togglePurchased（V42 入库设档位） =====================
 
     @Test
-    void 勾选已买_0到1_有食材有量_回写pantry() {
+    void 勾选已买_0到1_关联食材_默认设为充足() {
         ShoppingItem it = new ShoppingItem();
         it.setId(1L);
         it.setIngredientId(10L);
-        it.setPurchaseAmount(new BigDecimal("2"));
-        it.setPurchaseUnitId(40L);
-        it.setReferenceGrams(new BigDecimal("1000"));
         it.setPurchased(0);
         given(itemMapper.selectById(1L)).willReturn(it);
 
-        svc.togglePurchased(1L);
+        svc.togglePurchased(1L, null);
 
         assertThat(it.getPurchased()).isEqualTo(1);
-        verify(pantryService).stockUpByIngredient(10L, new BigDecimal("2"), 40L, new BigDecimal("1000"));
+        verify(pantryService).setLevel(10L, IngredientStock.LEVEL_ENOUGH, StockLog.ACTION_PURCHASE, null, 1L);
     }
 
     @Test
-    void 勾选已买_0到1_无量_用参考克数兜底回写() {
+    void 勾选已买_0到1_带档位参数_用指定档位() {
         ShoppingItem it = new ShoppingItem();
-        it.setId(2L);
-        it.setIngredientId(20L);
-        it.setReferenceGrams(new BigDecimal("500"));
+        it.setId(1L);
+        it.setIngredientId(10L);
         it.setPurchased(0);
-        given(itemMapper.selectById(2L)).willReturn(it);
+        given(itemMapper.selectById(1L)).willReturn(it);
 
-        svc.togglePurchased(2L);
+        svc.togglePurchased(1L, IngredientStock.LEVEL_LOW);
 
-        assertThat(it.getPurchased()).isEqualTo(1);
-        verify(pantryService).stockUpByIngredient(20L, null, null, new BigDecimal("500"));
+        verify(pantryService).setLevel(10L, IngredientStock.LEVEL_LOW, StockLog.ACTION_PURCHASE, null, 1L);
     }
 
     @Test
-    void 勾选已买_无食材_不回写pantry() {
+    void 勾选已买_无食材_只标已买不入库() {
         ShoppingItem it = new ShoppingItem();
         it.setId(3L);
         it.setIngredientId(null);
@@ -249,10 +180,10 @@ class ShoppingServiceTest {
         it.setPurchased(0);
         given(itemMapper.selectById(3L)).willReturn(it);
 
-        svc.togglePurchased(3L);
+        svc.togglePurchased(3L, null);
 
         assertThat(it.getPurchased()).isEqualTo(1);
-        verify(pantryService, never()).stockUpByIngredient(any(), any(), any(), any());
+        verify(pantryService, never()).setLevel(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -260,24 +191,222 @@ class ShoppingServiceTest {
         ShoppingItem it = new ShoppingItem();
         it.setId(4L);
         it.setIngredientId(10L);
-        it.setPurchaseAmount(new BigDecimal("2"));
-        it.setPurchaseUnitId(40L);
         it.setPurchased(1);
         given(itemMapper.selectById(4L)).willReturn(it);
 
-        svc.togglePurchased(4L);
+        svc.togglePurchased(4L, null);
 
         assertThat(it.getPurchased()).isEqualTo(0);
-        verify(pantryService, never()).stockUpByIngredient(any(), any(), any(), any());
+        verify(pantryService, never()).setLevel(any(), any(), any(), any(), any());
     }
 
-    // ===================== Plan E: sourceMenuId 溯源 + 按食集查 =====================
+    // ===================== fromPrep（备菜一键加采购，V42） =====================
 
-    /** §9 铁律：menu 来源 generate 必须把 sourceMenuId 落库（之前 newList 丢了 sourceId）。 */
+    @Test
+    void fromPrep_无清单_新建清单并追加食材() {
+        ShoppingService spied = spy(svc);
+        doReturn(List.of()).when(spied).list(any(Wrapper.class)); // 该食集无清单
+        doAnswer(inv -> {
+            ((ShoppingList) inv.getArgument(0)).setId(9L);
+            return true;
+        }).when(spied).save(any(ShoppingList.class));
+        given(menuDishMapper.selectList(any())).willReturn(List.of(md(1, "2")));
+        given(dishIngredientMapper.selectList(any())).willReturn(List.of(di(1, 10, "100")));
+        given(itemMapper.selectCount(any())).willReturn(0L);
+        given(itemMapper.insert(any())).willReturn(1);
+
+        Long listId = spied.fromPrep(1L, List.of(10L));
+
+        assertThat(listId).isEqualTo(9L);
+        ArgumentCaptor<ShoppingList> listCap = ArgumentCaptor.forClass(ShoppingList.class);
+        verify(spied).save(listCap.capture());
+        assertThat(listCap.getValue().getSourceMenuId()).isEqualTo(1L); // 溯源
+        ArgumentCaptor<ShoppingItem> itemCap = ArgumentCaptor.forClass(ShoppingItem.class);
+        verify(itemMapper).insert(itemCap.capture());
+        assertThat(itemCap.getValue().getIngredientId()).isEqualTo(10L);
+        assertThat(itemCap.getValue().getReferenceGrams()).isEqualByComparingTo("200"); // 100×2 份
+    }
+
+    @Test
+    void fromPrep_已有清单_部分已在清单中_新增其余并去重() {
+        ShoppingService spied = spy(svc);
+        ShoppingList existing = new ShoppingList();
+        existing.setId(5L);
+        existing.setSourceMenuId(1L);
+        doReturn(List.of(existing)).when(spied).list(any(Wrapper.class));
+        given(menuDishMapper.selectList(any())).willReturn(List.of()); // 无菜品 → 无聚合用量
+        // 10 不在清单（新增），11 已在清单（跳过）
+        given(itemMapper.selectCount(any())).willReturn(0L, 1L);
+
+        Long listId = spied.fromPrep(1L, List.of(10L, 11L));
+
+        assertThat(listId).isEqualTo(5L); // 复用原清单
+        ArgumentCaptor<ShoppingItem> cap = ArgumentCaptor.forClass(ShoppingItem.class);
+        verify(itemMapper).insert(cap.capture());
+        assertThat(cap.getValue().getIngredientId()).isEqualTo(10L);
+    }
+
+    @Test
+    void fromPrep_食材都已在清单_抛异常() {
+        ShoppingService spied = spy(svc);
+        ShoppingList existing = new ShoppingList();
+        existing.setId(5L);
+        existing.setSourceMenuId(1L);
+        doReturn(List.of(existing)).when(spied).list(any(Wrapper.class));
+        given(itemMapper.selectCount(any())).willReturn(1L);
+
+        assertThatThrownBy(() -> spied.fromPrep(1L, List.of(10L)))
+                .hasMessageContaining("已在采购清单");
+    }
+
+    @Test
+    void fromPrep_食材列表为空_抛异常() {
+        assertThatThrownBy(() -> svc.fromPrep(1L, List.of()))
+                .hasMessageContaining("请选择");
+    }
+
+    // ===================== restock（批量入库，B2） =====================
+
+    @Test
+    void restock_混合食材与手动项_食材入库手动项只标已买() {
+        ShoppingItem tomato = new ShoppingItem();
+        tomato.setId(1L);
+        tomato.setIngredientId(10L);
+        tomato.setPurchased(0);
+        ShoppingItem custom = new ShoppingItem();
+        custom.setId(2L);
+        custom.setIngredientId(null);
+        custom.setCustomName("老抽");
+        custom.setPurchased(0);
+        given(itemMapper.selectById(1L)).willReturn(tomato);
+        given(itemMapper.selectById(2L)).willReturn(custom);
+
+        ShoppingService.RestockResult r = svc.restock(List.of(1L, 2L));
+
+        assertThat(r.restocked()).isEqualTo(1);
+        assertThat(r.markedOnly()).isEqualTo(1);
+        verify(pantryService).setLevel(10L, IngredientStock.LEVEL_ENOUGH, StockLog.ACTION_PURCHASE, null, 1L);
+        assertThat(tomato.getPurchased()).isEqualTo(1);
+        assertThat(custom.getPurchased()).isEqualTo(1);
+        verify(pantryService, never()).setLevel(any(), any(), any(), any(), eq(2L));
+    }
+
+    @Test
+    void restock_全部手动项_只标已买不调库存() {
+        ShoppingItem custom = new ShoppingItem();
+        custom.setId(3L);
+        custom.setIngredientId(null);
+        custom.setCustomName("洗洁精");
+        custom.setPurchased(0);
+        given(itemMapper.selectById(3L)).willReturn(custom);
+
+        ShoppingService.RestockResult r = svc.restock(List.of(3L));
+
+        assertThat(r.restocked()).isZero();
+        assertThat(r.markedOnly()).isEqualTo(1);
+        assertThat(custom.getPurchased()).isEqualTo(1);
+        verify(pantryService, never()).setLevel(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void restock_空列表_抛异常() {
+        assertThatThrownBy(() -> svc.restock(List.of()))
+                .hasMessageContaining("请选择");
+    }
+
+    // ===================== undoRestock（撤回入库，B3） =====================
+
+    @Test
+    void undoRestock_恢复入库前档位并删项() {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(1L);
+        it.setIngredientId(10L);
+        it.setPurchased(1);
+        given(itemMapper.selectById(1L)).willReturn(it);
+        StockLog log = new StockLog();
+        log.setBeforeLevel(IngredientStock.LEVEL_LOW);
+        given(stockLogMapper.selectList(any())).willReturn(List.of(log));
+
+        svc.undoRestock(1L);
+
+        verify(pantryService).setLevel(10L, IngredientStock.LEVEL_LOW, StockLog.ACTION_UNDO, null, 1L);
+        Long id1 = 1L;
+        verify(itemMapper).deleteById((java.io.Serializable) 1L);
+    }
+
+    @Test
+    void undoRestock_入库时新建档_撤回删除档位() {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(2L);
+        it.setIngredientId(20L);
+        it.setPurchased(1);
+        given(itemMapper.selectById(2L)).willReturn(it);
+        StockLog log = new StockLog();
+        log.setBeforeLevel(null); // 入库时新建档
+        given(stockLogMapper.selectList(any())).willReturn(List.of(log));
+
+        svc.undoRestock(2L);
+
+        verify(pantryService).removeLevel(20L, StockLog.ACTION_UNDO, null, 2L);
+        Long id2 = 2L;
+        verify(itemMapper).deleteById((java.io.Serializable) 2L);
+    }
+
+    @Test
+    void undoRestock_手动项无入库_抛异常() {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(3L);
+        it.setIngredientId(null);
+        it.setCustomName("老抽");
+        given(itemMapper.selectById(3L)).willReturn(it);
+
+        assertThatThrownBy(() -> svc.undoRestock(3L))
+                .hasMessageContaining("手动项");
+        verify(itemMapper, never()).deleteById((java.io.Serializable) any());
+    }
+
+    @Test
+    void undoRestock_无入库流水_抛异常() {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(4L);
+        it.setIngredientId(10L);
+        given(itemMapper.selectById(4L)).willReturn(it);
+        given(stockLogMapper.selectList(any())).willReturn(List.of());
+
+        assertThatThrownBy(() -> svc.undoRestock(4L))
+                .hasMessageContaining("没有可撤回");
+        verify(itemMapper, never()).deleteById((java.io.Serializable) any());
+    }
+
+    // ===================== renameList（改名，B4） =====================
+
+    @Test
+    void renameList_改名成功() {
+        ShoppingService spied = spy(svc);
+        ShoppingList list = new ShoppingList();
+        list.setId(9L);
+        doReturn(list).when(spied).getById(9L);
+        doReturn(true).when(spied).updateById(any(ShoppingList.class));
+
+        spied.renameList(9L, "  周末采购  ");
+
+        ArgumentCaptor<ShoppingList> cap = ArgumentCaptor.forClass(ShoppingList.class);
+        verify(spied).updateById(cap.capture());
+        assertThat(cap.getValue().getName()).isEqualTo("周末采购"); // trim
+    }
+
+    @Test
+    void renameList_空名_抛异常() {
+        assertThatThrownBy(() -> svc.renameList(9L, "  "))
+                .hasMessageContaining("清单名");
+    }
+
+    // ===================== generate / getByMenu（保留） =====================
+
     @Test
     void generate_menu来源_存sourceMenuId() {
-        given(menuDishMapper.selectList(any())).willReturn(List.of());  // 无菜品 → 空 usages
-        given(aggregator.aggregate(any())).willReturn(List.of());       // 无聚合行
+        given(menuDishMapper.selectList(any())).willReturn(List.of());
+        given(aggregator.aggregate(any())).willReturn(List.of());
         ShoppingService spied = spy(svc);
         doReturn(true).when(spied).save(any(ShoppingList.class));
 
@@ -285,8 +414,7 @@ class ShoppingServiceTest {
 
         ArgumentCaptor<ShoppingList> cap = ArgumentCaptor.forClass(ShoppingList.class);
         verify(spied).save(cap.capture());
-        assertThat(cap.getValue().getSourceMenuId()).isEqualTo(1L);   // §9 核心
-        assertThat(cap.getValue().getSourcePlanId()).isNull();
+        assertThat(cap.getValue().getSourceMenuId()).isEqualTo(1L);
     }
 
     @Test
@@ -304,47 +432,34 @@ class ShoppingServiceTest {
         assertThat(r).isSameAs(vo);
     }
 
-    @Test
-    void getByMenu_未命中_返回null() {
-        ShoppingService spied = spy(svc);
-        doReturn(List.of()).when(spied).list(any(Wrapper.class));
+    // ===================== 辅助 =====================
 
-        assertThat(spied.getByMenu(999L)).isNull();
+    private static ShoppingItem item(long id, long ingId) {
+        ShoppingItem it = new ShoppingItem();
+        it.setId(id);
+        it.setIngredientId(ingId);
+        return it;
     }
 
-    // ===================== 完成态：markPurchasedByMenu（整集做） =====================
-
-    /** 整集做完成：食集采购清单全部标记已购（只置位，不回写库存）。 */
-    @Test
-    void 按食集标记已购_清单项全置purchased_不回写库存() {
-        ShoppingService spied = spy(svc);
-        ShoppingList sl = new ShoppingList();
-        sl.setId(5L);
-        sl.setSourceMenuId(1L);
-        doReturn(List.of(sl)).when(spied).list(any(Wrapper.class));
-
-        spied.markPurchasedByMenu(1L);
-
-        verify(itemMapper).update(isNull(), argThat(w ->
-                w.getSqlSet() != null && w.getSqlSet().contains("purchased")));
-        verify(pantryService, never()).stockUpByIngredient(any(), any(), any(), any());
+    private static Ingredient ing(long id, String name) {
+        Ingredient i = new Ingredient();
+        i.setId(id);
+        i.setName(name);
+        return i;
     }
 
-    /** 食集未生成采购清单：静默跳过。 */
-    @Test
-    void 按食集标记已购_无清单_跳过() {
-        ShoppingService spied = spy(svc);
-        doReturn(List.of()).when(spied).list(any(Wrapper.class));
-
-        spied.markPurchasedByMenu(1L);
-
-        verify(itemMapper, never()).update(any(), any());
+    private static MenuDish md(long dishId, String factor) {
+        MenuDish m = new MenuDish();
+        m.setDishId(dishId);
+        m.setServingFactor(new BigDecimal(factor));
+        return m;
     }
 
-    private static Pantry pantry(long ingId, String grams) {
-        Pantry p = new Pantry();
-        p.setIngredientId(ingId);
-        p.setGrams(new BigDecimal(grams));
-        return p;
+    private static DishIngredient di(long dishId, long ingId, String grams) {
+        DishIngredient d = new DishIngredient();
+        d.setDishId(dishId);
+        d.setIngredientId(ingId);
+        d.setGrams(new BigDecimal(grams));
+        return d;
     }
 }

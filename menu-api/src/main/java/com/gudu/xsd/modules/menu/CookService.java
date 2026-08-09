@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.cookbook.CookingRecord;
 import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
+import com.gudu.xsd.modules.dict.SysDict;
+import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
@@ -13,38 +15,38 @@ import com.gudu.xsd.modules.menu.prep.PrepStatus;
 import com.gudu.xsd.modules.menu.prep.mapper.MenuPrepStatusMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
+import com.gudu.xsd.modules.pantry.IngredientStock;
 import com.gudu.xsd.modules.pantry.PantryService;
-import com.gudu.xsd.modules.shopping.ShoppingService;
+import com.gudu.xsd.modules.pantry.StockLog;
+import com.gudu.xsd.modules.pantry.mapper.IngredientStockMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 做菜扣库存编排：聚合用量 → 按 ingredientId FIFO 扣 pantry → 每菜写一条 cooking_record
- * （带 menuId/servingFactor/source/memo）→ 整集做把 menu 标 DONE。
+ * 做菜确认（V42 手动库存版）：不再自动扣库存，改为用户确认用材。
  *
- * 扣减规则（铁律）：扣到 0 为止、pantry 不记负，扣不动的欠量写 cooking_record.memo。
+ * <p>流程：点「开始做饭」→ GET cook-materials（本次用到的食材 + 当前档位 + 是否调料）
+ * → 用户确认 usedUp/partiallyUsed → POST /menu/{id}/cook → 更新档位 + 写 cooking_record
+ * （食记，与库存解耦）+ 食集标 DONE + 备菜全 READY。
  *
- * 完成态（整集做）：备菜全部置 READY + 采购清单全部勾选（只置位、不回写库存），
- * 前端各 tab 进入只读展示。
+ * <p>完成态不再勾选采购清单（采购与食集状态完全解耦）。
  */
 @Service
 @RequiredArgsConstructor
 public class CookService {
 
     static final String SOURCE_MENU = "menu";
-    static final String SOURCE_DISH = "dish";
     static final String MENU_STATUS_DONE = "DONE";
 
     private final MenuMapper menuMapper;
@@ -54,34 +56,82 @@ public class CookService {
     private final PantryService pantryService;
     private final NeedAggregator needAggregator;
     private final IngredientMapper ingredientMapper;
+    private final IngredientStockMapper ingredientStockMapper;
+    private final DictMapper dictMapper;
     private final MenuPrepStatusMapper menuPrepStatusMapper;
-    private final ShoppingService shoppingService;
 
-    /** 整集做：聚合食集各菜用量 → 扣减 → 每菜写 record → menu 标完成。 */
-    @Transactional
-    public CookResult cookByMenu(Long menuId, Long memberId) {
+    /**
+     * 做菜确认弹窗数据：本次用到的食材（聚合用量）+ 当前档位 + 是否调料（调料默认"用了一些"）。
+     * 只读聚合，不落库、不判断够不够。
+     */
+    public CookMaterialsVO cookMaterials(Long menuId) {
         Menu menu = menuMapper.selectById(menuId);
         if (menu == null) {
             throw new BizException("食集不存在");
         }
-        List<MenuDish> mds = menuDishMapper.selectList(
-                new QueryWrapper<MenuDish>().eq("menu_id", menuId));
-        List<Long> dishIds = mds.stream().map(MenuDish::getDishId).filter(Objects::nonNull).distinct()
-                .collect(Collectors.toList());
-        Map<Long, List<DishIngredient>> byDish = loadDishIngredients(dishIds);
-        Map<Long, BigDecimal> needByIng = needAggregator.aggregate(mds, byDish);
+        Map<Long, BigDecimal> needByIng = aggregateNeed(menuId);
+        if (needByIng.isEmpty()) {
+            return new CookMaterialsVO(menuId, List.of());
+        }
+        List<Long> ids = needByIng.keySet().stream().toList();
+        Map<Long, Ingredient> ingMap = ingredientMapper.selectBatchIds(ids).stream()
+                .collect(Collectors.toMap(Ingredient::getId, Function.identity(), (a, b) -> a));
+        Map<Long, String> levelMap = ingredientStockMapper.selectList(
+                        new QueryWrapper<IngredientStock>().in("ingredient_id", ids)).stream()
+                .collect(Collectors.toMap(IngredientStock::getIngredientId, IngredientStock::getLevel, (a, b) -> a));
+        Set<Long> condimentCategoryIds = condimentCategoryIds();
 
-        Map<Long, BigDecimal> shortages = new LinkedHashMap<>();
-        List<PantryService.DeductResult> deductions = deductAll(needByIng, shortages);
+        List<CookMaterialsVO.Item> items = new ArrayList<>();
+        for (Long id : ids) {
+            Ingredient ing = ingMap.get(id);
+            if (ing == null) continue;
+            items.add(new CookMaterialsVO.Item(
+                    id,
+                    ing.getName(),
+                    needByIng.get(id),
+                    levelMap.getOrDefault(id, IngredientStock.LEVEL_NONE),
+                    ing.getPurchaseCategoryId() != null && condimentCategoryIds.contains(ing.getPurchaseCategoryId())));
+        }
+        items.sort(java.util.Comparator
+                .comparing((CookMaterialsVO.Item it) -> it.isCondiment()) // false=食材在前，true=调料在后
+                .thenComparing(it -> it.ingredientName() == null ? "" : it.ingredientName(),
+                        java.text.Collator.getInstance()));
+        return new CookMaterialsVO(menuId, items);
+    }
 
-        // 每菜写一条 cooking_record（都带 menuId，source=menu，memo=全量欠量）
-        String memo = buildShortageMemo(shortages);
+    /**
+     * 整集做菜确认：按用户确认更新档位 → 每菜写 cooking_record → 食集标完成 → 备菜全 READY。
+     *
+     * @param usedUp        用户确认"用完了"的食材 id（→ NONE）
+     * @param partiallyUsed 用户确认"用了一些"的食材 id（→ 降一档，LOW/NONE 不降）
+     */
+    @Transactional
+    public CookResult cookByMenu(Long menuId, Long memberId, List<Long> usedUp, List<Long> partiallyUsed) {
+        Menu menu = menuMapper.selectById(menuId);
+        if (menu == null) {
+            throw new BizException("食集不存在");
+        }
+        if (MENU_STATUS_DONE.equals(menu.getStatus())) {
+            throw new BizException("这顿饭已经做完了");
+        }
+        if (usedUp != null) {
+            for (Long id : usedUp) {
+                if (id != null) pantryService.useUp(id, StockLog.ACTION_COOK, null);
+            }
+        }
+        if (partiallyUsed != null) {
+            for (Long id : partiallyUsed) {
+                if (id != null) pantryService.partialUse(id, StockLog.ACTION_COOK_PARTIAL, null);
+            }
+        }
+
+        Map<Long, BigDecimal> needByIng = aggregateNeed(menuId);
+        List<Long> dishIds = needByIng.isEmpty() ? List.of() : dishIds(menuId);
+        // 用材总结（B6）：结构化写 memo（"用完:1,2;用了一些:3"），供食记页展示
+        String memo = buildUsedMemo(usedUp, partiallyUsed);
         List<Long> recordIds = new ArrayList<>();
         for (Long dishId : dishIds) {
-            BigDecimal dishFactor = mds.stream()
-                    .filter(m -> dishId.equals(m.getDishId()))
-                    .map(MenuDish::getServingFactor).filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal dishFactor = dishFactor(menuId, dishId);
             recordIds.add(insertRecord(memberId, dishId, menuId, dishFactor, SOURCE_MENU, memo));
         }
 
@@ -89,33 +139,34 @@ public class CookService {
         menu.setFinishedAt(LocalDateTime.now());
         menuMapper.updateById(menu);
 
-        // 完成态：备菜全部置 READY（主料+调料），采购清单全部勾选（只置位不回写库存）
         markPrepReady(menuId, needByIng.keySet());
-        shoppingService.markPurchasedByMenu(menuId);
-
-        return new CookResult(menuId, deductions, shortages, recordIds);
-    }
-
-    /** 单菜直做：不入食集，source=dish。 */
-    @Transactional
-    public CookResult cookByDish(Long dishId, BigDecimal servings, Long memberId) {
-        BigDecimal factor = servings == null || servings.signum() <= 0 ? BigDecimal.ONE : servings;
-        Map<Long, List<DishIngredient>> byDish = loadDishIngredients(List.of(dishId));
-        Map<Long, BigDecimal> needByIng = new HashMap<>();
-        List<DishIngredient> ings = byDish.getOrDefault(dishId, List.of());
-        for (DishIngredient di : ings) {
-            if (di == null || di.getIngredientId() == null || di.getGrams() == null) continue;
-            needByIng.merge(di.getIngredientId(), di.getGrams().multiply(factor), BigDecimal::add);
-        }
-
-        Map<Long, BigDecimal> shortages = new LinkedHashMap<>();
-        List<PantryService.DeductResult> deductions = deductAll(needByIng, shortages);
-
-        Long recId = insertRecord(memberId, dishId, null, factor, SOURCE_DISH, buildShortageMemo(shortages));
-        return new CookResult(null, deductions, shortages, List.of(recId));
+        return new CookResult(menuId, recordIds);
     }
 
     // ===================== 内部辅助 =====================
+
+    /** 聚合食集各菜用量（by ingredientId）。 */
+    private Map<Long, BigDecimal> aggregateNeed(Long menuId) {
+        List<MenuDish> mds = menuDishMapper.selectList(
+                new QueryWrapper<MenuDish>().eq("menu_id", menuId));
+        List<Long> dishIds = mds.stream().map(MenuDish::getDishId).filter(Objects::nonNull).distinct()
+                .collect(Collectors.toList());
+        Map<Long, List<DishIngredient>> byDish = loadDishIngredients(dishIds);
+        return needAggregator.aggregate(mds, byDish);
+    }
+
+    private List<Long> dishIds(Long menuId) {
+        return menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId))
+                .stream().map(MenuDish::getDishId).filter(Objects::nonNull).distinct().toList();
+    }
+
+    private BigDecimal dishFactor(Long menuId, Long dishId) {
+        return menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId))
+                .stream()
+                .filter(m -> dishId.equals(m.getDishId()))
+                .map(MenuDish::getServingFactor).filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 
     private Map<Long, List<DishIngredient>> loadDishIngredients(List<Long> dishIds) {
         if (dishIds.isEmpty()) return Map.of();
@@ -124,39 +175,11 @@ public class CookService {
         return rows.stream().collect(Collectors.groupingBy(DishIngredient::getDishId));
     }
 
-    private List<PantryService.DeductResult> deductAll(Map<Long, BigDecimal> needByIng,
-                                                       Map<Long, BigDecimal> shortages) {
-        List<PantryService.DeductResult> out = new ArrayList<>();
-        for (Map.Entry<Long, BigDecimal> e : needByIng.entrySet()) {
-            PantryService.DeductResult r = pantryService.deductByIngredient(e.getKey(), e.getValue());
-            out.add(r);
-            if (r.shortageGrams() != null && r.shortageGrams().signum() > 0) {
-                shortages.put(e.getKey(), r.shortageGrams());
-            }
-        }
-        fillIngredientNames(out);
-        return out;
-    }
-
-    /** 批量回填扣减明细的食材名（一次查 ingredient 表，避免前端拿 id 反查）。 */
-    private void fillIngredientNames(List<PantryService.DeductResult> deductions) {
-        if (deductions.isEmpty()) return;
-        List<Long> ids = deductions.stream()
-                .map(PantryService.DeductResult::ingredientId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
-        if (ids.isEmpty()) return;
-        List<Ingredient> rows = ingredientMapper.selectBatchIds(ids);
-        if (rows == null || rows.isEmpty()) return;
-        Map<Long, String> nameMap = rows.stream()
-                .collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
-        for (int i = 0; i < deductions.size(); i++) {
-            PantryService.DeductResult r = deductions.get(i);
-            String name = r.ingredientId() == null ? null : nameMap.get(r.ingredientId());
-            deductions.set(i, new PantryService.DeductResult(
-                    r.ingredientId(), name, r.deductedGrams(), r.shortageGrams(), r.batches()));
-        }
+    /** 调味料品类 id 集合（dict group=purchase_category，name=调味料）。弹窗调料默认"用了一些"。 */
+    private Set<Long> condimentCategoryIds() {
+        List<SysDict> rows = dictMapper.selectList(new QueryWrapper<SysDict>()
+                .eq("dict_group", "purchase_category").eq("name", "调味料"));
+        return rows.stream().map(SysDict::getId).collect(Collectors.toSet());
     }
 
     private Long insertRecord(Long memberId, Long dishId, Long menuId,
@@ -173,16 +196,24 @@ public class CookService {
         return rec.getId();
     }
 
-    /** 欠量 memo："10:70g;20:50g"（ingredientId:克g）。前端翻译食材名。 */
-    private String buildShortageMemo(Map<Long, BigDecimal> shortages) {
-        if (shortages.isEmpty()) return null;
-        return shortages.entrySet().stream()
-                .map(e -> e.getKey() + ":" + e.getValue().setScale(0, RoundingMode.HALF_UP) + "g")
-                .collect(Collectors.joining(";"));
+    /** 用材总结 memo："用完:1,2;用了一些:3"（ingredientId，分号分隔两段）。全空返回 null。 */
+    private String buildUsedMemo(List<Long> usedUp, List<Long> partiallyUsed) {
+        String used = usedUp == null ? "" : usedUp.stream().filter(Objects::nonNull)
+                .map(String::valueOf).collect(Collectors.joining(","));
+        String partial = partiallyUsed == null ? "" : partiallyUsed.stream().filter(Objects::nonNull)
+                .map(String::valueOf).collect(Collectors.joining(","));
+        if (used.isEmpty() && partial.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        if (!used.isEmpty()) sb.append("用完:").append(used);
+        if (!partial.isEmpty()) {
+            if (sb.length() > 0) sb.append(";");
+            sb.append("用了一些:").append(partial);
+        }
+        return sb.toString();
     }
 
     /** 完成态：食集全部用料（主料+调料）备料状态置 READY（upsert，同 MenuPrepService.updateStatus）。 */
-    private void markPrepReady(Long menuId, java.util.Set<Long> ingredientIds) {
+    private void markPrepReady(Long menuId, Set<Long> ingredientIds) {
         if (ingredientIds == null || ingredientIds.isEmpty()) return;
         for (Long ingId : ingredientIds) {
             MenuPrepStatus existing = menuPrepStatusMapper.selectOne(

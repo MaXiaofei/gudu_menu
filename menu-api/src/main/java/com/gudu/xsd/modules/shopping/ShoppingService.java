@@ -1,7 +1,6 @@
 package com.gudu.xsd.modules.shopping;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -19,9 +18,10 @@ import com.gudu.xsd.modules.menu.MenuDish;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
-import com.gudu.xsd.modules.pantry.Pantry;
+import com.gudu.xsd.modules.pantry.IngredientStock;
 import com.gudu.xsd.modules.pantry.PantryService;
-import com.gudu.xsd.modules.pantry.mapper.PantryMapper;
+import com.gudu.xsd.modules.pantry.StockLog;
+import com.gudu.xsd.modules.pantry.mapper.StockLogMapper;
 import com.gudu.xsd.modules.notification.NotificationPayload;
 import com.gudu.xsd.modules.notification.NotificationService;
 import com.gudu.xsd.modules.shopping.ShoppingAggregator.Usage;
@@ -75,10 +75,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     private final MenuDishMapper menuDishMapper;
     private final ShoppingAggregator aggregator;
     private final NotificationService notificationService;
-    private final PantryMapper pantryMapper;
     private final PantryService pantryService;
-
-    private final StockClassifier stockClassifier = new StockClassifier();
+    private final StockLogMapper stockLogMapper;
 
     @Autowired
     public ShoppingService(ShoppingItemMapper itemMapper,
@@ -90,8 +88,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                            MenuDishMapper menuDishMapper,
                            ShoppingAggregator aggregator,
                            NotificationService notificationService,
-                           PantryMapper pantryMapper,
-                           PantryService pantryService) {
+                           PantryService pantryService,
+                           StockLogMapper stockLogMapper) {
         this.itemMapper = itemMapper;
         this.mealPlanItemMapper = mealPlanItemMapper;
         this.mealPlanMapper = mealPlanMapper;
@@ -101,8 +99,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         this.menuDishMapper = menuDishMapper;
         this.aggregator = aggregator;
         this.notificationService = notificationService;
-        this.pantryMapper = pantryMapper;
         this.pantryService = pantryService;
+        this.stockLogMapper = stockLogMapper;
     }
 
     // ===================== 生成（三数据源） =====================
@@ -307,21 +305,151 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     }
 
     /**
-     * 整集做菜完成时把该食集的采购清单全部标记已购。
+     * 备菜一键加采购（V42）：把备菜清单里勾选的食材加入该食集的采购清单。
+     * 该食集已有清单（source_menu_id）则复用，无则新建；逐项追加，同清单同食材去重；
+     * reference_grams 取食集聚合用量（备菜 Tab 展示用）。
      *
-     * <p>只置 purchased=1，不回写 pantry——cookMenu 已按用量扣过库存，勾选再入库会重复加。
-     * 未生成清单（无 source_menu_id 命中）时静默跳过。
+     * @return 采购清单 id
      */
-    public void markPurchasedByMenu(Long menuId) {
-        if (menuId == null) return;
-        List<ShoppingList> lists = list(new QueryWrapper<ShoppingList>()
-                .eq("source_menu_id", menuId));
-        if (lists.isEmpty()) return;
-        List<Long> listIds = lists.stream().map(ShoppingList::getId).toList();
-        itemMapper.update(null, new UpdateWrapper<ShoppingItem>()
-                .in("list_id", listIds)
-                .eq("purchased", 0)
-                .set("purchased", 1));
+    @Transactional
+    public Long fromPrep(Long menuId, List<Long> ingredientIds) {
+        if (menuId == null) throw new BizException("食集 id 不能为空");
+        List<Long> valid = ingredientIds == null ? List.of()
+                : ingredientIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (valid.isEmpty()) throw new BizException("请选择要加入采购的食材");
+
+        List<ShoppingList> rows = list(new QueryWrapper<ShoppingList>()
+                .eq("source_menu_id", menuId).orderByDesc("created_at").last("LIMIT 1"));
+        Long listId;
+        if (rows.isEmpty()) {
+            ShoppingList sl = new ShoppingList();
+            sl.setSourceMenuId(menuId);
+            sl.setTimeRange("menu_prep");
+            sl.setStartDate(LocalDate.now());
+            sl.setEndDate(LocalDate.now());
+            save(sl);
+            listId = sl.getId();
+        } else {
+            listId = rows.get(0).getId();
+        }
+
+        Map<Long, BigDecimal> needByIng = aggregateMenuNeedGrams(menuId);
+        int added = 0;
+        for (Long ingId : valid) {
+            Long count = itemMapper.selectCount(new QueryWrapper<ShoppingItem>()
+                    .eq("list_id", listId).eq("ingredient_id", ingId));
+            if (count != null && count > 0) continue; // 已在清单中，去重
+            ShoppingItem item = new ShoppingItem();
+            item.setListId(listId);
+            item.setIngredientId(ingId);
+            item.setReferenceGrams(needByIng.get(ingId));
+            item.setTotalAmount(BigDecimal.ZERO); // total_amount NOT NULL 无默认值，兜底 0
+            item.setPurchased(0);
+            itemMapper.insert(item);
+            added++;
+        }
+        if (added == 0) throw new BizException("所选食材已在采购清单中");
+        return listId;
+    }
+
+    /** 食集聚合用量（by ingredientId，fromPrep 填 reference_grams 用）。 */
+    private Map<Long, BigDecimal> aggregateMenuNeedGrams(Long menuId) {
+        List<MenuDish> mds = menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId));
+        List<Long> dishIds = mds.stream().map(MenuDish::getDishId).filter(Objects::nonNull).distinct().toList();
+        if (dishIds.isEmpty()) return Map.of();
+        List<DishIngredient> rows = dishIngredientMapper.selectList(
+                new QueryWrapper<DishIngredient>().in("dish_id", dishIds));
+        Map<Long, BigDecimal> factorByDish = new HashMap<>();
+        for (MenuDish md : mds) {
+            if (md.getDishId() == null) continue;
+            BigDecimal f = md.getServingFactor() == null ? BigDecimal.ONE : md.getServingFactor();
+            factorByDish.merge(md.getDishId(), f, BigDecimal::add);
+        }
+        Map<Long, BigDecimal> need = new HashMap<>();
+        for (DishIngredient di : rows) {
+            if (di.getIngredientId() == null || di.getGrams() == null) continue;
+            BigDecimal f = factorByDish.getOrDefault(di.getDishId(), BigDecimal.ONE);
+            need.merge(di.getIngredientId(), di.getGrams().multiply(f), BigDecimal::add);
+        }
+        return need;
+    }
+
+    /**
+     * 批量保存入库（B2）：本次勾选的采购项一次性入库（默认记「充足」），customName 手动项只标已买。
+     * 不逐项弹档位选择（DESIGN.md §15 批量提交优先）；写 purchase 流水（带 ref_id 溯源，供撤回）。
+     *
+     * @return restocked=成功入库数（关联食材的项）；markedOnly=只标已买数（手动项/无食材项）
+     */
+    @Transactional
+    public RestockResult restock(List<Long> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            throw new BizException("请选择要入库的采购项");
+        }
+        int restocked = 0;
+        int markedOnly = 0;
+        for (Long id : itemIds) {
+            if (id == null) continue;
+            ShoppingItem it = itemMapper.selectById(id);
+            if (it == null) continue;
+            if (it.getIngredientId() != null) {
+                pantryService.setLevel(it.getIngredientId(), IngredientStock.LEVEL_ENOUGH,
+                        StockLog.ACTION_PURCHASE, null, id);
+                restocked++;
+            } else {
+                markedOnly++;
+            }
+            if (it.getPurchased() == null || it.getPurchased() == 0) {
+                it.setPurchased(1);
+                itemMapper.updateById(it);
+            }
+        }
+        if (restocked == 0 && markedOnly == 0) {
+            throw new BizException("未找到有效的采购项");
+        }
+        return new RestockResult(restocked, markedOnly);
+    }
+
+    /** 批量入库结果。 */
+    public record RestockResult(int restocked, int markedOnly) {
+    }
+
+    /**
+     * 撤回入库（B3）：按 stock_log.ref_id 溯源该采购项最近一次入库流水，恢复 before_level
+     * （入库时新建档 before=null → 删除档位回到没建档），然后删除该采购项。
+     */
+    @Transactional
+    public void undoRestock(Long itemId) {
+        if (itemId == null) throw new BizException("采购项 id 不能为空");
+        ShoppingItem it = itemMapper.selectById(itemId);
+        if (it == null) throw new BizException("采购项不存在");
+        if (it.getIngredientId() == null) {
+            throw new BizException("手动项没有入库记录，可直接移除");
+        }
+        List<StockLog> logs = stockLogMapper.selectList(new QueryWrapper<StockLog>()
+                .eq("ref_id", itemId).orderByDesc("create_time").last("LIMIT 1"));
+        if (logs.isEmpty()) {
+            throw new BizException("没有可撤回的入库记录");
+        }
+        String before = logs.get(0).getBeforeLevel();
+        if (before == null) {
+            pantryService.removeLevel(it.getIngredientId(), StockLog.ACTION_UNDO, null, itemId);
+        } else {
+            pantryService.setLevel(it.getIngredientId(), before, StockLog.ACTION_UNDO, null, itemId);
+        }
+        itemMapper.deleteById(itemId);
+    }
+
+    /**
+     * 清单改名（B4，自定义采购 ✎）：name trim 后非空。
+     */
+    @Transactional
+    public void renameList(Long listId, String name) {
+        if (listId == null) throw new BizException("采购清单 id 不能为空");
+        if (name == null || name.isBlank()) throw new BizException("清单名不能为空");
+        ShoppingList list = getById(listId);
+        if (list == null) throw new BizException("采购清单不存在");
+        list.setName(name.trim());
+        updateById(list);
     }
 
     /** 分页查采购清单（后台管理，不含 items，按创建时间倒序）。 */
@@ -385,12 +513,14 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     /**
      * 勾选/取消勾选某明细已买。
      *
-     * <p>采购回写：仅 0→1（勾选已买）时按食材入库 pantry（优先 purchaseAmount+purchaseUnitId 换算，
-     * 兜底 referenceGrams）；1→0（取消）不反向扣减（库存可能已消耗，避免误扣）。
-     * ingredientId 为空（手动加项）或无可入库数量时静默跳过，仅标 purchased。
+     * <p>入库（V42）：仅 0→1（勾选已买）且关联食材时，把该食材档位设为 level（默认 ENOUGH 充足），
+     * 记一笔 purchase 流水；1→0（取消）不反向扣减（库存可能已消耗，避免误扣）。
+     * customName 手动加项（ingredientId 为空）只标 purchased，不入库存。
+     *
+     * @param level 入库档位（可空，默认 ENOUGH；买得少可选 LOW）
      */
     @Transactional
-    public void togglePurchased(Long itemId) {
+    public void togglePurchased(Long itemId, String level) {
         ShoppingItem it = itemMapper.selectById(itemId);
         if (it == null) return;
         int cur = it.getPurchased() == null ? 0 : it.getPurchased();
@@ -398,12 +528,9 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         it.setPurchased(next);
         itemMapper.updateById(it);
         if (cur == 0 && it.getIngredientId() != null) {
-            try {
-                pantryService.stockUpByIngredient(it.getIngredientId(),
-                        it.getPurchaseAmount(), it.getPurchaseUnitId(), it.getReferenceGrams());
-            } catch (BizException e) {
-                // 无可入库数量（amount/unitId/grams 都空）→ 静默跳过（仅标 purchased）
-            }
+            pantryService.setLevel(it.getIngredientId(),
+                    (level == null || level.isBlank()) ? IngredientStock.LEVEL_ENOUGH : level,
+                    StockLog.ACTION_PURCHASE, null, itemId);
         }
     }
 
@@ -418,15 +545,15 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         removeById(listId);
     }
 
-    /** 给 item 列表填中文展示名（食材名/单位名/品类名/采购单位名）+ Plan B 三色余色。 */
+    /** 给 item 列表填中文展示名（食材名/单位名/品类名/采购单位名）+ 档位 badge（V42）。 */
     private List<ShoppingItemVO> fillVoNames(List<ShoppingItem> rows) {
         if (rows.isEmpty()) return new ArrayList<>();
         // 食材名
         List<Long> ingIds = rows.stream().map(ShoppingItem::getIngredientId).distinct().collect(Collectors.toList());
         Map<Long, String> ingName = ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ingIds))
                 .stream().collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
-        // Plan B: pantry 按 ingredient_id 聚合 grams（一次性批量查）
-        Map<Long, BigDecimal> pantryGramsByIng = sumPantryGrams(ingIds);
+        // 档位 badge（V42）：读 ingredient_stock，映射 没有/快用完/有；无建档的项标灰（不标记）
+        Map<Long, String> levelByIng = pantryService.levelMap(ingIds);
         // 单位 + 品类 + 采购单位字典（一次性查三组）
         List<SysDict> dicts = dictMapper.selectList(
                 new QueryWrapper<SysDict>().in("dict_group", List.of("unit", "purchase_category", "purchase_unit")));
@@ -456,30 +583,25 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             // 兜底标灰：有 ingredientId 且 referenceGrams 为 null/0 视为未配置换算
             vo.setConvertConfigured(it.getIngredientId() == null
                     || (it.getReferenceGrams() != null && it.getReferenceGrams().compareTo(BigDecimal.ZERO) > 0));
-            // Plan B 三色余色：按 ingredient_id 比对 pantry 现有 vs referenceGrams
-            BigDecimal pantryGrams = it.getIngredientId() == null ? null
-                    : pantryGramsByIng.get(it.getIngredientId());
-            StockClassifier.Result stock = stockClassifier.classify(it.getReferenceGrams(), pantryGrams);
-            vo.setPantryGrams(pantryGrams);
-            vo.setStockStatus(stock == null ? null : stock.status().name());
-            vo.setShortageGrams(stock == null ? null : stock.shortageGrams());
+            // 档位 badge：ingredientId 为空（手动加项）或没建档 → null（前端标灰「手动加」）
+            String level = it.getIngredientId() == null ? null : levelByIng.get(it.getIngredientId());
+            vo.setStockStatus(mapLevelStatus(level));
+            vo.setPantryGrams(null);
+            vo.setShortageGrams(null);
             out.add(vo);
         }
         return out;
     }
 
-    /** Plan B: 查 pantry 按 ingredient_id 聚合 grams（pantry 量小，一次性批量查，只取 grams>0）。 */
-    private Map<Long, BigDecimal> sumPantryGrams(List<Long> ingIds) {
-        List<Long> valid = ingIds.stream().filter(Objects::nonNull).collect(Collectors.toList());
-        if (valid.isEmpty()) return Map.of();
-        List<Pantry> rows = pantryMapper.selectList(new QueryWrapper<Pantry>()
-                .in("ingredient_id", valid).gt("grams", 0));
-        Map<Long, BigDecimal> acc = new HashMap<>();
-        for (Pantry p : rows) {
-            if (p.getIngredientId() == null || p.getGrams() == null) continue;
-            acc.merge(p.getIngredientId(), p.getGrams(), BigDecimal::add);
-        }
-        return acc;
+    /** 档位 → 三色 badge 映射（V42）：ENOUGH→够，LOW→快用完（旧 YELLOW_SHORT 语义），NONE→没有；无档位→null。 */
+    private String mapLevelStatus(String level) {
+        if (level == null) return null;
+        return switch (level) {
+            case IngredientStock.LEVEL_ENOUGH -> "GREEN_ENOUGH";
+            case IngredientStock.LEVEL_LOW -> "YELLOW_SHORT";
+            case IngredientStock.LEVEL_NONE -> "RED_NONE";
+            default -> null;
+        };
     }
 
     // ===================== 自定义文本生成 =====================

@@ -50,7 +50,7 @@ class DishServiceTest {
         ingredientNutritionMapper = Mockito.mock(IngredientNutritionMapper.class);
         ingredientMapper = Mockito.mock(IngredientMapper.class);
         cookingRecordMapper = Mockito.mock(CookingRecordMapper.class);
-        svc = new DishService(stepMapper, dictRelMapper, dishIngMapper, ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(), null, new com.gudu.xsd.modules.nutrition.UnitConvertService(java.util.Set.of(20L)), cookingRecordMapper);
+        svc = new DishService(stepMapper, dictRelMapper, dishIngMapper, ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(), null, new com.gudu.xsd.modules.nutrition.UnitConvertService(java.util.Set.of(20L)), cookingRecordMapper, null);
         injectBaseMapper(svc, dishMapper);
     }
 

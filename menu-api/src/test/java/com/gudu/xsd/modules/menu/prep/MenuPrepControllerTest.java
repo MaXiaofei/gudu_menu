@@ -69,9 +69,9 @@ class MenuPrepControllerTest {
     void 备菜列表_返回200_and_items_进度() throws Exception {
         MenuPrepVO vo = new MenuPrepVO(
                 List.of(new PrepItemVO(1L, "番茄", new BigDecimal("300"), 2,
-                        List.of("番茄炒蛋", "番茄汤"), "READY", true)),
+                        List.of("番茄炒蛋", "番茄汤"), "READY", true, "ENOUGH")),
                 List.of(new PrepItemVO(16L, "食用油", new BigDecimal("30"), 1,
-                        List.of("番茄炒蛋"), "PENDING", false)),
+                        List.of("番茄炒蛋"), "PENDING", false, "ENOUGH")),
                 1, 2);
         given(svc.getPrep(eq(1L))).willReturn(vo);
 

@@ -41,6 +41,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     private final DictMapper dictMapper;
     private final com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert;
     private final CookingRecordMapper cookingRecordMapper;
+    private final com.gudu.xsd.modules.pantry.PantryService pantryService;
 
     /** 保存菜品（新增或更新），整体替换步骤 + 菜系/标签/分类关联 + 食材用量。 */
     @Transactional
@@ -122,6 +123,16 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                 case "category" -> categoryIds.add(r.getDictId());
             }
         }
+        // 批量回填库存档位（菜谱详情用料行「家里：充足/不足/用完」徽标数据源，B5）。
+        if (!ingredients.isEmpty()) {
+            List<Long> stockIngIds = ingredients.stream()
+                    .map(DishIngredient::getIngredientId).filter(Objects::nonNull).distinct().toList();
+            Map<Long, String> levelByIng = pantryService == null ? Map.of() : pantryService.levelMap(stockIngIds);
+            for (DishIngredient di : ingredients) {
+                di.setStockLevel(levelByIng.getOrDefault(di.getIngredientId(), "NONE"));
+            }
+        }
+
         // 回填菜系/分类/标签名，与 search 列表行为一致（避免详情页这几个字段为 null）。
         fillRelNames(List.of(dish));
         return new DishDetail(dish, steps, cuisineIds, tagIds, categoryIds, ingredients);

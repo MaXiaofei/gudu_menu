@@ -96,11 +96,71 @@ public class ShoppingController {
         private Long purchaseUnitId;
     }
 
-    /** 勾选/取消勾选某明细已买。 */
+    /** 勾选/取消勾选某明细已买。0→1 时入库设档位（level 默认 ENOUGH，买得少可选 LOW）。 */
     @PutMapping("/item/{itemId}/purchased")
-    public R<?> togglePurchased(@PathVariable Long itemId) {
-        svc.togglePurchased(itemId);
+    public R<?> togglePurchased(@PathVariable Long itemId,
+                                @RequestBody(required = false) TogglePurchasedReq req) {
+        svc.togglePurchased(itemId, req == null ? null : req.getLevel());
         return R.ok(null);
+    }
+
+    /** 勾选已买请求体：level 入库档位（可空，默认 ENOUGH）。 */
+    @Data
+    public static class TogglePurchasedReq {
+        private String level;
+    }
+
+    /**
+     * 备菜一键加采购（V42）：把备菜清单勾选的食材加入该食集的采购清单（无则新建）。
+     * 返回采购清单 id，前端可跳转采购页。
+     */
+    @PostMapping("/from-prep")
+    public R<Long> fromPrep(@RequestBody FromPrepReq req) {
+        return R.ok(svc.fromPrep(req.getMenuId(), req.getIngredientIds()));
+    }
+
+    /** 备菜一键加采购请求体。 */
+    @Data
+    public static class FromPrepReq {
+        private Long menuId;
+        private List<Long> ingredientIds;
+    }
+
+    /**
+     * 批量保存入库（B2）：本次勾选的采购项一次性入库（默认记充足），手动项只标已买。
+     */
+    @PostMapping("/restock")
+    public R<ShoppingService.RestockResult> restock(@RequestBody RestockReq req) {
+        return R.ok(svc.restock(req.getItemIds()));
+    }
+
+    /** 批量入库请求体。 */
+    @Data
+    public static class RestockReq {
+        private List<Long> itemIds;
+    }
+
+    /**
+     * 撤回入库（B3）：恢复该采购项入库前的档位（按流水溯源 before_level），然后删除该项。
+     * 入库时新建档的食材撤回后回到"没建档"。
+     */
+    @PostMapping("/item/{itemId}/undo-restock")
+    public R<?> undoRestock(@PathVariable Long itemId) {
+        svc.undoRestock(itemId);
+        return R.ok(null);
+    }
+
+    /** 清单改名（B4，自定义采购 ✎）。 */
+    @PutMapping("/{listId}/name")
+    public R<?> renameList(@PathVariable Long listId, @RequestBody RenameReq req) {
+        svc.renameList(listId, req.getName());
+        return R.ok(null);
+    }
+
+    /** 改名请求体。 */
+    @Data
+    public static class RenameReq {
+        private String name;
     }
 
     /** 删除某明细。 */

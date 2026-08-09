@@ -26,6 +26,9 @@ public class ShoppingList {
     /** 来源食集 menu.id（可空，plan/custom 来源留空）。Plan E 加。 */
     private Long sourceMenuId;
 
+    /** 清单名（自定义采购，可空）。V44。 */
+    private String name;
+
     /** 时间范围标识（如 week / day）。 */
     private String timeRange;
 

@@ -15,22 +15,22 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import javax.sql.DataSource;
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** CookController MockMvc 测试：照 IngredientUnitGramControllerTest 范式。 */
+/** CookController MockMvc 测试（V42）：cook-materials 弹窗数据 + cook 确认 body。照 IngredientUnitGramControllerTest 范式。 */
 @WebMvcTest(
         value = CookController.class,
         excludeFilters = @ComponentScan.Filter(
@@ -58,24 +58,40 @@ class CookControllerTest {
     @MockBean CookService cookService;
 
     @Test
-    void POST_整集做菜() throws Exception {
-        CookResult stub = new CookResult(7L, List.of(), Map.of(), List.of(1L));
-        given(cookService.cookByMenu(eq(7L), any())).willReturn(stub);
+    void GET_确认弹窗数据() throws Exception {
+        CookMaterialsVO.Item item = new CookMaterialsVO.Item(10L, "番茄",
+                new java.math.BigDecimal("200"), "ENOUGH", false);
+        given(cookService.cookMaterials(7L)).willReturn(new CookMaterialsVO(7L, List.of(item)));
+
+        mvc.perform(get("/menu/7/cook-materials"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].ingredientName").value("番茄"))
+                .andExpect(jsonPath("$.data.items[0].level").value("ENOUGH"))
+                .andExpect(jsonPath("$.data.items[0].isCondiment").value(false));
+        verify(cookService).cookMaterials(7L);
+    }
+
+    @Test
+    void POST_整集做菜确认_带用材body() throws Exception {
+        CookResult stub = new CookResult(7L, List.of(1L));
+        given(cookService.cookByMenu(eq(7L), any(), eq(List.of(10L)), eq(List.of(20L)))).willReturn(stub);
+
+        mvc.perform(post("/menu/7/cook")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"usedUp\":[10],\"partiallyUsed\":[20]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.menuId").value(7));
+        verify(cookService).cookByMenu(eq(7L), any(), eq(List.of(10L)), eq(List.of(20L)));
+    }
+
+    @Test
+    void POST_整集做菜确认_无body视为全跳过() throws Exception {
+        CookResult stub = new CookResult(7L, List.of(1L));
+        given(cookService.cookByMenu(eq(7L), any(), any(), any())).willReturn(stub);
 
         mvc.perform(post("/menu/7/cook"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.menuId").value(7));
-        verify(cookService).cookByMenu(eq(7L), any());
-    }
-
-    @Test
-    void POST_单菜直做_带份数() throws Exception {
-        given(cookService.cookByDish(eq(3L), eq(new BigDecimal("2")), any()))
-                .willReturn(new CookResult(null, List.of(), Map.of(), List.of(9L)));
-
-        mvc.perform(post("/dish/3/cook-now").param("servings", "2"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.cookingRecordIds[0]").value(9));
-        verify(cookService).cookByDish(eq(3L), eq(new BigDecimal("2")), any());
+        verify(cookService).cookByMenu(eq(7L), any(), any(), any());
     }
 }

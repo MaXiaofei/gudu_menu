@@ -39,6 +39,7 @@ public class MenuPrepService {
     private final IngredientMapper ingredientMapper;
     private final MenuPrepStatusMapper menuPrepStatusMapper;
     private final PrepAggregator aggregator;
+    private final com.gudu.xsd.modules.pantry.PantryService pantryService;
 
     /** GET /menu/{id}/prep：聚合全量用料 + 备料状态 + 共用高亮 + 调料分组 + 进度（含调料）。 */
     public MenuPrepVO getPrep(Long menuId) {
@@ -86,6 +87,9 @@ public class MenuPrepService {
                 d -> d.dishName() != null ? d.dishName() : ("菜#" + d.dishId()),
                 (a, b) -> a));
 
+        // 6.5 批量读库存档位（备菜徽标：家里 充足/不足/用完）
+        Map<Long, String> levelByIng = pantryService.levelMap(ingIds);
+
         // 7. 组装：主料/调料分组 + 进度（两者都计入 totalCount/readyCount）
         List<PrepItemVO> items = new ArrayList<>();
         List<PrepItemVO> condiments = new ArrayList<>();
@@ -98,8 +102,9 @@ public class MenuPrepService {
             List<String> dishNames = line.dishIds().stream()
                     .map(dishNameById::get).filter(Objects::nonNull).toList();
             String status = statusByIng.getOrDefault(line.ingredientId(), PrepStatus.PENDING.name());
+            String stockLevel = levelByIng.getOrDefault(line.ingredientId(), "NONE");
             PrepItemVO vo = new PrepItemVO(line.ingredientId(), name, line.totalGrams(),
-                    line.dishCount(), dishNames, status, line.dishCount() >= 2);
+                    line.dishCount(), dishNames, status, line.dishCount() >= 2, stockLevel);
             if (isCondiment) {
                 condiments.add(vo);
             } else {

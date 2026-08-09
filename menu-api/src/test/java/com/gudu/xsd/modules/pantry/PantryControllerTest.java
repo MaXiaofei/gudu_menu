@@ -82,31 +82,13 @@ class PantryControllerTest {
         return v;
     }
 
-    /** 分组项（listLow 现在返回 PantryGroupedVO.Item，V39）。 */
+    /** 分组项（listLow 现在返回 PantryGroupedVO.Item，V42 档位版）。 */
     private PantryGroupedVO.Item lowItem(String name) {
         PantryGroupedVO.Item it = new PantryGroupedVO.Item();
         it.setIngredientId(10L);
         it.setIngredientName(name);
-        it.setTotalAmount(new BigDecimal("3"));
-        it.setTotalGrams(new BigDecimal("3"));
-        it.setStatus("LOW");
-        it.setUnitName("g");
+        it.setLevel("LOW");
         return it;
-    }
-
-    @Test
-    void 库存分页列表_返回200_且返回VO数组() throws Exception {
-        Page<PantryVO> page = new Page<>(1, 10, 1);
-        page.setRecords(List.of(vo(1L, "鸡蛋", new BigDecimal("12"), LocalDate.of(2026, 6, 22))));
-        // 用 doReturn().when() 形式绕开重载歧义（svc.page 同时匹配 IService<E>.page(E) 与 page(PageQuery)）
-        org.mockito.Mockito.doReturn(page).when(svc).page(org.mockito.ArgumentMatchers.any(PageQuery.class));
-
-        mvc.perform(get("/pantry").param("pageNum", "1").param("pageSize", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.records[0].ingredientName").value("鸡蛋"))
-                .andExpect(jsonPath("$.data.records[0].amount").value(12));
     }
 
     @Test
@@ -121,45 +103,10 @@ class PantryControllerTest {
     }
 
     @Test
-    void 不足查询_返回分组项数组() throws Exception {
-        given(svc.listLow()).willReturn(List.of(lowItem("面粉")));
-
-        mvc.perform(get("/pantry/low"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data[0].ingredientName").value("面粉"))
-                .andExpect(jsonPath("$.data[0].status").value("LOW"));
-    }
-
-    @Test
-    void 新增库存_返回id() throws Exception {
-        org.mockito.Mockito.doAnswer(inv -> {
-            ((Pantry) inv.getArgument(0)).setId(77L);
-            return null;
-        }).when(svc).saveWithGrams(any(Pantry.class));
-
-        // lowThreshold 已挪到 ingredient（V39），pantry 新增不带阈值
-        String body = "{\"ingredientId\":10,\"amount\":12,\"unitId\":20,\"expireDate\":\"2026-06-22\"}";
-        mvc.perform(post("/pantry").contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data").value(77));
-    }
-
-    @Test
-    void 更新库存_调用service() throws Exception {
-        String body = "{\"id\":1,\"ingredientId\":10,\"amount\":8}";
-        mvc.perform(put("/pantry").contentType(MediaType.APPLICATION_JSON).content(body))
+    void 删除档位_调用removeLevel() throws Exception {
+        mvc.perform(delete("/pantry/10/level"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
-        verify(svc).updateById(any(Pantry.class));
-    }
-
-    @Test
-    void 删除库存_调用service() throws Exception {
-        mvc.perform(delete("/pantry/5"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
-        verify(svc).removeById(5L);
+        verify(svc).removeLevel(10L, StockLog.ACTION_MANUAL, null, null);
     }
 }
