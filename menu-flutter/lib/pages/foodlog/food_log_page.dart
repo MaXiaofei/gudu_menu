@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/app_theme.dart';
 import '../../services/food_log_service.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/time_select.dart';
 
 /// 食记（做菜日记）主页（对齐 dailylog.html 原型）。
 ///
@@ -159,10 +160,17 @@ class _FoodLogPageState extends State<FoodLogPage> {
             onTap: _prev,
             child: Text('‹',
                 style: TextStyle(color: _t.primary, fontWeight: FontWeight.w800, fontSize: 13))),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Text(_yearMode ? '$_year年' : '$_year年$_month月',
-              style: _t.textStyles.sm.copyWith(color: _t.title, fontWeight: FontWeight.w800)),
+        // 统一时间选择胶囊：点击展开 年/月 逐级选择
+        TimeSelectCapsule(
+          value: DateTime(_year, _month),
+          granularity: _yearMode ? TimeGranularity.year : TimeGranularity.month,
+          onChanged: (picked) {
+            setState(() {
+              _year = picked.year;
+              _month = picked.month;
+            });
+            _load();
+          },
         ),
         GestureDetector(
             onTap: _next,

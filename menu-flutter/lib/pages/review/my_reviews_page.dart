@@ -76,7 +76,7 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
           const SizedBox(height: 20),
         ],
         // 我评过的
-        _sectionTitle(t, '我评过的'),
+        _sectionTitle(t, '我的评价'),
         const SizedBox(height: 8),
         if (d.reviews.isEmpty)
           Container(
@@ -102,7 +102,6 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
   }
 
   Widget _pendingTile(AppTokens t, PendingMenu m) {
-    final remaining = m.remaining;
     return InkWell(
       onTap: () async {
         await context.push('/menu/${m.menuId}/review');
@@ -125,9 +124,7 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
                   Text(m.menuName, style: t.textStyles.md.copyWith(color: t.title)),
                   const SizedBox(height: 2),
                   Text(
-                    m.menuReviewed
-                        ? '还差 $remaining 道菜没评'
-                        : '食集整体没评${m.reviewedDishCount > 0 ? '，还差 $remaining 项' : ''}',
+                    m.menuReviewed ? '部分已评' : '待评价',
                     style: t.textStyles.sm.copyWith(color: AppTokens.warning),
                   ),
                 ],

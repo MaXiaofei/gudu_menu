@@ -7,6 +7,7 @@ import '../../services/dailylog_service.dart';
 import '../../services/dish_service.dart';
 import '../../stores/member_store.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/time_select.dart';
 
 /// 每日饮食记录。
 ///
@@ -104,16 +105,6 @@ class _DailyLogPageState extends State<DailyLogPage> {
     if (n.isAfter(DateTime.now())) return;
     _date = n;
     _load();
-  }
-
-  Future<void> _pickDate() async {
-    final p = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2024),
-      lastDate: DateTime.now(),
-    );
-    if (p != null) { _date = p; _load(); }
   }
 
   String _weekLabel(int wd) =>
@@ -462,20 +453,24 @@ class _DailyLogPageState extends State<DailyLogPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton(icon: const Icon(Icons.chevron_left), onPressed: _prevDay, iconSize: 26),
-            InkWell(
-              onTap: _pickDate,
-              borderRadius: BorderRadius.circular(AppTokens.rSm),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text('${_date.month}月${_date.day}日',
-                      style: t.textStyles.subtitle),
-                  Text(
-                    isToday ? '今天 · 左右滑动切换' : _weekLabel(_date.weekday),
-                    style: t.textStyles.sm.copyWith(color: isToday ? t.primary : t.caption),
-                  ),
-                ]),
-              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                // 统一时间选择胶囊：点击展开 年→月→日 逐级选择
+                TimeSelectCapsule(
+                  value: _date,
+                  granularity: TimeGranularity.day,
+                  onChanged: (p) {
+                    _date = p;
+                    _load();
+                  },
+                  labelBuilder: (v) => '${v.month}月${v.day}日',
+                ),
+                Text(
+                  isToday ? '今天 · 左右滑动切换' : _weekLabel(_date.weekday),
+                  style: t.textStyles.sm.copyWith(color: isToday ? t.primary : t.caption),
+                ),
+              ]),
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
