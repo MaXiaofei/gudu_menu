@@ -204,96 +204,105 @@ grams 全 NULL → 按 amount 近似映射（不精确没关系，用户会改�
 
 ---
 
-## 8. 聚餐（一起点菜，v0.6 新增 / v0.7 文案定稿：Tab 名=聚餐）
+## 8. 聚餐（一起点菜，v0.6 新增 / v0.7 文案定稿：Tab 名=聚餐 / v0.8：H5 过渡方案）
 
-> 原型：`menu-detail-xietong.html`（APP 房主视角）+ `friend-pick.html`（小程序朋友视角）
+> 原型：`menu-detail-xietong.html`（APP 房主视角）+ `friend-pick.html`（H5/小程序朋友视角）
 
 ### 8.1 定稿决策（2026-08-09）
 
 | # | 决策 | 定稿 |
 |---|---|---|
-| T1 | 入口 | 放食集里：「一起吃」Tab 为主入口，**「邀请朋友」快捷按钮在 Tab 内**（不另放菜 Tab）；不单独拎出 |
-| T2 | 权限 | 朋友加菜**直接进食集**；**朋友可删食集里的任意菜**（不限自己加的），**记录谁加的/谁删的**；主人可撤任何菜 |
-| T3 | 身份 | 微信授权拿昵称头像（小程序天然支持，不算注册门槛）；不做游客 |
+| T1 | 入口 | 放食集里：「聚餐」Tab 为主入口，「邀请朋友」在 Tab 内（不另放菜 Tab）；不单独拎出 |
+| T2 | 权限 | 朋友加菜**直接进食集**；**已加入成员可删食集里的任意菜**，**记录谁加的/谁删的**；房主=邀请生成人 |
+| T3 | 身份 | **H5 过渡（v0.8 定稿）**：朋友点链接进 H5 → 输昵称 → 后端发 `guest_key`（存 localStorage），不依赖微信授权；小程序批次升级为微信授权 member |
 | T4 | 实时性 | **轮询**（10s）：清单刷新 + **轮询即心跳**（更新 last_active_at）；成员=加入过的人，显示「最后活跃 X 分钟前」，不强制下线 |
-| T5 | 落地切分 | 后端接口 + APP 房主侧**先行**；小程序朋友端**后续批次**（小程序要重新做） |
-| T6 | 邀请 | **一次生成，三载体同效**：口令(6位) + 二维码 + 微信分享指向同一 token，谁拿到都能进；不要求每次选一种 |
+| T5 | 落地切分 | **B1 后端 + B2 APP 房主侧 + B3 H5 朋友端（过渡，现在就能跑通闭环）**；B4 小程序朋友端后续批次（替换 H5） |
+| T6 | 邀请 | **一次生成，三载体同效**：口令(6位) + 二维码 + 链接指向同一 token（H5 链接 `{base}/together.html?token=`），谁拿到都能进 |
 | T7 | 忌口 | **v1 不做**（未设计设置忌口的入口，原型已移除）；后续要时先在个人资料设计忌口设置再联动 |
+| T8 | 自定义菜名 | 朋友可自由输入菜名（不建 dish 档）：`menu_dish.dish_id` 改可空 + 新增 `custom_name` 列（V45） |
 
 ### 8.2 流程
 
 ```
-① 房主：一起吃 Tab →「邀请朋友」→ 生成 口令(6位) + 二维码 + 微信分享卡片（同一 token）
-② 朋友：扫码/点链接 → 小程序轻量页 → 微信授权（昵称头像）→ 进入点菜页
-③ 朋友：从菜谱库搜菜/自由输入 → 加菜 → 直接写 menu_dish（标「XX 点的」）；可删食集里任意菜（记谁删的）
-④ 房主：一起吃 Tab 轮询看到新菜/动态 → 可撤任何菜 → 份数/备注照常
+① 房主：聚餐 Tab →「邀请朋友」→ 生成 口令(6位) + 二维码 + 链接（同一 token，指向 H5）
+② 朋友：扫码/点链接 → H5（together.html?token=）→ 输昵称 → 后端发 guest_key（存 localStorage）→ 进入点菜页
+③ 朋友：搜菜谱/自由输入菜名 → 加菜（带备注）→ 直接写 menu_dish（标「XX 点的」）；可删食集里任意菜（记谁删的）
+④ 房主：聚餐 Tab 轮询看到新菜/动态 → 可撤任何菜 → 份数/备注照常
 ⑤ 做菜：确认弹窗/备菜/采购照旧（朋友点的菜同样参与用量聚合）
 ```
 
-### 8.3 数据模型
+### 8.3 数据模型（V45）
 
 ```sql
--- menu_dish 加列（V43）：记录谁加的
+-- menu_dish 改列（V45）：dish_id 可空 + custom_name + 谁加的
+ALTER TABLE menu_dish MODIFY dish_id BIGINT NULL COMMENT '菜品（自定义菜名时为空）';
 ALTER TABLE menu_dish
+  ADD COLUMN custom_name VARCHAR(64) NULL COMMENT '自定义菜名（dish_id 为空时用）',
   ADD COLUMN added_by_member_id BIGINT NULL COMMENT '谁加的（null=房主；朋友=其 member_id）',
   ADD COLUMN added_by_nickname  VARCHAR(32) NULL COMMENT '冗余昵称（房主加的不填）';
 
--- 邀请凭证（V43）：一次生成三载体（code/token 同效）
+-- 邀请凭证（V45）：一次生成三载体（code/token 同效）
 CREATE TABLE menu_invite (
   id         BIGINT PRIMARY KEY AUTO_INCREMENT,
   menu_id    BIGINT NOT NULL,
   code       VARCHAR(8) NOT NULL COMMENT '6 位口令（短码分享）',
   token      VARCHAR(64) NOT NULL COMMENT '深链 token（二维码/链接）',
-  created_by BIGINT NOT NULL COMMENT '房主 member_id',
+  created_by BIGINT NOT NULL COMMENT '房主 member_id（邀请生成人）',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_invite_code (code),
-  UNIQUE KEY uk_invite_token (token)
-) COMMENT '食集一起吃的邀请凭证';
+  UNIQUE KEY uk_invite_token (token),
+  UNIQUE KEY uk_invite_menu (menu_id)
+) COMMENT '食集聚餐邀请凭证（一食集一邀请，刷新即换）';
 
--- 成员 + 轮询心跳（V43）：参与过的人 + 最后活跃时间
+-- 成员 + 轮询心跳（V45）：参与过的人 + 最后活跃时间（H5 访客走 guest_key）
 CREATE TABLE menu_join (
   id            BIGINT PRIMARY KEY AUTO_INCREMENT,
   menu_id       BIGINT NOT NULL,
-  member_id     BIGINT NOT NULL,
+  member_id     BIGINT NULL COMMENT '登录用户（H5 访客为空）',
+  guest_key     VARCHAR(64) NULL COMMENT 'H5 访客凭证（唯一）',
   nickname      VARCHAR(32) NOT NULL,
   last_active_at DATETIME NOT NULL COMMENT '轮询时更新（心跳）',
-  UNIQUE KEY uk_menu_member (menu_id, member_id)
-) COMMENT '一起吃成员（轮询即心跳）';
+  UNIQUE KEY uk_menu_member (menu_id, member_id),
+  UNIQUE KEY uk_guest (guest_key)
+) COMMENT '聚餐成员（轮询即心跳）';
 
--- 活动流（V43）：加菜/删菜留痕（谁删的）
+-- 活动流（V45）：加菜/删菜留痕（谁删的）
 CREATE TABLE menu_activity (
   id          BIGINT PRIMARY KEY AUTO_INCREMENT,
   menu_id     BIGINT NOT NULL,
   member_id   BIGINT NULL,
   nickname    VARCHAR(32) NULL,
-  action      VARCHAR(16) NOT NULL COMMENT 'add 点菜 / remove 删菜 / create 建食集',
+  action      VARCHAR(16) NOT NULL COMMENT 'add 点菜 / remove 删菜',
   dish_id     BIGINT NULL,
   dish_name   VARCHAR(64) NULL,
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   KEY idx_activity_menu (menu_id, create_time DESC)
-) COMMENT '一起吃活动流（记录谁加的/谁删的）';
+) COMMENT '聚餐活动流（记录谁加的/谁删的）';
 ```
 
-- 朋友 = 微信授权登录后的正式 member（复用现有账号体系），加菜/删菜按 member_id 鉴权；
-- 删菜：删除 menu_dish 行 + 写 menu_activity(action=remove, member_id=谁删的, dish_name)；
+- 身份解析：登录用户 → member_id；H5 访客 → 请求头 `X-Guest-Key` → menu_join.guest_key；两者都无 → 未加入（403）；
+- 房主 = `menu_invite.created_by`（邀请生成人）；menu 表无 owner 字段，权限 MVP 不做房主特权（成员都能加/删）；
+- 删菜：删除 menu_dish 行 + 写 menu_activity(action=remove, member_id/guest 的昵称, dish_name)；
 - 成员展示：menu_join 列表（最后活跃 = 轮询接口更新时间），食集完成前都算成员，不强制下线；
-- `menu_invite` 不设过期（食集完成后失效/删除即可，家庭场景足够）。
+- 邀请刷新：同食集一键一邀请（uk_invite_menu），重新生成即换 code/token（旧失效）。
 
 ### 8.4 接口（后端先行）
 
 | 接口 | 说明 |
 |---|---|
-| `POST /menu/{id}/invite` | 房主生成/刷新邀请（返回 code + token），幂等 |
-| `GET /menu/{id}/together` | 轮询：成员（昵称+最后活跃）+ 菜列表（含 added_by 标记）+ 活动流；**同时更新本人 last_active_at（心跳）** |
-| `POST /menu/{id}/together/items` | 朋友加菜：`{dishId 或 customName, note?}` → 写 menu_dish（added_by=本人，note=备注）+ 活动流 |
-| `DELETE /menu/{id}/together/items/{menuDishId}` | 删菜（任意已加入成员可删）：删 menu_dish + 活动流记录谁删的 |
-| `GET /invite/{token}` | 小程序入口：token → 食集信息（校验后进入） |
+| `POST /menu/{id}/invite` | 登录用户生成/刷新邀请 → `{code, token, url}`（url=`{base}/together.html?token=`，二维码内容=url） |
+| `GET /invite/{token}` | 免身份：token → `{menuId, menuName, dishCount}`（H5 进入页校验） |
+| `POST /invite/{token}/join` | `{nickname}` → 创建/复用 menu_join + 返回 `{guestKey, menuId, menuName}`（H5 首次进入） |
+| `GET /menu/{id}/together` | 身份（member 或 guest_key）→ 已加入校验 → `{members[], dishes[](含 addedByNickname/note/customName), activities[], invite{code,url}}`；**同时更新本人 last_active_at（心跳）**；房主自动 upsert join 记录 |
+| `POST /menu/{id}/together/items` | 加菜 `{dishId 或 customName, note?}` → 写 menu_dish（added_by=本人，serving_factor=1）+ 活动流 |
+| `DELETE /menu/{id}/together/items/{menuDishId}` | 删菜（已加入成员可删）：删 menu_dish + 活动流记录谁删的 |
 
 ### 8.5 批次
 
-- **B1 后端**（V43 + 5 个接口 + 测试）—— 可先做，与库存 P2~P4 并行；
-- **B2 APP 房主侧**：一起吃 Tab（邀请生成/分享/清单轮询）+ 菜 Tab「邀请朋友」快捷入口 + 菜行「XX 点的」标记；
-- **B3 小程序朋友端**：随小程序重做批次（微信授权 + 点菜页，原型 friend-pick.html 已定稿）。
+- **B1 后端**（V45 + 6 个接口 + 测试）—— 本批；
+- **B2 APP 房主侧**：聚餐 Tab（邀请生成/口令+二维码+复制/清单轮询）+ 菜 Tab 菜行「XX 点的」标记—— 本批；
+- **B3 H5 朋友端**：`menu-api/src/main/resources/static/together.html` 单页（昵称+guest_key+清单+加菜+备注+删菜+轮询）—— 本批；
+- **B4 小程序朋友端**：随小程序重做批次（微信授权 + 点菜页，原型 friend-pick.html 已定稿），替换 H5。
 
 ---
 
