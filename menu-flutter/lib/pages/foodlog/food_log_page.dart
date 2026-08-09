@@ -8,7 +8,7 @@ import '../../widgets/loading_empty.dart';
 /// 食记（做菜日记）主页（对齐 dailylog.html 原型）。
 ///
 /// 月视图：日期组件（‹ 2026年7月 › + 月|年切换）+ 统计卡（顿饭/道菜/做饭天数/最常）
-/// + Tab（时间轴 / 按菜汇总）+ 筛选弹层（餐次/做菜方式/评价状态）。
+/// + Tab（时间轴 / 按菜汇总）。
 /// 年视图：12 个月做饭次数地图，点月份切回该月时间轴。
 /// 单条时间轴点行进详情（评价/再做一次）。
 class FoodLogPage extends StatefulWidget {
@@ -28,11 +28,6 @@ class _FoodLogPageState extends State<FoodLogPage> {
   // Tab：timeline / byDish
   String _tab = 'timeline';
 
-  // 筛选：餐次 / 做菜方式 / 评价状态（null=全部）
-  String? _meal;
-  String? _source;
-  bool? _reviewed;
-
   FoodLogMonth? _monthData;
   FoodLogByDish? _byDishData;
   FoodLogYear? _yearData;
@@ -50,11 +45,9 @@ class _FoodLogPageState extends State<FoodLogPage> {
       if (_yearMode) {
         _yearData = await FoodLogService.year(_year);
       } else if (_tab == 'byDish') {
-        _byDishData = await FoodLogService.byDish(_year, _month,
-            meal: _meal, source: _source, reviewed: _reviewed);
+        _byDishData = await FoodLogService.byDish(_year, _month);
       } else {
-        _monthData = await FoodLogService.month(_year, _month,
-            meal: _meal, source: _source, reviewed: _reviewed);
+        _monthData = await FoodLogService.month(_year, _month);
       }
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
@@ -110,27 +103,6 @@ class _FoodLogPageState extends State<FoodLogPage> {
     _load();
   }
 
-  Future<void> _openFilter() async {
-    final result = await showModalBottomSheet<_FilterResult>(
-      context: context,
-      backgroundColor: _t.card,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-      builder: (_) => _FilterSheet(
-        meal: _meal,
-        source: _source,
-        reviewed: _reviewed,
-      ),
-    );
-    if (result == null) return;
-    setState(() {
-      _meal = result.meal;
-      _source = result.source;
-      _reviewed = result.reviewed;
-    });
-    _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,7 +130,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
             ),
             // 统计卡
             _buildSummaryCard(),
-            // Tab + 筛选
+            // Tab
             _buildTabBar(),
             // 内容
             Expanded(
@@ -282,11 +254,6 @@ class _FoodLogPageState extends State<FoodLogPage> {
         _tabChip('时间轴', _tab == 'timeline', () => _switchTab('timeline')),
         const SizedBox(width: 4),
         _tabChip('按菜汇总', _tab == 'byDish', () => _switchTab('byDish')),
-        const Spacer(),
-        GestureDetector(
-          onTap: _openFilter,
-          child: Text('筛选', style: _t.textStyles.sm.copyWith(color: _t.primary, fontWeight: FontWeight.w800)),
-        ),
       ]),
     );
   }
@@ -514,122 +481,5 @@ class _FoodLogPageState extends State<FoodLogPage> {
         ]),
       ),
     );
-  }
-}
-
-// ===== 筛选弹层 =====
-
-class _FilterResult {
-  final String? meal;
-  final String? source;
-  final bool? reviewed;
-  const _FilterResult({this.meal, this.source, this.reviewed});
-}
-
-class _FilterSheet extends StatefulWidget {
-  final String? meal;
-  final String? source;
-  final bool? reviewed;
-  const _FilterSheet({required this.meal, required this.source, required this.reviewed});
-
-  @override
-  State<_FilterSheet> createState() => _FilterSheetState();
-}
-
-class _FilterSheetState extends State<_FilterSheet> {
-  String? _meal;
-  String? _source;
-  bool? _reviewed;
-
-  @override
-  void initState() {
-    super.initState();
-    _meal = widget.meal;
-    _source = widget.source;
-    _reviewed = widget.reviewed;
-  }
-
-  static const _meals = [
-    ('全部', null),
-    ('早餐', 'breakfast'),
-    ('午餐', 'lunch'),
-    ('晚餐', 'dinner'),
-    ('加餐', 'snack'),
-  ];
-  static const _sources = [
-    ('全部', null),
-    ('整集做菜', 'menu'),
-    ('单菜直做', 'dish'),
-  ];
-  static const _revieweds = [
-    ('全部', null),
-    ('已评价', true),
-    ('未评价', false),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Text('筛选', style: t.textStyles.subtitle),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => setState(() {
-                _meal = null;
-                _source = null;
-                _reviewed = null;
-              }),
-              child: Text('重置', style: t.textStyles.sm.copyWith(color: t.caption)),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          _group('餐次', _meals, _meal, (v) => _meal = v),
-          _group('做菜方式', _sources, _source, (v) => _source = v),
-          _group('评价', _revieweds, _reviewed, (v) => _reviewed = v),
-          const SizedBox(height: 12),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: t.primary,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(44),
-            ),
-            onPressed: () => Navigator.pop(context, _FilterResult(
-                meal: _meal, source: _source, reviewed: _reviewed)),
-            child: const Text('完成', style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _group<T>(String title, List<(String, T?)> options, T? selected, ValueChanged<T?> onSelect) {
-    final t = AppTokens.of(context);
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
-      const SizedBox(height: 5),
-      Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final (label, value) in options)
-          GestureDetector(
-            onTap: () => onSelect(value),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: selected == value ? t.primaryDeep : t.highlight,
-                border: Border.all(color: selected == value ? t.primaryDeep : t.border),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: Text(label,
-                  style: t.textStyles.chip.copyWith(
-                      color: selected == value ? Colors.white : t.body,
-                      fontWeight: FontWeight.w800)),
-            ),
-          ),
-      ]),
-      const SizedBox(height: 10),
-    ]);
   }
 }
