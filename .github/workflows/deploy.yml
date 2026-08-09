@@ -5,10 +5,14 @@
 #   - push 到 main 分支    → 部署生产环境 (prod, 端口 80)
 #   - push 到 feat/mvp 分支 → 部署测试环境 (staging, 端口 9090)
 #
+# 选择性部署：检测本次 push 改动的目录（menu-api/ / menu-admin/ / menu-mini/），
+# 只重建涉及的服务；docker-compose/scripts/nginx 等基础设施改动 → 全量兜底；
+# 纯 docs/menu-flutter 提交 → 跳过部署。迁移 SQL（menu-api/sql/V42+）随 menu-api 部署自动执行。
+#
 # 流程（方案 A：服务器自构建，不跨境传 jar）：
-#   GitHub runner 只判断环境 + 发起 SSH（单行命令）；
+#   GitHub runner 判断环境 + 检测变更服务 + 发起 SSH（单行命令）；
 #   服务器 git pull 最新源码（MB 级）→ scripts/deploy.sh 负责
-#   docker compose build（多阶段，maven 在容器内）→ 重启 → 健康检查。
+#   docker compose build（多阶段，maven 在容器内）→ 迁移 → 重启 → 健康检查。
 #
 # 需要配置的 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）：
 #   - SSH_HOST：服务器 IP（如 49.232.3.201）
@@ -23,7 +27,7 @@ on:
     branches:
       - main       # 生产环境
       - feat/mvp   # 测试环境
-  workflow_dispatch: # 允许手动触发
+  workflow_dispatch: # 允许手动触发（未指定 services → 全量）
 
 jobs:
   # 判断部署目标环境
@@ -47,16 +51,50 @@ jobs:
             echo "SHOULD_DEPLOY=false" >> $GITHUB_OUTPUT
           fi
 
-  # SSH 到服务器，让服务器自己 git pull + docker build
-  deploy:
+  # 按提交目录检测本次要部署的服务
+  detect-changes:
     needs: determine-env
     if: needs.determine-env.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.detect.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 需要完整历史才能 diff before..HEAD
+      - id: detect
+        run: |
+          BEFORE="${{ github.event.before }}"
+          # 手动触发 / before 无效（如 force push）→ 全量兜底
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "services=menu-api menu-admin menu-mini" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! CHANGED=$(git diff --name-only "$BEFORE" HEAD 2>/dev/null); then
+            echo "services=menu-api menu-admin menu-mini" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SERVICES=""
+          echo "$CHANGED" | grep -q '^menu-api/'   && SERVICES="$SERVICES menu-api"
+          echo "$CHANGED" | grep -q '^menu-admin/' && SERVICES="$SERVICES menu-admin"
+          echo "$CHANGED" | grep -q '^menu-mini/'  && SERVICES="$SERVICES menu-mini"
+          # 基础设施改动（compose/脚本/nginx）→ 全量兜底
+          echo "$CHANGED" | grep -qE '^(docker-compose|scripts/|nginx/)' \
+            && SERVICES="menu-api menu-admin menu-mini"
+          SERVICES=$(echo "$SERVICES" | xargs)   # 纯 docs/APP 提交 → 空 → 跳过部署
+          echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
+
+  # SSH 到服务器，让服务器自己 git pull + docker build 涉及的服务
+  deploy:
+    needs: [determine-env, detect-changes]
+    if: needs.determine-env.outputs.should_deploy == 'true' && needs.detect-changes.outputs.services != ''
+    runs-on: ubuntu-latest
     env:
       DEPLOY_ENV: ${{ needs.determine-env.outputs.env }}
+      SERVICES: ${{ needs.detect-changes.outputs.services }}
 
     steps:
-      # SSH 到服务器：cd 部署目录 → git pull → 调 deploy.sh（构建+重启+健康检查）
+      # SSH 到服务器：cd 部署目录 → git pull → 调 deploy.sh（构建+迁移+重启+健康检查）
       # 单行命令调用，避免 ssh-action 多行 script 内容丢失的已知问题
       - name: Deploy to ${{ env.DEPLOY_ENV }}
         uses: appleboy/ssh-action@v1.0.3
@@ -65,18 +103,18 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASS }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DEPLOY_ENV
+          envs: DEPLOY_ENV, SERVICES
           command_timeout: 15m
           script_stop: true
           script: |
-            set -e; if [ "$DEPLOY_ENV" = "prod" ]; then D=/root/gudu; else D=/root/gudu-staging; fi; cd "$D" && git fetch --all --prune && git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)" && ENV="$DEPLOY_ENV" bash scripts/deploy.sh
+            set -e; if [ "$DEPLOY_ENV" = "prod" ]; then D=/root/gudu; else D=/root/gudu-staging; fi; cd "$D" && git fetch --all --prune && git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)" && SERVICES="$SERVICES" ENV="$DEPLOY_ENV" bash scripts/deploy.sh
 
       # 部署结果通知
       - name: Deploy status
         if: always()
         run: |
           if [ "${{ job.status }}" = "success" ]; then
-            echo "✅ 部署成功: ${{ env.DEPLOY_ENV }} @ $(date)"
+            echo "✅ 部署成功: ${{ env.DEPLOY_ENV }}（服务: ${{ needs.detect-changes.outputs.services }}）@ $(date)"
           else
             echo "❌ 部署失败: ${{ env.DEPLOY_ENV }} @ $(date)"
             exit 1
