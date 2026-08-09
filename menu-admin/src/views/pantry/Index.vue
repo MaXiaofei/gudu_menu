@@ -2,31 +2,29 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  listPantry,
-  createPantry,
-  updatePantry,
-  deletePantry,
-  type PantryVO,
-  type Pantry,
+  listGrouped,
+  setLevel,
+  deleteLevel,
+  levelLabel,
+  levelTagType,
+  type PantryGroupedItem,
 } from '@/api/pantry'
 import { listIngredients } from '@/api/ingredient'
-import { listByGroup, type DictItem } from '@/api/dict'
-import Pagination from '@/components/Pagination.vue'
 
 const loading = ref(false)
-const allList = ref<PantryVO[]>([])
+const allList = ref<PantryGroupedItem[]>([])
 const keyword = ref('')
 const pageNum = ref(1)
 const pageSize = 15
 
 // 食材名称过滤（前端本地，数据量小）
-const filteredList = computed<PantryVO[]>(() => {
+const filteredList = computed<PantryGroupedItem[]>(() => {
   const kw = keyword.value.trim().toLowerCase()
   if (!kw) return allList.value
   return allList.value.filter((p) => (p.ingredientName || `#${p.ingredientId}`).toLowerCase().includes(kw))
 })
 
-const list = computed<PantryVO[]>(() => {
+const list = computed<PantryGroupedItem[]>(() => {
   const start = (pageNum.value - 1) * pageSize
   return filteredList.value.slice(start, start + pageSize)
 })
@@ -39,9 +37,8 @@ watch(keyword, () => {
 async function load() {
   loading.value = true
   try {
-    // 后端不支持 keyword，拉全量后前端过滤分页（数据量小）
-    const page = await listPantry({ pageNum: 1, pageSize: 999 })
-    allList.value = page.records || []
+    const vo = await listGrouped()
+    allList.value = vo.items || []
     pageNum.value = 1
   } finally {
     loading.value = false
@@ -52,25 +49,22 @@ function onSearch() {
   pageNum.value = 1
 }
 
-// 食材下拉项需含 unitId，选食材后自动带入单位（默认带，允许调）
-const ingredients = ref<{ id: number; name: string; unitId: number }[]>([])
-const unitOptions = ref<DictItem[]>([])
-
 function onPageChange(p: number) {
   pageNum.value = p
 }
 
-async function loadOptions() {
-  const [ings, units] = await Promise.all([listIngredients(), listByGroup('unit')])
-  ingredients.value = ings.map((x) => ({ id: x.id, name: x.name, unitId: x.unitId }))
-  unitOptions.value = units
-}
+// 档位选择（V42：充足/不足/用完，不再填数量/单位/过期日）
+const LEVEL_OPTIONS = [
+  { value: 'ENOUGH', label: '充足', desc: '还有不少' },
+  { value: 'LOW', label: '不足', desc: '剩一点点' },
+  { value: 'NONE', label: '用完', desc: '用光了' },
+]
 
-// 选食材后，按该食材的 unitId 自动带入单位（默认带，仍允许手改）
-function onIngredientChange(ingredientId?: number) {
-  if (ingredientId == null) return
-  const ing = ingredients.value.find((x) => x.id === ingredientId)
-  if (ing) form.unitId = ing.unitId
+const ingredients = ref<{ id: number; name: string }[]>([])
+
+async function loadOptions() {
+  const ings = await listIngredients()
+  ingredients.value = ings.map((x) => ({ id: x.id, name: x.name }))
 }
 
 onMounted(() => {
@@ -78,63 +72,22 @@ onMounted(() => {
   loadOptions()
 })
 
-// ============ 临期/不足标记（基于 VO 数据客户端再判，避免每次请求） ============
-const today = ref(new Date().toISOString().slice(0, 10))
-function daysBetween(expire?: string): number | null {
-  if (!expire) return null
-  const ms = new Date(expire).getTime() - new Date(today.value).getTime()
-  return Math.ceil(ms / 86400000)
-}
-function isExpiring(row: PantryVO): boolean {
-  const d = daysBetween(row.expireDate)
-  return d !== null && d >= 0 && d <= 3
-}
-function isLow(row: PantryVO): boolean {
-  return row.lowThreshold != null && row.lowThreshold > 0 && Number(row.amount) < Number(row.lowThreshold)
-}
-function expireText(row: PantryVO): string {
-  const d = daysBetween(row.expireDate)
-  if (d === null) return '-'
-  if (d < 0) return `${row.expireDate}（已过期 ${-d} 天）`
-  if (d === 0) return `${row.expireDate}（今天）`
-  return `${row.expireDate}（剩 ${d} 天）`
-}
-
-// ============ 新增/编辑 ============
+// ============ 新增/编辑（设档位） ============
 const dialogVisible = ref(false)
-const editing = ref<PantryVO | null>(null)
-
-function blankForm(): Pantry {
-  return {
-    ingredientId: undefined as unknown as number,
-    amount: 0,
-    unitId: undefined,
-    expireDate: '',
-    lowThreshold: 0,
-  }
-}
-
-const form = reactive<Pantry>(blankForm())
-
-function resetForm() {
-  Object.assign(form, blankForm())
-}
+const editing = ref<PantryGroupedItem | null>(null)
+const form = reactive({ ingredientId: undefined as number | undefined, level: 'ENOUGH' })
 
 function openCreate() {
   editing.value = null
-  resetForm()
+  form.ingredientId = undefined
+  form.level = 'ENOUGH'
   dialogVisible.value = true
 }
 
-function openEdit(row: PantryVO) {
+function openEdit(row: PantryGroupedItem) {
   editing.value = row
-  resetForm()
-  form.id = row.id
   form.ingredientId = row.ingredientId
-  form.amount = Number(row.amount)
-  form.unitId = row.unitId
-  form.expireDate = row.expireDate || ''
-  form.lowThreshold = row.lowThreshold != null ? Number(row.lowThreshold) : 0
+  form.level = row.level || 'ENOUGH'
   dialogVisible.value = true
 }
 
@@ -143,28 +96,42 @@ async function onSubmit() {
     ElMessage.warning('请选择食材')
     return
   }
-  if (editing.value) {
-    await updatePantry(form)
-    ElMessage.success('已更新')
-  } else {
-    await createPantry(form)
-    ElMessage.success('已新增')
+  try {
+    await setLevel(form.ingredientId, form.level, editing.value ? '管理后台修改' : '管理后台建档')
+    ElMessage.success(editing.value ? '已更新档位' : '已建档')
+    dialogVisible.value = false
+    await load()
+  } catch (e) {
+    ElMessage.error(`保存失败：${(e as Error).message || e}`)
   }
-  dialogVisible.value = false
-  await load()
 }
 
-async function onDelete(row: PantryVO) {
-  await ElMessageBox.confirm(`确定删除「${row.ingredientName || '该项'}」库存？`, '提示', { type: 'warning' })
-  await deletePantry(row.id!)
+async function onDelete(row: PantryGroupedItem) {
+  await ElMessageBox.confirm(
+    `确定删除「${row.ingredientName || `#${row.ingredientId}`}」的库存档位？删除后该食材回到「没建档」。`,
+    '提示',
+    { type: 'warning' },
+  )
+  await deleteLevel(row.ingredientId)
   ElMessage.success('已删除')
   await load()
 }
 
-const tableRowClass = ({ row }: { row: PantryVO }) => {
-  if (isLow(row)) return 'row-low'
-  if (isExpiring(row)) return 'row-expiring'
-  return ''
+// 上次变动文案（来源 + 时间）
+function lastChangeText(row: PantryGroupedItem): string {
+  const lc = row.lastChange
+  if (!lc) return '无变动记录'
+  const sourceMap: Record<string, string> = {
+    cook: '做菜·用完了',
+    cook_partial: '做菜·用了一些',
+    purchase: '采购入库',
+    manual: '手动',
+    undo: '撤回入库',
+  }
+  const source = sourceMap[lc.source || ''] || lc.source || ''
+  const note = lc.sourceNote ? ` · ${lc.sourceNote}` : ''
+  const time = lc.createTime ? ` · ${lc.createTime.slice(0, 16).replace('T', ' ')}` : ''
+  return `${source}${note}${time}`
 }
 </script>
 
@@ -178,39 +145,29 @@ const tableRowClass = ({ row }: { row: PantryVO }) => {
         class="filter-input"
         @keyup.enter="onSearch"
       />
-      <el-button type="primary" @click="onSearch">搜索</el-button>
+      <el-button @click="onSearch">搜索</el-button>
       <div class="spacer" />
-      <el-button type="primary" @click="openCreate">新增库存</el-button>
+      <el-button type="primary" @click="openCreate">新增库存档位</el-button>
     </div>
-    <el-table v-loading="loading" :data="list" border :row-class-name="tableRowClass">
-      <el-table-column label="食材" min-width="140">
+    <el-table v-loading="loading" :data="list" border>
+      <el-table-column label="食材" min-width="160">
         <template #default="{ row }">
           {{ row.ingredientName || `#${row.ingredientId}` }}
         </template>
       </el-table-column>
-      <el-table-column label="余量" width="120">
+      <el-table-column label="档位" width="120">
         <template #default="{ row }">
-          <span :class="{ 'text-low': isLow(row) }">{{ row.amount }} {{ row.unitName || '' }}</span>
+          <el-tag :type="levelTagType(row.level)" effect="light">{{ levelLabel(row.level) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="阈值" width="100">
+      <el-table-column label="上次变动" min-width="240">
         <template #default="{ row }">
-          {{ row.lowThreshold || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="过期日" min-width="180">
-        <template #default="{ row }">
-          <span :class="{ 'text-expiring': isExpiring(row) }">{{ expireText(row) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="更新时间" width="170">
-        <template #default="{ row }">
-          <span class="mini">{{ row.updateTime || '-' }}</span>
+          <span class="mini">{{ lastChangeText(row) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+          <el-button link type="primary" @click="openEdit(row)">改档位</el-button>
           <el-button link type="danger" @click="onDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -223,10 +180,16 @@ const tableRowClass = ({ row }: { row: PantryVO }) => {
       @current-change="onPageChange"
     />
 
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑库存' : '新增库存'" width="520px">
+    <el-dialog v-model="dialogVisible" :title="editing ? '改档位' : '新增库存档位'" width="420px">
       <el-form label-width="90px">
         <el-form-item label="食材">
-          <el-select v-model="form.ingredientId" filterable placeholder="选择食材" style="width: 100%" @change="onIngredientChange">
+          <el-select
+            v-model="form.ingredientId"
+            filterable
+            placeholder="选择食材"
+            style="width: 100%"
+            :disabled="!!editing"
+          >
             <el-option
               v-for="i in ingredients"
               :key="i.id"
@@ -235,32 +198,17 @@ const tableRowClass = ({ row }: { row: PantryVO }) => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="余量">
-          <el-input-number v-model="form.amount" :min="0" :precision="2" />
-        </el-form-item>
-        <el-form-item label="单位">
-          <el-select v-model="form.unitId" clearable placeholder="选食材后自动带入" style="width: 100%">
-            <el-option
-              v-for="u in unitOptions"
-              :key="u.id"
-              :label="u.name"
-              :value="u.id"
-            />
-          </el-select>
-          <span class="mini" style="margin-left: 8px">随食材自动带入，可手改</span>
-        </el-form-item>
-        <el-form-item label="过期日">
-          <el-date-picker
-            v-model="form.expireDate"
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="选择过期日（可空）"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="低库存阈值">
-          <el-input-number v-model="form.lowThreshold" :min="0" :precision="2" />
-          <span class="mini" style="margin-left: 8px">余量低于此值提示采购（0 表示不监控）</span>
+        <el-form-item label="档位">
+          <el-radio-group v-model="form.level">
+            <el-radio-button v-for="o in LEVEL_OPTIONS" :key="o.value" :value="o.value">
+              {{ o.label }}
+            </el-radio-button>
+          </el-radio-group>
+          <div class="mini" style="margin-top: 6px">
+            {{
+              LEVEL_OPTIONS.find((o) => o.value === form.level)?.desc
+            }}（库存是模糊档位，不填数量/单位/过期日）
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -292,19 +240,5 @@ const tableRowClass = ({ row }: { row: PantryVO }) => {
 .mini {
   font-size: 12px;
   color: #7a6f60;
-}
-:deep(.row-low) {
-  background: var(--el-color-danger-light-9, #fef0f0);
-}
-:deep(.row-expiring) {
-  background: var(--el-color-warning-light-9, #fdf6ec);
-}
-.text-low {
-  color: var(--el-color-danger, #f56c6c);
-  font-weight: 600;
-}
-.text-expiring {
-  color: var(--el-color-warning, #e6a23c);
-  font-weight: 600;
 }
 </style>
