@@ -112,18 +112,18 @@ class FoodLogServiceTest {
         assertThat(vo.summary().cookDays()).isEqualTo(2);
         assertThat(vo.summary().topDishes().get(0)).isEqualTo("番茄炒蛋"); // dish 1/2/3 各 1 次，取前 3
 
-        // 时间轴：食集一顿（3 道、用完 2 样、用了一些 1 样）+ 单菜直做一顿（用完 1 样）
+        // 时间轴（创建时间倒序，最新在上）：单菜直做(7/5) 在前 + 食集(7/2) 在后
         assertThat(vo.records()).hasSize(2);
-        FoodLogService.Meal meal = vo.records().get(0);
+        FoodLogService.Meal standalone = vo.records().get(0);
+        assertThat(standalone.menuId()).isNull();
+        assertThat(standalone.usedUpCount()).isEqualTo(1);
+        FoodLogService.Meal meal = vo.records().get(1);
         assertThat(meal.menuId()).isEqualTo(10L);
         assertThat(meal.name()).isEqualTo("今晚的饭");
         assertThat(meal.dishCount()).isEqualTo(3);
         assertThat(meal.dishNames()).containsExactly("番茄炒蛋", "清蒸鲈鱼", "蒜蓉菠菜");
         assertThat(meal.usedUpCount()).isEqualTo(2);
         assertThat(meal.partialCount()).isEqualTo(1);
-        FoodLogService.Meal standalone = vo.records().get(1);
-        assertThat(standalone.menuId()).isNull();
-        assertThat(standalone.usedUpCount()).isEqualTo(1);
     }
 
     @Test
@@ -308,9 +308,9 @@ class FoodLogServiceTest {
 
         assertThat(page1.total()).isEqualTo(2);
         assertThat(page1.records()).hasSize(1);
-        assertThat(page1.records().get(0).menuId()).isEqualTo(10L); // 第 1 页=食集那顿
+        assertThat(page1.records().get(0).menuId()).isNull();       // 第 1 页=最新(7/5 单菜直做)
         assertThat(page2.records()).hasSize(1);
-        assertThat(page2.records().get(0).menuId()).isNull();       // 第 2 页=单菜直做
+        assertThat(page2.records().get(0).menuId()).isEqualTo(10L); // 第 2 页=食集那顿(7/2)
         assertThat(page1.summary().meals()).isEqualTo(2);             // 统计卡不受分页影响
     }
 }

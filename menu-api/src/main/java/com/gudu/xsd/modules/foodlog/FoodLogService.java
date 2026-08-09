@@ -100,7 +100,7 @@ public class FoodLogService {
                                 ? "YEAR(cooked_at) = {0} AND MONTH(cooked_at) = {1}"
                                 : "YEAR(cooked_at) = {0}",
                                 month > 0 ? new Object[]{year, month} : new Object[]{year})
-                        .orderByAsc("cooked_at"));
+                        .orderByDesc("cooked_at")); // 时间轴最新在上
         if (records.isEmpty()) {
             return new MonthVO(new Summary(0, 0, 0, List.of()), List.of(), 0, pageNum, pageSize);
         }
@@ -132,6 +132,9 @@ public class FoodLogService {
                     reviewedDishIds.contains(r.getDishId()));
             if (matchFilter(m, meal, source, reviewed)) meals.add(m);
         }
+        // 时间轴整体按创建时间倒序（最新在上）
+        meals.sort(Comparator.comparing(Meal::cookedAt,
+                Comparator.nullsLast(Comparator.reverseOrder())));
 
         // summary（统计卡）= 该范围（月/年）全量聚合，不受分页影响（§12 统计确需全量例外）
         Summary summary = buildSummary(records, dishNames, meal, source, reviewed);
