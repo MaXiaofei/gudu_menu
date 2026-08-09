@@ -10,8 +10,10 @@ import java.util.Map;
 
 @Data
 public class ReviewSaveDTO {
-    @NotNull
+    /** 菜品 id（与 menuId 二选一；单菜评价填）。 */
     private Long dishId;
+    /** 食集 id（与 dishId 二选一；食集整体评价填）。V43。 */
+    private Long menuId;
     @NotNull @Min(1) @Max(5)
     private Integer starRating;
     private String text;

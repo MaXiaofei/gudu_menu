@@ -14,6 +14,8 @@ public class Review {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long dishId;
+    /** 食集评价（V43）：与 dishId 二选一；食集评价时 dishId 为 null。 */
+    private Long menuId;
     private Long memberId;
     private Integer starRating;
     private String text;
