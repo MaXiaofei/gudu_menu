@@ -133,8 +133,10 @@ public class FoodLogService {
             if (matchFilter(m, meal, source, reviewed)) meals.add(m);
         }
 
+        // summary（统计卡）= 该范围（月/年）全量聚合，不受分页影响（§12 统计确需全量例外）
         Summary summary = buildSummary(records, dishNames, meal, source, reviewed);
-        // 时间轴分页（内存切片：分组在内存完成，SQL 分页会破坏「一顿饭」分组）
+        // records（时间轴列表）= 分页（§12，pageSize=15 滚动加载）；内存切片：
+        // 分组在内存完成，SQL 分页会破坏「一顿饭」分组
         int total = meals.size();
         int from = Math.max(0, (pageNum - 1) * pageSize);
         int to = Math.min(total, from + pageSize);
