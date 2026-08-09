@@ -327,6 +327,31 @@ class TogetherServiceTest {
                 .hasMessageContaining("加入聚餐");
     }
 
+    // ===================== 菜谱搜索 =====================
+
+    @Test
+    void 搜索菜谱_按名称模糊返回候选() {
+        Dish dish1 = new Dish();
+        dish1.setId(1L);
+        dish1.setName("红烧肉");
+        Dish dish2 = new Dish();
+        dish2.setId(2L);
+        dish2.setName("红烧排骨");
+        given(dishMapper.selectList(any())).willReturn(List.of(dish1, dish2));
+
+        List<TogetherService.DishBrief> list = svc.searchDishes("红烧", 8);
+
+        assertThat(list).hasSize(2);
+        assertThat(list.get(0).name()).isEqualTo("红烧肉");
+        assertThat(list.get(1).id()).isEqualTo(2L);
+    }
+
+    @Test
+    void 搜索菜谱_关键字为空_返回空() {
+        assertThat(svc.searchDishes("  ", 8)).isEmpty();
+        verify(dishMapper, never()).selectList(any());
+    }
+
     // ===================== 加菜 =====================
 
     @Test

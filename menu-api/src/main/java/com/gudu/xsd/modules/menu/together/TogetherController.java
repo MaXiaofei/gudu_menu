@@ -9,6 +9,8 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 食集聚餐接口（V45，设计文档 §8）。
  *
@@ -77,6 +79,14 @@ public class TogetherController {
     public R<?> updateNickname(@PathVariable Long id, @RequestBody NicknameReq req) {
         svc.updateNickname(id, identity(), req == null ? null : req.getNickname());
         return R.ok(null);
+    }
+
+    /** 菜谱模糊搜索（H5 加菜候选；免登录，放 together 白名单内）。 */
+    @GetMapping("/menu/{id}/together/dishes")
+    public R<List<TogetherService.DishBrief>> searchDishes(@PathVariable Long id,
+                                                           @RequestParam String keyword,
+                                                           @RequestParam(defaultValue = "8") int pageSize) {
+        return R.ok(svc.searchDishes(keyword, pageSize));
     }
 
     // ===================== 请求体 / 身份 =====================

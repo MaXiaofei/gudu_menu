@@ -37,6 +37,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TogetherService {
 
+    /** 成员活跃窗口：超过该时长没轮询（心跳）即视为离开，成员区不再显示。 */
+    static final int ACTIVE_WINDOW_MINUTES = 15;
+
     private final MenuMapper menuMapper;
     private final MenuDishMapper menuDishMapper;
     private final DishMapper dishMapper;
@@ -181,8 +184,11 @@ public class TogetherService {
         MenuJoin me = resolveJoin(menuId, identity, true);
         touch(me);
 
-        List<MenuJoin> joins = joinMapper.selectList(
-                new QueryWrapper<MenuJoin>().eq("menu_id", menuId).orderByDesc("last_active_at"));
+        List<MenuJoin> joins = joinMapper.selectList(new QueryWrapper<MenuJoin>()
+                .eq("menu_id", menuId)
+                // 活跃成员：15 分钟没轮询（心跳）即视为离开，不再显示（下次活跃自动回来）
+                .ge("last_active_at", LocalDateTime.now().minusMinutes(ACTIVE_WINDOW_MINUTES))
+                .orderByDesc("last_active_at"));
         List<MemberVO> members = joins.stream()
                 .map(j -> new MemberVO(j.getMemberId(), j.getNickname(), j.getLastActiveAt()))
                 .toList();
@@ -221,6 +227,22 @@ public class TogetherService {
         me.setNickname(name);
         joinMapper.updateById(me);
     }
+
+    // ===================== 菜谱搜索（H5 加菜候选，免登录） =====================
+
+    /** 菜谱模糊搜索（加菜候选）：name like keyword，最多 limit 条。 */
+    public List<DishBrief> searchDishes(String keyword, int limit) {
+        if (keyword == null || keyword.isBlank()) return List.of();
+        List<Dish> rows = dishMapper.selectList(new QueryWrapper<Dish>()
+                .like("name", keyword.trim())
+                .last("LIMIT " + Math.min(Math.max(limit, 1), 10)));
+        return rows.stream()
+                .map(d -> new DishBrief(d.getId(), d.getName(), d.getCookTime()))
+                .toList();
+    }
+
+    /** 菜谱候选（加菜用）：id + 名 + 烹饪分钟。 */
+    public record DishBrief(Long id, String name, Integer totalMinutes) {}
 
     // ===================== 加菜 / 删菜 =====================
 

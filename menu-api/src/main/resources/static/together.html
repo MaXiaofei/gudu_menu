@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>聚餐点菜</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -29,15 +29,23 @@
   .act { font-size: 10px; color: #6E5C49; padding: 5px 16px; }
   .act b { color: #4A382A; }
   .bar { position: fixed; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-top: 1px solid #F0E6D6;
-         padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; }
-  .bar input { flex: 1; border: 1px solid #F0E6D6; border-radius: 10px; padding: 10px 12px; font-size: 13px;
+         padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; z-index: 5; }
+  .bar input { flex: 1; border: 1px solid #F0E6D6; border-radius: 10px; padding: 10px 12px; font-size: 16px;
                background: #FDFAF4; color: #4A382A; outline: none; }
   .bar button { border: none; background: #E89150; color: #fff; font-weight: 800; font-size: 13px;
                 border-radius: 10px; padding: 0 18px; }
+  .sug-box { position: fixed; left: 14px; right: 14px; bottom: 74px; background: #FFFFFF; border: 1px solid #F0E6D6;
+             border-radius: 12px; box-shadow: 0 -4px 20px rgba(0,0,0,.08); display: none; z-index: 6; max-height: 46vh; overflow-y: auto; }
+  .sug { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px dashed #F0E6D6;
+         font-size: 13px; color: #4A382A; }
+  .sug:last-child { border-bottom: none; }
+  .sug-name { font-weight: 700; }
+  .sug-meta { font-size: 10px; color: #9C8C7A; margin-left: auto; }
+  .sug-custom { color: #D17A3C; font-weight: 700; justify-content: center; background: #FFF7EC; }
   .btn-primary { display: block; width: calc(100% - 24px); margin: 14px 12px 0; border: none; background: #E89150;
                  color: #fff; font-weight: 800; font-size: 14px; padding: 12px; border-radius: 12px; }
   .login { padding: 30px 20px; }
-  .login input { width: 100%; border: 1px solid #F0E6D6; border-radius: 12px; padding: 12px 14px; font-size: 14px;
+  .login input { width: 100%; border: 1px solid #F0E6D6; border-radius: 12px; padding: 12px 14px; font-size: 16px;
                  background: #fff; color: #4A382A; outline: none; }
   .empty { text-align: center; color: #9C8C7A; font-size: 12px; padding: 24px 0; }
   .toast { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); background: rgba(74,56,42,.9);
@@ -46,7 +54,7 @@
   .modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 280px;
            background: #fff; border-radius: 16px; padding: 18px; display: none; z-index: 9; }
   .modal .t { font-size: 15px; font-weight: 800; text-align: center; }
-  .modal .inp { width: 100%; border: 1px solid #F0E6D6; border-radius: 10px; padding: 10px 12px; font-size: 13px;
+  .modal .inp { width: 100%; border: 1px solid #F0E6D6; border-radius: 10px; padding: 10px 12px; font-size: 16px;
                 margin-top: 12px; outline: none; background: #FDFAF4; color: #4A382A; }
   .modal .b { display: flex; gap: 8px; margin-top: 16px; }
   .modal button { flex: 1; border: none; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 13px; }
@@ -85,9 +93,10 @@
 </div>
 
 <div class="bar" id="bar" style="display:none">
-  <input id="addInput" placeholder="想吃什么？输入菜名" maxlength="64" onkeydown="if(event.key==='Enter')doAdd()">
+  <input id="addInput" placeholder="搜菜谱或输入菜名" maxlength="64" oninput="onAddInput()" onkeydown="if(event.key==='Enter')doAdd()">
   <button onclick="doAdd()">加菜</button>
 </div>
+<div class="sug-box" id="sugBox"></div>
 
 <div class="modal-mask" id="mask"></div>
 <div class="modal" id="confirmDel">
@@ -287,13 +296,57 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// ============ 加菜 / 删菜 ============
+// ============ 加菜（模糊搜索菜谱候选） ============
+let sugTimer = null;
+
+/// 输入防抖搜索：300ms 后查菜谱候选。
+function onAddInput() {
+  clearTimeout(sugTimer);
+  const kw = $('addInput').value.trim();
+  if (!kw) { hideSug(); return; }
+  sugTimer = setTimeout(() => searchDishes(kw), 300);
+}
+
+async function searchDishes(kw) {
+  try {
+    const list = await api('menu/' + menuId + '/together/dishes?keyword=' + encodeURIComponent(kw) + '&pageSize=8');
+    renderSug(list, kw);
+  } catch (e) { hideSug(); }
+}
+
+function renderSug(list, kw) {
+  const box = $('sugBox');
+  if (!list.length) { hideSug(); return; }
+  box.innerHTML = list.map(d =>
+    '<div class="sug" onclick="addDish(' + d.id + ',\'' + esc(d.name).replace(/'/g, "\\'") + '\')">' +
+    '<span class="sug-name">' + esc(d.name) + '</span>' +
+    (d.totalMinutes ? '<span class="sug-meta">' + d.totalMinutes + ' 分钟</span>' : '') +
+    '</div>').join('') +
+    '<div class="sug sug-custom" onclick="doAdd()">没搜到？用「' + esc(kw) + '」添加</div>';
+  box.style.display = 'block';
+}
+
+function hideSug() { $('sugBox').style.display = 'none'; }
+
+/// 候选点击：按菜谱 id 加菜（有分量/价格等完整数据）。
+async function addDish(dishId, name) {
+  try {
+    await api('menu/' + menuId + '/together/items', 'POST', { dishId: dishId });
+    $('addInput').value = '';
+    hideSug();
+    toast('已加「' + name + '」');
+    load();
+  } catch (e) { toast(e.message); }
+}
+
+/// 按钮/回车：自定义菜名添加（候选"没搜到"也走这里）。
 async function doAdd() {
   const name = $('addInput').value.trim();
   if (!name) return;
   try {
     await api('menu/' + menuId + '/together/items', 'POST', { customName: name });
     $('addInput').value = '';
+    hideSug();
     toast('已加「' + name + '」');
     load();
   } catch (e) { toast(e.message); }
