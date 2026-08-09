@@ -3,11 +3,14 @@ import '../core/constants.dart';
 
 // ===================== 模型 =====================
 
-/// 邀请凭证：口令 + token（url = {base}/together.html?token=，二维码内容=url）。
+/// 邀请凭证：口令 + token。
+/// - url：带 token 的完整链接（二维码内容，点开直接进）
+/// - entryUrl：不带 token 的入口地址（复制口令时一起带上，朋友打开后输入口令）
 class TogetherInvite {
   final String code;
   final String token;
   String get url => '${AppConstants.baseUrl}/together.html?token=$token';
+  String get entryUrl => '${AppConstants.baseUrl}/together.html';
 
   TogetherInvite({required this.code, required this.token});
 

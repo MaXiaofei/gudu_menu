@@ -862,10 +862,12 @@ class _TogetherTabState extends State<_TogetherTab> {
   Future<void> _copyCode() async {
     final inv = _effectiveInvite;
     if (inv == null) return;
-    await Clipboard.setData(ClipboardData(text: inv.code));
+    // 口令 + 入口地址一起复制：朋友拿到地址才能输入口令（地址不带 token，口令是钥匙）
+    final text = '咕嘟聚餐邀请\n口令：${inv.code}\n打开链接输入口令加入：${inv.entryUrl}';
+    await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('口令已复制')));
+          .showSnackBar(const SnackBar(content: Text('口令和链接已复制')));
     }
   }
 
