@@ -11,6 +11,8 @@ import '../pages/shopping/shopping_page.dart';
 import '../pages/ai/estimate_page.dart';
 import '../pages/ai/recommend_page.dart';
 import '../pages/dailylog/daily_log_page.dart';
+import '../pages/foodlog/food_log_page.dart';
+import '../pages/foodlog/food_log_detail_page.dart';
 import '../pages/dish/create_page.dart';
 import '../pages/dish/detail_page.dart';
 import '../pages/dish/list_page.dart';
@@ -165,6 +167,15 @@ GoRouter createRouter(AuthStore auth) {
       GoRoute(
           path: '/dailylog',
           builder: (_, __) => const DailyLogPage()),
+      // 食记（做菜日记）：月/年视图 + 按菜汇总 + 筛选 + 单条详情
+      GoRoute(
+          path: '/food-log',
+          builder: (_, __) => const FoodLogPage()),
+      GoRoute(
+          path: '/food-log/detail',
+          builder: (_, s) => FoodLogDetailPage(
+            menuId: int.parse(s.uri.queryParameters['menuId'] ?? '0'),
+          )),
       // 库存详情（盘点纠偏 + 变动明细）+ 手动添加
       // 注意：/pantry/add 放在 /pantry/:id 前面，避免 add 被当成 :id 匹配
       GoRoute(
