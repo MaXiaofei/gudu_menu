@@ -42,9 +42,23 @@ docker compose $PROJECT_OPT -f "$COMPOSE_FILE" build "$SERVICE"
 
 # 2. 重启容器（加载新镜像，--no-deps 不动 mysql/redis）
 echo "→ 重启 $SERVICE..."
+# 2. 增量迁移（V42+，幂等 SQL）——先于 API 重启，避免新代码连上旧表结构
+#    背景：MySQL 官方镜像 /docker-entrypoint-initdb.d 只在空库首启执行一次，
+#    存量库的后续迁移靠这里补（V42 起全部幂等：IF NOT EXISTS / information_schema 判断）。
+#    密码从容器内 MYSQL_ROOT_PASSWORD 环境变量取，不落盘。
+echo "→ 执行增量迁移（V42+）..."
+for f in menu-api/sql/V4*.sql menu-api/sql/V5*.sql; do
+  [ -f "$f" ] || continue
+  echo "  apply $(basename "$f")"
+  docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-mysql \
+    sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" gudu' < "$f"
+done
+
+# 3. 重启容器（加载新镜像，--no-deps 不动 mysql/redis）
+echo "→ 重启 $SERVICE..."
 docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
 
-# 3. 健康检查（等待 Spring Boot 启动，最多 120 秒）
+# 4. 健康检查（等待 Spring Boot 启动，最多 120 秒）
 echo "→ 等待应用启动（健康检查）..."
 MAX_WAIT=24  # 24 × 5s = 120s
 for i in $(seq 1 $MAX_WAIT); do
