@@ -57,34 +57,39 @@ class Menu {
 class MenuDish {
   final int id;
   final int menuId;
-  final int dishId;
+  /// 菜品 id（V45 后自定义菜名为 null，点不进菜谱详情）。
+  final int? dishId;
   /// 该菜在食集中份数（后端 servingFactor）。
   final double? servingFactor;
-  /// 菜名（后端 detail 冗余返回，避免前端逐菜 GET /dish/{id}）。
+  /// 菜名（后端 detail 冗余返回：菜谱名或自定义菜名）。
   final String? dishName;
   /// 菜封面图。
   final String? coverUrl;
   /// 该菜在食集中的备注（如「宝宝那份少盐」；null/空 = 无备注）。
   final String? note;
+  /// 谁点的（V45 聚餐：朋友加的菜带昵称，房主加的为 null）。
+  final String? addedByNickname;
 
   const MenuDish({
     required this.id,
     required this.menuId,
-    required this.dishId,
+    this.dishId,
     this.servingFactor,
     this.dishName,
     this.coverUrl,
     this.note,
+    this.addedByNickname,
   });
 
   factory MenuDish.fromJson(Map<String, dynamic> j) => MenuDish(
         id: (j['id'] as num).toInt(),
         menuId: (j['menuId'] as num).toInt(),
-        dishId: (j['dishId'] as num).toInt(),
+        dishId: j['dishId'] as int?,
         servingFactor: (j['servingFactor'] as num?)?.toDouble(),
         dishName: j['dishName'] as String?,
         coverUrl: j['coverUrl'] as String?,
         note: j['note'] as String?,
+        addedByNickname: j['addedByNickname'] as String?,
       );
 }
 

@@ -434,35 +434,35 @@ class _ShoppingPageState extends State<ShoppingPage> {
     final t = AppTokens.of(context);
     final bought = it.purchased == 1;
     final selected = _selectedItems.contains(it.id);
-    return Container(
+    return InkWell(
+      // 点整行切换勾选（未入库项；已入库项固定不可点）
+      onTap: bought
+          ? null
+          : () => setState(() {
+                if (!_selectedItems.remove(it.id)) {
+                  _selectedItems.add(it.id);
+                }
+              }),
+      child: Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: t.border))),
       child: Row(children: [
-        // 勾选：未入库项可点（本地选择态）；已入库项固定 ✓
-        GestureDetector(
-          onTap: bought
-              ? null
-              : () => setState(() {
-                    if (!_selectedItems.remove(it.id)) {
-                      _selectedItems.add(it.id);
-                    }
-                  }),
-          child: Container(
-            width: 22, height: 22,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTokens.rXs),
-              border: Border.all(
-                  color: bought
-                      ? AppTokens.success
-                      : (selected ? t.primary : t.border),
-                  width: bought || selected ? 1.5 : 1),
-              color: bought ? AppTokens.success : (selected ? t.primary : null),
-            ),
-            child: bought || selected
-                ? Icon(Icons.check, size: 14, color: t.card)
-                : null,
+        // 勾选：未入库项本地选择态；已入库项固定 ✓
+        Container(
+          width: 22, height: 22,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTokens.rXs),
+            border: Border.all(
+                color: bought
+                    ? AppTokens.success
+                    : (selected ? t.primary : t.border),
+                width: bought || selected ? 1.5 : 1),
+            color: bought ? AppTokens.success : (selected ? t.primary : null),
           ),
+          child: bought || selected
+              ? Icon(Icons.check, size: 14, color: t.card)
+              : null,
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -487,6 +487,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           ),
         ),
       ]),
+      ),
     );
   }
 

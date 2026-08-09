@@ -295,8 +295,11 @@ void main() {
     await tester.tap(find.text('周末采购'));
     await tester.pumpAndSettle();
 
-    // 点标题（含 ✎）→ 改名弹窗
-    await tester.tap(find.text('周末采购'));
+    // 点标题（AppBar 里的，含 ✎）→ 改名弹窗
+    await tester.tap(find.descendant(
+      of: find.byType(AppBar),
+      matching: find.text('周末采购'),
+    ));
     await tester.pumpAndSettle();
     expect(find.text('修改清单名称'), findsOneWidget);
 
@@ -328,14 +331,23 @@ void main() {
     expect(find.text('复制文字'), findsOneWidget);
     expect(find.text('转图片分享'), findsOneWidget);
 
-    // 复制文字（Clipboard 在测试环境可读）
+    // 复制文字：拦截 Clipboard.setData 断言内容
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
     await tester.tap(find.text('复制文字'));
     await tester.pump();
-    final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
-    expect(clipboard!.text, contains('周末采购'));
-    expect(clipboard.text, contains('番茄'));
-    expect(clipboard.text, contains('鸡蛋'));
-    expect(clipboard.text, contains('洗洁精'));
-    expect(clipboard.text, isNot(contains('鲈鱼'))); // 已入库不出现在分享内容
+    expect(copiedText, contains('周末采购'));
+    expect(copiedText, contains('番茄'));
+    expect(copiedText, contains('鸡蛋'));
+    expect(copiedText, contains('洗洁精'));
+    expect(copiedText, isNot(contains('鲈鱼'))); // 已入库不出现在分享内容
   });
 }

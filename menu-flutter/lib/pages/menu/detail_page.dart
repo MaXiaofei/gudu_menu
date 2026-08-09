@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/image_helper.dart';
@@ -10,6 +15,7 @@ import '../../services/menu_service.dart';
 import 'cook_confirm_sheet.dart';
 import '../../services/prep_service.dart';
 import '../../services/shopping_service.dart';
+import '../../services/together_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
 
@@ -160,8 +166,12 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
                                   isDone: _detail!.menu.isDone,
                                   onCountChanged: (c) =>
                                       setState(() => _prepCount = c)),
-                              const _Placeholder(
-                                  title: '聚餐', desc: '协同点菜 · 即将上线'),
+                              _TogetherTab(
+                                  menuId: widget.id,
+                                  refreshTick: _dataTick,
+                                  isDone: _detail!.menu.isDone,
+                                  onCountChanged: (c) =>
+                                      setState(() => _togetherCount = c)),
                             ],
                           ),
                         ),
@@ -320,6 +330,7 @@ class _DishesTab extends StatelessWidget {
               servingFactor: d.servingFactor,
               coverUrl: d.coverUrl,
               note: d.note,
+              addedByNickname: d.addedByNickname,
               readOnly: isDone,
               onNoteChanged: onNoteChanged,
             )),
@@ -742,29 +753,356 @@ class _PrepItemRow extends StatelessWidget {
   }
 }
 
-/// 占位 Tab（采购 / 聚餐）。
-class _Placeholder extends StatelessWidget {
-  final String title;
-  final String desc;
-  const _Placeholder({required this.title, required this.desc});
+/// Tab 2：聚餐（V45，原型 menu-detail-xietong.html）。
+/// 邀请（口令 + 二维码 + 复制/分享，三载体同效指向 H5 together.html?token=）
+/// → 成员（昵称 + 最后活跃，轮询即心跳）→ 动态流（谁点的/谁删的）。
+/// 轮询 10s 刷新清单；朋友加的菜在菜 Tab 显示「XX 点的」标记。
+class _TogetherTab extends StatefulWidget {
+  final int menuId;
+  /// 父级数据版本号：变化时重载（与备菜 tab 同机制）。
+  final int refreshTick;
+  /// 已完成食集：邀请区隐藏（不再邀请），动态只读展示。
+  final bool isDone;
+  /// 成员数加载后上报父级（tab 汇总数量）。
+  final ValueChanged<int> onCountChanged;
+  const _TogetherTab({
+    required this.menuId,
+    required this.refreshTick,
+    required this.isDone,
+    required this.onCountChanged,
+  });
+  @override
+  State<_TogetherTab> createState() => _TogetherTabState();
+}
+
+class _TogetherTabState extends State<_TogetherTab> {
+  TogetherVO? _vo;
+  /// 单独持有的邀请（刷新后更新，优先于 _vo.invite）。
+  TogetherInvite? _invite;
+  bool _loading = true;
+  String? _err;
+  Timer? _timer;
+  int _lastTick = 0;
+  bool _inviting = false;
+
+  TogetherInvite? get _effectiveInvite =>
+      _invite ?? _vo?.invite;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastTick = widget.refreshTick;
+    _load();
+    // 轮询即心跳：10s 刷新清单（同时更新成员最后活跃）
+    _timer = Timer.periodic(
+        const Duration(seconds: 10), (_) => _load(quiet: true));
+  }
+
+  @override
+  void didUpdateWidget(covariant _TogetherTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshTick != _lastTick) {
+      _lastTick = widget.refreshTick;
+      _load(quiet: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool quiet = false}) async {
+    if (!quiet) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
+    try {
+      final vo = await TogetherService.together(widget.menuId);
+      if (!mounted) return;
+      setState(() {
+        _vo = vo;
+        _loading = false;
+        widget.onCountChanged(vo.members.length);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      if (!quiet) {
+        setState(() {
+          _err = '$e';
+          _loading = false;
+        });
+      }
+      // 静默轮询失败不打扰
+    }
+  }
+
+  /// 生成/刷新邀请（口令 + token，url 指向 H5）。
+  Future<void> _genInvite() async {
+    if (_inviting) return;
+    setState(() => _inviting = true);
+    try {
+      final inv = await TogetherService.invite(widget.menuId);
+      if (!mounted) return;
+      setState(() => _invite = inv);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('邀请已生成，口令 ${inv.code}')));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('生成邀请失败')));
+      }
+    }
+    if (mounted) setState(() => _inviting = false);
+  }
+
+  Future<void> _copyCode() async {
+    final inv = _effectiveInvite;
+    if (inv == null) return;
+    await Clipboard.setData(ClipboardData(text: inv.code));
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('口令已复制')));
+    }
+  }
+
+  Future<void> _share() async {
+    final inv = _effectiveInvite;
+    if (inv == null) return;
+    await Share.share(inv.url);
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
-    return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppTokens.sp32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, style: t.textStyles.subtitle),
-              const SizedBox(height: AppTokens.sp8),
-              Text(desc,
-                  style: t.textStyles.sm.copyWith(color: t.caption)),
-            ],
-          ),
+    if (_loading && _vo == null) return const LoadingView();
+    if (_err != null && _vo == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('加载聚餐失败：$_err',
+                style: t.textStyles.sm.copyWith(color: t.caption)),
+            const SizedBox(height: AppTokens.sp12),
+            OutlinedButton(onPressed: _load, child: const Text('重试')),
+          ],
         ),
       );
+    }
+    final vo = _vo;
+    if (vo == null) return const EmptyView(text: '加载聚餐失败');
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+          AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp24),
+      children: [
+        // 邀请区（完成态隐藏）
+        if (!widget.isDone) ...[
+          _buildInviteCard(t),
+          const SizedBox(height: AppTokens.sp16),
+        ],
+        // 成员区
+        Text('成员 · ${vo.members.length}',
+            style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+        const SizedBox(height: AppTokens.sp8),
+        if (vo.members.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+                color: t.card, borderRadius: BorderRadius.circular(AppTokens.rSm)),
+            child: Text('还没有人加入，先邀请朋友吧',
+                style: t.textStyles.sm.copyWith(color: t.caption)),
+          )
+        else
+          Wrap(
+            spacing: AppTokens.sp8,
+            runSpacing: AppTokens.sp8,
+            children: vo.members.map((m) => _memberChip(t, m)).toList(),
+          ),
+        const SizedBox(height: AppTokens.sp16),
+        // 动态流
+        Text('动态',
+            style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+        const SizedBox(height: AppTokens.sp8),
+        if (vo.activities.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+                color: t.card, borderRadius: BorderRadius.circular(AppTokens.rSm)),
+            child: Text('暂无动态',
+                style: t.textStyles.sm.copyWith(color: t.caption)),
+          )
+        else
+          ...vo.activities.map((a) => _activityRow(t, a)),
+        const SizedBox(height: AppTokens.sp16),
+        // 说明
+        Text(
+          '朋友扫码 / 点链接 / 输口令都能加入，加菜直接进菜 Tab（标「XX 点的」），'
+          '谁都能删，会记下谁删的。清单每 10 秒自动刷新。',
+          style: t.textStyles.sm.copyWith(color: t.caption, height: 1.6),
+        ),
+      ],
+    );
+  }
+
+  /// 邀请卡：二维码 + 口令 + 复制/分享（三载体同效）。
+  Widget _buildInviteCard(AppTokens t) {
+    final inv = _effectiveInvite;
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.sp16),
+      decoration: BoxDecoration(
+        color: t.card,
+        border: Border.all(color: t.border),
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+      ),
+      child: inv == null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('邀请朋友一起点菜',
+                    style: t.textStyles.cardTitle.copyWith(color: t.title)),
+                const SizedBox(height: AppTokens.sp4),
+                Text('生成口令 + 二维码，扫码/点链接/输口令都能加入',
+                    style: t.textStyles.sm.copyWith(color: t.caption)),
+                const SizedBox(height: AppTokens.sp12),
+                ElevatedButton(
+                  onPressed: _inviting ? null : () => _genInvite(),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: t.primary, foregroundColor: Colors.white),
+                  child: Text(_inviting ? '生成中…' : '生成邀请',
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                Row(
+                  children: [
+                    // 二维码（内容=H5 链接）
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: t.border),
+                          borderRadius: BorderRadius.circular(AppTokens.rSm)),
+                      child: QrImageView(
+                        data: inv.url,
+                        size: 88,
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: AppTokens.sp12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('邀请朋友 · 口令 ${inv.code}',
+                              style: t.textStyles.cardTitle
+                                  .copyWith(color: t.title)),
+                          const SizedBox(height: AppTokens.sp4),
+                          Text('扫码 / 点链接 / 输口令，同一邀请三选一即可',
+                              style: t.textStyles.sm
+                                  .copyWith(color: t.caption)),
+                          const SizedBox(height: AppTokens.sp8),
+                          Row(
+                            children: [
+                              _pillButton('复制口令', t, onTap: _copyCode),
+                              const SizedBox(width: AppTokens.sp8),
+                              _pillButton('分享链接', t, onTap: _share),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _pillButton(String label, AppTokens t, {required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: t.primary,
+          borderRadius: BorderRadius.circular(AppTokens.rPill),
+        ),
+        child: Text(label,
+            style: t.textStyles.sm.copyWith(
+                color: Colors.white, fontWeight: FontWeight.w800)),
+      ),
+    );
+  }
+
+  /// 成员 chip：首字头像圈 + 昵称 + 最后活跃。
+  Widget _memberChip(AppTokens t, TogetherMember m) {
+    final initial =
+        m.nickname.trim().isEmpty ? '友' : m.nickname.trim().characters.first;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp10, vertical: 6),
+      decoration: BoxDecoration(
+        color: t.highlight,
+        borderRadius: BorderRadius.circular(AppTokens.rPill),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        CircleAvatar(
+          radius: 12,
+          backgroundColor: t.secondary,
+          child: Text(initial,
+              style: t.textStyles.chip.copyWith(color: t.primaryDeep)),
+        ),
+        const SizedBox(width: AppTokens.sp6),
+        Text(m.nickname, style: t.textStyles.sm.copyWith(color: t.title)),
+        const SizedBox(width: AppTokens.sp6),
+        Text(_lastActiveText(m.lastActiveAt),
+            style: t.textStyles.tiny.copyWith(color: t.caption)),
+      ]),
+    );
+  }
+
+  /// 动态行：昵称 + 动作 + 菜名 + 时间。
+  Widget _activityRow(AppTokens t, TogetherActivity a) {
+    final verb = a.action == 'remove' ? '删了' : '点了';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('·', style: t.textStyles.sm.copyWith(color: t.primary)),
+          const SizedBox(width: AppTokens.sp8),
+          Expanded(
+            child: Text.rich(TextSpan(
+              style: t.textStyles.sm.copyWith(color: t.body, height: 1.5),
+              children: [
+                TextSpan(
+                    text: a.nickname,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                TextSpan(text: ' $verb「${a.dishName}」'),
+              ],
+            )),
+          ),
+          Text(_lastActiveText(a.createTime),
+              style: t.textStyles.tiny.copyWith(color: t.caption)),
+        ],
+      ),
+    );
+  }
+
+  /// 相对时间：刚刚 / N 分钟前 / N 小时前 / M/D。
+  static String _lastActiveText(String? iso) {
+    if (iso == null) return '';
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return '刚刚';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} 分钟前';
+    if (diff.inHours < 24) return '${diff.inHours} 小时前';
+    return '${dt.month}/${dt.day}';
   }
 }
 
@@ -773,22 +1111,26 @@ class _Placeholder extends StatelessWidget {
 /// 备注可点弹输入框修改，清空提交 = 删除备注（回显「加备注/忌口…」）。
 class _DishRow extends StatelessWidget {
   final int menuId;
-  final int dishId;
+  /// 菜品 id（V45 自定义菜名为 null：不可点进菜谱详情）。
+  final int? dishId;
   final String? dishName;
   final double? servingFactor;
   final String? coverUrl;
   final String? note;
+  /// 谁点的（V45 聚餐：朋友加的菜带昵称，显示「XX 点的」小标签）。
+  final String? addedByNickname;
   /// 已完成食集：行点击/备注/移出全部禁用（只读展示）。
   final bool readOnly;
   /// 备注修改成功后的回调（上层刷新详情）。
   final VoidCallback onNoteChanged;
   const _DishRow({
     required this.menuId,
-    required this.dishId,
+    this.dishId,
     this.dishName,
     this.servingFactor,
     this.coverUrl,
     this.note,
+    this.addedByNickname,
     this.readOnly = false,
     required this.onNoteChanged,
   });
@@ -823,7 +1165,7 @@ class _DishRow extends StatelessWidget {
     if (result == null) return;
     final trimmed = result.trim();
     try {
-      await MenuService.updateDishNote(menuId, dishId, trimmed);
+      await MenuService.updateDishNote(menuId, dishId!, trimmed);
       if (context.mounted) onNoteChanged();
     } catch (_) {
       if (context.mounted) {
@@ -852,7 +1194,7 @@ class _DishRow extends StatelessWidget {
     );
     if (ok != true) return;
     try {
-      await MenuService.removeDishFromMenu(menuId, dishId);
+      await MenuService.removeDishFromMenu(menuId, dishId!);
       if (context.mounted) onNoteChanged();
     } catch (_) {
       if (context.mounted) {
@@ -865,8 +1207,9 @@ class _DishRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
+    final isCustom = dishId == null;
     final name =
-        (dishName == null || dishName!.isEmpty) ? '菜 #$dishId' : dishName!;
+        (dishName == null || dishName!.isEmpty) ? (dishId != null ? '菜 #$dishId' : '自定义菜') : dishName!;
     final hasNote = note != null && note!.isNotEmpty;
     final hasCover = coverUrl != null && coverUrl!.isNotEmpty;
     final thumbUrl = hasCover
@@ -874,7 +1217,8 @@ class _DishRow extends StatelessWidget {
         : null;
 
     return InkWell(
-      onTap: readOnly
+      // 自定义菜名（dishId 为 null）：没有菜谱详情，整行不可点
+      onTap: (readOnly || dishId == null)
           ? null
           : () => context.push('/dish/$dishId', extra: {'showActions': false}),
       child: Container(
@@ -907,9 +1251,30 @@ class _DishRow extends StatelessWidget {
                 ),
                 const SizedBox(width: AppTokens.sp8),
                 Expanded(
-                  child: Text(name,
-                      style: t.textStyles.md.copyWith(color: t.title),
-                      overflow: TextOverflow.ellipsis),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(name,
+                            style: t.textStyles.md.copyWith(color: t.title),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      // V45 聚餐：朋友点的菜带「XX 点的」标签
+                      if (addedByNickname != null && addedByNickname!.isNotEmpty) ...[
+                        const SizedBox(width: AppTokens.sp6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: t.secondary,
+                            borderRadius: BorderRadius.circular(AppTokens.rSm),
+                          ),
+                          child: Text('$addedByNickname 点的',
+                              style: t.textStyles.tiny
+                                  .copyWith(color: t.primaryDeep)),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 Text(
                   '× ${servingFactor?.toStringAsFixed(1) ?? '1.0'} 份',
@@ -919,9 +1284,10 @@ class _DishRow extends StatelessWidget {
                 Icon(Icons.chevron_right, size: 18, color: t.caption),
               ],
             ),
-            // 备注行（原型 dashed 分隔）：有备注=浅橙胶囊，无备注=灰字占位；点击弹输入框
+            // 备注行（原型 dashed 分隔）：有备注=浅橙胶囊，无备注=灰字占位；点击弹输入框。
+            // 自定义菜名（V45，dishId 为空）：备注只读（朋友在 H5 加的），不可编辑。
             GestureDetector(
-              onTap: readOnly ? null : () => _editNote(context),
+              onTap: (readOnly || isCustom) ? null : () => _editNote(context),
               behavior: HitTestBehavior.opaque,
               child: Container(
                 width: double.infinity,
@@ -963,17 +1329,18 @@ class _DishRow extends StatelessWidget {
                     const SizedBox(width: AppTokens.sp8),
                     Icon(Icons.edit_outlined, size: 14, color: t.caption),
                     const SizedBox(width: AppTokens.sp8),
-                    // 移出食集（原型菜行行尾 ✕）；已完成禁用
-                    GestureDetector(
-                      onTap: readOnly ? null : () => _removeDish(context),
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Text('✕',
-                            style: t.textStyles.md
-                                .copyWith(color: t.caption)),
+                    // 移出食集（原型菜行行尾 ✕）；已完成/自定义菜禁用（自定义菜由朋友在 H5 删）
+                    if (!isCustom)
+                      GestureDetector(
+                        onTap: readOnly ? null : () => _removeDish(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Text('✕',
+                              style: t.textStyles.md
+                                  .copyWith(color: t.caption)),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
