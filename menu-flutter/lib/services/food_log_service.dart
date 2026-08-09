@@ -5,35 +5,19 @@ import '../../core/api_client.dart';
 class FoodLogService {
   // ===== 月视图：统计卡 + 时间轴 =====
 
-  static Future<FoodLogMonth> month(
-    int year,
-    int month, {
-    String? meal,
-    String? source,
-    bool? reviewed,
-  }) async {
+  /// month=0 表示全年范围（年视图：统计卡+时间轴同构）。
+  static Future<FoodLogMonth> month(int year, int month) async {
     final data = await ApiClient.instance.get('/food-log/month', query: {
-      'month': '$year-${month.toString().padLeft(2, '0')}',
-      if (meal != null) 'meal': meal,
-      if (source != null) 'source': source,
-      if (reviewed != null) 'reviewed': reviewed,
+      'month': month > 0 ? '$year-${month.toString().padLeft(2, '0')}' : '$year',
     });
     return FoodLogMonth.fromJson(data as Map<String, dynamic>);
   }
 
   /// 按菜汇总（次数降序 + ★均分）。
-  static Future<FoodLogByDish> byDish(
-    int year,
-    int month, {
-    String? meal,
-    String? source,
-    bool? reviewed,
-  }) async {
+  /// 按菜汇总（month=0 表示全年范围）。
+  static Future<FoodLogByDish> byDish(int year, int month) async {
     final data = await ApiClient.instance.get('/food-log/by-dish', query: {
-      'month': '$year-${month.toString().padLeft(2, '0')}',
-      if (meal != null) 'meal': meal,
-      if (source != null) 'source': source,
-      if (reviewed != null) 'reviewed': reviewed,
+      'month': month > 0 ? '$year-${month.toString().padLeft(2, '0')}' : '$year',
     });
     return FoodLogByDish.fromJson(data as Map<String, dynamic>);
   }

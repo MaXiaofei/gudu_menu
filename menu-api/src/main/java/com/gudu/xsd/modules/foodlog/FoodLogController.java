@@ -54,16 +54,16 @@ public class FoodLogController {
         return R.ok(svc.detail(currentMemberId(), menuId));
     }
 
-    /** month=YYYY-MM → [year, month]。 */
+    /** month=YYYY 或 YYYY-MM → [year, month]（month=0 表示全年范围，年视图用）。 */
     private int[] parseMonth(String month) {
         try {
             String[] parts = month.split("-");
             int year = Integer.parseInt(parts[0]);
-            int m = Integer.parseInt(parts[1]);
-            if (m < 1 || m > 12) throw new NumberFormatException();
+            int m = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+            if (m < 0 || m > 12) throw new NumberFormatException();
             return new int[]{year, m};
         } catch (Exception e) {
-            throw new BizException("月份格式应为 YYYY-MM");
+            throw new BizException("月份格式应为 YYYY 或 YYYY-MM");
         }
     }
 

@@ -95,7 +95,10 @@ public class FoodLogService {
         List<CookingRecord> records = cookingRecordMapper.selectList(
                 new QueryWrapper<CookingRecord>()
                         .eq(memberId != null, "member_id", memberId)
-                        .apply("YEAR(cooked_at) = {0} AND MONTH(cooked_at) = {1}", year, month)
+                        .apply(month > 0
+                                ? "YEAR(cooked_at) = {0} AND MONTH(cooked_at) = {1}"
+                                : "YEAR(cooked_at) = {0}",
+                                month > 0 ? new Object[]{year, month} : new Object[]{year})
                         .orderByAsc("cooked_at"));
         if (records.isEmpty()) {
             return new MonthVO(new Summary(0, 0, 0, List.of()), List.of());
@@ -186,7 +189,10 @@ public class FoodLogService {
         List<CookingRecord> records = cookingRecordMapper.selectList(
                 new QueryWrapper<CookingRecord>()
                         .eq(memberId != null, "member_id", memberId)
-                        .apply("YEAR(cooked_at) = {0} AND MONTH(cooked_at) = {1}", year, month));
+                        .apply(month > 0
+                                ? "YEAR(cooked_at) = {0} AND MONTH(cooked_at) = {1}"
+                                : "YEAR(cooked_at) = {0}",
+                                month > 0 ? new Object[]{year, month} : new Object[]{year}));
         if (records.isEmpty()) return new ByDishVO(0, List.of());
 
         // 先按一顿饭的筛选条件过滤记录

@@ -264,4 +264,26 @@ class FoodLogServiceTest {
         i.setName(name);
         return i;
     }
+
+
+    @Test
+    void month_全年范围_统计全年数据() {
+        // month=0：只按年过滤，统计全年（跨月记录都算）
+        LocalDateTime t1 = LocalDateTime.of(2026, 7, 2, 19, 20);
+        LocalDateTime t2 = LocalDateTime.of(2026, 3, 5, 12, 0);
+        when(cookingRecordMapper.selectList(any())).thenReturn(List.of(
+                rec(1, 10L, 1, t1, "用完:1"),
+                rec(2, null, 2, t2, null)));
+        when(menuMapper.selectBatchIds(List.of(10L))).thenReturn(List.of(menu(10L, "今晚的饭")));
+        when(dishMapper.selectBatchIds(any())).thenReturn(List.of(dish(1, "番茄炒蛋"), dish(2, "红烧肉")));
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of());
+        when(reviewMapper.selectList(any())).thenReturn(List.of());
+
+        FoodLogService.MonthVO vo = svc.month(99L, 2026, 0, null, null, null);
+
+        assertThat(vo.summary().meals()).isEqualTo(2);   // 1 食集 + 1 单菜直做（跨月）
+        assertThat(vo.summary().cookDays()).isEqualTo(2);
+        assertThat(vo.timeline()).hasSize(2);
+    }
 }
+

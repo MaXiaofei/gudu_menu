@@ -8,9 +8,10 @@ import '../../widgets/time_select.dart';
 
 /// 食记（做菜日记）主页（对齐 dailylog.html 原型）。
 ///
-/// 月视图：日期组件（‹ 2026年7月 › + 月|年切换）+ 统计卡（顿饭/道菜/做饭天数/最常）
+/// 视图：日期组件（‹ 2026年7月 › + 月|年范围切换）+ 统计卡（顿饭/道菜/做饭天数/最常）
 /// + Tab（时间轴 / 按菜汇总）。
-/// 年视图：12 个月做饭次数地图，点月份切回该月时间轴。
+/// 「月|年」= 统计范围切换（月=本月 / 年=全年），视图同构；
+/// 选月份在时间控件弹层内（点胶囊展开 年→月 逐级选择）。
 /// 单条时间轴点行进详情（评价/再做一次）。
 class FoodLogPage extends StatefulWidget {
   const FoodLogPage({super.key});
@@ -31,7 +32,6 @@ class _FoodLogPageState extends State<FoodLogPage> {
 
   FoodLogMonth? _monthData;
   FoodLogByDish? _byDishData;
-  FoodLogYear? _yearData;
   bool _loading = true;
 
   @override
@@ -41,14 +41,13 @@ class _FoodLogPageState extends State<FoodLogPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = _monthData == null && _byDishData == null && _yearData == null);
+    setState(() => _loading = _monthData == null && _byDishData == null);
     try {
-      if (_yearMode) {
-        _yearData = await FoodLogService.year(_year);
-      } else if (_tab == 'byDish') {
-        _byDishData = await FoodLogService.byDish(_year, _month);
+      final range = _yearMode ? 0 : _month; // 年模式=全年范围
+      if (_tab == 'byDish') {
+        _byDishData = await FoodLogService.byDish(_year, range);
       } else {
-        _monthData = await FoodLogService.month(_year, _month);
+        _monthData = await FoodLogService.month(_year, range);
       }
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
@@ -96,14 +95,6 @@ class _FoodLogPageState extends State<FoodLogPage> {
     _load();
   }
 
-  void _jumpToMonth(int m) {
-    setState(() {
-      _month = m;
-      _yearMode = false;
-    });
-    _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,9 +126,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
             _buildTabBar(),
             // 内容
             Expanded(
-              child: _loading
-                  ? const LoadingView()
-                  : _yearMode ? _buildYearView() : _buildMonthView(),
+              child: _loading ? const LoadingView() : _buildMonthView(),
             ),
           ],
         ),
@@ -160,14 +149,16 @@ class _FoodLogPageState extends State<FoodLogPage> {
             onTap: _prev,
             child: Text('‹',
                 style: TextStyle(color: _t.primary, fontWeight: FontWeight.w800, fontSize: 13))),
-        // 统一时间选择胶囊：点击展开 年/月 逐级选择
+        // 统一时间选择胶囊：点击展开 年→月 逐级选择（年模式下选月即切回该月视图）
         TimeSelectCapsule(
           value: DateTime(_year, _month),
-          granularity: _yearMode ? TimeGranularity.year : TimeGranularity.month,
+          granularity: TimeGranularity.month,
+          labelBuilder: (v) => _yearMode ? '${v.year}年' : '${v.year}年${v.month}月',
           onChanged: (picked) {
             setState(() {
               _year = picked.year;
               _month = picked.month;
+              _yearMode = false; // 选中具体月份 → 回到月视图
             });
             _load();
           },
@@ -208,16 +199,11 @@ class _FoodLogPageState extends State<FoodLogPage> {
   }
 
   Widget _buildSummaryCard() {
-    final s = _yearMode
-        ? (_yearData == null ? null : null)
-        : _monthData?.summary;
-    final meals = _yearMode
-        ? (_yearData?.monthCounts.fold<int>(0, (a, b) => a + b) ?? 0)
-        : (s?.meals ?? 0);
-    // 年视图不显示道菜/天数（原型统计卡随视图切换；年视图接口只给月次数，道菜/天数以 0 兜底显示）
-    final dishes = _yearMode ? 0 : (s?.dishes ?? 0);
-    final cookDays = _yearMode ? 0 : (s?.cookDays ?? 0);
-    final top = _yearMode ? const <String>[] : (s?.topDishes ?? const []);
+    final s = _monthData?.summary;
+    final meals = s?.meals ?? 0;
+    final dishes = s?.dishes ?? 0;
+    final cookDays = s?.cookDays ?? 0;
+    final top = s?.topDishes ?? const <String>[];
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       padding: const EdgeInsets.all(12),
@@ -437,57 +423,4 @@ class _FoodLogPageState extends State<FoodLogPage> {
     _load();
   }
 
-  // ===== 年视图 =====
-
-  Widget _buildYearView() {
-    final counts = _yearData?.monthCounts ?? List.filled(12, 0);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
-      children: [
-        Text('$_year · 每月做饭次数',
-            style: _t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
-        const SizedBox(height: 8),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 7,
-          crossAxisSpacing: 7,
-          childAspectRatio: 1.9,
-          children: [
-            for (int m = 1; m <= 12; m++)
-              _monthCell(m, counts[m - 1]),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text('点任一月份，切回该月时间轴',
-            style: _t.textStyles.sm.copyWith(color: _t.caption), textAlign: TextAlign.center),
-      ],
-    );
-  }
-
-  Widget _monthCell(int m, int count) {
-    final isCurrent = m == DateTime.now().month && _year == DateTime.now().year;
-    final hasData = count > 0;
-    return GestureDetector(
-      onTap: hasData ? () => _jumpToMonth(m) : null,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: isCurrent
-              ? LinearGradient(colors: [_t.primary, _t.primaryDeep])
-              : null,
-          color: hasData ? _t.card : null,
-          border: hasData ? Border.all(color: _t.border) : Border.all(color: _t.border, width: 1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('$m月', style: _t.textStyles.chip.copyWith(
-              color: isCurrent ? Colors.white : _t.caption)),
-          Text(hasData ? '$count' : '—', style: TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w800,
-              color: isCurrent ? Colors.white : (hasData ? _t.title : _t.caption.withValues(alpha: .5)))),
-        ]),
-      ),
-    );
-  }
 }
