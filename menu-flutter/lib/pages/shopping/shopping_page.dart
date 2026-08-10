@@ -303,7 +303,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
               child: OutlinedButton.icon(
                 onPressed: _showAddSheet,
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('手动添加'),
+                label: const Text('添加'),
               ),
             ),
             // 空清单：只有添加入口（无入库）；有清单后才出现批量入库
