@@ -792,9 +792,13 @@ class _TogetherTabState extends State<_TogetherTab> {
   void initState() {
     super.initState();
     _lastTick = widget.refreshTick;
+    // 先加载成功再启动轮询：失败时页面给重试，避免每 10s 重复弹错误 toast
     _load();
-    // 轮询即心跳：10s 刷新清单（同时更新成员最后活跃）
-    _timer = Timer.periodic(
+  }
+
+  /// 轮询定时器（加载成功后启动；失败即停，避免反复弹错误）。
+  void _ensureTimer() {
+    _timer ??= Timer.periodic(
         const Duration(seconds: 10), (_) => _load(quiet: true));
   }
 
@@ -828,15 +832,18 @@ class _TogetherTabState extends State<_TogetherTab> {
         _loading = false;
         widget.onCountChanged(vo.members.length);
       });
+      _ensureTimer();
     } catch (e) {
       if (!mounted) return;
+      _timer?.cancel();
+      _timer = null;
       if (!quiet) {
         setState(() {
           _err = '$e';
           _loading = false;
         });
       }
-      // 静默轮询失败不打扰
+      // 静默轮询失败不打扰（定时器已停，手动重试会重新加载并恢复轮询）
     }
   }
 

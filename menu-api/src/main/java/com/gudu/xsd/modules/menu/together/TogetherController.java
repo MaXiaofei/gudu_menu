@@ -117,7 +117,8 @@ public class TogetherController {
         if (guestKey != null && !guestKey.isBlank()) {
             return TogetherService.Identity.guest(guestKey);
         }
-        throw new BizException("请先加入聚餐");
+        // 未登录且无访客凭证：提示登录（而非「请先加入聚餐」——那会误导成已登录但没加入）
+        throw new BizException("请先登录");
     }
 
     private Long currentMemberId(boolean required) {
