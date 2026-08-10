@@ -28,11 +28,16 @@ public class DishDraftDTO {
         private String sourceUrl;
     }
 
-    /** 用料行（用量自由文本原样存，发布时前端/后端再解析 amount + unitId）。 */
+    /** 用料行（数字 + 单位原文分存，回填时还原两个输入框）。 */
     @Data
     public static class DraftIngredient {
         private Long ingredientId;
         private String ingredientName;
+        /** 用量数字原文（如 "2"），可空。 */
+        private String amount;
+        /** 单位原文（如 "个"/"适量"/"斤"），可空；提交时匹配字典，匹配不到自动补字典。 */
+        private String unitText;
+        /** 旧草稿兼容：自由文本（已拆分为 amount + unitText，保留字段不删）。 */
         private String amountText;
     }
 

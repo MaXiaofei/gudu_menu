@@ -2,22 +2,43 @@ import '../core/api_client.dart';
 
 /// 食材服务（字典 / 创建 / AI 补全营养）。
 class IngredientService {
+  /// 字典缓存：写菜谱/采购等页面频繁进页会反复拉 /dict，5 分钟内命中缓存不再请求。
+  /// 字典数据量小且低频变化；upsertDict 新增后主动失效，保证新单位立即可见。
+  static final Map<String, List<DictItem>> _dictCache = {};
+  static DateTime? _dictCacheTime;
+  static const _dictCacheTtl = Duration(minutes: 5);
+
   /// 字典项（单位 / 采购分类）：GET /dict?group=xxx
   ///
   /// 例外于 DESIGN.md §12.1（列表须分页）：字典项用于下拉选择，需全量。
+  /// 内存缓存 5 分钟（TTL），避免进页面就重复请求后端。
   static Future<List<DictItem>> listDictByGroup(String group) async {
+    final now = DateTime.now();
+    if (_dictCacheTime != null &&
+        now.difference(_dictCacheTime!) < _dictCacheTtl) {
+      final cached = _dictCache[group];
+      if (cached != null) return cached;
+    }
     final data = await ApiClient.instance.get('/dict', query: {
       'group': group,
       'pageNum': 1,
       'pageSize': 1000,
     });
     final records = (data is Map) ? data['records'] : null;
-    if (records is List) {
-      return records
-          .map((e) => DictItem.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-    return [];
+    final items = records is List
+        ? records
+            .map((e) => DictItem.fromJson(e as Map<String, dynamic>))
+            .toList()
+        : <DictItem>[];
+    _dictCache[group] = items;
+    _dictCacheTime = now;
+    return items;
+  }
+
+  /// 清空字典缓存（测试用；upsertDict 新增单位后也会自动失效对应分组）。
+  static void clearDictCache() {
+    _dictCache.clear();
+    _dictCacheTime = null;
   }
 
   /// 新建食材：POST /ingredient → 返回 id。
@@ -61,12 +82,13 @@ class IngredientService {
     return [];
   }
 
-  /// 新增字典项（自定义单位/分类），返回新 id。
+  /// 新增字典项（自定义单位/分类），返回新 id。新增后失效字典缓存（新单位立即可见）。
   static Future<int> upsertDict(String name, String group) async {
     final result = await ApiClient.instance.post('/dict', body: {
       'name': name,
       'dictGroup': group,
     });
+    _dictCache.remove(group);
     return (result as num).toInt();
   }
 

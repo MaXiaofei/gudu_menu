@@ -202,23 +202,26 @@ class DishDraftDetail {
       );
 }
 
-/// 草稿用料行（用量自由文本原样存，恢复时回填输入框）。
+/// 草稿用料行（数字 + 单位原文分存，恢复时还原两个输入框）。
 class DraftIngredientItem {
   final int ingredientId;
   final String? ingredientName;
-  final String? amountText;
+  final String? amount;
+  final String? unitText;
 
   const DraftIngredientItem({
     required this.ingredientId,
     this.ingredientName,
-    this.amountText,
+    this.amount,
+    this.unitText,
   });
 
   factory DraftIngredientItem.fromJson(Map<String, dynamic> j) =>
       DraftIngredientItem(
         ingredientId: (j['ingredientId'] as num?)?.toInt() ?? 0,
         ingredientName: j['ingredientName'] as String?,
-        amountText: j['amountText'] as String?,
+        amount: j['amount'] as String?,
+        unitText: j['unitText'] as String?,
       );
 }
 

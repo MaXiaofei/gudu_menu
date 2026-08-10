@@ -5,6 +5,8 @@ import '../helpers/mock_http.dart';
 
 /// IngredientService：字典/创建/全量列表/新增字典项 + DictItem 解析。
 void main() {
+  setUp(IngredientService.clearDictCache); // 清字典缓存，避免测试间污染
+
   group('IngredientService.listDictByGroup', () {
     test('GET /dict?group=&pageNum=1&pageSize=1000 → List<DictItem>', () async {
       final captor = installMock((_) => okResponse({
