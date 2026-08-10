@@ -15,6 +15,8 @@ import '../pages/foodlog/food_log_page.dart';
 import '../pages/foodlog/food_log_detail_page.dart';
 import '../pages/dish/create_page.dart';
 import '../pages/dish/detail_page.dart';
+import '../pages/dish/dish_preview_page.dart';
+import '../pages/dish/draft_list_page.dart';
 import '../pages/dish/list_page.dart';
 import '../pages/dish/review_page.dart';
 import '../pages/menu/detail_page.dart';
@@ -59,6 +61,7 @@ GoRouter createRouter(AuthStore auth) {
               builder: (_, s) => DishListPage(
                 selectForMenuId: int.tryParse(
                     s.uri.queryParameters['selectForMenu'] ?? ''),
+                sortLatest: s.uri.queryParameters['sort'] == 'latest',
               ),
             ),
           ]),
@@ -103,10 +106,25 @@ GoRouter createRouter(AuthStore auth) {
           );
         },
       ),
-      // 录入新菜（手动 + URL 导入）
+      // 写菜谱（写菜谱 + 导入链接，DESIGN.md §16；?draftId= 草稿箱继续编辑）
       GoRoute(
           path: '/create-dish',
-          builder: (_, __) => const CreateDishPage()),
+          builder: (_, s) => CreateDishPage(
+                draftId: int.tryParse(
+                    s.uri.queryParameters['draftId'] ?? ''),
+              )),
+      // 草稿箱（我的 Tab「草稿箱」进入，§16.4）
+      GoRoute(
+        path: '/dish-drafts',
+        builder: (_, __) => const DishDraftListPage(),
+      ),
+      // 写菜谱预览（§16.4：extra 传 DishPreviewData，发布回调复用写菜谱页）
+      GoRoute(
+        path: '/dish-preview',
+        builder: (_, s) => DishPreviewPage(
+          data: s.extra as DishPreviewData,
+        ),
+      ),
       // 菜谱选择页（从食集详情「+ 加菜」进来，?menuId=<id> 选择模式）
       GoRoute(
         path: '/dish-picker',

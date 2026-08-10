@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_theme.dart';
+import '../models/page.dart';
+import '../services/dish_service.dart';
 import '../stores/auth_store.dart';
 import '../stores/member_store.dart';
 import '../widgets/action_bar.dart';
@@ -81,6 +83,27 @@ class ProfilePage extends StatelessWidget {
                     onTap: () => context.push('/food-log'),
                   ),
                   const Divider(height: 1, indent: 56),
+                  // 写菜谱（§16：入口在我的 Tab，草稿箱上方）
+                  _SettingTile(
+                    icon: Icons.edit_note,
+                    label: '写菜谱',
+                    onTap: () => context.push('/create-dish'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  // 草稿箱（§16.4：入口在我的 Tab，橙色胶囊角标带草稿数量）
+                  FutureBuilder<PageData<DishDraftItem>>(
+                    future: DishService.listDrafts(),
+                    builder: (_, snap) => _SettingTile(
+                      icon: Icons.description_outlined,
+                      label: '草稿箱',
+                      value: (snap.data?.records.length ?? 0) > 0
+                          ? '${snap.data!.records.length}'
+                          : null,
+                      badge: true,
+                      onTap: () => context.push('/dish-drafts'),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 56),
                   _SettingTile(
                     icon: Icons.star_outline,
                     label: '我的评价',
@@ -130,12 +153,14 @@ class _SettingTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String? value;
+  final bool badge; // value 以橙色胶囊角标展示（原型 ② 屏草稿计数）
   final VoidCallback onTap;
 
   const _SettingTile({
     required this.icon,
     required this.label,
     this.value,
+    this.badge = false,
     required this.onTap,
   });
 
@@ -149,8 +174,20 @@ class _SettingTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (value != null)
-              Text(value!,
-                  style: t.textStyles.sm.copyWith(color: t.caption)),
+              badge
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: t.primary,
+                        borderRadius: BorderRadius.circular(AppTokens.rPill),
+                      ),
+                      child: Text(value!,
+                          style: t.textStyles.xs.copyWith(
+                              color: t.card, fontWeight: FontWeight.w800)),
+                    )
+                  : Text(value!,
+                      style: t.textStyles.sm.copyWith(color: t.caption)),
             Icon(Icons.chevron_right, color: t.caption),
           ],
         ),

@@ -97,6 +97,10 @@ class DishDetail {
 class DishIngredient {
   final int ingredientId;
   final String? ingredientName;
+  /// 用量数量（对应单位个数，如 2 表示 2 个/2 把）。
+  final double? amount;
+  /// 自然单位名（后端按 unitId 回填；含「适量/少许/一小把」量词单位，§16.3）。
+  final String? unitName;
   final double grams;
   /// 库存档位 ENOUGH/LOW/NONE（家里：充足/不足/用完；后端批量回填）。
   final String? stockLevel;
@@ -104,6 +108,8 @@ class DishIngredient {
   const DishIngredient({
     required this.ingredientId,
     this.ingredientName,
+    this.amount,
+    this.unitName,
     this.grams = 0,
     this.stockLevel,
   });
@@ -111,14 +117,26 @@ class DishIngredient {
   factory DishIngredient.fromJson(Map<String, dynamic> j) => DishIngredient(
         ingredientId: (j['ingredientId'] as num?)?.toInt() ?? 0,
         ingredientName: j['ingredientName'] as String?,
+        amount: (j['amount'] as num?)?.toDouble(),
+        unitName: j['unitName'] as String?,
         grams: (j['grams'] as num?)?.toDouble() ?? 0,
         stockLevel: j['stockLevel'] as String?,
       );
 
   String get displayName => ingredientName ?? '#$ingredientId';
 
-  /// 用量文案（克，整数不带小数）。
+  /// 用量文案：自然单位优先（「2 个」「适量」）；无单位信息回落克数。
   String get amountText {
+    final un = unitName;
+    if (un != null && un.isNotEmpty) {
+      final a = amount;
+      if (a != null && a > 0) {
+        // 整数不带小数
+        final n = a == a.roundToDouble() ? '${a.toInt()}' : a.toStringAsFixed(1);
+        return '$n $un';
+      }
+      return un; // 适量 / 少许（amount 为空）
+    }
     final g = grams;
     if (g == g.roundToDouble()) return '${g.toInt()} g';
     return '${g.toStringAsFixed(1)} g';

@@ -33,14 +33,8 @@ class DishDetailPage extends StatefulWidget {
 
 class _DishDetailPageState extends State<DishDetailPage> {
   DishDetail? _detail;
-  List<NutritionMetric> _metrics = [];
-  Map<String, num> _nutrition = {};
   final int _serving = 1;
   bool _loading = true;
-
-  /// 该菜均分 + 评价数（V43：菜谱详情展示，无评价为 null）。
-  double? _avgRating;
-  int _avgCount = 0;
 
   /// 详情头部展示的标签（菜系 + 分类 + 标签去空合并）。
   List<String> get _dishTags => _detail == null
@@ -60,17 +54,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
   Future<void> _load() async {
     try {
       _detail = await DishService.detail(widget.id);
-    } catch (_) {}
-    try {
-      _nutrition = await DishService.nutrition(widget.id, serving: _serving);
-    } catch (_) {}
-    try {
-      _metrics = await DishService.metrics();
-    } catch (_) {}
-    try {
-      final (avg, count) = await ReviewService.dishAvg(widget.id);
-      _avgRating = avg;
-      _avgCount = count;
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
@@ -241,10 +224,16 @@ class _DishDetailPageState extends State<DishDetailPage> {
   }
 
   /// 构建可点击的缩略图（点一下弹全屏原图）。
+  /// [placeholder] 自定义占位（封面传首字占位，§10.5）；默认图片图标（辅助图位）。
   Widget _thumbnailImage(String url,
-      {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+      {double? width,
+      double? height,
+      BoxFit fit = BoxFit.cover,
+      Widget Function(AppTokens, double?, double?)? placeholder}) {
     final t = AppTokens.of(context);
     final urls = ImageHelper.resolve(url);
+    Widget fallback(AppTokens tt, double? w, double? h) =>
+        (placeholder ?? _imagePlaceholder)(tt, w, h);
     return GestureDetector(
       onTap: () => _openViewer(url),
       child: Image.network(
@@ -253,9 +242,27 @@ class _DishDetailPageState extends State<DishDetailPage> {
         height: height,
         fit: fit,
         // 加载失败/加载中统一走占位（DESIGN.md §1 禁止 spinner、§10.1 禁止空白破图）。
-        errorBuilder: (_, __, ___) => _imagePlaceholder(t, width, height),
+        errorBuilder: (_, __, ___) => fallback(t, width, height),
         loadingBuilder: (_, child, progress) =>
-            progress == null ? child : _imagePlaceholder(t, width, height),
+            progress == null ? child : fallback(t, width, height),
+      ),
+    );
+  }
+
+  /// 无封面 url 时的封面占位：奶油底 + 菜名首字（与菜谱缩略图占位规则一致，DESIGN.md §10.4，不用 emoji 顶替）。
+  Widget _coverPlaceholder(AppTokens t, String name) {
+    final initial = name.trim().isNotEmpty ? name.trim().characters.first : '菜';
+    return Container(
+      width: double.infinity,
+      height: 220,
+      color: t.secondary,
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: t.textStyles.display.copyWith(
+          color: t.title.withAlpha(115), // ≈ 0.45 透明度
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -301,13 +308,19 @@ class _DishDetailPageState extends State<DishDetailPage> {
                     ? ErrorView(text: '加载详情失败', onRetry: _load) // §14.1 错误态
                     : ListView(
                         children: [
+                          // 封面（DESIGN.md §10：有 url 显示图，加载中/失败走占位；无 url 也渲染占位容器，不留白）
                           if (_detail!.dish.coverUrl != null &&
                               _detail!.dish.coverUrl!.isNotEmpty)
                             _thumbnailImage(
                               _detail!.dish.coverUrl!,
                               width: double.infinity,
                               height: 220,
-                            ),
+                              // 主视觉位占位统一首字（§10.5，与列表缩略图一致）
+                              placeholder: (t, w, h) =>
+                                  _coverPlaceholder(t, _detail!.dish.name ?? '菜'),
+                            )
+                          else
+                            _coverPlaceholder(t, _detail!.dish.name ?? '菜'),
                           // 标签 + 备注（菜名/副信息已移入 BackHeader）
                           if (_dishTags.isNotEmpty || (_detail!.dish.note ?? '').isNotEmpty)
                             Padding(
@@ -343,10 +356,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                 ],
                               ),
                             ),
-                          if (_metrics.isNotEmpty && _nutrition.isNotEmpty) ...[
-                            const _SectionTitle('营养（份数 1）'),
-                            NutritionGrid(metrics: _metrics, values: _nutrition),
-                          ],
                           // 用料（份数 1）
                       if (_detail!.ingredients.isNotEmpty) ...[
                         Padding(
@@ -394,22 +403,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                                 fontWeight: FontWeight.w700,
                                                 color: t.title)),
                                       ),
-                                      // 家里：充足/不足/用完 徽标（V42，只标有没有不判断够不够）
-                                      if (ing.stockLevel != null)
-                                        Container(
-                                          margin: const EdgeInsets.only(right: 6),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: _stockColor(ing.stockLevel!).withAlpha(20),
-                                            borderRadius: BorderRadius.circular(AppTokens.rPill),
-                                          ),
-                                          child: Text('家里：${_stockLabel(ing.stockLevel!)}',
-                                              style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: _stockColor(ing.stockLevel!))),
-                                        ),
+                                      // 用量（自然单位优先：「2 个」「适量」，§16.3；与库存解耦不标档位）
                                       Text(ing.amountText,
                                           style: TextStyle(
                                               fontSize: 13,
@@ -486,34 +480,6 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                             strokeWidth: 2, color: Colors.white))
                                     : const Text('加到食集'),
                               ),
-                              const SizedBox(height: AppTokens.sp12),
-                              // 均分展示（V43：有评价才显示）
-                              if (_avgRating != null && _avgRating! > 0) ...[
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.star,
-                                        size: 18, color: AppTokens.warning),
-                                    const SizedBox(width: AppTokens.sp4),
-                                    Text(
-                                      _avgRating!.toStringAsFixed(1),
-                                      style: t.textStyles.md.copyWith(
-                                          color: AppTokens.warning,
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                                    const SizedBox(width: AppTokens.sp6),
-                                    Text('$_avgCount 人评过',
-                                        style: t.textStyles.sm
-                                            .copyWith(color: t.caption)),
-                                  ],
-                                ),
-                                const SizedBox(height: AppTokens.sp8),
-                              ],
-                              OutlinedButton(
-                                onPressed: () =>
-                                    context.push('/dish/${widget.id}/review'),
-                                child: const Text('去点评'),
-                              ),
                             ],
                           ),
                         ),
@@ -540,20 +506,4 @@ class _SectionTitle extends StatelessWidget {
             style: t.textStyles.subtitle),
       );
   }
-}
-
-Color _stockColor(String level) {
-  return switch (level) {
-    'ENOUGH' => AppTokens.success,
-    'LOW' => AppTokens.warning,
-    _ => AppTokens.error,
-  };
-}
-
-String _stockLabel(String level) {
-  return switch (level) {
-    'ENOUGH' => '充足',
-    'LOW' => '不足',
-    _ => '用完',
-  };
 }
