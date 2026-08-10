@@ -979,6 +979,17 @@ class _ShoppingPageState extends State<ShoppingPage> {
     );
   }
 
+  /// 「再加一行」：当前输入行入列（名称空忽略），清空输入继续编辑。
+  void _commitRow() {
+    setSheetState(() {
+      final name = nameCtrl.text.trim();
+      if (name.isEmpty) return;
+      rows.add((name, amountCtrl.text.trim()));
+      nameCtrl.clear();
+      amountCtrl.clear();
+    });
+  }
+
   /// 改名弹窗（自定义采购 ✎）。
   Future<void> _showRenameSheet() async {
     final t = AppTokens.of(context);

@@ -14,6 +14,8 @@ void main() {
         'difficulty': 2,
         'note': '备注',
         'coverUrl': '/img/a.jpg',
+        'sourceName': '下厨房',
+        'sourceUrl': 'https://www.xiachufang.com/recipe/1/',
         'price': 18.5,
       });
       expect(d.id, 1);
@@ -22,6 +24,8 @@ void main() {
       expect(d.prepTime, 5);
       expect(d.difficulty, 2);
       expect(d.note, '备注');
+      expect(d.sourceName, '下厨房');
+      expect(d.sourceUrl, 'https://www.xiachufang.com/recipe/1/');
       expect(d.coverUrl, '/img/a.jpg');
       expect(d.price, 18.5);
     });
