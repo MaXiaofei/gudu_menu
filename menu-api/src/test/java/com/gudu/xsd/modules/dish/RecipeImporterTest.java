@@ -120,6 +120,18 @@ class RecipeImporterTest {
         assertThat(st.get(0).imageUrl).contains("/s1.jpg");
     }
 
+    /** 404/错误页兜底误判：h1 抓到「404 Not Found」不能当菜名（isErrorPageName）。 */
+    @Test
+    void 错误页标题_不能当菜名() {
+        assertThat(RecipeImporter.isErrorPageName("404 Not Found")).isTrue();
+        assertThat(RecipeImporter.isErrorPageName("页面不存在")).isTrue();
+        assertThat(RecipeImporter.isErrorPageName("")).isTrue();
+        assertThat(RecipeImporter.isErrorPageName(null)).isTrue();
+        assertThat(RecipeImporter.isErrorPageName("菜" .repeat(41))).isTrue();
+        assertThat(RecipeImporter.isErrorPageName("番茄炒蛋")).isFalse();
+        assertThat(RecipeImporter.isErrorPageName("我爱的番茄炒蛋")).isFalse();
+    }
+
     /** 下厨房真实页面结构：ul.ings > li（食材名 a + 用量 span）。 */
     @Test
     void 下厨房_ul_ings_li结构_用料全解析() throws Exception {

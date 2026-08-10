@@ -64,10 +64,22 @@ public class RecipeImporter {
             parsed.unknownSite = true;
         }
 
-        if (parsed.name == null || parsed.name.isBlank()) {
+        String name = parsed.name == null ? "" : parsed.name.trim();
+        // 反爬/404/错误页兜底误判：h1 兜底可能抓到错误页标题（如「404 Not Found」）
+        if (isErrorPageName(name)) {
             throw new BizException("未能解析菜谱，请检查 URL");
         }
         return assemble(parsed, trimmed);
+    }
+
+    /** 菜名是否像错误页/反爬页标题（404 Not Found、页面不存在、超长标题等）。 */
+    static boolean isErrorPageName(String name) {
+        if (name == null || name.isBlank()) return true;
+        String n = name.trim();
+        return n.contains("404")
+                || n.toLowerCase().contains("not found")
+                || n.contains("页面不存在")
+                || n.length() > 40;
     }
 
     // ===== 抓取 =====
