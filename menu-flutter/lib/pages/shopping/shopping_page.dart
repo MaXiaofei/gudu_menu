@@ -295,35 +295,36 @@ class _ShoppingPageState extends State<ShoppingPage> {
                 ),
               ],
             ),
-      bottomNavigationBar: d.items.isNotEmpty
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Row(children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _showAddSheet,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('手动添加'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: t.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(44),
-                      ),
-                      onPressed: _selectedItems.isEmpty ? null : _saveRestock,
-                      child: Text('保存入库 · ${_selectedItems.length} 项'),
-                    ),
-                  ),
-                ]),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _showAddSheet,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('手动添加'),
               ),
-            )
-          : null,
+            ),
+            // 空清单：只有添加入口（无入库）；有清单后才出现批量入库
+            if (d.items.isNotEmpty) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: t.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  onPressed: _selectedItems.isEmpty ? null : _saveRestock,
+                  child: Text('保存入库 · ${_selectedItems.length} 项'),
+                ),
+              ),
+            ],
+          ]),
+        ),
+      ),
     );
   }
 
