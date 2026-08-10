@@ -12,8 +12,9 @@ Widget _themed(Widget child) => MaterialApp(
       home: child,
     );
 
-/// 入库页 widget 测试（V42 档位版，对齐 pantry-manual-add.html 两屏）：
-/// ① 选食材（库里已有带家里状态 / 新建档，填名字就行）→ ② 定档位（充足默认/不足）+ 来源 → 入库。
+/// 入库页 widget 测试（对齐 44829 批次 pantry-manual-add-v2 定稿）：
+/// ① 选食材（无标题；未输入只显示提示卡 + 新建入口，输入后才显示库里已有，精确同名隐藏新建区）
+/// → ② 定档位（补充后，家里有多少？充足默认/不足=一点点）+ 来源 → 入库。
 void main() {
   Map<String, dynamic> ingredientList() => {
         'records': [
@@ -44,34 +45,49 @@ void main() {
     return captor;
   }
 
-  testWidgets('① 选食材：库里已有带家里档位 + 新建档入口', (tester) async {
+  testWidgets('① 未输入：无标题 + 头说明 + 提示卡 + 新建入口；输入后显示库里已有，精确同名隐藏新建区', (tester) async {
     await pumpPage(tester);
 
-    // 头说明
-    expect(find.text('入库'), findsOneWidget);
+    // 无标题（DESIGN.md §13.1 录入页只有返回箭头）
+    expect(find.text('入库'), findsNothing);
+    // 头说明（功能说明文案保留）
     expect(find.text('朋友送 / 赠品 / 之前忘记登的旧库存，记一笔进来'), findsOneWidget);
 
-    // 库里已有行：名称 + 家里档位 + 选
-    expect(find.text('苹果'), findsOneWidget);
-    expect(find.text('家里：用完'), findsOneWidget);
-    expect(find.text('大米'), findsOneWidget);
-    expect(find.text('家里：充足'), findsOneWidget);
-    expect(find.text('选'), findsNWidgets(2));
-
-    // 新建档入口（不用填单位）
+    // 未输入：提示卡 + 新建入口常驻，不显示库里已有
+    expect(find.text('输入名称，会显示库里已有的食材'), findsOneWidget);
+    expect(find.text('库存里没有？'), findsOneWidget);
     expect(find.text('+ 新建食材并入库'), findsOneWidget);
-    expect(find.text('填个名字就行，不用填单位'), findsOneWidget);
+    expect(find.text('苹果'), findsNothing);
+    expect(find.text('大米'), findsNothing);
 
     // 下一步：未选时禁用
     final nextBtn = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
     expect(nextBtn.onPressed, isNull);
+
+    // 输入「苹果」：匹配行 + 家里档位 + 精确同名隐藏新建区（.last = 行文本，输入框内容同名）
+    await tester.enterText(find.byType(TextField), '苹果');
+    await tester.pump();
+    expect(find.text('库里已有'), findsOneWidget);
+    expect(find.text('苹果').last, findsOneWidget);
+    expect(find.text('家里：用完'), findsOneWidget);
+    expect(find.text('选'), findsOneWidget);
+    expect(find.text('库存里没有？'), findsNothing);
+
+    // 输入「橙子」：无匹配 → 只有新建区，副文案带名称
+    await tester.enterText(find.byType(TextField), '橙子');
+    await tester.pump();
+    expect(find.text('库里已有'), findsNothing);
+    expect(find.text('库存里没有？'), findsOneWidget);
+    expect(find.text('「橙子」建档同时入库'), findsOneWidget);
   });
 
-  testWidgets('选中食材 → 下一步 → ② 定档位/来源 → 入库带 level+sourceNote', (tester) async {
+  testWidgets('选中食材 → 下一步 → ② 定档位/来源（新文案）→ 入库带 level+sourceNote', (tester) async {
     final captor = await pumpPage(tester);
 
-    // 选中苹果（已选状态）
-    await tester.tap(find.text('苹果'));
+    // 输入后选中苹果（已选状态；.last = 行文本）
+    await tester.enterText(find.byType(TextField), '苹果');
+    await tester.pump();
+    await tester.tap(find.text('苹果').last);
     await tester.pump();
     expect(find.text('已选'), findsOneWidget);
 
@@ -83,10 +99,15 @@ void main() {
     expect(find.byType(InitialAvatar), findsOneWidget);
     expect(find.text('家里：用完 · 入库记一笔'), findsOneWidget);
 
-    // 档位：充足默认
-    expect(find.text('这次进来，家里算哪档？'), findsOneWidget);
+    // 档位：新文案 + 充足默认 / 不足=一点点
+    expect(find.text('补充后，家里有多少？'), findsOneWidget);
     expect(find.text('充足'), findsOneWidget);
     expect(find.text('不足'), findsOneWidget);
+    expect(find.text('一点点'), findsOneWidget);
+    expect(find.text('只买了一点'), findsNothing);
+    // 已删：右侧小字 + 说明条
+    expect(find.text('会显示在这条记录上'), findsNothing);
+    expect(find.textContaining('库存是档位，不是账本'), findsNothing);
 
     // 来源备注默认 朋友送
     expect(find.text('朋友送'), findsOneWidget);

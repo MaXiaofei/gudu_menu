@@ -24,20 +24,15 @@ void main() {
         return okResponse({'token': 'jwt-from-mock', 'nickname': 't'});
       }
       if (options.path == '/pantry/grouped') {
+        // 库存页按 level 分页拉取，mock 按档过滤（pageSize 大于数据量时全量返回）
+        final level = options.queryParameters['level'] as String?;
+        final all = [
+          {'ingredientId': 1, 'ingredientName': '番茄', 'level': 'NONE', 'lastChange': null},
+          {'ingredientId': 2, 'ingredientName': '大米', 'level': 'ENOUGH', 'lastChange': null},
+        ];
         return okResponse({
           'summary': {'enough': 1, 'low': 0, 'none': 1},
-          'items': [
-            {
-              'ingredientId': 1,
-              'ingredientName': '番茄',              'level': 'NONE',
-              'lastChange': null,
-            },
-            {
-              'ingredientId': 2,
-              'ingredientName': '大米',              'level': 'ENOUGH',
-              'lastChange': null,
-            },
-          ],
+          'items': all.where((it) => level == null || it['level'] == level).toList(),
         });
       }
       if (options.path == '/pantry/item') {
@@ -105,8 +100,10 @@ void main() {
     expect(find.text('下一步'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    // 选中食材 → 下一步 → 定档位+来源页（入库按钮不崩）
-    await tester.tap(find.text('番茄'));
+    // 输入名称 → 选中食材（行文本在输入框之后，取 .last）→ 下一步 → 定档位+来源页（入库按钮不崩）
+    await tester.enterText(find.byType(TextField), '番茄');
+    await tester.pump();
+    await tester.tap(find.text('番茄').last);
     await tester.pump();
     await tester.tap(find.byType(ElevatedButton).last);
     await tester.pumpAndSettle();

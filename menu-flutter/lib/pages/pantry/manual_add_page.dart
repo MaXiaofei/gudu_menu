@@ -7,9 +7,9 @@ import '../../widgets/action_bar.dart';
 import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
 
-/// 入库页（V42 档位版，对齐 pantry-manual-add.html 两屏）。
+/// 入库页（V42 档位版，对齐 44829 批次 pantry-manual-add-v2 定稿）。
 ///
-/// ① 选食材（搜库里已有 / 新建档，填名字就行不用单位）→
+/// ① 选食材（先输入名称：搜库里已有 / 无则新建档）→
 /// ② 定档位（充足默认 / 不足）+ 来源备注 → 入库。
 /// 不再填数量/单位/保质期——库存是模糊档位，不是账本。
 class PantryManualAddPage extends StatefulWidget {
@@ -28,7 +28,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
 
   // 选中的食材（库里已有）
   IngredientItem? _selected;
-  // 新建档：搜索框输入的名字，勾选「新建食材并入库」后生效
+  // 新建档：搜索框输入的名字，点「新建食材并入库」后生效
   bool _newMode = false;
   String _newName = '';
 
@@ -37,6 +37,8 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
   Map<int, String> _levelByIng = {}; // ingredientId → 档位（家里状态展示）
   bool _loading = true;
   String _query = '';
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
 
   // 档位 + 来源
   String _level = StockLevel.enough; // 入库默认充足
@@ -49,6 +51,13 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -114,83 +123,132 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
 
   Widget _buildStep0() {
     final t = _t;
+    final q = _query.trim();
+    final matches = q.isEmpty ? const <IngredientItem>[] : _filtered;
+    final exactMatch = q.isNotEmpty && _ingredients.any((i) => i.name == q);
     return Column(
       children: [
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp8),
             children: [
-              Text('入库', style: t.textStyles.h3),
-              const SizedBox(height: 4),
+              // 头说明（录入页只有返回箭头、无标题，DESIGN.md §13.1；这行是功能说明文案）
               Text('朋友送 / 赠品 / 之前忘记登的旧库存，记一笔进来',
                   style: t.textStyles.sm.copyWith(color: t.caption)),
+              const SizedBox(height: 12),
+
+              // 搜索（⌕ + 输入 + ✕ 清除，输入即筛）
+              _buildSearchBox(t),
               const SizedBox(height: 16),
 
-              // 搜索
-              TextField(
-                onChanged: (v) => setState(() => _query = v),
-                decoration: InputDecoration(
-                  hintText: '搜食材名',
-                  hintStyle: t.textStyles.sm.copyWith(color: t.caption),
-                  filled: true,
-                  fillColor: t.card,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 12),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTokens.rMd),
-                    borderSide: BorderSide(color: t.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTokens.rMd),
-                    borderSide: BorderSide(color: t.primary),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // 库里已有
-              Text('库里已有', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
-              const SizedBox(height: 8),
-              if (_filtered.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  decoration: BoxDecoration(
-                    color: t.card,
-                    border: Border.all(color: t.border),
-                    borderRadius: BorderRadius.circular(AppTokens.rSm),
-                  ),
-                  child: Text('搜不到，试试下面「新建食材并入库」',
-                      textAlign: TextAlign.center,
-                      style: t.textStyles.sm.copyWith(color: t.caption)),
-                )
-              else
-                Container(
-                  decoration: BoxDecoration(
-                    color: t.card,
-                    border: Border.all(color: t.border),
-                    borderRadius: BorderRadius.circular(AppTokens.rSm),
-                  ),
-                  child: Column(
-                    children: [
-                      for (int i = 0; i < _filtered.length; i++) ...[
-                        if (i > 0) Divider(height: 1, thickness: 1, color: t.border),
-                        _ingredientTile(_filtered[i]),
+              if (q.isEmpty) ...[
+                // 未输入：轻提示卡 + 新建入口（一直画着，点它聚焦搜索框）
+                _emptyHint(t),
+                const SizedBox(height: 20),
+                Text('库存里没有？', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+                const SizedBox(height: 8),
+                _newIngredientTile(),
+              ] else ...[
+                if (matches.isNotEmpty) ...[
+                  // 库里已有（输入后才出现）
+                  Text('库里已有', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: t.card,
+                      border: Border.all(color: t.border),
+                      borderRadius: BorderRadius.circular(AppTokens.rSm),
+                    ),
+                    child: Column(
+                      children: [
+                        for (int i = 0; i < matches.length; i++) ...[
+                          if (i > 0) Divider(height: 1, thickness: 1, color: t.border),
+                          _ingredientTile(matches[i]),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              const SizedBox(height: 20),
-
-              // 库里没有？→ 新建档
-              Text('库里没有？', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
-              const SizedBox(height: 8),
-              _newIngredientTile(),
+                  const SizedBox(height: 20),
+                ],
+                // 精确同名时隐藏新建区（上面列表已给答案）
+                if (!exactMatch) ...[
+                  Text('库存里没有？', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  _newIngredientTile(),
+                ],
+              ],
             ],
           ),
         ),
         _bottomBar0(),
       ],
+    );
+  }
+
+  /// 搜索框：⌕ 图标 + 输入 + ✕ 清除（对齐 pantry-page.html 定稿形态）。
+  Widget _buildSearchBox(AppTokens t) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp10, vertical: 9),
+      decoration: BoxDecoration(
+        color: t.card,
+        border: Border.all(color: t.border),
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.search, size: 16, color: t.caption),
+          const SizedBox(width: AppTokens.sp6),
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              style: t.textStyles.sm.copyWith(color: t.title),
+              decoration: InputDecoration(
+                isCollapsed: true,
+                border: InputBorder.none,
+                hintText: '搜库存',
+                hintStyle: t.textStyles.sm.copyWith(color: t.caption),
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          if (_query.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _searchCtrl.clear();
+                setState(() => _query = '');
+              },
+              child: Icon(Icons.close, size: 16, color: t.caption),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 未输入提示卡：聚焦「先想名字」。
+  Widget _emptyHint(AppTokens t) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+      decoration: BoxDecoration(
+        color: t.card,
+        border: Border.all(color: t.border),
+        borderRadius: BorderRadius.circular(AppTokens.rSm),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: t.secondary),
+            child: Icon(Icons.search, size: 16, color: t.primaryDeep),
+          ),
+          const SizedBox(height: 8),
+          Text('输入名称，会显示库里已有的食材',
+              style: t.textStyles.sm.copyWith(color: t.caption)),
+        ],
+      ),
     );
   }
 
@@ -242,37 +300,35 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
     );
   }
 
-  /// 新建档：虚线框入口（输入食材名后可用，点选后走新建路径）。
+  /// 新建档：虚线框入口。未输入 = 常驻入口，点它聚焦搜索框；
+  /// 输入后（无精确同名时才渲染）= 启用，「$q」建档同时入库。
   Widget _newIngredientTile() {
     final t = _t;
     final q = _query.trim();
-    final enabled = q.isNotEmpty && _ingredients.every((i) => i.name != q);
-    return Opacity(
-      opacity: enabled ? 1 : 0.5,
-      child: GestureDetector(
-        onTap: enabled
-            ? () => setState(() {
-                  _newMode = true;
-                  _selected = null;
-                  _newName = q;
-                })
-            : null,
-        child: DashedBorder(
-          color: t.primary,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 11),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('+ 新建食材并入库',
-                    style: t.textStyles.sm.copyWith(color: t.primary, fontWeight: FontWeight.w800)),
+    final enabled = q.isNotEmpty;
+    return GestureDetector(
+      onTap: enabled
+          ? () => setState(() {
+                _newMode = true;
+                _selected = null;
+                _newName = q;
+              })
+          : () => _searchFocus.requestFocus(),
+      child: DashedBorder(
+        color: t.primary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 11),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('+ 新建食材并入库',
+                  style: t.textStyles.sm.copyWith(color: t.primary, fontWeight: FontWeight.w800)),
+              if (enabled) ...[
                 const SizedBox(height: 2),
-                Text(
-                  enabled ? '「$q」建档同时入库' : '填个名字就行，不用填单位',
-                  style: t.textStyles.tiny.copyWith(color: t.caption),
-                ),
+                Text('「$q」建档同时入库',
+                    style: t.textStyles.tiny.copyWith(color: t.caption)),
               ],
-            ),
+            ],
           ),
         ),
       ),
@@ -336,24 +392,17 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               const SizedBox(height: 20),
 
               // 档位选择（入库：充足默认 / 不足）
-              Text('这次进来，家里算哪档？', style: t.textStyles.caption),
+              Text('补充后，家里有多少？', style: t.textStyles.caption),
               const SizedBox(height: 10),
               Row(children: [
                 _levelCard(StockLevel.enough, '充足', '默认'),
                 const SizedBox(width: 7),
-                _levelCard(StockLevel.low, '不足', '只买了一点'),
+                _levelCard(StockLevel.low, '不足', '一点点'),
               ]),
               const SizedBox(height: 14),
 
               // 来源备注
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('来源备注', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
-                  Text('会显示在这条记录上',
-                      style: t.textStyles.tiny.copyWith(color: _t.primaryDeep)),
-                ],
-              ),
+              Text('来源备注', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 7,
@@ -377,21 +426,6 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
                     ),
                   );
                 }).toList(),
-              ),
-              const SizedBox(height: 12),
-
-              // 说明条
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: t.highlight,
-                  border: Border.all(color: t.border),
-                  borderRadius: BorderRadius.circular(AppTokens.rSm),
-                ),
-                child: Text(
-                  '这笔记作 手动 · $_sourceNote，$_name 变为「${StockLevel.label(_level)}」。不用填买了多少、不用填单位——库存是档位，不是账本。',
-                  style: t.textStyles.sectionLabel.copyWith(color: t.body, height: 1.5),
-                ),
               ),
             ],
           ),
