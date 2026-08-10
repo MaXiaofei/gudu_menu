@@ -35,6 +35,10 @@ public class DishIngredient {
     @TableField(exist = false)
     private String ingredientName;
 
+    /** 单位名（非持久化，详情接口按 unitId 批量回填；含「适量/少许/一小把」量词单位，§16.3）。 */
+    @TableField(exist = false)
+    private String unitName;
+
     /** 库存档位 ENOUGH/LOW/NONE（非持久化，详情接口批量回填；家里：充足/不足/用完）。B5。 */
     @TableField(exist = false)
     private String stockLevel;

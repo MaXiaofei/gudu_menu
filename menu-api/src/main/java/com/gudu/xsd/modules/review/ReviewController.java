@@ -59,6 +59,7 @@ public class ReviewController {
     }
 
     /** 我的评价：评价历史 + 待评价食集。V43。 */
+    /** 我的评价（历史 + 待评价食集）。个人级聚合数据，量小，DESIGN.md §12 全量例外。 */
     @GetMapping("/mine")
     public R<MyReviewsVO> mine() {
         return R.ok(svc.mine());

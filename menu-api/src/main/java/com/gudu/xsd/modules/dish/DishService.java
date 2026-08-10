@@ -113,6 +113,21 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             }
         }
 
+        // 批量回填单位名（按 unitId 查 sys_dict；「适量/少许/一小把」量词单位回显原文，§16.3）。
+        if (!ingredients.isEmpty()) {
+            Set<Long> unitIds = ingredients.stream()
+                    .map(DishIngredient::getUnitId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            if (!unitIds.isEmpty()) {
+                Map<Long, String> unitNameMap = dictMapper.selectBatchIds(unitIds).stream()
+                        .collect(Collectors.toMap(SysDict::getId, SysDict::getName));
+                for (DishIngredient di : ingredients) {
+                    di.setUnitName(unitNameMap.get(di.getUnitId()));
+                }
+            }
+        }
+
         List<Long> cuisineIds = new ArrayList<>();
         List<Long> tagIds = new ArrayList<>();
         List<Long> categoryIds = new ArrayList<>();
