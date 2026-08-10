@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/image_helper.dart';
 import '../../core/app_theme.dart';
 import '../../models/dish.dart';
 import '../../models/menu.dart';
-import '../../models/nutrition_metric.dart';
 import '../../services/dish_service.dart';
 import '../../services/menu_service.dart';
-import '../../services/review_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/image_viewer.dart';
 import '../../widgets/loading_empty.dart';
-import '../../widgets/nutrition_grid.dart';
 
 /// 菜品详情。
 /// 封面 + 营养区 + 用料 + 做法步骤 + 加到食集/去点评。
@@ -317,10 +313,10 @@ class _DishDetailPageState extends State<DishDetailPage> {
                               height: 220,
                               // 主视觉位占位统一首字（§10.5，与列表缩略图一致）
                               placeholder: (t, w, h) =>
-                                  _coverPlaceholder(t, _detail!.dish.name ?? '菜'),
+                                  _coverPlaceholder(t, _detail!.dish.name),
                             )
                           else
-                            _coverPlaceholder(t, _detail!.dish.name ?? '菜'),
+                            _coverPlaceholder(t, _detail!.dish.name),
                           // 标签 + 备注（菜名/副信息已移入 BackHeader）
                           if (_dishTags.isNotEmpty || (_detail!.dish.note ?? '').isNotEmpty)
                             Padding(

@@ -783,7 +783,6 @@ class _TogetherTabState extends State<_TogetherTab> {
   bool _loading = true;
   String? _err;
   Timer? _timer;
-  int _lastTick = 0;
   bool _inviting = false;
 
   TogetherInvite? get _effectiveInvite =>
@@ -792,7 +791,6 @@ class _TogetherTabState extends State<_TogetherTab> {
   @override
   void initState() {
     super.initState();
-    _lastTick = widget.refreshTick;
     // 先加载成功再启动轮询：失败时页面给重试，避免每 10s 重复弹错误 toast
     _load();
   }
