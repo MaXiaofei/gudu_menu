@@ -236,28 +236,11 @@ class _MenuListPageState extends State<MenuListPage> {
     return Scaffold(
       backgroundColor: t.bg,
       // DESIGN.md §13：Tab 主页无标题（不放「食集」）。
-      // 「新建食集」胶囊按钮搬到 ActionBar 的 action 槽，右对齐独占一行。
+      // 「新建食集」按钮与状态筛选同一行，放最右侧。
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            ActionBar(
-              action: GestureDetector(
-                onTap: _createMenu,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: t.primary,
-                    borderRadius: BorderRadius.circular(AppTokens.rPill),
-                  ),
-                  child: Text(
-                    '新建食集',
-                    style: t.textStyles.tiny.copyWith(color: Colors.white),
-                  ),
-                ),
-              ),
-            ),
             _buildStatusBar(t),
             Expanded(
               child: _firstLoading
@@ -314,7 +297,7 @@ class _MenuListPageState extends State<MenuListPage> {
     );
   }
 
-  /// 状态汇总条：全部 / 进行中 / 已完成。选中实心深色白字，未选中白底描边。
+  /// 筛选 + 新建一行：全部/进行中/已完成 筛选条 + 最右侧「新建食集」按钮。
   Widget _buildStatusBar(AppTokens t) {
     Widget chip(String? status, String label, int count) {
       final selected = _status == status;
@@ -343,12 +326,29 @@ class _MenuListPageState extends State<MenuListPage> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          AppTokens.sp16, 0, AppTokens.sp16, AppTokens.sp8),
+          AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp8),
       child: Row(
         children: [
           chip(null, '全部', _menus.length),
           chip('ACTIVE', '进行中', _activeCount),
           chip('DONE', '已完成', _doneCount),
+          const Spacer(),
+          // 新建食集（最右侧，实心胶囊主按钮）
+          GestureDetector(
+            onTap: _createMenu,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
+              decoration: BoxDecoration(
+                color: t.primary,
+                borderRadius: BorderRadius.circular(AppTokens.rPill),
+              ),
+              child: Text(
+                '新建食集',
+                style: t.textStyles.tiny.copyWith(color: Colors.white),
+              ),
+            ),
+          ),
         ],
       ),
     );
