@@ -256,6 +256,42 @@ class PantryServiceTest {
     }
 
     @Test
+    void grouped_按档过滤并按页切片() {
+        when(stockMapper.selectList(any())).thenReturn(List.of(
+                stock(10L, IngredientStock.LEVEL_ENOUGH),
+                stock(11L, IngredientStock.LEVEL_NONE),
+                stock(12L, IngredientStock.LEVEL_LOW),
+                stock(13L, IngredientStock.LEVEL_NONE)));
+        when(ingredientMapper.selectList(any())).thenReturn(List.of(
+                ing(10L, "大米"), ing(11L, "葱"), ing(12L, "油"), ing(13L, "鸡蛋")));
+        when(stockLogMapper.selectList(any())).thenReturn(List.of());
+
+        // 只取 NONE 档第 1 页（每页 1 条）：summary 仍是三档全量
+        PantryGroupedVO vo = svc.grouped(IngredientStock.LEVEL_NONE, null, 1, 1);
+        assertThat(vo.getSummary().getEnough()).isEqualTo(1);
+        assertThat(vo.getSummary().getLow()).isEqualTo(1);
+        assertThat(vo.getSummary().getNone()).isEqualTo(2);
+        assertThat(vo.getItems()).extracting(PantryGroupedVO.Item::getIngredientName)
+                .containsExactly("葱"); // NONE 内按名称排序，葱 在 鸡蛋 前
+
+        // 第 2 页：鸡蛋
+        PantryGroupedVO vo2 = svc.grouped(IngredientStock.LEVEL_NONE, null, 2, 1);
+        assertThat(vo2.getItems()).extracting(PantryGroupedVO.Item::getIngredientName)
+                .containsExactly("鸡蛋");
+
+        // keyword 按名匹配（不传分页 = 全量）+ summary 为匹配范围
+        PantryGroupedVO vo3 = svc.grouped(null, "米", null, null);
+        assertThat(vo3.getItems()).extracting(PantryGroupedVO.Item::getIngredientName)
+                .containsExactly("大米");
+        assertThat(vo3.getSummary().getEnough()).isEqualTo(1);
+        assertThat(vo3.getSummary().getNone()).isZero();
+
+        // 非法档位
+        assertThatThrownBy(() -> svc.grouped("XXX", null, 1, 10))
+                .hasMessageContaining("库存档位不合法");
+    }
+
+    @Test
     void itemDetail_返回档位和流水() {
         when(ingredientMapper.selectById(10L)).thenReturn(ing(10L, "鸡蛋"));
         when(stockMapper.selectOne(any())).thenReturn(stock(10L, IngredientStock.LEVEL_LOW));

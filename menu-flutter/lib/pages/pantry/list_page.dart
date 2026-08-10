@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,10 +11,12 @@ import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/status_chip.dart';
 
-/// 库存主页（三色分组版，对齐 pantry-page.html 原型）。
+/// 库存主页（分页版，对齐 44829 批次 pantry-page.html 定稿）。
 ///
-/// 结构：顶部筛选条（全部/缺/低/够，带计数，替代三色汇总条）→ 按 缺→低→够 分组列表 →
-/// 每行点整行进食材详情页盘点 → 右上角「添加」（手动入库）+「去采购」（采购闭环）。
+/// 结构：顶部搜索框（⌕ 输入即搜，300ms 防抖，结果平铺按档位排序 + 分页）→
+/// 筛选条（全部/用完/不足/充足，带计数）→ 按 用完→不足→充足 三组，每组独立分页
+/// （每页 10 条，组尾「加载更多 · 还有 N 项」）→ 每行点行进食材详情页盘点 →
+/// 右上角「入库」（手动入库）+「去采购」（采购闭环）。
 class PantryListPage extends StatefulWidget {
   const PantryListPage({super.key});
 
@@ -24,9 +28,11 @@ class _PantryListPageState extends State<PantryListPage> {
   /// 主题 token 缓存。
   AppTokens get _t => AppTokens.of(context);
 
-  PantryGrouped? _grouped;
-  bool _loading = true;
-  String? _error;
+  static const _pageSize = 10; // DESIGN.md §12.2：列表分页统一 10 条/页
+
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+  Timer? _debounce;
 
   /// 筛选档：all / none / low / enough（缺省「全部」）。
   /// nullable 兜底：热重载时旧 State 实例没有本字段，避免 null 崩溃。
@@ -35,30 +41,156 @@ class _PantryListPageState extends State<PantryListPage> {
   /// 生效中的筛选档（null 兜底「全部」）。
   String get _activeFilter => _filter ?? 'all';
 
+  /// 汇总（三档总数：chips 计数 / 分组标题 / 「找到 N 个」，不随分页变化）。
+  PantryGrouped? _grouped;
+  bool _loading = true;
+  String? _error;
+
+  /// 三档各自已加载的列表 / 页码 / 加载中（「全部」页三组独立分页，单档 tab 共用同路径）。
+  final Map<String, List<PantryGroupedItem>> _items = {
+    StockLevel.none: [],
+    StockLevel.low: [],
+    StockLevel.enough: [],
+  };
+  final Map<String, int> _page = {
+    StockLevel.none: 1,
+    StockLevel.low: 1,
+    StockLevel.enough: 1,
+  };
+  final Map<String, bool> _loadingMore = {
+    StockLevel.none: false,
+    StockLevel.low: false,
+    StockLevel.enough: false,
+  };
+
+  /// 搜索：关键词 + 平铺结果（服务端已按 用完→不足→充足 排序）+ 分页。
+  String _query = '';
+  List<PantryGroupedItem> _searchItems = [];
+  int _searchPage = 1;
+  bool _searchLoading = false;
+
+  bool get _searching => _query.isNotEmpty;
+
+  /// 库存总数（三档相加）。
+  int get _totalCount =>
+      (_grouped?.none ?? 0) + (_grouped?.low ?? 0) + (_grouped?.enough ?? 0);
+
   @override
   void initState() {
     super.initState();
     _load();
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  /// 初始 / 下拉刷新 / 详情返回 / 搜索词变化：重置拉第 1 页。
+  /// 分组态三档第 1 页并行拉取（tab 切换即时）；搜索态按关键词拉第 1 页。
   Future<void> _load() async {
     setState(() {
       _loading = _grouped == null;
       _error = null;
     });
     try {
-      final g = await PantryService.listGrouped();
-      if (!mounted) return;
-      setState(() {
-        _grouped = g;
-        _loading = false;
-      });
+      if (_searching) {
+        final r = await PantryService.listGroupedPage(
+          keyword: _query,
+          pageNum: 1,
+          pageSize: _pageSize,
+        );
+        if (!mounted) return;
+        setState(() {
+          _grouped = r;
+          _searchItems = r.items;
+          _searchPage = 1;
+          _loading = false;
+        });
+      } else {
+        final results = await Future.wait([
+          PantryService.listGroupedPage(level: StockLevel.none, pageNum: 1, pageSize: _pageSize),
+          PantryService.listGroupedPage(level: StockLevel.low, pageNum: 1, pageSize: _pageSize),
+          PantryService.listGroupedPage(level: StockLevel.enough, pageNum: 1, pageSize: _pageSize),
+        ]);
+        if (!mounted) return;
+        setState(() {
+          _grouped = results[0];
+          _items[StockLevel.none]!..clear()..addAll(results[0].items);
+          _items[StockLevel.low]!..clear()..addAll(results[1].items);
+          _items[StockLevel.enough]!..clear()..addAll(results[2].items);
+          _page.updateAll((key, value) => 1);
+          _loading = false;
+        });
+      }
     } catch (e) {
+      // 静默，request 已 toast
       if (!mounted) return;
       setState(() {
         _error = '$e';
         _loading = false;
       });
+    }
+  }
+
+  /// 输入即搜：300ms 防抖后拉第 1 页（对齐原型交互）。
+  void _onQueryChanged(String v) {
+    final q = v.trim();
+    setState(() => _query = q);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), _load);
+  }
+
+  /// ✕ 清空搜索，恢复三组分页视图。
+  void _clearQuery() {
+    _debounce?.cancel();
+    _searchCtrl.clear();
+    setState(() => _query = '');
+    _load();
+  }
+
+  /// 某档加载下一页（组尾「加载更多」）。
+  Future<void> _loadMore(String level) async {
+    if (_loadingMore[level]!) return;
+    setState(() => _loadingMore[level] = true);
+    try {
+      final r = await PantryService.listGroupedPage(
+        level: level,
+        pageNum: _page[level]! + 1,
+        pageSize: _pageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _page[level] = _page[level]! + 1;
+        _items[level]!.addAll(r.items);
+        _loadingMore[level] = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore[level] = false);
+    }
+  }
+
+  /// 搜索结果加载下一页。
+  Future<void> _loadMoreSearch() async {
+    if (_searchLoading) return;
+    setState(() => _searchLoading = true);
+    try {
+      final r = await PantryService.listGroupedPage(
+        keyword: _query,
+        pageNum: _searchPage + 1,
+        pageSize: _pageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _searchPage++;
+        _searchItems.addAll(r.items);
+        _searchLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _searchLoading = false);
     }
   }
 
@@ -98,21 +230,24 @@ class _PantryListPageState extends State<PantryListPage> {
                 ],
               ),
             ),
+            _buildSearchBox(t),
             Expanded(
               child: _loading
                   ? const LoadingView()
                   : _error != null
-                      ? ErrorView(text: '加载失败', onRetry: _load) // §14.1：错误态用 ErrorView，不再用 EmptyView 顶替
+                      ? ErrorView(text: '加载失败', onRetry: _load) // §14.1：错误态用 ErrorView
                       : RefreshIndicator(
                           onRefresh: _load,
-                          child: _grouped == null || _grouped!.items.isEmpty
-                              ? ListView(
-                                  children: const [
-                                    SizedBox(height: 200),
-                                    Center(child: EmptyView(text: '暂无库存')),
-                                  ],
-                                )
-                              : _buildBody(t),
+                          child: _searching
+                              ? _buildSearchBody(t)
+                              : _totalCount == 0
+                                  ? ListView(
+                                      children: const [
+                                        SizedBox(height: 200),
+                                        Center(child: EmptyView(text: '暂无库存')),
+                                      ],
+                                    )
+                                  : _buildBody(t),
                         ),
             ),
           ],
@@ -148,41 +283,103 @@ class _PantryListPageState extends State<PantryListPage> {
     );
   }
 
+  /// 搜索框：⌕ 图标 + 输入 + ✕ 清除（输入即搜，300ms 防抖，对齐 pantry-page.html 定稿）。
+  Widget _buildSearchBox(AppTokens t) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, AppTokens.sp10, 14, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp10, vertical: 9),
+        decoration: BoxDecoration(
+          color: t.card,
+          border: Border.all(color: t.border),
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search, size: 16, color: t.caption),
+            const SizedBox(width: AppTokens.sp6),
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                style: t.textStyles.sm.copyWith(color: t.title),
+                decoration: InputDecoration(
+                  isCollapsed: true,
+                  border: InputBorder.none,
+                  hintText: '搜库存',
+                  hintStyle: t.textStyles.sm.copyWith(color: t.caption),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onChanged: _onQueryChanged,
+              ),
+            ),
+            if (_searching)
+              GestureDetector(
+                onTap: _clearQuery,
+                child: Icon(Icons.close, size: 16, color: t.caption),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 分组视图：筛选条 + 三组（按档筛选后只显对应组），组内独立分页。
   Widget _buildBody(AppTokens t) {
     final g = _grouped!;
     final f = _activeFilter;
-    // 按筛选取组（全部 = 三组都显）
     final showNone = f == 'all' || f == 'none';
     final showLow = f == 'all' || f == 'low';
     final showEnough = f == 'all' || f == 'enough';
-    final noneItems = showNone
-        ? g.items.where((i) => i.level == 'NONE').toList()
-        : const <PantryGroupedItem>[];
-    final lowItems = showLow
-        ? g.items.where((i) => i.level == 'LOW').toList()
-        : const <PantryGroupedItem>[];
-    final enoughItems = showEnough
-        ? g.items.where((i) => i.level == 'ENOUGH').toList()
-        : const <PantryGroupedItem>[];
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
       children: [
         // 筛选条（全部/缺/低/够，替代三色汇总条，原型 pantry-page 定稿）
         _buildFilterChips(t, g),
         const SizedBox(height: 4),
-        // 分组列表
-        if (noneItems.isNotEmpty) ...[
-          _buildSectionTitle(t, '用完 · ${noneItems.length}', AppTokens.error),
-          ...noneItems.map((i) => _buildRow(t, i)),
-        ],
-        if (lowItems.isNotEmpty) ...[
-          _buildSectionTitle(t, '不足 · ${lowItems.length}', AppTokens.warning),
-          ...lowItems.map((i) => _buildRow(t, i)),
-        ],
-        if (enoughItems.isNotEmpty) ...[
-          _buildSectionTitle(t, '充足 · ${enoughItems.length}', AppTokens.success),
-          ...enoughItems.map((i) => _buildRow(t, i)),
+        // 分组列表：标题计数用汇总总数（不随加载变化），组尾「加载更多」
+        if (showNone && g.none > 0)
+          _buildSection(t, StockLevel.none, '用完', AppTokens.error, g.none),
+        if (showLow && g.low > 0)
+          _buildSection(t, StockLevel.low, '不足', AppTokens.warning, g.low),
+        if (showEnough && g.enough > 0)
+          _buildSection(t, StockLevel.enough, '充足', AppTokens.success, g.enough),
+      ],
+    );
+  }
+
+  /// 搜索视图：结果平铺（服务端按 用完→不足→充足 排序）+「找到 N 个」+ 底部加载更多。
+  Widget _buildSearchBody(AppTokens t) {
+    final g = _grouped!;
+    final total = g.enough + g.low + g.none;
+    final remain = total - _searchItems.length;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+      children: [
+        Text(
+          '找到 $total 个',
+          style: t.textStyles.tiny.copyWith(
+            color: t.caption,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_searchItems.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: t.card,
+              border: Border.all(color: t.border),
+              borderRadius: BorderRadius.circular(AppTokens.rSm),
+            ),
+            child: Text('搜不到「$_query」',
+                textAlign: TextAlign.center,
+                style: t.textStyles.sm.copyWith(color: t.caption)),
+          )
+        else ...[
+          ..._searchItems.map((i) => _buildRow(t, i)),
+          if (remain > 0) _buildSearchLoadMore(t, remain),
         ],
       ],
     );
@@ -192,7 +389,7 @@ class _PantryListPageState extends State<PantryListPage> {
   Widget _buildFilterChips(AppTokens t, PantryGrouped g) {
     return Row(
       children: [
-        _chip(t, 'all', '全部', g.items.length, null),
+        _chip(t, 'all', '全部', _totalCount, null),
         const SizedBox(width: 6),
         _chip(t, 'none', '用完', g.none, AppTokens.error),
         const SizedBox(width: 6),
@@ -232,6 +429,71 @@ class _PantryListPageState extends State<PantryListPage> {
       padding: const EdgeInsets.only(top: 10, bottom: 4),
       child: Text(text,
           style: t.textStyles.micro.copyWith(color: color, letterSpacing: 1)),
+    );
+  }
+
+  /// 单档分组：标题（汇总总数）+ 已加载行 + 组尾「加载更多 · 还有 N 项」。
+  Widget _buildSection(AppTokens t, String level, String label, Color color, int total) {
+    final list = _items[level]!;
+    final remain = total - list.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSectionTitle(t, '$label · $total', color),
+        ...list.map((i) => _buildRow(t, i)),
+        if (remain > 0) _buildLoadMore(t, level, color, remain),
+      ],
+    );
+  }
+
+  /// 组尾加载更多胶囊：白底 + 本组色描边/文字，加载中禁用。
+  Widget _buildLoadMore(AppTokens t, String level, Color color, int remain) {
+    final loading = _loadingMore[level]!;
+    return Center(
+      child: GestureDetector(
+        onTap: loading ? null : () => _loadMore(level),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          decoration: BoxDecoration(
+            color: t.card,
+            border: Border.all(color: color.withAlpha(60)),
+            borderRadius: BorderRadius.circular(AppTokens.rPill),
+          ),
+          child: Text(
+            loading ? '加载中…' : '加载更多 · 还有 $remain 项',
+            style: t.textStyles.tiny.copyWith(
+              color: loading ? t.caption : color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 搜索底部加载更多（与分组胶囊同款，灰描边）。
+  Widget _buildSearchLoadMore(AppTokens t, int remain) {
+    return Center(
+      child: GestureDetector(
+        onTap: _searchLoading ? null : _loadMoreSearch,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          decoration: BoxDecoration(
+            color: t.card,
+            border: Border.all(color: t.border),
+            borderRadius: BorderRadius.circular(AppTokens.rPill),
+          ),
+          child: Text(
+            _searchLoading ? '加载中…' : '加载更多 · 还有 $remain 项',
+            style: t.textStyles.tiny.copyWith(
+              color: _searchLoading ? t.caption : t.caption,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
     );
   }
 

@@ -7,9 +7,28 @@ import '../models/page.dart';
 class PantryService {
   // ===================== APP 核心 =====================
 
-  /// 三色分组列表：GET /pantry/grouped（按档位分 够/低/缺 三组）。
+  /// 三色分组列表（全量）：GET /pantry/grouped（手动入库页建「食材→档位」map 用。
+  /// 全量拉取：需一次性拿全部档位，按 DESIGN.md §12 注释说明理由）。
   static Future<PantryGrouped> listGrouped() async {
     final data = await ApiClient.instance.get('/pantry/grouped');
+    return PantryGrouped.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// 分页三色分组列表：GET /pantry/grouped?level=&keyword=&pageNum=&pageSize=
+  /// summary 恒为 keyword 范围内三档总数（chips 计数 / 搜索「找到 N 个」），
+  /// items 按 level 过滤 + 排序 + 切片。每页 10 条（DESIGN.md §12.2）。
+  static Future<PantryGrouped> listGroupedPage({
+    String? level,
+    String? keyword,
+    int pageNum = 1,
+    int pageSize = 10,
+  }) async {
+    final data = await ApiClient.instance.get('/pantry/grouped', query: {
+      if (level != null) 'level': level,
+      if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
+      'pageNum': pageNum,
+      'pageSize': pageSize,
+    });
     return PantryGrouped.fromJson(data as Map<String, dynamic>);
   }
 

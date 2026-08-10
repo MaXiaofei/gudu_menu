@@ -40,10 +40,18 @@ public class PantryController {
         private String note;
     }
 
-    /** 三色分组列表：按档位分 用完/不足/充足 三组 + 汇总数（APP 库存页 + 管理后台共用）。 */
+    /**
+     * 三色分组列表：按档位分 用完/不足/充足 三组 + 汇总数（APP 库存页 + 管理后台共用）。
+     * 可选参数：level 按档过滤、keyword 按名匹配、pageNum/pageSize 分页（DESIGN.md §12，每页 10 条）；
+     * 不传 pageSize 时全量返回（管理后台兼容）。
+     */
     @GetMapping("/grouped")
-    public R<PantryGroupedVO> grouped() {
-        return R.ok(svc.grouped());
+    public R<PantryGroupedVO> grouped(
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer pageNum,
+            @RequestParam(required = false) Integer pageSize) {
+        return R.ok(svc.grouped(level, keyword, pageNum, pageSize));
     }
 
     /** 食材详情：当前档位 + 最近变动流水。 */

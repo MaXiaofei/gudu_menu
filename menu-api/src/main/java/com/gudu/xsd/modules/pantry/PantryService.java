@@ -149,15 +149,31 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     // ===================== 列表 / 详情 =====================
 
     /**
-     * 三色分组列表：读 ingredient_stock（每食材一行档位），分 用完/不足/充足 三组 + 汇总，
-     * 每项带最近一次变动（stock_log）。APP 库存页 + 管理后台库存页共用。
-     * 排序：NONE → LOW → ENOUGH，同状态按食材名。
+     * 三色分组列表（全量，管理后台 / 手动入库页建档位 map 用）：见 {@link #grouped(String, String, Integer, Integer)}。
+     * 全量拉取：管理后台与入库页需要一次性拿全量建 map，按 DESIGN.md §12 在注释说明理由。
      */
     public PantryGroupedVO grouped() {
+        return grouped(null, null, null, null);
+    }
+
+    /**
+     * 三色分组列表：读 ingredient_stock（每食材一行档位），分 用完/不足/充足 三组 + 汇总，
+     * 每项带最近一次变动（stock_log）。APP 库存页 + 管理后台库存页共用。
+     *
+     * <p>分页（2026-08-09 定稿，DESIGN.md §12，每页 10 条）：
+     * summary 恒为「keyword 范围内」三档总数（chips 计数 / 搜索「找到 N 个」不随分页变化）；
+     * items 按 level 过滤（可选）+ keyword 按名匹配（可选）+ 排序（NONE→LOW→ENOUGH，同状态按食材名）
+     * + pageNum/pageSize 切片。pageSize 为 null 时返回全量（无参调用兼容）。
+     */
+    public PantryGroupedVO grouped(String level, String keyword, Integer pageNum, Integer pageSize) {
+        if (level != null && !isValidLevel(level)) {
+            throw new BizException("库存档位不合法");
+        }
         List<IngredientStock> stocks = stockMapper.selectList(null);
+        PantryGroupedVO vo = new PantryGroupedVO();
+        PantryGroupedVO.Summary summary = new PantryGroupedVO.Summary();
         if (stocks.isEmpty()) {
-            PantryGroupedVO vo = new PantryGroupedVO();
-            vo.setSummary(new PantryGroupedVO.Summary());
+            vo.setSummary(summary);
             vo.setItems(List.of());
             return vo;
         }
@@ -165,21 +181,24 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         Map<Long, Ingredient> ingMap = ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ids))
                 .stream().collect(Collectors.toMap(Ingredient::getId, i -> i, (a, b) -> a));
 
+        String kw = keyword == null ? null : keyword.trim().toLowerCase();
         List<PantryGroupedVO.Item> items = new java.util.ArrayList<>();
         int enough = 0, low = 0, none = 0;
         for (IngredientStock s : stocks) {
             Ingredient ing = ingMap.get(s.getIngredientId());
             if (ing == null) continue; // 食材被删则跳过
-            String level = s.getLevel() == null ? IngredientStock.LEVEL_NONE : s.getLevel();
-            switch (level) {
+            if (kw != null && !kw.isEmpty() && !ing.getName().toLowerCase().contains(kw)) continue;
+            String lvl = s.getLevel() == null ? IngredientStock.LEVEL_NONE : s.getLevel();
+            switch (lvl) {
                 case IngredientStock.LEVEL_NONE: none++; break;
                 case IngredientStock.LEVEL_LOW: low++; break;
                 default: enough++; break;
             }
+            if (level != null && !level.equals(lvl)) continue;
             PantryGroupedVO.Item item = new PantryGroupedVO.Item();
             item.setIngredientId(s.getIngredientId());
             item.setIngredientName(ing.getName());
-            item.setLevel(level);
+            item.setLevel(lvl);
             item.setLastChange(lastChangeVo(s.getIngredientId()));
             items.add(item);
         }
@@ -188,13 +207,18 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
                 .thenComparing(it -> it.getIngredientName() == null ? "" : it.getIngredientName(),
                         java.text.Collator.getInstance()));
 
-        PantryGroupedVO vo = new PantryGroupedVO();
-        PantryGroupedVO.Summary summary = new PantryGroupedVO.Summary();
         summary.setEnough(enough);
         summary.setLow(low);
         summary.setNone(none);
         vo.setSummary(summary);
-        vo.setItems(items);
+        if (pageSize != null && pageSize > 0) {
+            int start = ((pageNum == null || pageNum < 1 ? 1 : pageNum) - 1) * pageSize;
+            int from = Math.min(start, items.size());
+            int to = Math.min(start + pageSize, items.size());
+            vo.setItems(items.subList(from, to));
+        } else {
+            vo.setItems(items);
+        }
         return vo;
     }
 
