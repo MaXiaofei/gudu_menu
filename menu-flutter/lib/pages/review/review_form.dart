@@ -10,20 +10,20 @@ import '../../services/upload_service.dart';
 /// 写点评公共表单（单菜评价 / 食集整体评价共用，V43）。
 ///
 /// 星级 + 文字 + 图片 + 分项打分（口味/难度/营养均衡/外观），提交时 dishId/menuId 二选一。
-/// 图片处理复用 UploadService 的压缩 + 上传逻辑（与录入新菜一致）。
+/// 图片处理复用 UploadService 的压缩 + 上传逻辑（与写菜谱一致）。
 class ReviewForm extends StatefulWidget {
   /// 单菜评价目标（与 [menuId] 二选一）。
   final int? dishId;
   /// 食集整体评价目标（与 [dishId] 二选一）。
   final int? menuId;
-  /// 评分标题（"给这道菜打个分" / "这顿饭整体怎么样？"）。
-  final String title;
+  /// 评分标题（单菜评价"给这道菜打个分"；食集评价不显示）。
+  final String? title;
   /// 提交成功回调（页面层负责返回/刷新）。
   final VoidCallback onSuccess;
 
   const ReviewForm({
     super.key,
-    required this.title,
+    this.title,
     this.dishId,
     this.menuId,
     required this.onSuccess,
@@ -77,7 +77,7 @@ class _ReviewFormState extends State<ReviewForm> {
     }
   }
 
-  // ===== 图片：复用 UploadService.compress（与录入新菜一致）=====
+  // ===== 图片：复用 UploadService.compress（与写菜谱一致）=====
 
   Future<void> _pickImages() async {
     final picker = ImagePicker();
@@ -169,8 +169,9 @@ class _ReviewFormState extends State<ReviewForm> {
             ),
             child: Column(
               children: [
-                Text(widget.title,
-                    style: t.textStyles.subtitle.copyWith(color: t.card)),
+                if (widget.title != null)
+                  Text(widget.title!,
+                      style: t.textStyles.subtitle.copyWith(color: t.card)),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -199,7 +200,7 @@ class _ReviewFormState extends State<ReviewForm> {
           const SizedBox(height: 16),
 
           // 文字点评
-          _sectionLabel('说点啥'),
+          _sectionLabel('评价内容'),
           const SizedBox(height: 8),
           TextField(
             controller: _textCtrl,
@@ -222,14 +223,14 @@ class _ReviewFormState extends State<ReviewForm> {
           const SizedBox(height: 16),
 
           // 图片
-          _sectionLabel('传点图'),
+          _sectionLabel('添加图片'),
           const SizedBox(height: 8),
           _buildImageSection(),
           const SizedBox(height: 16),
 
           // 分项打分
           if (_dims.isNotEmpty) ...[
-            _sectionLabel('分项打分'),
+            _sectionLabel('评分'),
             const SizedBox(height: 8),
             _buildDimensionScores(),
             const SizedBox(height: 24),

@@ -54,7 +54,7 @@ class _MenuReviewPageState extends State<MenuReviewPage> {
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('评价这顿饭')),
+      appBar: AppBar(title: const Text('评价')),
       body: _loading
           ? const LoadingView()
           : _error != null
@@ -136,10 +136,10 @@ class _MenuReviewPageState extends State<MenuReviewPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('食集整体评价', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+                Text('这顿饭怎么样？', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
                 const SizedBox(height: 8),
                 if (mr == null) ...[
-                  Text('这顿饭整体怎么样？', style: t.textStyles.md.copyWith(color: t.title)),
+                  Text('还没有评价', style: t.textStyles.md.copyWith(color: t.title)),
                 ] else ...[
                   Row(children: [
                     _stars(mr.starRating ?? 0, t.primary, 20),
@@ -177,7 +177,7 @@ class _MenuReviewPageState extends State<MenuReviewPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('这顿饭的菜', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+        Text('菜品', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
         const SizedBox(height: 8),
         ...vo.dishes.map((d) => _dishRow(t, d)),
       ],

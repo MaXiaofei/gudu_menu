@@ -24,7 +24,7 @@ class _MenuReviewFormPageState extends State<MenuReviewFormPage> {
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('评价这顿饭')),
+      appBar: AppBar(title: const Text('写评价')),
       body: Column(
         children: [
           // 食集头（名称 + 菜数副信息，对齐统一评价页）
@@ -52,8 +52,7 @@ class _MenuReviewFormPageState extends State<MenuReviewFormPage> {
                     children: [
                       Text(widget.menuName,
                           style: t.textStyles.cardTitle.copyWith(color: t.title)),
-                      Text('这顿饭整体 · 口味/难度/营养均衡/外观',
-                          style: t.textStyles.sm.copyWith(color: t.caption)),
+
                     ],
                   ),
                 ),
@@ -63,7 +62,8 @@ class _MenuReviewFormPageState extends State<MenuReviewFormPage> {
           Expanded(
             child: ReviewForm(
               menuId: widget.menuId,
-              title: '这顿饭整体怎么样？',
+              // 评分标题不显示（正式版只留星级+分项）
+              title: null,
               onSuccess: () {
                 if (mounted) context.pop();
               },

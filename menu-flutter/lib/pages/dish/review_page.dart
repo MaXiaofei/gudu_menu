@@ -17,7 +17,7 @@ class _ReviewPageState extends State<ReviewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('写点评')),
+      appBar: AppBar(title: const Text('写评价')),
       body: ReviewForm(
         dishId: widget.dishId,
         title: '给这道菜打个分',
