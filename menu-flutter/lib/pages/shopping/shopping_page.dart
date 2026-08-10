@@ -769,7 +769,14 @@ class _ShoppingPageState extends State<ShoppingPage> {
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: t.primary, foregroundColor: Colors.white),
+                // 全局主题是 Size(inf,48)（全宽 CTA），本按钮在 Row（无界宽）里
+                // 会触发 "infinite width" 布局崩溃，必须显式有限 minimumSize
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: t.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                ),
                 onPressed: () {
                   final name = nameCtrl.text.trim();
                   if (name.isEmpty) return;
