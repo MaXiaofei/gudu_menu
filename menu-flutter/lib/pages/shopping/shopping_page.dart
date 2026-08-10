@@ -49,6 +49,10 @@ class _ShoppingPageState extends State<ShoppingPage> {
   final _addNameCtrl = TextEditingController();
   final _addAmountCtrl = TextEditingController();
 
+  // 列表批量删除选择模式（§15：全选 + 批量提交）
+  bool _listSelectMode = false;
+  final Set<int> _selectedListIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -151,16 +155,28 @@ class _ShoppingPageState extends State<ShoppingPage> {
     final t = AppTokens.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('采购清单'),
+        title: Text(_listSelectMode ? '已选 ${_selectedListIds.length} 个' : '采购清单'),
         actions: [
-          // 操作行：新建（自定义采购入口）
-          TextButton.icon(
-            onPressed: _createList,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('新建清单'),
-            style: TextButton.styleFrom(foregroundColor: t.primary),
-          ),
-          const SizedBox(width: 8),
+          if (_listSelectMode)
+            TextButton(
+              onPressed: _exitListSelectMode,
+              child: Text('取消', style: TextStyle(color: t.caption)),
+            )
+          else ...[
+            // 批量删除（§15 批量操作）
+            TextButton(
+              onPressed: () => setState(() => _listSelectMode = true),
+              child: Text('批量删除', style: TextStyle(color: AppTokens.error)),
+            ),
+            // 操作行：新建（自定义采购入口）
+            TextButton.icon(
+              onPressed: _createList,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('新建清单'),
+              style: TextButton.styleFrom(foregroundColor: t.primary),
+            ),
+            const SizedBox(width: 8),
+          ],
         ],
       ),
       body: _loading
@@ -184,6 +200,100 @@ class _ShoppingPageState extends State<ShoppingPage> {
                     },
                   ),
                 ),
+      bottomNavigationBar: _listSelectMode ? _buildListSelectBar(t) : null,
+    );
+  }
+
+  /// 批量删除底部操作条：全选 + 删除 N 个（§15.1 全选铁律）。
+  Widget _buildListSelectBar(AppTokens t) {
+    final allSelected =
+        _lists.isNotEmpty && _selectedListIds.length == _lists.length;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Row(children: [
+          TextButton(
+            onPressed: () => setState(() {
+              if (allSelected) {
+                _selectedListIds.clear();
+              } else {
+                _selectedListIds.addAll(_lists.map((e) => e.id));
+              }
+            }),
+            child: Text(allSelected ? '取消全选' : '全选',
+                style: t.textStyles.sm.copyWith(color: t.primary, fontWeight: FontWeight.w800)),
+          ),
+          const Spacer(),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTokens.error,
+              side: const BorderSide(color: AppTokens.error),
+            ),
+            onPressed: _selectedListIds.isEmpty ? null : _confirmDeleteLists,
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: Text('删除 ${_selectedListIds.length} 个'),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  void _exitListSelectMode() {
+    setState(() {
+      _listSelectMode = false;
+      _selectedListIds.clear();
+    });
+  }
+
+  void _toggleListSelect(int id) {
+    setState(() {
+      if (!_selectedListIds.remove(id)) _selectedListIds.add(id);
+    });
+  }
+
+  /// 批量删除：确认后逐个删除（清单数量少，循环调用即可）。
+  Future<void> _confirmDeleteLists() async {
+    final ids = _selectedListIds.toList();
+    if (ids.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除采购单'),
+        content: Text('确定删除选中的 ${ids.length} 张采购单？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('删除', style: TextStyle(color: AppTokens.error))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      for (final id in ids) {
+        await ShoppingService.deleteList(id);
+      }
+      _snack('已删除 ${ids.length} 张采购单');
+      _exitListSelectMode();
+      _loadLists();
+    } catch (_) {
+      _snack('删除失败');
+    }
+  }
+
+  /// 批量选择勾选圈：选中=实心勾，未选=空心。
+  Widget _selectCircle(bool selected, AppTokens t) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: selected ? t.primary : null,
+        border: Border.all(color: selected ? t.primary : t.border, width: 1.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: selected
+          ? const Icon(Icons.check, size: 14, color: Colors.white)
+          : null,
     );
   }
 
@@ -221,16 +331,20 @@ class _ShoppingPageState extends State<ShoppingPage> {
           borderRadius: BorderRadius.circular(AppTokens.rMd),
           side: BorderSide(color: t.border)),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: t.primary.withAlpha(25),
-          child: Text('#$seq', style: t.textStyles.sm.copyWith(color: t.primary)),
-        ),
+        leading: _listSelectMode
+            ? _selectCircle(_selectedListIds.contains(l.id), t)
+            : CircleAvatar(
+                backgroundColor: t.primary.withAlpha(25),
+                child: Text('#$seq', style: t.textStyles.sm.copyWith(color: t.primary)),
+              ),
         title: Text(title, style: t.textStyles.body.copyWith(fontWeight: FontWeight.w600)),
         subtitle: Text(l.dateRange.isNotEmpty ? l.dateRange : displayTime,
             style: t.textStyles.sm.copyWith(color: t.caption)),
-        trailing: Icon(Icons.chevron_right, color: t.caption),
-        onTap: () => _openDetail(l.id),
-        onLongPress: () => _confirmDeleteList(l.id),
+        trailing: _listSelectMode
+            ? const SizedBox.shrink()
+            : Icon(Icons.chevron_right, color: t.caption),
+        onTap: _listSelectMode ? () => _toggleListSelect(l.id) : () => _openDetail(l.id),
+        onLongPress: _listSelectMode ? null : () => _confirmDeleteList(l.id),
       ),
     );
   }
@@ -833,6 +947,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
                     if (ctx.mounted) Navigator.pop(ctx);
                     _openDetail(_detail!.id);
                   } catch (e) {
+                    debugPrint('添加采购项失败: $e'); // 便于日志定位
                     if (ctx.mounted) {
                       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('添加失败: $e')));
                     }
