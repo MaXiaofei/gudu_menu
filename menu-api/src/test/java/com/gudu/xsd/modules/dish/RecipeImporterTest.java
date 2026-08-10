@@ -120,6 +120,31 @@ class RecipeImporterTest {
         assertThat(st.get(0).imageUrl).contains("/s1.jpg");
     }
 
+    /** 下厨房真实页面结构：ul.ings > li（食材名 a + 用量 span）。 */
+    @Test
+    void 下厨房_ul_ings_li结构_用料全解析() throws Exception {
+        String html = """
+            <html><body>
+              <h1 class="recipe-name">番茄炒蛋</h1>
+              <ul class="ings">
+                <li><a href="/category/1009064/">西红柿</a><span class="unit">2个</span></li>
+                <li><a href="/category/1009071/">鸡蛋</a><span class="unit">3个</span></li>
+                <li><a href="/category/1009223/">盐</a><span class="unit">适量</span></li>
+              </ul>
+              <div class="steps"><div class="step"><p class="text">番茄切块</p></div></div>
+            </body></html>
+            """;
+        Object parsed = invokeParse("parseXiachufang", html);
+
+        assertThat(name(parsed)).isEqualTo("番茄炒蛋");
+        var ings = ingredients(parsed);
+        assertThat(ings).hasSize(3);
+        assertThat(ingName(ings.get(0))).isEqualTo("西红柿");
+        assertThat(ingAmount(ings.get(0))).isEqualByComparingTo("2");
+        assertThat(ingName(ings.get(2))).isEqualTo("盐");
+        assertThat(ingAmount(ings.get(2))).isNull(); // 适量 → amount 空
+    }
+
     /** 美食杰结构。 */
     @Test
     void 美食杰_解析菜名食材步骤() throws Exception {

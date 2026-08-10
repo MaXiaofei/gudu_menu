@@ -116,8 +116,8 @@ public class RecipeImporter {
         r.coverUrl = firstAttr(doc, "img.recipe-show-img", "src",
                 ".recipe-show img", "src", "meta[property=og:image]", "content");
 
-        // 食材：下厨房新版结构 .ingredients li，旧版 .ings tr
-        Elements ingEls = doc.select(".ingredients li, .ings tr, .ingredient-list li");
+        // 食材：下厨房经典 ul.ings > li、新版 .ingredients li / .ingredient-list li、旧表格 .ings tr
+        Elements ingEls = doc.select(".ings li, .ingredients li, .ingredient-list li, .ings tr");
         for (Element el : ingEls) {
             String line = el.text();
             if (line == null || line.isBlank()) continue;
