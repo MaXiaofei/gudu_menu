@@ -16,8 +16,8 @@ class FoodLogService {
     return FoodLogMonth.fromJson(data as Map<String, dynamic>);
   }
 
-  /// 按菜汇总（次数降序 + ★均分）。
-  /// 按菜汇总（month=0 表示全年范围）。
+  /// 按菜汇总（次数降序 + ★均分；month=0 表示全年范围）。
+  /// 统计聚合（DESIGN.md §12.5）：全量聚合，不分页。
   static Future<FoodLogByDish> byDish(int year, int month) async {
     final data = await ApiClient.instance.get('/food-log/by-dish', query: {
       'month': month > 0 ? '$year-${month.toString().padLeft(2, '0')}' : '$year',
@@ -25,7 +25,7 @@ class FoodLogService {
     return FoodLogByDish.fromJson(data as Map<String, dynamic>);
   }
 
-  /// 年视图：12 个月做饭次数。
+  /// 年视图：12 个月做饭次数。统计聚合（§12.5）：全量，不分页。
   static Future<FoodLogYear> year(int year) async {
     final data = await ApiClient.instance
         .get('/food-log/year', query: {'year': year});
