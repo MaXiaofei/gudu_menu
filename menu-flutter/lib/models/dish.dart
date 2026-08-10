@@ -7,6 +7,10 @@ class Dish {
   final int? difficulty;
   final String? note;
   final String? coverUrl;
+  /// 来源名（自己创建/下厨房/美食杰/豆果/抖音…，V49）。
+  final String? sourceName;
+  /// 第三方来源地址（导入时记录，V49）。
+  final String? sourceUrl;
   final num? price;
   /// 菜系/分类/标签名（后端 fillRelNames 回填，列表与详情均返回）。
   final List<String> cuisineNames;
@@ -23,6 +27,8 @@ class Dish {
     this.difficulty,
     this.note,
     this.coverUrl,
+    this.sourceName,
+    this.sourceUrl,
     this.price,
     this.cuisineNames = const [],
     this.categoryNames = const [],
@@ -38,6 +44,8 @@ class Dish {
         difficulty: (j['difficulty'] as num?)?.toInt(),
         note: j['note'] as String?,
         coverUrl: j['coverUrl'] as String?,
+        sourceName: j['sourceName'] as String?,
+        sourceUrl: j['sourceUrl'] as String?,
         price: j['price'] as num?,
         cuisineNames: (j['cuisineNames'] as List?)
                 ?.map((e) => e.toString())

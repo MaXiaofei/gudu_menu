@@ -292,9 +292,29 @@ class _DishDetailPageState extends State<DishDetailPage> {
             title: _detail?.dish.name,
             subtitle: _detail == null
                 ? null
-                : Text(
-                    '备料 ${_detail!.dish.prepTime ?? 0}分 · 烹饪 ${_detail!.dish.cookTime ?? 0}分 · 难度 ${_detail!.dish.difficulty ?? '-'}/5',
-                    style: t.textStyles.sm.copyWith(color: t.caption),
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        [
+                          if (_detail!.dish.prepTime != null)
+                            '备料 ${_detail!.dish.prepTime}分',
+                          if (_detail!.dish.cookTime != null)
+                            '烹饪 ${_detail!.dish.cookTime}分',
+                          '难度 ${_detail!.dish.difficulty ?? '-'}/5',
+                        ].join(' · '),
+                        style: t.textStyles.sm.copyWith(color: t.caption),
+                      ),
+                      // 来源（V49：自己创建/下厨房/美食杰…；导入菜谱显示来源名）
+                      if (_detail!.dish.sourceName != null &&
+                          _detail!.dish.sourceName!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text('来源：${_detail!.dish.sourceName}',
+                              style: t.textStyles.xs.copyWith(
+                                  color: t.caption.withValues(alpha: 0.8))),
+                        ),
+                    ],
                   ),
           ),
           Expanded(

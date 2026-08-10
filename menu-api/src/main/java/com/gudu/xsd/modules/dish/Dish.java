@@ -38,6 +38,12 @@ public class Dish {
     /** 来源：ORIGINAL(自创) / IMPORT(导入)。 */
     private String source;
 
+    /** 来源名（自己创建/下厨房/美食杰/豆果/抖音…，V49）。 */
+    private String sourceName;
+
+    /** 第三方来源地址（导入时记录，V49）。 */
+    private String sourceUrl;
+
     private LocalDateTime createTime;
 
     @TableLogic

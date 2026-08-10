@@ -108,6 +108,16 @@ public class RecipeImporter {
         }
     }
 
+    /** 第三方站点名（来源名，V49）：下厨房/美食杰/豆果美食/其他。 */
+    static String siteNameOf(String url) {
+        if (url == null) return "外部导入";
+        String host = url.toLowerCase();
+        if (host.contains("xiachufang.com")) return "下厨房";
+        if (host.contains("meishij.net")) return "美食杰";
+        if (host.contains("douguo.com")) return "豆果美食";
+        return "外部导入";
+    }
+
     private static String hostOf(String url) {
         try {
             java.net.URL u = new java.net.URL(url);
@@ -303,13 +313,14 @@ public class RecipeImporter {
         dish.setName(parsed.name);
         dish.setCoverUrl(parsed.coverUrl);
 
+        // 来源名 + 第三方地址独立存库（V49），note 只留解析质量提示
+        dish.setSourceName(siteNameOf(sourceUrl));
+        dish.setSourceUrl(sourceUrl);
+        dish.setSource("IMPORT");
         StringBuilder note = new StringBuilder();
         if (parsed.unknownSite) {
-            note.append("【URL 导入】该网站结构未专门适配，解析可能不全。");
-        } else {
-            note.append("【URL 导入】");
+            note.append("该网站结构未专门适配，解析可能不全");
         }
-        note.append(" 来源：").append(sourceUrl);
 
         List<DishStep> steps = new ArrayList<>();
         if (parsed.steps != null && !parsed.steps.isEmpty()) {

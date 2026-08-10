@@ -120,6 +120,16 @@ class RecipeImporterTest {
         assertThat(st.get(0).imageUrl).contains("/s1.jpg");
     }
 
+    /** 来源名映射（V49）：下厨房/美食杰/豆果/其他。 */
+    @Test
+    void 站点名映射() {
+        assertThat(RecipeImporter.siteNameOf("https://www.xiachufang.com/recipe/1/")).isEqualTo("下厨房");
+        assertThat(RecipeImporter.siteNameOf("https://www.meishij.net/zuofa/a.html")).isEqualTo("美食杰");
+        assertThat(RecipeImporter.siteNameOf("https://www.douguo.com/caipu/b")).isEqualTo("豆果美食");
+        assertThat(RecipeImporter.siteNameOf("https://example.com/x")).isEqualTo("外部导入");
+        assertThat(RecipeImporter.siteNameOf(null)).isEqualTo("外部导入");
+    }
+
     /** 404/错误页兜底误判：h1 抓到「404 Not Found」不能当菜名（isErrorPageName）。 */
     @Test
     void 错误页标题_不能当菜名() {
@@ -262,7 +272,10 @@ class RecipeImporterTest {
         assertThat(dto.getIngredients().get(0).getIngredientId()).isEqualTo(7L);
         assertThat(dto.getIngredients().get(0).getAmount()).isEqualByComparingTo("300");
         assertThat(dto.getSteps()).hasSize(1);
-        assertThat(dto.getDish().getNote()).contains("URL 导入");
+        // V49：来源名 + 地址独立存库，note 不再塞「URL 导入」来源
+        assertThat(dto.getDish().getSourceName()).isEqualTo("下厨房");
+        assertThat(dto.getDish().getSourceUrl()).contains("xiachufang.com");
+        assertThat(dto.getDish().getSource()).isEqualTo("IMPORT");
     }
 
     /** 步骤图片 absUrl 转绝对地址。 */

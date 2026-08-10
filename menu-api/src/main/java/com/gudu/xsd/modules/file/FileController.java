@@ -16,11 +16,13 @@ import java.util.Map;
  * 文件上传：原图 + 缩略图（400px 宽）。
  *
  * 目录结构（uploadDir 由 gudu.upload-dir 配置，各环境独立）：
+ * 按日期分目录（YYYYMMDD，上传时无当天目录自动创建，便于归档维护）：
  *   {uploadDir}/
- *     original/   ← 原图
- *     thumbnail/  ← 缩略图（400px 宽，保持比例）
+ *     original/{YYYYMMDD}/   ← 原图（前端已压缩）
+ *     thumbnail/{YYYYMMDD}/  ← 缩略图（400px 宽，保持比例）
  *
  * 响应格式：{ url（原图）, thumbnailUrl（缩略图）, name（原始文件名）}。
+ * URL 直接入库，前端拿地址自行加载。
  */
 @RestController
 @RequestMapping("/file")
@@ -41,9 +43,13 @@ public class FileController {
             ext = ".jpg";
         }
         String baseName = System.currentTimeMillis() + ext;
+        // 按日期分目录（YYYYMMDD）：没有当天目录就创建，后期按日期归档维护
+        String day = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        String origSub = "original/" + day;
+        String thumbSub = "thumbnail/" + day;
 
-        File originalDir = new File(uploadDir, "original").getAbsoluteFile();
-        File thumbnailDir = new File(uploadDir, "thumbnail").getAbsoluteFile();
+        File originalDir = new File(uploadDir, origSub).getAbsoluteFile();
+        File thumbnailDir = new File(uploadDir, thumbSub).getAbsoluteFile();
         ensureDir(originalDir);
         ensureDir(thumbnailDir);
 
@@ -62,8 +68,8 @@ public class FileController {
         // 带 context-path /gudu 前缀，前端 <img src> 直接可用
         String prefix = "/gudu/uploads/";
         return R.ok(Map.of(
-                "url", prefix + "original/" + baseName,
-                "thumbnailUrl", prefix + "thumbnail/" + baseName,
+                "url", prefix + origSub + "/" + baseName,
+                "thumbnailUrl", prefix + thumbSub + "/" + baseName,
                 "name", original
         ));
     }
