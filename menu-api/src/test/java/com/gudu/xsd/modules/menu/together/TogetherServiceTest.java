@@ -271,7 +271,7 @@ class TogetherServiceTest {
         given(joinMapper.selectOne(any())).willReturn(null);
 
         assertThatThrownBy(() -> svc.together(7L, TogetherService.Identity.guest("nobody")))
-                .hasMessageContaining("加入聚餐");
+                .hasMessageContaining("凭证");
     }
 
     @Test
@@ -324,7 +324,7 @@ class TogetherServiceTest {
         given(joinMapper.selectOne(any())).willReturn(null);
 
         assertThatThrownBy(() -> svc.updateNickname(7L, TogetherService.Identity.guest("nobody"), "小王"))
-                .hasMessageContaining("加入聚餐");
+                .hasMessageContaining("凭证");
     }
 
     // ===================== 菜谱搜索 =====================
@@ -417,7 +417,7 @@ class TogetherServiceTest {
         given(joinMapper.selectOne(any())).willReturn(null);
 
         assertThatThrownBy(() -> svc.addItem(7L, TogetherService.Identity.guest("nobody"), 10L, null, null))
-                .hasMessageContaining("加入聚餐");
+                .hasMessageContaining("凭证");
     }
 
     // ===================== 删菜 =====================

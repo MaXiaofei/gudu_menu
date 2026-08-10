@@ -328,7 +328,9 @@ public class TogetherService {
         }
         MenuJoin join = joinMapper.selectOne(new QueryWrapper<MenuJoin>()
                 .eq("menu_id", menuId).eq("guest_key", identity.guestKey()));
-        if (join == null) throw new BizException("请先加入聚餐");
+        if (join == null) {
+            throw new BizException("访客凭证已失效，请重新打开邀请链接加入");
+        }
         return join;
     }
 

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
 import '../../core/image_helper.dart';
 import '../../models/menu.dart';
@@ -805,10 +806,7 @@ class _TogetherTabState extends State<_TogetherTab> {
   @override
   void didUpdateWidget(covariant _TogetherTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.refreshTick != _lastTick) {
-      _lastTick = widget.refreshTick;
-      _load(quiet: true);
-    }
+    // 不随 refreshTick 重载：聚餐清单由 10s 轮询刷新（避免食集详情每次刷新触发一次失败 toast）
   }
 
   @override
@@ -890,14 +888,25 @@ class _TogetherTabState extends State<_TogetherTab> {
     if (_loading && _vo == null) return const LoadingView();
     if (_err != null && _vo == null) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('加载聚餐失败：$_err',
-                style: t.textStyles.sm.copyWith(color: t.caption)),
-            const SizedBox(height: AppTokens.sp12),
-            OutlinedButton(onPressed: _load, child: const Text('重试')),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(AppTokens.sp24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('加载聚餐失败：$_err',
+                  style: t.textStyles.sm.copyWith(color: t.caption),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: AppTokens.sp8),
+              // 诊断：区分「未登录」与「登录态正常但请求失败」
+              Text(
+                  ApiClient.instance.token == null
+                      ? '当前未登录，请先登录后再试'
+                      : '已登录；若持续失败，请把本页文字反馈给开发',
+                  style: t.textStyles.tiny.copyWith(color: t.primary)),
+              const SizedBox(height: AppTokens.sp12),
+              OutlinedButton(onPressed: _load, child: const Text('重试')),
+            ],
+          ),
         ),
       );
     }
