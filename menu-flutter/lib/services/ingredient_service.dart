@@ -45,6 +45,22 @@ class IngredientService {
     return [];
   }
 
+  /// 按名称模糊搜索食材库（写菜谱「加用料」弹层用）：GET /ingredient?keyword=xx
+  static Future<List<IngredientItem>> search(String keyword) async {
+    final data = await ApiClient.instance.get('/ingredient', query: {
+      'keyword': keyword,
+      'pageNum': 1,
+      'pageSize': 20,
+    });
+    final records = (data is Map) ? data['records'] : null;
+    if (records is List) {
+      return records
+          .map((e) => IngredientItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
   /// 新增字典项（自定义单位/分类），返回新 id。
   static Future<int> upsertDict(String name, String group) async {
     final result = await ApiClient.instance.post('/dict', body: {
@@ -53,6 +69,46 @@ class IngredientService {
     });
     return (result as num).toInt();
   }
+
+  /// 保存食材克换算（新建食材共用弹层「克换算」用）：
+  /// PUT /ingredient/{id}/unit-grams，rows = [{unitId, gramsPerUnit, isDefault}]。
+  static Future<void> saveUnitGrams(
+      int ingredientId, List<Map<String, dynamic>> rows) async {
+    await ApiClient.instance.put('/ingredient/$ingredientId/unit-grams',
+        body: rows);
+  }
+}
+
+/// 用量自由文本解析（写菜谱用料，§16.3）：
+/// 「2 个」→ (2, 个id)；「500 g」→ (500, g id)；「2」→ (2, g 默认)；
+/// 「适量 / 少许 / 一小把」→ (null, 量词单位id)（量词作为单位在字典维护，V46）；
+/// 字典外的自由文本 → (null, null)。单位名只在 [units] 字典存在时匹配。
+(double?, int?) parseAmountText(String text, List<DictItem> units) {
+  if (text.isEmpty) return (null, null);
+  final m = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-zA-Z\u4e00-\u9fa5]+)?$')
+      .firstMatch(text);
+  if (m != null) {
+    final amount = double.tryParse(m.group(1)!);
+    if (amount != null) {
+      final unitName = m.group(2)?.toLowerCase();
+      if (unitName == null || unitName.isEmpty) {
+        // 纯数字 → 默认 g（与后端旧数据一致）
+        final g = units.isEmpty
+            ? null
+            : units.firstWhere((u) => u.name == 'g', orElse: () => units.first);
+        return (amount, g?.id);
+      }
+      if (units.isEmpty) return (amount, null);
+      final unit = units.firstWhere((u) => u.name.toLowerCase() == unitName,
+          orElse: () => units.first);
+      return (amount, unit.name.toLowerCase() == unitName ? unit.id : null);
+    }
+  }
+  // 非数字：「适量 / 少许 / 一小把」等量词按字典精确匹配 → (null, 量词id)
+  if (units.isEmpty) return (null, null);
+  final fuzzy =
+      units.where((u) => u.name == text.trim()).toList();
+  return fuzzy.isEmpty ? (null, null) : (null, fuzzy.first.id);
 }
 
 /// 字典项（单位 / 采购分类）。

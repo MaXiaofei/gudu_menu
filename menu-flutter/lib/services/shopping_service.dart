@@ -18,20 +18,6 @@ class ShoppingService {
     );
   }
 
-  /// 列表（按创建时间倒序）：GET /shopping?pageSize=100
-  static Future<List<ShoppingList>> list() async {
-    final data = await ApiClient.instance.get('/shopping', query: {
-      'pageNum': 1,
-      'pageSize': 100,
-    });
-    if (data is Map && data['records'] is List) {
-      return (data['records'] as List)
-          .map((e) => ShoppingList.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-    return [];
-  }
-
   /// 详情：GET /shopping/{id}
   static Future<ShoppingListVO> detail(int id) async {
     final data = await ApiClient.instance.get('/shopping/$id');

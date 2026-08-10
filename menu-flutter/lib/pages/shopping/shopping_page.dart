@@ -26,7 +26,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
   // 列表
   List<ShoppingList> _lists = [];
   bool _loading = true;
-  static const _pageSize = 15;
+  static const _pageSize = 10; // DESIGN.md §12.2（默认 10 条/页）
   final _scroll = ScrollController();
   int _page = 1;
   bool _hasMore = false;

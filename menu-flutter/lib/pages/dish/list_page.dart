@@ -18,9 +18,14 @@ enum _SortMode { cooked, latest }
 ///
 /// [selectForMenuId] 非空 = 选择模式：从食集详情「+ 加菜」进来，
 /// 点菜卡直接加入该食集并返回（原型「加菜（去菜谱找）」）。
+///
 class DishListPage extends StatefulWidget {
   final int? selectForMenuId;
-  const DishListPage({super.key, this.selectForMenuId});
+
+  /// 外部跳转要求按「最新」排序（写菜谱发布成功后 ?sort=latest，§16）。
+  final bool sortLatest;
+  const DishListPage(
+      {super.key, this.selectForMenuId, this.sortLatest = false});
   @override
   State<DishListPage> createState() => _DishListPageState();
 }
@@ -29,7 +34,7 @@ class _DishListPageState extends State<DishListPage> {
   final _scroll = ScrollController();
   final _keywordCtrl = TextEditingController();
   final _searchFocus = FocusNode();
-  static const _pageSize = 15; // DESIGN.md §12.2 列表分页约定
+  static const _pageSize = 10; // DESIGN.md §12.2（默认 10 条/页）
 
   List<Dish> _dishes = [];
   int _page = 1;
@@ -45,13 +50,28 @@ class _DishListPageState extends State<DishListPage> {
   List<DictItem> _tags = [];
   int? _selectedTagId; // null = 全部
 
+  // 菜系筛选条（§16：与分类同款样式，可叠加）
+  List<DictItem> _cuisines = [];
+  int? _selectedCuisineId; // null = 全部
+
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    if (widget.sortLatest) _sort = _SortMode.latest;
     _searchFocus.addListener(() => setState(() {}));
     _loadTags();
     _reload();
+  }
+
+  @override
+  void didUpdateWidget(DishListPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 发布成功跳转 ?sort=latest：页面已存在（IndexedStack 状态保持）时强制切回最新
+    if (widget.sortLatest && _sort != _SortMode.latest) {
+      setState(() => _sort = _SortMode.latest);
+      _reload();
+    }
   }
 
   @override
@@ -76,6 +96,8 @@ class _DishListPageState extends State<DishListPage> {
     try {
       final tags = await IngredientService.listDictByGroup('tag');
       if (mounted) setState(() => _tags = tags);
+      final cuisines = await IngredientService.listDictByGroup('cuisine');
+      if (mounted) setState(() => _cuisines = cuisines);
     } catch (_) {}
   }
 
@@ -84,6 +106,7 @@ class _DishListPageState extends State<DishListPage> {
       final r = await DishService.search(
         keyword: _keywordCtrl.text.trim().isEmpty ? null : _keywordCtrl.text.trim(),
         tagIds: _selectedTagId == null ? null : [_selectedTagId!],
+        cuisineIds: _selectedCuisineId == null ? null : [_selectedCuisineId!],
         sort: _sort == _SortMode.cooked ? 'cooked' : null,
         pageNum: pageNum,
         pageSize: _pageSize,
@@ -125,7 +148,7 @@ class _DishListPageState extends State<DishListPage> {
         bottom: false,
         child: Column(
           children: [
-            // Tab 主页无标题（ActionBar）；picker 模式（食集「+ 加菜」push 进入）顶部加返回箭头行
+            // 顶部：picker 模式（食集「+ 加菜」push 进入）显示返回箭头；Tab 主页用 ActionBar
             if (widget.selectForMenuId != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -144,10 +167,12 @@ class _DishListPageState extends State<DishListPage> {
                 ),
               )
             else
+              // 写菜谱入口已迁到「我的」Tab（§16）；菜谱页无操作
               const ActionBar(),
             if (widget.selectForMenuId != null) _buildSelectHint(t),
             _buildSearchBox(t),
             if (_tags.isNotEmpty) _buildTagBar(t),
+            if (_cuisines.isNotEmpty) _buildCuisineBar(t),
             _buildSortBar(t),
             Expanded(
               child: _firstLoading
@@ -234,10 +259,11 @@ class _DishListPageState extends State<DishListPage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, AppTokens.sp4, 14, AppTokens.sp8),
       child: Container(
+        // 浅色细边框圆角框（柔和输入区域，不是橙色粗边框胶囊）
         decoration: BoxDecoration(
           color: t.card,
           borderRadius: BorderRadius.circular(AppTokens.rMd),
-          border: Border.all(color: t.primary, width: 1.5),
+          border: Border.all(color: t.border, width: 1),
         ),
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 9),
         child: Row(
@@ -291,31 +317,46 @@ class _DishListPageState extends State<DishListPage> {
     );
   }
 
-  /// 分类标签条：横向滚动，全部(深色实心) + 各 tag(白底描边)（原型行26-32）。
+  /// 分类标签行：全部 + tag 横排横向滚动，选中深色高亮（原型行26-32）。
   Widget _buildTagBar(AppTokens t) {
+    return _dictBar(t, _tags, _selectedTagId, (id) {
+      setState(() => _selectedTagId = id);
+      _reload();
+    });
+  }
+
+  /// 菜系标签行：全部 + cuisine 横排，与分类同款样式（§16，参考下厨房 APP 筛选栏）。
+  Widget _buildCuisineBar(AppTokens t) {
+    return _dictBar(t, _cuisines, _selectedCuisineId, (id) {
+      setState(() => _selectedCuisineId = id);
+      _reload();
+    });
+  }
+
+  /// 筛选标签行共用：首项「全部」+ 字典 chips，横向滚动，选中深色高亮。
+  Widget _dictBar(
+      AppTokens t, List<DictItem> dict, int? selectedId, ValueChanged<int?> onSelect) {
     return SizedBox(
       height: 36,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(AppTokens.sp12, 0, AppTokens.sp12, AppTokens.sp8),
+        padding: const EdgeInsets.fromLTRB(
+            AppTokens.sp12, 0, AppTokens.sp12, AppTokens.sp8),
         children: [
-          _tagChip(t, null, '全部'),
-          ..._tags.map((tag) => Padding(
+          _dictChip(t, null, '全部', selectedId == null, () => onSelect(null)),
+          ...dict.map((item) => Padding(
                 padding: const EdgeInsets.only(left: 6),
-                child: _tagChip(t, tag.id, tag.name),
+                child: _dictChip(
+                    t, item.id, item.name, selectedId == item.id, () => onSelect(item.id)),
               )),
         ],
       ),
     );
   }
 
-  Widget _tagChip(AppTokens t, int? id, String name) {
-    final selected = _selectedTagId == id;
+  Widget _dictChip(AppTokens t, int? id, String name, bool selected, VoidCallback onTap) {
     return GestureDetector(
-      onTap: () {
-        setState(() => _selectedTagId = id);
-        _reload();
-      },
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
@@ -333,7 +374,6 @@ class _DishListPageState extends State<DishListPage> {
     );
   }
 
-  /// 排序行：左"X 道" + 右"做过最多/最新 ▾"（原型行34-37）。
   Widget _buildSortBar(AppTokens t) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -342,25 +382,42 @@ class _DishListPageState extends State<DishListPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text('$_total 道', style: t.textStyles.xs),
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _sort = _sort == _SortMode.cooked ? _SortMode.latest : _SortMode.cooked;
-              });
-              _reload();
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _sort == _SortMode.cooked ? '做过最多' : '最新',
-                  style: t.textStyles.sectionLabel.copyWith(color: t.accent),
-                ),
-                Icon(Icons.arrow_drop_down, size: 14, color: t.accent),
-              ],
-            ),
+          // 排序选项（下厨房式：横排可切换，选中深色高亮）
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _sortChip(t, '最新', _SortMode.latest),
+              const SizedBox(width: 6),
+              _sortChip(t, '做过最多', _SortMode.cooked),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _sortChip(AppTokens t, String label, _SortMode mode) {
+    final selected = _sort == mode;
+    return InkWell(
+      onTap: () {
+        if (selected) return;
+        setState(() => _sort = mode);
+        _reload();
+      },
+      borderRadius: BorderRadius.circular(AppTokens.rPill),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? t.title : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTokens.rPill),
+        ),
+        child: Text(
+          label,
+          style: t.textStyles.xs.copyWith(
+            color: selected ? t.card : t.caption,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }

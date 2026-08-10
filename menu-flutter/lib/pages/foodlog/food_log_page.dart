@@ -35,7 +35,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
   bool _loading = true;
 
   // 时间轴分页（§12.2 默认每页 15 条）
-  static const _pageSize = 15;
+  static const _pageSize = 10; // DESIGN.md §12.2（默认 10 条/页）
   final _scroll = ScrollController();
   int _page = 1;
   bool _hasMore = true;

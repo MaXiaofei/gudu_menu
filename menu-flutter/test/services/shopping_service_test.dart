@@ -5,29 +5,6 @@ import '../helpers/mock_http.dart';
 
 /// ShoppingService：列表/详情/生成(多种来源)/切换/更新/增删 + VO 逻辑。
 void main() {
-  group('ShoppingService.list', () {
-    test('GET /shopping → 从 records 解析', () async {
-      final captor = installMock((_) => okResponse({
-            'records': [
-              {'id': 1, 'timeRange': 'plan', 'startDate': '2026-06-30', 'endDate': '2026-07-06'},
-            ],
-          }));
-
-      final list = await ShoppingService.list();
-
-      expect(captor.last!.queryParameters['pageSize'], 100);
-      expect(list.length, 1);
-      expect(list[0].id, 1);
-      expect(list[0].sourceLabel, '周计划');
-    });
-
-    test('非 IPage → 空', () async {
-      installMock((_) => okResponse(null));
-
-      expect(await ShoppingService.list(), isEmpty);
-    });
-  });
-
   group('ShoppingService.detail', () {
     test('GET /shopping/{id} → 解析 items + grouped + categoryNames', () async {
       final captor = installMock((_) => okResponse({
