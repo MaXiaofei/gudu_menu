@@ -166,7 +166,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
             // 批量删除（§15 批量操作）
             TextButton(
               onPressed: () => setState(() => _listSelectMode = true),
-              child: Text('批量删除', style: TextStyle(color: AppTokens.error)),
+              child: const Text('批量删除', style: TextStyle(color: AppTokens.error)),
             ),
             // 操作行：新建（自定义采购入口）
             TextButton.icon(
@@ -977,17 +977,6 @@ class _ShoppingPageState extends State<ShoppingPage> {
         },
       ),
     );
-  }
-
-  /// 「再加一行」：当前输入行入列（名称空忽略），清空输入继续编辑。
-  void _commitRow() {
-    setSheetState(() {
-      final name = nameCtrl.text.trim();
-      if (name.isEmpty) return;
-      rows.add((name, amountCtrl.text.trim()));
-      nameCtrl.clear();
-      amountCtrl.clear();
-    });
   }
 
   /// 改名弹窗（自定义采购 ✎）。

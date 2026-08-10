@@ -261,14 +261,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // 打开添加弹窗
-    await tester.tap(find.text('手动添加'));
+    await tester.tap(find.text('添加'));
     await tester.pumpAndSettle();
     expect(find.text('添加采购项'), findsOneWidget);
 
-    // 输入名称 + 数量单位一个框 → 添加
+    // 输入名称 + 数量单位一个框 → 「再加一行」入列（新 UI：输入即能保存）
     await tester.enterText(find.byType(TextField).at(0), '山竹');
     await tester.enterText(find.byType(TextField).at(1), '2斤');
-    await tester.tap(find.text('添加'));
+    await tester.tap(find.text('再加一行'));
     await tester.pump();
     expect(find.textContaining('山竹'), findsOneWidget);
     expect(find.textContaining('已添加 1 种'), findsOneWidget);
