@@ -275,7 +275,35 @@ public class FoodLogService {
 
     public DetailVO detail(Long memberId, Long menuId) {
         Menu menu = menuMapper.selectById(menuId);
-        if (menu == null) throw new BizException("食集不存在");
+        // 该食集最新一条 cooking_record（用材 memo + 时间；食集已删时用它重建详情）
+        List<CookingRecord> recs = cookingRecordMapper.selectList(
+                new QueryWrapper<CookingRecord>().eq("menu_id", menuId)
+                        .orderByDesc("cooked_at").last("LIMIT 1"));
+        if (menu == null && recs.isEmpty()) {
+            throw new BizException("食记不存在");
+        }
+        // 食集已删（软删，列表仍展示该条食记）→ 用做菜记录重建：名称标「食集已删除」，
+        // 菜品取该食集全部 cooking_record（整集做每条菜一条记录），份数用记录时的 servingFactor。
+        if (menu == null) {
+            List<CookingRecord> allRecs = cookingRecordMapper.selectList(
+                    new QueryWrapper<CookingRecord>().eq("menu_id", menuId).orderByAsc("id"));
+            Map<Long, String> dnames = dishNames(
+                    allRecs.stream().map(CookingRecord::getDishId).toList());
+            List<DishItem> dishes = allRecs.stream()
+                    .map(r -> new DishItem(r.getDishId(),
+                            dnames.getOrDefault(r.getDishId(), "菜 #" + r.getDishId()),
+                            r.getServingFactor(), null))
+                    .toList();
+            UsedMemo memo = parseUsedMemo(recs.get(0).getMemo());
+            Map<Long, String> ingNames = ingredientNames(concat(memo.usedUp(), memo.partial()));
+            List<String> usedUp = memo.usedUp().stream()
+                    .map(id -> ingNames.getOrDefault(id, "食材 #" + id)).toList();
+            List<String> partial = memo.partial().stream()
+                    .map(id -> ingNames.getOrDefault(id, "食材 #" + id)).toList();
+            boolean reviewed = reviewedMenuIds(List.of(menuId)).contains(menuId);
+            return new DetailVO(menuId, "食集已删除", recs.get(0).getCookedAt(), null,
+                    dishes, usedUp, partial, reviewed);
+        }
         List<MenuDish> mds = menuDishMapper.selectList(
                 new QueryWrapper<MenuDish>().eq("menu_id", menuId).orderByAsc("id"));
         Map<Long, String> dishNames = dishNames(mds.stream().map(MenuDish::getDishId).toList());
@@ -283,10 +311,6 @@ public class FoodLogService {
                 dishNames.getOrDefault(d.getDishId(), "菜 #" + d.getDishId()),
                 d.getServingFactor(), d.getNote())).toList();
 
-        // 用材：该食集最新一条 cooking_record 的 memo
-        List<CookingRecord> recs = cookingRecordMapper.selectList(
-                new QueryWrapper<CookingRecord>().eq("menu_id", menuId)
-                        .orderByDesc("cooked_at").last("LIMIT 1"));
         UsedMemo memo = recs.isEmpty() ? new UsedMemo(List.of(), List.of())
                 : parseUsedMemo(recs.get(0).getMemo());
         Map<Long, String> ingNames = ingredientNames(concat(memo.usedUp(), memo.partial()));

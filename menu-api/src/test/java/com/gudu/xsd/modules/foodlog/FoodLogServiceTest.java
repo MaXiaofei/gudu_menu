@@ -236,9 +236,33 @@ class FoodLogServiceTest {
     @Test
     void detail_食集不存在_抛异常() {
         when(menuMapper.selectById(99L)).thenReturn(null);
+        when(cookingRecordMapper.selectList(any())).thenReturn(List.of());
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.detail(99L, 99L))
-                .hasMessageContaining("食集不存在");
+                .hasMessageContaining("食记不存在");
+    }
+
+    /** 食集已删（软删）但做菜记录还在：详情用 cooking_record 重建，名称标「食集已删除」。 */
+    @Test
+    void detail_食集已删_从做菜记录重建() {
+        when(menuMapper.selectById(99L)).thenReturn(null);
+        CookingRecord r = new CookingRecord();
+        r.setDishId(10L);
+        r.setServingFactor(new BigDecimal("2"));
+        r.setMemo("用完:1;用了一些:2");
+        when(cookingRecordMapper.selectList(any())).thenReturn(List.of(r));
+        when(dishMapper.selectBatchIds(any())).thenReturn(List.of(dish(10L, "番茄炒蛋")));
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(
+                ing(1L, "番茄"), ing(2L, "盐")));
+        when(reviewMapper.selectList(any())).thenReturn(List.of());
+
+        FoodLogService.DetailVO vo = svc.detail(99L, 99L);
+
+        assertThat(vo.name()).isEqualTo("食集已删除");
+        assertThat(vo.dishes()).hasSize(1);
+        assertThat(vo.dishes().get(0).dishName()).isEqualTo("番茄炒蛋");
+        assertThat(vo.usedUp()).containsExactly("番茄");
+        assertThat(vo.partial()).containsExactly("盐");
     }
 
     // ===================== 辅助 =====================

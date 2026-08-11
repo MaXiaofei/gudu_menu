@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.modules.cookbook.CookingRecord;
 import com.gudu.xsd.modules.dish.Dish;
 import com.gudu.xsd.modules.dish.DishQueryService;
 import com.gudu.xsd.modules.dish.mapper.DishMapper;
@@ -27,6 +28,7 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     private final DishMapper dishMapper;
     private final DishQueryService dishQueryService;
     private final MenuCalcService menuCalc;
+    private final com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper cookingRecordMapper;
 
     /**
      * 分页查食集列表。按创建时间倒序。
@@ -176,34 +178,54 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     /**
      * 再做一次（食记单条详情）：复制食集 + 菜品关联（份数/备注/customName），
      * 新建为 ACTIVE（进行中）食集，added_by 归新 owner。返回新食集 id。
+     * 食集已删（软删）时从做菜记录（cooking_record）重建菜品与份数。
      */
     @Transactional
     public Long copyMenu(Long menuId, Long memberId) {
         Menu src = getById(menuId);
-        if (src == null) {
-            throw new BizException("食集不存在");
-        }
         MenuSaveDTO dto = new MenuSaveDTO();
         Menu copy = new Menu();
-        copy.setName(src.getName());
-        copy.setTypeId(src.getTypeId());
-        copy.setServingCount(src.getServingCount());
-        copy.setStatus("ACTIVE");
-        copy.setFinishedAt(null);
-        dto.setMenu(copy);
+        List<MenuDish> copies;
+        if (src != null) {
+            copy.setName(src.getName());
+            copy.setTypeId(src.getTypeId());
+            copy.setServingCount(src.getServingCount());
+            copy.setStatus("ACTIVE");
+            copy.setFinishedAt(null);
+            dto.setMenu(copy);
 
-        List<MenuDish> mds = menuDishMapper.selectList(
-                new QueryWrapper<MenuDish>().eq("menu_id", menuId).orderByAsc("id"));
-        List<MenuDish> copies = mds.stream().map(d -> {
-            MenuDish nd = new MenuDish();
-            nd.setDishId(d.getDishId());
-            nd.setCustomName(d.getCustomName());
-            nd.setServingFactor(d.getServingFactor());
-            nd.setNote(d.getNote());
-            nd.setAddedByMemberId(memberId); // 复制后统一归新 owner
-            nd.setAddedByNickname(null);
-            return nd;
-        }).toList();
+            List<MenuDish> mds = menuDishMapper.selectList(
+                    new QueryWrapper<MenuDish>().eq("menu_id", menuId).orderByAsc("id"));
+            copies = mds.stream().map(d -> {
+                MenuDish nd = new MenuDish();
+                nd.setDishId(d.getDishId());
+                nd.setCustomName(d.getCustomName());
+                nd.setServingFactor(d.getServingFactor());
+                nd.setNote(d.getNote());
+                nd.setAddedByMemberId(memberId); // 复制后统一归新 owner
+                nd.setAddedByNickname(null);
+                return nd;
+            }).toList();
+        } else {
+            // 食集已删：从做菜记录重建（整集做每条菜一条记录），名称标「再做这顿饭」
+            List<CookingRecord> recs = cookingRecordMapper.selectList(
+                    new QueryWrapper<CookingRecord>().eq("menu_id", menuId).orderByAsc("id"));
+            if (recs.isEmpty()) {
+                throw new BizException("食记不存在");
+            }
+            copy.setName("再做这顿饭");
+            copy.setServingCount(1);
+            copy.setStatus("ACTIVE");
+            copy.setFinishedAt(null);
+            dto.setMenu(copy);
+            copies = recs.stream().map(r -> {
+                MenuDish nd = new MenuDish();
+                nd.setDishId(r.getDishId());
+                nd.setServingFactor(r.getServingFactor());
+                nd.setAddedByMemberId(memberId);
+                return nd;
+            }).toList();
+        }
         dto.setDishes(copies);
         saveWithDishes(dto);
         return copy.getId();

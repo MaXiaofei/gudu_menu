@@ -1,6 +1,8 @@
 package com.gudu.xsd.modules.menu;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.gudu.xsd.modules.cookbook.CookingRecord;
+import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import com.gudu.xsd.modules.dish.Dish;
 import com.gudu.xsd.modules.dish.DishQueryService;
 import com.gudu.xsd.modules.dish.mapper.DishMapper;
@@ -32,6 +34,7 @@ class MenuServiceTest {
     private DishMapper dishMapper;
     private DishQueryService dishQueryService;
     private MenuCalcService menuCalc;
+    private CookingRecordMapper cookingRecordMapper;
     private MenuService svc;
 
     @BeforeEach
@@ -41,9 +44,11 @@ class MenuServiceTest {
         dishMapper = Mockito.mock(DishMapper.class);
         dishQueryService = Mockito.mock(DishQueryService.class);
         menuCalc = Mockito.mock(MenuCalcService.class);
+        cookingRecordMapper = Mockito.mock(CookingRecordMapper.class);
         // 用 spy：saveWithDishes 内部调用基类 saveOrUpdate，直接 stub 整个方法
         // （saveOrUpdate 内部走 SqlHelper 需 TableInfo 缓存，非 Spring 环境下会失败）
-        svc = Mockito.spy(new MenuService(menuDishMapper, dishMapper, dishQueryService, menuCalc));
+        svc = Mockito.spy(new MenuService(menuDishMapper, dishMapper, dishQueryService,
+                menuCalc, cookingRecordMapper));
         // ServiceImpl.page()/getById()/removeById 等基类方法走 baseMapper
         injectBaseMapper(svc, menuMapper);
         // 直接 stub saveOrUpdate 本身，绕过其内部 TableInfo 查询
@@ -218,8 +223,35 @@ class MenuServiceTest {
     @Test
     void copyMenu_食集不存在_抛异常() {
         Mockito.doReturn(null).when(svc).getById(99L);
+        Mockito.when(cookingRecordMapper.selectList(any())).thenReturn(List.of());
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.copyMenu(99L, 1L))
-                .hasMessageContaining("食集不存在");
+                .hasMessageContaining("食记不存在");
+    }
+
+    /** 食集已删（软删）但做菜记录还在：copy 从 cooking_record 重建菜品与份数。 */
+    @Test
+    void copyMenu_食集已删_从做菜记录重建() {
+        Mockito.doReturn(null).when(svc).getById(99L);
+        CookingRecord r1 = new CookingRecord();
+        r1.setDishId(10L);
+        r1.setServingFactor(new BigDecimal("2"));
+        Mockito.when(cookingRecordMapper.selectList(any())).thenReturn(List.of(r1));
+        // spy saveWithDishes：捕获 dto 验证重建内容（不真写库）
+        final MenuSaveDTO[] captured = new MenuSaveDTO[1];
+        Mockito.doAnswer(inv -> {
+            captured[0] = inv.getArgument(0);
+            captured[0].getMenu().setId(99L); // 模拟 save 回填 id
+            return null;
+        }).when(svc).saveWithDishes(any(MenuSaveDTO.class));
+
+        Long newId = svc.copyMenu(99L, 1L);
+
+        assertThat(newId).isEqualTo(99L);
+        assertThat(captured[0].getMenu().getName()).isEqualTo("再做这顿饭");
+        assertThat(captured[0].getMenu().getStatus()).isEqualTo("ACTIVE");
+        assertThat(captured[0].getDishes()).hasSize(1);
+        assertThat(captured[0].getDishes().get(0).getDishId()).isEqualTo(10L);
+        assertThat(captured[0].getDishes().get(0).getServingFactor()).isEqualByComparingTo("2");
     }
 }
 
