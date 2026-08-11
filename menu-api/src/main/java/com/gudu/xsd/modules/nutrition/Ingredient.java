@@ -28,6 +28,9 @@ public class Ingredient {
     /** 关联 sys_dict(purchase_category)。 */
     private Long purchaseCategoryId;
 
+    /** 食用属性：1食用/2饮料零食/3生活用品（V53）。非食用跳过营养计算。 */
+    private Integer edible;
+
     private Integer purchaseCount;
 
     private Integer usageCount;

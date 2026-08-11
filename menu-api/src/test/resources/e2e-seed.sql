@@ -60,8 +60,11 @@ INSERT INTO ingredient_nutrition(ingredient_id, metric_id, value) VALUES
   (2, 1, 144), (2, 2, 13.3), (2, 3, 8.8), (2, 4, 2.8), (2, 5, 1.5), (2, 6, 30);
 
 -- ---- dish=1(番茄炒蛋) 食材挂载：清掉全部（含孤儿 16/17/18），挂 番茄(300g)+鸡蛋(180g) ----
+-- grams 列回填（V45 引入 grams 为聚合基准，NeedAggregator 跳过 grams=NULL 的行；
+--   旧种子只插 amount 致 cook/summary 聚合为空）。单位 g(id=20)，amount=grams。
 DELETE FROM dish_ingredient WHERE dish_id = 1;
-INSERT INTO dish_ingredient(dish_id, ingredient_id, amount) VALUES (1, 1, 300.00), (1, 2, 180.00);
+INSERT INTO dish_ingredient(dish_id, ingredient_id, amount, unit_id, grams) VALUES
+  (1, 1, 300.00, 20, 300.00), (1, 2, 180.00, 20, 180.00);
 
 -- ---- 兜底：清 ingredient_nutrition 里任何 ingredient 已不存在的孤儿行 ----
 DELETE inn FROM ingredient_nutrition inn LEFT JOIN ingredient i ON i.id = inn.ingredient_id WHERE i.id IS NULL;
@@ -76,3 +79,13 @@ DELETE inn FROM ingredient_nutrition inn LEFT JOIN ingredient i ON i.id = inn.in
 UPDATE member SET phone = '13800000001',
   password_hash = '$2a$10$8fMxXFI3W4XzBun3fNpUIuXT4dN9CRvHcw6K7edMJU78705ETwVrK'
 WHERE id = 1;
+
+-- ============================================================
+-- 临期库存种子（通知_录临期库存触发扫描 场景用）。
+-- V42 pantry 改 3 档手动版后，原 POST /pantry（批次入库）接口已删；
+-- 但临期通知扫描仍读 pantry 批次表的 expire_date。
+-- 此处插一条「明天过期」的番茄批次（CURDATE 动态，永远落在 3 天临期窗口内）。
+-- 第 11 行已 DELETE FROM pantry 清空，此处幂等插入。
+-- ============================================================
+INSERT INTO pantry(ingredient_id, amount, unit_id, grams, expire_date, deleted)
+VALUES (1, 500.00, 20, 500.00, CURDATE() + INTERVAL 1 DAY, 0);

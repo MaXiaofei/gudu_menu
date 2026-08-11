@@ -112,18 +112,22 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
             qw.like("name", keyword.trim());
         }
         List<Ingredient> ings = list(qw);
-        // 一次 IN 批量取全部营养，消除 N+1
-        Map<Long, Map<Long, BigDecimal>> nutByIngredient = nutritionBatch(
-                ings.stream().map(Ingredient::getId).collect(Collectors.toList()));
-        // 一次批量取库存余量（V41），消除 N+1
-        Map<Long, StockAgg> stockByIngredient = stockMap(
-                ings.stream().map(Ingredient::getId).collect(Collectors.toList()));
-        Map<Long, String> unitName = unitNameMap();
-        return ings.stream()
-                .map(ing -> toVO(ing, metricNameById,
-                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap()),
-                        stockByIngredient.get(ing.getId()), unitName))
-                .collect(Collectors.toList());
+        return toVOList(ings, metricNameById);
+    }
+
+    /** 食材详情（编辑页：名称/默认单位/单价/品类/食用属性 + 营养 + 换算数）。 */
+    public IngredientVO detail(Long id) {
+        Ingredient ing = getById(id);
+        if (ing == null) {
+            return null;
+        }
+        Map<Long, String> metricNameById = metricMapper.selectList(null).stream()
+                .collect(Collectors.toMap(NutritionMetric::getId, NutritionMetric::getName));
+        IngredientVO vo = toVO(ing, metricNameById,
+                nutritionOf(id),
+                stockMap(List.of(id)).get(id), unitNameMap());
+        vo.setUnitGramCount(unitGramCounts(List.of(id)).getOrDefault(id, 0));
+        return vo;
     }
 
     /**
@@ -144,22 +148,36 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
             qw.like("name", q.getKeyword().trim());
         }
         IPage<Ingredient> page = page(new Page<>(q.getPageNum(), q.getPageSize()), qw);
-        // 一次 IN 批量取本页全部营养，消除 N+1
-        Map<Long, Map<Long, BigDecimal>> nutByIngredient = nutritionBatch(
-                page.getRecords().stream().map(Ingredient::getId).collect(Collectors.toList()));
-        // 一次批量取库存余量（V41），消除 N+1
-        Map<Long, StockAgg> stockByIngredient = stockMap(
-                page.getRecords().stream().map(Ingredient::getId).collect(Collectors.toList()));
-        Map<Long, String> unitName = unitNameMap();
-        List<IngredientVO> voRecords = page.getRecords().stream()
-                .map(ing -> toVO(ing, metricNameById,
-                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap()),
-                        stockByIngredient.get(ing.getId()), unitName))
-                .collect(Collectors.toList());
+        List<IngredientVO> voRecords = toVOList(page.getRecords(), metricNameById);
         // IPage 是接口，直接转换 records；用 setRecords 保留分页元信息
         Page<IngredientVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(voRecords);
         return result;
+    }
+
+    /** 实体列表 → VO 列表：营养/库存/单位/品类/换算数均批量预取，一次 IN 查询各一次。 */
+    private List<IngredientVO> toVOList(List<Ingredient> ings, Map<Long, String> metricNameById) {
+        if (ings.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = ings.stream().map(Ingredient::getId).collect(Collectors.toList());
+        // 一次 IN 批量取全部营养，消除 N+1
+        Map<Long, Map<Long, BigDecimal>> nutByIngredient = nutritionBatch(ids);
+        // 一次批量取库存余量（V41），消除 N+1
+        Map<Long, StockAgg> stockByIngredient = stockMap(ids);
+        // 一次批量取换算条数（V53 列表徽标：已设换算/去补）
+        Map<Long, Integer> gramCount = unitGramCounts(ids);
+        Map<Long, String> unitName = unitNameMap();
+        Map<Long, String> categoryName = categoryNameMap();
+        return ings.stream()
+                .map(ing -> toVO(ing, metricNameById,
+                        nutByIngredient.getOrDefault(ing.getId(), java.util.Collections.emptyMap()),
+                        stockByIngredient.get(ing.getId()), unitName))
+                .peek(vo -> {
+                    vo.setCategoryName(categoryName.get(vo.getPurchaseCategoryId()));
+                    vo.setUnitGramCount(gramCount.getOrDefault(vo.getId(), 0));
+                })
+                .collect(Collectors.toList());
     }
 
     /**
@@ -225,6 +243,33 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         if (dictMapper == null) return new HashMap<>();
         return dictMapper.selectList(new QueryWrapper<SysDict>().eq("dict_group", "unit"))
                 .stream().collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
+    }
+
+    /** 采购品类字典（sys_dict group=purchase_category）id -> name。 */
+    private Map<Long, String> categoryNameMap() {
+        if (dictMapper == null) return new HashMap<>();
+        return dictMapper.selectList(new QueryWrapper<SysDict>().eq("dict_group", "purchase_category"))
+                .stream().collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
+    }
+
+    /**
+     * 批量取每食材的单位换算条数（ingredient_unit_gram 按 ingredient_id 计数）。
+     * unitGramMapper 为 null（单测）或入参为空时返回空 map，调用方按 0 兜底。
+     */
+    private Map<Long, Integer> unitGramCounts(List<Long> ingredientIds) {
+        Map<Long, Integer> result = new HashMap<>();
+        if (unitGramMapper == null || ingredientIds == null || ingredientIds.isEmpty()) {
+            return result;
+        }
+        List<IngredientUnitGram> rows = unitGramMapper.selectList(new QueryWrapper<IngredientUnitGram>()
+                .select("ingredient_id", "COUNT(*) cnt")
+                .in("ingredient_id", ingredientIds)
+                .groupBy("ingredient_id"));
+        if (rows == null) return result;
+        for (IngredientUnitGram r : rows) {
+            result.put(r.getIngredientId(), r.getCnt());
+        }
+        return result;
     }
 
     // ===================== 单位换算（用户可编辑） =====================

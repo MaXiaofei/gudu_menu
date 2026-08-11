@@ -202,4 +202,100 @@ class ReviewServiceTest {
         assertThat(vo.reviews()).isEmpty();
         assertThat(vo.pendingMenus()).isEmpty();
     }
+
+    // ===================== listByMenu（V43 食集整体评价列表） =====================
+
+    @Test
+    void listByMenu_返回该食集评价列表() {
+        Review r1 = new Review();
+        r1.setId(1L);
+        r1.setMenuId(7L);
+        r1.setStarRating(5);
+        Review r2 = new Review();
+        r2.setId(2L);
+        r2.setMenuId(7L);
+        r2.setStarRating(4);
+        when(reviewMapper.selectList(any())).thenReturn(List.of(r1, r2));
+
+        List<Review> list = svc.listByMenu(7L);
+
+        assertThat(list).hasSize(2);
+        assertThat(list).extracting(Review::getStarRating).containsExactly(5, 4);
+    }
+
+    @Test
+    void listByMenu_无评价_返回空列表() {
+        when(reviewMapper.selectList(any())).thenReturn(List.of());
+
+        assertThat(svc.listByMenu(7L)).isEmpty();
+    }
+
+    // ===================== mine（已登录路径） =====================
+
+    @Test
+    void mine_已登录_返回评价历史和待评价食集() {
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            SaSession session = mock(SaSession.class);
+            stp.when(StpUtil::getSession).thenReturn(session);
+            when(session.getLong("currentMemberId")).thenReturn(1L);
+
+            // 评价历史：1 条菜品评价 + 1 条食集评价
+            Review dishReview = new Review();
+            dishReview.setId(1L);
+            dishReview.setDishId(10L);
+            dishReview.setStarRating(5);
+            dishReview.setCreateTime(LocalDateTime.now());
+            Review menuReview = new Review();
+            menuReview.setId(2L);
+            menuReview.setMenuId(7L);
+            menuReview.setStarRating(4);
+            menuReview.setCreateTime(LocalDateTime.now());
+            // 第 1 次 selectList = 评价历史；后续为 mine 内部的待评价查询
+            when(reviewMapper.selectList(any())).thenReturn(
+                    List.of(dishReview, menuReview), // 历史
+                    List.of(),                        // 已评价食集
+                    List.of());                        // 已评价菜品
+            Dish d = new Dish();
+            d.setId(10L);
+            d.setName("番茄炒蛋");
+            when(dishMapper.selectBatchIds(any())).thenReturn(List.of(d));
+            Menu m = new Menu();
+            m.setId(7L);
+            m.setName("今晚的饭");
+            when(menuMapper.selectBatchIds(any())).thenReturn(List.of(m));
+            // 待评价食集：1 个 DONE 食集未评价
+            Menu doneMenu = new Menu();
+            doneMenu.setId(9L);
+            doneMenu.setName("周末聚餐");
+            doneMenu.setStatus("DONE");
+            when(menuMapper.selectList(any())).thenReturn(List.of(doneMenu));
+            when(menuDishMapper.selectList(any())).thenReturn(List.of()); // 无菜品 → 全未评
+
+            MyReviewsVO vo = svc.mine();
+
+            // 评价历史：菜品名 + 食集名都回填
+            assertThat(vo.reviews()).hasSize(2);
+            assertThat(vo.reviews()).extracting(MyReviewsVO.ReviewEntry::name)
+                    .containsExactlyInAnyOrder("番茄炒蛋", "今晚的饭");
+            // 待评价：周末聚餐 DONE 且无评价 → 进待评
+            assertThat(vo.pendingMenus()).hasSize(1);
+            assertThat(vo.pendingMenus().get(0).menuName()).isEqualTo("周末聚餐");
+        }
+    }
+
+    @Test
+    void mine_已登录_无任何数据_返回空() {
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            SaSession session = mock(SaSession.class);
+            stp.when(StpUtil::getSession).thenReturn(session);
+            when(session.getLong("currentMemberId")).thenReturn(1L);
+            when(reviewMapper.selectList(any())).thenReturn(List.of());
+            when(menuMapper.selectList(any())).thenReturn(List.of());
+
+            MyReviewsVO vo = svc.mine();
+
+            assertThat(vo.reviews()).isEmpty();
+            assertThat(vo.pendingMenus()).isEmpty();
+        }
+    }
 }

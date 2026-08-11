@@ -9,10 +9,14 @@ import com.gudu.xsd.modules.dish.mapper.DishStepMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.IngredientNutrition;
 import com.gudu.xsd.modules.nutrition.NutritionCalcService;
+import com.gudu.xsd.modules.dict.SysDict;
+import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientNutritionMapper;
+import com.gudu.xsd.modules.pantry.PantryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.math.BigDecimal;
@@ -23,6 +27,10 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -39,6 +47,8 @@ class DishServiceTest {
     private IngredientNutritionMapper ingredientNutritionMapper;
     private IngredientMapper ingredientMapper;
     private CookingRecordMapper cookingRecordMapper;
+    private DictMapper dictMapper;
+    private PantryService pantryService;
     private DishService svc;
 
     @BeforeEach
@@ -50,8 +60,29 @@ class DishServiceTest {
         ingredientNutritionMapper = Mockito.mock(IngredientNutritionMapper.class);
         ingredientMapper = Mockito.mock(IngredientMapper.class);
         cookingRecordMapper = Mockito.mock(CookingRecordMapper.class);
-        svc = new DishService(stepMapper, dictRelMapper, dishIngMapper, ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(), null, new com.gudu.xsd.modules.nutrition.UnitConvertService(java.util.Set.of(20L)), cookingRecordMapper, null);
+        dictMapper = Mockito.mock(DictMapper.class);
+        pantryService = Mockito.mock(PantryService.class);
+        // search 测试沿用 null dictMapper/pantryService（fillRelNames/stockLevel 走空分支）；
+        // saveFull/detail 测试用 buildSvcWithDicts() 构造带 mock 的实例。
+        svc = newSvc(null, null);
         injectBaseMapper(svc, dishMapper);
+    }
+
+    /** 构造带指定 dictMapper/pantryService 的 DishService（baseMapper 由调用方注入）。 */
+    private DishService newSvc(DictMapper dm, PantryService ps) {
+        DishService s = new DishService(stepMapper, dictRelMapper, dishIngMapper,
+                ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(),
+                dm, new com.gudu.xsd.modules.nutrition.UnitConvertService(java.util.Set.of(20L)),
+                cookingRecordMapper, ps);
+        injectBaseMapper(s, dishMapper);
+        return s;
+    }
+
+    /** saveFull 测试专用：spy + stub saveOrUpdate（绕过 ServiceImpl 的 TableInfo 缓存依赖，照 MenuServiceTest 范式）。 */
+    private DishService newSvcForSave(DictMapper dm, PantryService ps) {
+        DishService s = Mockito.spy(newSvc(dm, ps));
+        Mockito.doReturn(true).when(s).saveOrUpdate(any(Dish.class));
+        return s;
     }
 
     private static void injectBaseMapper(DishService svc, DishMapper mapper) {
@@ -237,6 +268,171 @@ class DishServiceTest {
         assertThat(page.getRecords()).extracting(Dish::getCookedCount)
                 .containsExactly(0, 0); // 无 member，全部回填 0
         Mockito.verify(cookingRecordMapper, Mockito.never()).selectMaps(any());
+    }
+
+    // ===================== saveFull（整体替换保存） =====================
+
+    /** saveFull：步骤 + 字典关联 + 食材用量 全部先删后插；grams 按克单位直通。 */
+    @Test
+    void saveFull_整体替换_步骤关联食材先删后插() {
+        DishService svcWithDicts = newSvcForSave(dictMapper, pantryService);
+
+        Dish dish = dish(1L, "番茄炒蛋");
+        DishStep s1 = new DishStep();
+        s1.setSeq(1);
+        s1.setText("切块");
+        DishIngredient ing = new DishIngredient();
+        ing.setIngredientId(10L);
+        ing.setAmount(bd("200"));
+        ing.setUnitId(20L); // 克单位 → grams 直通 200
+
+        DishSaveDTO dto = new DishSaveDTO();
+        dto.setDish(dish);
+        dto.setSteps(List.of(s1));
+        dto.setCuisineIds(List.of(31L));
+        dto.setTagIds(List.of(32L));
+        dto.setCategoryIds(List.of(33L));
+        dto.setIngredients(List.of(ing));
+
+        svcWithDicts.saveFull(dto);
+
+        // 步骤：删 1 次 + 插 1 次
+        verify(stepMapper).delete(any());
+        verify(stepMapper, times(1)).insert(any());
+        // 字典关联：删 1 次 + 插 3 次（cuisine/tag/category 各 1）
+        ArgumentCaptor<DishDict> relCaptor = ArgumentCaptor.forClass(DishDict.class);
+        verify(dictRelMapper).delete(any());
+        verify(dictRelMapper, times(3)).insert(relCaptor.capture());
+        assertThat(relCaptor.getAllValues()).extracting(DishDict::getRelType)
+                .containsExactlyInAnyOrder("cuisine", "tag", "category");
+        // 食材：删 1 次 + 插 1 次，grams 被算出（克单位直通）
+        ArgumentCaptor<DishIngredient> ingCaptor = ArgumentCaptor.forClass(DishIngredient.class);
+        verify(dishIngMapper).delete(any());
+        verify(dishIngMapper, times(1)).insert(ingCaptor.capture());
+        assertThat(ingCaptor.getValue().getGrams()).isEqualByComparingTo("200");
+        assertThat(ingCaptor.getValue().getDishId()).isEqualTo(1L);
+    }
+
+    /** saveFull：非克单位 → grams = amount × gramsPerUnit（unitConvert 查表）。 */
+    @Test
+    void saveFull_非克单位_grams按系数算() {
+        // 用真实 UnitConvertService 但 gramUnitIds 不含 22（个）→ 走非克分支
+        DishService svcReal = Mockito.spy(newSvc(null, null));
+        Mockito.doReturn(true).when(svcReal).saveOrUpdate(any(Dish.class));
+
+        DishIngredient ing = new DishIngredient();
+        ing.setIngredientId(10L);
+        ing.setAmount(bd("2"));      // 2 个
+        ing.setUnitId(22L);          // 「个」非克单位
+        DishSaveDTO dto = new DishSaveDTO();
+        dto.setDish(dish(1L, "x"));
+        dto.setIngredients(List.of(ing));
+
+        svcReal.saveFull(dto);
+
+        ArgumentCaptor<DishIngredient> ingCaptor = ArgumentCaptor.forClass(DishIngredient.class);
+        verify(dishIngMapper).insert(ingCaptor.capture());
+        // gramsPerUnit 查表（mapper=null）返回 null → grams=null（未配置兜底，不硬算）
+        assertThat(ingCaptor.getValue().getGrams()).isNull();
+    }
+
+    /** saveFull：null 步骤/关联/食材 → 只删不插（不报错）。 */
+    @Test
+    void saveFull_null集合_只删不插() {
+        DishService svcWithDicts = newSvcForSave(dictMapper, pantryService);
+
+        DishSaveDTO dto = new DishSaveDTO();
+        dto.setDish(dish(1L, "空菜"));
+        // steps/cuisineIds/tagIds/categoryIds/ingredients 全 null
+
+        svcWithDicts.saveFull(dto);
+
+        verify(stepMapper).delete(any());
+        verify(stepMapper, never()).insert(any());
+        verify(dictRelMapper).delete(any());
+        verify(dictRelMapper, never()).insert(any());
+        verify(dishIngMapper).delete(any());
+        verify(dishIngMapper, never()).insert(any());
+    }
+
+    // ===================== detail：单位名 + 库存档位回填 =====================
+
+    /** detail：unitName 按 unitId 批量回填（一次 selectBatchIds，无 N+1）。 */
+    @Test
+    void 详情_单位名批量回填() {
+        DishService svcWithDicts = newSvc(dictMapper, pantryService);
+        injectBaseMapper(svcWithDicts, dishMapper);
+        long dishId = 1L;
+        when(dishMapper.selectById(dishId)).thenReturn(dish(dishId, "番茄炒蛋"));
+        DishIngredient di = di(10L, bd("200"));
+        di.setUnitId(20L); // g
+        when(dishIngMapper.selectList(any())).thenReturn(List.of(di));
+        when(dictRelMapper.selectList(any())).thenReturn(List.of());
+        when(stepMapper.selectList(any())).thenReturn(List.of());
+        SysDict unitG = new SysDict();
+        unitG.setId(20L);
+        unitG.setName("g");
+        when(dictMapper.selectBatchIds(any())).thenReturn(List.of(unitG));
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ingredient(10L, "番茄")));
+        when(pantryService.levelMap(anyList())).thenReturn(Map.of(10L, "ENOUGH"));
+
+        DishService.DishDetail detail = svcWithDicts.detail(dishId);
+
+        assertThat(detail.ingredients()).hasSize(1);
+        assertThat(detail.ingredients().get(0).getUnitName()).isEqualTo("g");
+        assertThat(detail.ingredients().get(0).getStockLevel()).isEqualTo("ENOUGH");
+        verify(dictMapper, times(1)).selectBatchIds(any());
+    }
+
+    /** detail：无库存数据 → stockLevel 回填 NONE（pantryService.levelMap 返回空 Map）。 */
+    @Test
+    void 详情_无库存_回填NONE() {
+        DishService svcWithDicts = newSvc(dictMapper, pantryService);
+        injectBaseMapper(svcWithDicts, dishMapper);
+        long dishId = 1L;
+        when(dishMapper.selectById(dishId)).thenReturn(dish(dishId, "孤儿菜"));
+        DishIngredient di = di(10L, bd("50"));
+        di.setUnitId(20L);
+        when(dishIngMapper.selectList(any())).thenReturn(List.of(di));
+        when(dictRelMapper.selectList(any())).thenReturn(List.of());
+        when(stepMapper.selectList(any())).thenReturn(List.of());
+        when(dictMapper.selectBatchIds(any())).thenReturn(List.of());
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of());
+        when(pantryService.levelMap(anyList())).thenReturn(Map.of());
+
+        DishService.DishDetail detail = svcWithDicts.detail(dishId);
+
+        assertThat(detail.ingredients().get(0).getStockLevel()).isEqualTo("NONE");
+    }
+
+    /** detail：菜系/标签/分类关联按 relType 分流到 3 个列表。 */
+    @Test
+    void 详情_关联分流菜系标签分类() {
+        DishService svcWithDicts = newSvc(dictMapper, pantryService);
+        injectBaseMapper(svcWithDicts, dishMapper);
+        long dishId = 1L;
+        when(dishMapper.selectById(dishId)).thenReturn(dish(dishId, "x"));
+        when(dishIngMapper.selectList(any())).thenReturn(List.of());
+        DishDict cuisine = new DishDict();
+        cuisine.setDishId(dishId);
+        cuisine.setDictId(31L);
+        cuisine.setRelType("cuisine");
+        DishDict tag = new DishDict();
+        tag.setDishId(dishId);
+        tag.setDictId(32L);
+        tag.setRelType("tag");
+        DishDict cat = new DishDict();
+        cat.setDishId(dishId);
+        cat.setDictId(33L);
+        cat.setRelType("category");
+        when(dictRelMapper.selectList(any())).thenReturn(List.of(cuisine, tag, cat));
+        when(stepMapper.selectList(any())).thenReturn(List.of());
+
+        DishService.DishDetail detail = svcWithDicts.detail(dishId);
+
+        assertThat(detail.cuisineIds()).containsExactly(31L);
+        assertThat(detail.tagIds()).containsExactly(32L);
+        assertThat(detail.categoryIds()).containsExactly(33L);
     }
 
     private static BigDecimal bd(String s) { return new BigDecimal(s); }

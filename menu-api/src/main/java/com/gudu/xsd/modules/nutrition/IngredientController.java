@@ -23,6 +23,12 @@ public class IngredientController {
         return R.ok(svc.pageWithNutrition(q));
     }
 
+    /** 食材详情（编辑页：名称/默认单位/单价/品类/食用属性/换算数 + 营养）。 */
+    @GetMapping("/{id}")
+    public R<IngredientVO> detail(@PathVariable Long id) {
+        return R.ok(svc.detail(id));
+    }
+
     /** 该食材营养：metricId -> value(per 100g)。 */
     @GetMapping("/{id}/nutrition")
     public R<Map<Long, BigDecimal>> nutrition(@PathVariable Long id) {

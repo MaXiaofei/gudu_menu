@@ -206,22 +206,14 @@ class GuduE2EFlowTest {
                 .as("按品类分区应含「蔬菜」").isTrue();
     }
 
-    /** 场景3：录临期库存 → 手动触发临期扫描 → 掌勺成员收到 expiry 通知。 */
+    /** 场景3：e2e-seed.sql 已插「明天过期」的番茄批次 → 手动触发临期扫描 → 掌勺成员收到 expiry 通知。 */
     @Test
     void 通知_录临期库存触发扫描_掌勺成员收到临期通知() {
         String token = loginAdmin();
         post(token, "/member/current?memberId=" + MEMBER_CHEF, null);
 
-        // 录库存：番茄，过期日 = 明天（落在 3 天临期窗口内）
-        // lowThreshold 已挪到 ingredient（V39），录 pantry 不再带阈值
-        LocalDate tomorrow = LocalDate.now().plusDays(1);
-        Map<String, Object> pantryReq = new HashMap<>();
-        pantryReq.put("ingredientId", ING_TOMATO);
-        pantryReq.put("amount", 500);
-        pantryReq.put("unitId", UNIT_G);
-        pantryReq.put("expireDate", tomorrow.toString());
-        JsonNode rp = post(token, "/pantry", pantryReq);
-        assertThat(rp.get("code").asInt()).isEqualTo(0);
+        // 临期库存由 e2e-seed.sql 提供（V42 pantry 改 3 档后 POST /pantry 已删，
+        //   临期通知扫描仍读 pantry 批次表 expire_date；种子插一条 CURDATE()+1 过期）。
 
         // 手动触发临期扫描（不等 @Scheduled）
         JsonNode scan = post(token, "/notification/scan-expiring?days=3", null);

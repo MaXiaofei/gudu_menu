@@ -28,4 +28,8 @@ public class IngredientUnitGram {
 
     /** 是否该食材的默认单位（录入/计价用）。 */
     private Integer isDefault;
+
+    /** 聚合计数（非表字段：列表换算条数统计用）。 */
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private Integer cnt;
 }

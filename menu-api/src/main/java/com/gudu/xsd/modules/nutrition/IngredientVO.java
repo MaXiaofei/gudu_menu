@@ -12,6 +12,9 @@ import java.util.Map;
  *
  * V41：另挂当前库存余量（现有 X 个 · 单位，手动添加页「库里已有」/ 食材头展示用），
  * 由 pantry 按食材聚合 SUM(amount) 计算，无库存批次时为 0 + 食材默认单位。
+ *
+ * V53（对齐原型 pantry-ingredient.html）：挂默认单位名 / 采购品类名 / 换算条数，
+ * 供列表页「默认 个 · ¥1/个」副标题 + 已设换算/去补徽标使用。
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -28,4 +31,13 @@ public class IngredientVO extends Ingredient {
 
     /** 余量主单位名（sys_dict group=unit）。 */
     private String stockUnitName;
+
+    /** 默认单位名（ingredient.unit_id → sys_dict unit）。 */
+    private String unitName;
+
+    /** 采购品类名（ingredient.purchase_category_id → sys_dict purchase_category）。 */
+    private String categoryName;
+
+    /** 单位→克换算条数（ingredient_unit_gram 计数，0 = 没设换算）。 */
+    private Integer unitGramCount;
 }
