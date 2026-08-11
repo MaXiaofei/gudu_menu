@@ -42,8 +42,8 @@ DELETE FROM ingredient WHERE name = '番茄';
 DELETE FROM ingredient_nutrition WHERE ingredient_id = 1;
 DELETE FROM dish_ingredient       WHERE ingredient_id = 1;
 DELETE FROM ingredient WHERE id = 1;
-INSERT INTO ingredient(id, name, unit_id, price, purchase_category_id, purchase_count, usage_count, deleted)
-  VALUES (1, '番茄', 20, 5, 24, 0, 0, 0);
+INSERT INTO ingredient(id, name, purchase_category_id, purchase_count, usage_count, deleted)
+  VALUES (1, '番茄', 24, 0, 0, 0);
 INSERT INTO ingredient_nutrition(ingredient_id, metric_id, value) VALUES
   (1, 1, 19), (1, 2, 0.9), (1, 3, 0.2), (1, 4, 4.0), (1, 5, 2.6), (1, 6, 30);
 
@@ -54,8 +54,8 @@ DELETE FROM ingredient WHERE name = '鸡蛋';
 DELETE FROM ingredient_nutrition WHERE ingredient_id = 2;
 DELETE FROM dish_ingredient       WHERE ingredient_id = 2;
 DELETE FROM ingredient WHERE id = 2;
-INSERT INTO ingredient(id, name, unit_id, price, purchase_category_id, purchase_count, usage_count, deleted)
-  VALUES (2, '鸡蛋', 20, 8, 27, 0, 0, 0);
+INSERT INTO ingredient(id, name, purchase_category_id, purchase_count, usage_count, deleted)
+  VALUES (2, '鸡蛋', 27, 0, 0, 0);
 INSERT INTO ingredient_nutrition(ingredient_id, metric_id, value) VALUES
   (2, 1, 144), (2, 2, 13.3), (2, 3, 8.8), (2, 4, 2.8), (2, 5, 1.5), (2, 6, 30);
 
