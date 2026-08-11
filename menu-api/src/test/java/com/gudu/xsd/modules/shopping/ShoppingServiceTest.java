@@ -423,6 +423,26 @@ class ShoppingServiceTest {
     }
 
     @Test
+    void generate_V55后_不写referenceGrams_totalAmount兜底0() {
+        // aggregator mock 返回一行（绕过真实聚合），验证落库 ShoppingItem 字段
+        ShoppingAggregator.ShoppingLine line = new ShoppingAggregator.ShoppingLine(10L, 24L);
+        given(aggregator.aggregate(any())).willReturn(List.of(line));
+        ShoppingService spied = spy(svc);
+        doReturn(true).when(spied).save(any(ShoppingList.class));
+
+        spied.generate("menu", 1L, null);
+
+        ArgumentCaptor<ShoppingItem> cap = ArgumentCaptor.forClass(ShoppingItem.class);
+        verify(itemMapper).insert(cap.capture());
+        ShoppingItem it = cap.getValue();
+        assertThat(it.getIngredientId()).isEqualTo(10L);
+        assertThat(it.getPurchaseCategoryId()).isEqualTo(24L);
+        assertThat(it.getReferenceGrams()).isNull();        // V55 停用不再写
+        assertThat(it.getTotalAmount()).isEqualByComparingTo("0"); // NOT NULL 列兜底 0
+        assertThat(it.getPurchased()).isEqualTo(0);
+    }
+
+    @Test
     void getByMenu_命中_返回getDetail() {
         ShoppingService spied = spy(svc);
         ShoppingList sl = new ShoppingList();

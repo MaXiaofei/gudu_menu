@@ -6,6 +6,7 @@ import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.menu.MenuService;
+import com.gudu.xsd.modules.menu.UsageTextFormatter;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.menu.prep.mapper.MenuPrepStatusMapper;
@@ -110,7 +111,8 @@ public class MenuPrepService {
                     .map(dishNameById::get).filter(Objects::nonNull).toList();
             // V55：用量原文（如「番茄炒蛋 2个」；份数>1 时「2个 ×3」）
             List<String> usageTexts = line.usages().stream()
-                    .map(u -> formatUsageText(dishNameById.get(u.dishId()), u))
+                    .map(u -> UsageTextFormatter.format(u.dishId(), dishNameById.get(u.dishId()),
+                            u.amount(), u.unitName(), u.servingFactor()))
                     .filter(Objects::nonNull)
                     .toList();
             String status = statusByIng.getOrDefault(line.ingredientId(), PrepStatus.PENDING.name());
@@ -136,18 +138,7 @@ public class MenuPrepService {
                 .collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
     }
 
-    /** 用量原文：「菜名 2个」；份数>1 时「菜名 2个 ×3」；菜名/用量缺失返回 null。 */
-    private String formatUsageText(String dishName, PrepAggregator.UsageText u) {
-        if (u.amount() == null) return null;
-        String head = dishName != null ? dishName : ("菜#" + u.dishId());
-        String amt = u.amount().stripTrailingZeros().toPlainString();
-        StringBuilder sb = new StringBuilder(head).append(' ').append(amt);
-        if (u.unitName() != null && !u.unitName().isBlank()) sb.append(u.unitName());
-        if (u.servingFactor() != null && u.servingFactor().compareTo(BigDecimal.ONE) > 0) {
-            sb.append(" ×").append(u.servingFactor().stripTrailingZeros().toPlainString());
-        }
-        return sb.toString();
-    }
+    /** 用量原文格式化抽到 {@link UsageTextFormatter}（V55 共享，备菜/做菜确认同用）。 */
 
     /** PUT /menu/{id}/prep/{ingredientId}：upsert 备料状态（无则 insert，有则 update）。 */
     @Transactional

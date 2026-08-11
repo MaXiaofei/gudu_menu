@@ -556,6 +556,21 @@ class GuduE2EFlowTest {
         }
     }
 
+    /** V55 P2-6：食材详情已删字段不再返回（反向断言，防字段回滚）。 */
+    @Test
+    void V55_食材详情_已删单位字段不返回() {
+        String token = loginAdmin();
+        JsonNode r = get(token, "/ingredient/" + ING_TOMATO);
+        assertThat(r.get("code").asInt())
+                .as("食材详情应成功 msg=" + text(r, "msg")).isEqualTo(0);
+        JsonNode d = r.get("data");
+        assertThat(d.has("unitName")).as("ingredient.unitName 应已删（V55）").isFalse();
+        assertThat(d.has("unitGramCount")).as("unitGramCount 应已删").isFalse();
+        assertThat(d.has("defaultGramSet")).as("defaultGramSet 应已删").isFalse();
+        assertThat(d.has("stockUnitName")).as("stockUnitName 应已删").isFalse();
+        assertThat(d.has("price")).as("ingredient.price 应已删").isFalse();
+    }
+
     /** 安全取 msg 文本（可能为 null）。 */
     private static String text(JsonNode r, String field) {
         JsonNode n = r.get(field);

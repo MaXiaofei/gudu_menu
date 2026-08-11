@@ -277,5 +277,20 @@ void main() {
     test('amountText: 都没有 → 空串（V55 referenceGrams 已删）', () {
       expect(ShoppingItemVO.fromJson({'id': 1}).amountText, '');
     });
+
+    test('V55 P2-7: JSON 含 legacy referenceGrams → 忽略，amountText 不显示约 Ng', () {
+      // 后端 shopping_item.reference_grams 列保留（存量数据），JSON 可能仍返回该字段。
+      // V55 前端删了 referenceGrams 字段解析，必须确保 legacy 字段被忽略、不污染展示。
+      final v = ShoppingItemVO.fromJson({
+        'id': 1,
+        'referenceGrams': 500.0, // legacy 字段
+        'pantryGrams': 200.0,    // legacy 字段
+        'shortageGrams': 100.0,  // legacy 字段
+      });
+      expect(v.amountText, ''); // 不显示「约 500g」
+      // 食材名/品类等其他字段照常解析
+      expect(ShoppingItemVO.fromJson({'id': 1, 'ingredientName': '番茄', 'referenceGrams': 500})
+          .displayName, '番茄');
+    });
   });
 }

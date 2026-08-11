@@ -93,7 +93,8 @@ public class CookService {
             Ingredient ing = ingMap.get(id);
             if (ing == null) continue;
             List<String> usageTexts = needByIng.get(id).stream()
-                    .map(u -> formatUsageText(dishNameById.get(u.dishId()), u))
+                    .map(u -> UsageTextFormatter.format(u.dishId(), dishNameById.get(u.dishId()),
+                            u.amount(), u.unitName(), u.servingFactor()))
                     .filter(Objects::nonNull)
                     .toList();
             items.add(new CookMaterialsVO.Item(
@@ -185,18 +186,7 @@ public class CookService {
                 .collect(Collectors.toMap(Dish::getId, Dish::getName, (a, b) -> a));
     }
 
-    /** 用量原文：「菜名 2个」；份数>1 时「菜名 2个 ×3」；用量缺失返回 null。 */
-    private String formatUsageText(String dishName, NeedAggregator.UsageText u) {
-        if (u.amount() == null) return null;
-        String head = dishName != null ? dishName : ("菜#" + u.dishId());
-        String amt = u.amount().stripTrailingZeros().toPlainString();
-        StringBuilder sb = new StringBuilder(head).append(' ').append(amt);
-        if (u.unitName() != null && !u.unitName().isBlank()) sb.append(u.unitName());
-        if (u.servingFactor() != null && u.servingFactor().compareTo(BigDecimal.ONE) > 0) {
-            sb.append(" ×").append(u.servingFactor().stripTrailingZeros().toPlainString());
-        }
-        return sb.toString();
-    }
+    /** 用量原文格式化抽到 {@link UsageTextFormatter}（V55 共享，做菜确认/备菜同用）。 */
 
     private List<Long> dishIds(Long menuId) {
         return menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId))

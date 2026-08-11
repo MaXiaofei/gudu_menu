@@ -197,6 +197,35 @@ class MenuPrepServiceTest {
         assertThat(vo.readyCount()).isEqualTo(1);
     }
 
+    /** V55 P1-5：di 无 unitId（unitNameMap 走空 HashMap 路径）不抛 NPE，用量原文只显数字。 */
+    @Test
+    void getPrep_用量无单位字典_不报错且原文只显数字() {
+        when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
+                menu(1L), List.of(md(1L, 1L, 10L, "1", "番茄炒蛋")), 0));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 1L, "300", null)));
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(1L, "番茄", 1L)));
+        when(menuPrepStatusMapper.selectList(any())).thenReturn(List.of());
+
+        MenuPrepVO vo = svc.getPrep(1L);
+
+        assertThat(vo.items()).hasSize(1);
+        assertThat(vo.items().get(0).usageTexts()).containsExactly("番茄炒蛋 300");
+    }
+
+    /** V55 P1-5：份数翻倍 → 用量原文带「×N」。 */
+    @Test
+    void getPrep_份数翻倍_原文带乘N() {
+        when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
+                menu(1L), List.of(md(1L, 1L, 10L, "2", "番茄炒蛋")), 0));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 1L, "100", 20L)));
+        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(1L, "番茄", 1L)));
+        when(menuPrepStatusMapper.selectList(any())).thenReturn(List.of());
+
+        MenuPrepVO vo = svc.getPrep(1L);
+
+        assertThat(vo.items().get(0).usageTexts()).containsExactly("番茄炒蛋 100g ×2");
+    }
+
     // ---------------- updateStatus ----------------
 
     /** 不存在则 insert。 */
