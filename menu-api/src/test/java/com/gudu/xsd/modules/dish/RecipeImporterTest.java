@@ -1,5 +1,7 @@
 package com.gudu.xsd.modules.dish;
 
+import com.gudu.xsd.modules.dict.SysDict;
+import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import org.jsoup.Jsoup;
@@ -13,6 +15,7 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -22,14 +25,16 @@ import static org.mockito.Mockito.when;
 class RecipeImporterTest {
 
     private IngredientMapper ingredientMapper;
+    private DictMapper dictMapper;
     private RecipeImporter importer;
 
     @BeforeEach
     void setUp() {
         ingredientMapper = Mockito.mock(IngredientMapper.class);
+        dictMapper = Mockito.mock(DictMapper.class);
         // 默认：所有食材名都不命中（selectOne 返回 null）
         when(ingredientMapper.selectOne(any())).thenReturn(null);
-        importer = new RecipeImporter(ingredientMapper);
+        importer = new RecipeImporter(ingredientMapper, dictMapper);
     }
 
     // 反射调用 private parse 方法（不依赖网络）
@@ -128,6 +133,34 @@ class RecipeImporterTest {
         assertThat(RecipeImporter.siteNameOf("https://www.douguo.com/caipu/b")).isEqualTo("豆果美食");
         assertThat(RecipeImporter.siteNameOf("https://example.com/x")).isEqualTo("外部导入");
         assertThat(RecipeImporter.siteNameOf(null)).isEqualTo("外部导入");
+    }
+
+    /** 单位互通（V52）：resolveUnitId 字典命中返回 id；字典没有自动补录并返回新 id。 */
+    @Test
+    void 用量单位_字典映射与自动补录() throws Exception {
+        var m = RecipeImporter.class.getDeclaredMethod("resolveUnitId", String.class);
+        m.setAccessible(true);
+
+        // 字典命中：「g」→ id=20
+        SysDict g = new SysDict();
+        g.setId(20L);
+        g.setName("g");
+        when(dictMapper.selectOne(any())).thenReturn(g);
+        assertThat(m.invoke(importer, "g")).isEqualTo(20L);
+
+        // 字典没有：「小勺」→ 自动补录（insert 后拿新 id）
+        when(dictMapper.selectOne(any())).thenReturn(null);
+        when(dictMapper.insert(any(SysDict.class))).thenAnswer(inv -> {
+            SysDict n = inv.getArgument(0);
+            n.setId(99L);
+            return 1;
+        });
+        assertThat(m.invoke(importer, "小勺")).isEqualTo(99L);
+        verify(dictMapper).insert(any(SysDict.class));
+
+        // 空单位 → null（不查不插）
+        assertThat(m.invoke(importer, "  ")).isNull();
+        assertThat(m.invoke(importer, (Object) null)).isNull();
     }
 
     /** 404/错误页兜底误判：h1 抓到「404 Not Found」不能当菜名（isErrorPageName）。 */

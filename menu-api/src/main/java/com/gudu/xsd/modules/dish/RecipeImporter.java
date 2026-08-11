@@ -3,6 +3,9 @@ package com.gudu.xsd.modules.dish;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.nutrition.Ingredient;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.gudu.xsd.modules.dict.SysDict;
+import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +38,7 @@ import java.util.regex.Pattern;
 public class RecipeImporter {
 
     private final IngredientMapper ingredientMapper;
+    private final DictMapper dictMapper;
 
     /** 仿真 UA，避免被基础 UA 过滤挡掉。 */
     private static final String UA =
@@ -106,6 +110,23 @@ public class RecipeImporter {
             log.warn("import-url 抓取失败 url={} err={}", url, e.toString());
             throw new BizException("抓取失败，可能网站限制或网络异常");
         }
+    }
+
+    /**
+     * 单位文本 → unitId（下厨房自由文本单位互通，V52）：
+     * 精确匹配 sys_dict(unit)；匹配不到自动补录（幂等：先查后插），保证用量能正常显示。
+     */
+    private Long resolveUnitId(String unit) {
+        if (unit == null || unit.isBlank()) return null;
+        String name = unit.trim();
+        SysDict hit = dictMapper.selectOne(new QueryWrapper<SysDict>()
+                .eq("dict_group", "unit").eq("name", name));
+        if (hit != null) return hit.getId();
+        SysDict n = new SysDict();
+        n.setDictGroup("unit");
+        n.setName(name);
+        dictMapper.insert(n);
+        return n.getId();
     }
 
     /** 第三方站点名（来源名，V49）：下厨房/美食杰/豆果美食/其他。 */
@@ -257,7 +278,7 @@ public class RecipeImporter {
     // ===== 食材行：拆 名 + 用量 =====
 
     private static final Pattern AMOUNT_PATTERN =
-            Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*(克|g|kg|千克|斤|两|毫升|ml|个|只|根|片|勺|少许|适量)?",
+            Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*(小勺|大勺|茶匙|汤匙|小碗|克|g|kg|千克|斤|两|毫升|ml|个|只|根|片|段|瓣|粒|撮|勺|块|头|颗|条|碗|盒|杯|袋|瓶|少许|适量)?",
                     Pattern.CASE_INSENSITIVE);
 
     /** 「番茄 300g」 → {name="番茄", amount=300}；「盐 适量」→ {name="盐", amount=null, unit="适量"}。 */
@@ -348,6 +369,8 @@ public class RecipeImporter {
                     DishIngredient di = new DishIngredient();
                     di.setIngredientId(hit.getId());
                     di.setAmount(ing.amount);
+                    // 单位文本 → 字典映射（下厨房自由文本单位互通，§16.3）：查字典，没有则补录
+                    di.setUnitId(resolveUnitId(ing.unit));
                     matched.add(di);
                 } else {
                     // 把用量带进未匹配清单，避免信息丢失
