@@ -1,0 +1,68 @@
+# V55 端到端验证发现的测试缺口
+
+> 背景：V55「食材库解绑单位」改造后做全链路端到端验证（后端 E2E + APP 模拟器 + admin）过程中暴露的测试覆盖缺口。回头按优先级补上。
+
+## P0 — 直接影响回归可靠性
+
+### 1. e2e-seed.sql 与 schema 迁移无一致性校验
+**现象**：V55 删了 `ingredient.unit_id/price` 列，但 `e2e-seed.sql` 仍 INSERT 这两列，导致 13 个 E2E 测试全挂（ScriptStatementFailed）。直到连上 staging DB 跑 E2E 才发现。
+**缺口**：没有"迁移改表结构时自动检查种子数据一致性"的机制。
+**建议补**：
+- 加一个轻量校验：CI 部署后或 PR 检查里，对 `e2e-seed.sql` 做 `EXPLAIN`/dry-run（在 H2/临时库），列不匹配即失败。
+- 或在 `V*__*.sql` 改表结构时，维护一个 checklist 提醒同步 `e2e-seed.sql`（CONTRIBUTING 或迁移规范）。
+
+### 2. admin Web UI 完全没有组件/端到端测试
+**现象**：staging admin 登录按钮点击不跳转（Vue 路由/token 存储问题），直到手动浏览器验证才发现。整个 admin（11 页）零 UI 测试覆盖。
+**缺口**：`menu-admin` 没有 `@vue/test-utils` 组件测试，也没有 Playwright/Cypress E2E。
+**建议补**：
+- 最低限：加 admin 登录流程的 Playwright 端到端（登录→跳转 home→断言 URL/token），覆盖最关键的认证链路。
+- 进阶：食材/菜谱/采购页的核心 CRUD 加组件测试。
+
+## P1 — V55 新增逻辑的边界覆盖
+
+### 3. CookService / MenuPrepService 的 `formatUsageText` 缺直接单测
+**现象**：V55 备菜/做菜确认改用量原文，新增 `formatUsageText(dishName, UsageText)` 拼接逻辑（"番茄炒蛋 2个 ×3"）。目前只在 `CookServiceTest`/`MenuPrepServiceTest` 里间接覆盖一个场景。
+**缺口**：`formatUsageText` 的边界没单测：份数 >1 时 "×N" 拼接、`unitName` 为 null（只显数字）、`amount` 为 null（返回 null 被过滤）、dishName 为 null（"菜#id"兜底）。
+**建议补**：把 `formatUsageText` 抽成静态纯函数（或独立 helper），加 4-5 个边界单测。
+
+### 4. ShoppingService.generate 落库不写 referenceGrams 未验证
+**现象**：V55 后 `generate` 不再写 `referenceGrams`（列保留停用）。`ShoppingServiceTest` 有 `fromPrep` 的 referenceGrams 断言，但 `generate_menu来源`/`generate_dish来源` 没断言"referenceGrams 为 null"。
+**建议补**：在现有 generate 测试里加 `assertThat(item.getReferenceGrams()).isNull()` + `totalAmount` 兜底 0 的断言。
+
+### 5. PrepAggregator / NeedAggregator 对 null amount/unitId 边界
+**现象**：V55 改聚合读 amount+unitName 后，`MenuPrepService` 出现 NPE（`Map.of().get(null)`），靠 HashMap 兜底修复。说明 null 边界没覆盖。
+**缺口**：`PrepAggregatorTest` 没测 amount=null 的行；`NeedAggregatorTest` 没测 unitName=null。
+**建议补**：两个聚合测试各加一个"amount/unitId 为 null 不抛 NPE 且正确跳过/兜底"的用例。
+
+## P2 — 防回归的反向断言
+
+### 6. E2E 缺反向断言：已删字段不再返回
+**现象**：V55 删了 `ingredient.unitName/unitGramCount/defaultGramSet/stockUnitName`、`MenuSummary.totalPrice`、`dish.price` 等。E2E 改了正向断言（营养/候选数），但没"反向断言"确认这些字段真的从 JSON 消失。
+**缺口**：后端如果误回滚或残留字段，E2E 不会报警。
+**建议补**：在 `GuduE2EFlowTest` 的食材/菜单/采购场景里，加 `jsonNode.has("unitName")` 为 false 之类的反向断言（挑 2-3 个关键字段）。
+
+### 7. Flutter ShoppingItemVO.fromJson 没测"忽略 legacy referenceGrams"
+**现象**：后端 `shopping_item` 表的 `referenceGrams` 列保留（存量数据/legacy），JSON 可能仍返回该字段（null 或旧值）。V55 前端删了 `referenceGrams` 字段解析，但没测试验证"JSON 含该字段时被正确忽略"。
+**建议补**：`shopping_service_test.dart` 加一个 fromJson 用例，输入含 `referenceGrams: 500`，断言 `ShoppingItemVO` 不报错且 amountText 不显示"约 500g"。
+
+### 8. Flutter PrepItem.copyWithStatus 保留 usageTexts 未测
+**现象**：V55 把 `totalGrams` 改 `usageTexts` 后，`copyWithStatus`（备菜状态切换时复制）也改了字段。目前 `prep.dart` 没有针对 `copyWithStatus` 保留 `usageTexts` 的单测。
+**建议补**：加一个 model 单测：构造 PrepItem → copyWithStatus(ready) → 断言 usageTexts/dishNames 等字段原样保留，只 status 变。
+
+## P3 — 环境与工具链
+
+### 9. APP instrumented test 缺失
+**现象**：APP 在模拟器上 force-stop 后 `monkey`/`am start` 偶发回桌面（启动稳定性）。整个 `menu-flutter` 没有 integration_test（instrumented test），启动/导航流程无自动化覆盖。
+**建议补**：用 `integration_test` 包加 1-2 个 smoke test（启动→登录→进首页→断言看到菜谱列表），能在模拟器上跑，捕获启动级回归。
+
+### 10. 本地连 staging DB 的隧道方案不可靠
+**现象**：`scripts/db_tunnel.py`（HTTP CONNECT 代理隧道）实测 MySQL greeting 丢失（CONNECT 响应多读应用层数据未处理 leftover），本地跑 E2E 走不通；最终靠 SSH 隧道（`.env` 凭证）才连上。
+**缺口**：`db_tunnel.py` 的 leftover 处理 bug 没修复，文档也没说明"本地跑 E2E 优先用 SSH 隧道"。
+**建议补**：修 `db_tunnel.py` 的 leftover 回传（参考本次 `/tmp/multi_tunnel.py` 的修复），或在 `docs/CI-CD-SETUP.md` 补"本地跑 E2E"章节说明 SSH 隧道用法。
+
+---
+
+## 优先级建议
+- **立刻补**（P0）：#1 防止下次迁移又踩种子数据坑；#2 admin 登录 E2E（解锁 admin 回归）
+- **本次改造收尾补**（P1）：#3 #4 #5 是 V55 新逻辑的边界，趁热补成本低
+- **后续版本**（P2/P3）：反向断言、model 测试、APP integration test、隧道修复
