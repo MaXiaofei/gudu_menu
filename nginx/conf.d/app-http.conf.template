@@ -1,10 +1,10 @@
 # ============================================================
-#  HTTP-only 临时配置（用于首次申请证书，手工替换域名后使用）
-#  用法：cp app-http.conf app.conf
+#  HTTP-only 临时配置（首次申请证书用；由 init-letsencrypt.sh 生成 app.conf）
+#  域名：imxf.cloud + www.imxf.cloud
 # ============================================================
 server {
     listen 80;
-    server_name gudxsd.top;
+    server_name imxf.cloud www.imxf.cloud;
 
     # ACME 验证目录
     location /.well-known/acme-challenge/ {

@@ -1,12 +1,12 @@
 # ============================================================
 #  HTTPS 生产配置（Certbot 签发证书后启用）
-#  将 gudxsd.top 替换为实际域名
+#  域名：imxf.cloud + www.imxf.cloud
 # ============================================================
 
 # HTTP → HTTPS 重定向
 server {
     listen 80;
-    server_name gudxsd.top;
+    server_name imxf.cloud www.imxf.cloud;
 
     # ACME 续期验证
     location /.well-known/acme-challenge/ {
@@ -22,11 +22,11 @@ server {
 server {
     listen 443 ssl;
     http2 on;
-    server_name gudxsd.top;
+    server_name imxf.cloud www.imxf.cloud;
 
     # SSL 证书
-    ssl_certificate     /etc/letsencrypt/live/gudxsd.top/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/gudxsd.top/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/imxf.cloud/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/imxf.cloud/privkey.pem;
 
     # 安全头
     ssl_protocols TLSv1.2 TLSv1.3;
