@@ -566,17 +566,7 @@ class _PrepTabState extends State<_PrepTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text('备料进度',
-                  style: t.textStyles.cardTitle.copyWith(color: t.title)),
-              const Spacer(),
-              Text('已备 ${p.readyCount} / 共 ${p.totalCount} 样',
-                  style: t.textStyles.sm.copyWith(color: t.caption)),
-            ],
-          ),
-          const SizedBox(height: AppTokens.sp8),
-          // 一键加采购：把要买的送进采购清单（完成态隐藏，采购走库存页「去采购」）
+          // 一键加采购：把要买的送进采购清单（放在备菜进度上方，完成态隐藏）
           if (!widget.isDone)
             Align(
               alignment: Alignment.centerRight,
@@ -593,6 +583,16 @@ class _PrepTabState extends State<_PrepTab> {
                 ),
               ),
             ),
+          if (!widget.isDone) const SizedBox(height: AppTokens.sp8),
+          Row(
+            children: [
+              Text('备料进度',
+                  style: t.textStyles.cardTitle.copyWith(color: t.title)),
+              const Spacer(),
+              Text('已备 ${p.readyCount} / 共 ${p.totalCount} 样',
+                  style: t.textStyles.sm.copyWith(color: t.caption)),
+            ],
+          ),
           const SizedBox(height: AppTokens.sp8),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppTokens.rXs),
