@@ -99,6 +99,56 @@ class IngredientService {
     await ApiClient.instance.put('/ingredient/$ingredientId/unit-grams',
         body: rows);
   }
+
+  /// 查食材的单位换算：GET /ingredient/{id}/unit-grams（编辑页加载）。
+  static Future<List<UnitGram>> fetchUnitGrams(int ingredientId) async {
+    final data = await ApiClient.instance.get('/ingredient/$ingredientId/unit-grams');
+    final list = data is List ? data : const [];
+    return list.map((e) => UnitGram.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// 更新食材信息（名称/默认单位/单价/采购品类）：PUT /ingredient。
+  static Future<void> updateIngredient(Map<String, dynamic> data) async {
+    await ApiClient.instance.put('/ingredient', body: data);
+  }
+
+  /// 删除食材：DELETE /ingredient/{id}。
+  static Future<void> deleteIngredient(int id) async {
+    await ApiClient.instance.delete('/ingredient/$id');
+  }
+}
+
+/// 食材单位换算行（编辑页用）。
+class UnitGram {
+  final int? id;
+  final int? unitId;
+  final String? unitName;
+  final double gramsPerUnit;
+  final bool isDefault;
+
+  const UnitGram({
+    this.id,
+    this.unitId,
+    this.unitName,
+    required this.gramsPerUnit,
+    required this.isDefault,
+  });
+
+  factory UnitGram.fromJson(Map<String, dynamic> j) => UnitGram(
+        id: (j['id'] as num?)?.toInt(),
+        unitId: (j['unitId'] as num?)?.toInt(),
+        unitName: j['unitName'] as String?,
+        gramsPerUnit: (j['gramsPerUnit'] as num?)?.toDouble() ?? 0,
+        isDefault: (j['isDefault'] as num?)?.toInt() == 1,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'unitId': unitId,
+        'unitName': unitName,
+        'gramsPerUnit': gramsPerUnit,
+        'isDefault': isDefault ? 1 : 0,
+      };
 }
 
 /// 用量自由文本解析（写菜谱用料，§16.3）：

@@ -78,6 +78,12 @@ class ProfilePage extends StatelessWidget {
                   ),
                   const Divider(height: 1, indent: 56),
                   _SettingTile(
+                    icon: Icons.eco_outlined,
+                    label: '食材库',
+                    onTap: () => context.push('/ingredient'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  _SettingTile(
                     icon: Icons.restaurant_menu,
                     label: '食记',
                     onTap: () => context.push('/food-log'),

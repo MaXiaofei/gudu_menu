@@ -22,6 +22,7 @@ import '../pages/dish/review_page.dart';
 import '../pages/menu/detail_page.dart';
 import '../pages/menu/list_page.dart';
 import '../pages/ingredient/create_page.dart';
+import '../pages/ingredient/edit_page.dart';
 import '../pages/ingredient/list_page.dart';
 import '../pages/login_page.dart';
 import '../pages/profile_page.dart';
@@ -169,6 +170,11 @@ GoRouter createRouter(AuthStore auth) {
       GoRoute(
           path: '/ingredient',
           builder: (_, __) => const IngredientListPage()),
+      GoRoute(
+          path: '/ingredient/:id/edit',
+          builder: (_, s) => IngredientEditPage(
+            ingredientId: int.parse(s.pathParameters['id']!),
+          )),
       GoRoute(
           path: '/create-ingredient',
           builder: (_, __) => const CreateIngredientPage()),

@@ -192,63 +192,14 @@ class _IngredientListPageState extends State<IngredientListPage> {
           style: t.textStyles.sm.copyWith(color: t.caption),
         ),
         trailing: Icon(Icons.chevron_right, size: 18, color: t.caption),
-        onTap: () {
-          // 后续可跳食材详情，暂时只显示营养
-          _showNutritionSheet(item);
+        onTap: () async {
+          await context.push('/ingredient/${item.id}/edit');
+          _reload();
         },
       ),
     );
   }
 
-  void _showNutritionSheet(_IngredientItem item) {
-    final t = AppTokens.of(context);
-    final unit = item.unitId == null ? null : _unitNames[item.unitId];
-    final cat = item.purchaseCategoryId == null ? null : _catNames[item.purchaseCategoryId];
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.rLg))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(item.name, style: t.textStyles.subtitle),
-          if (unit != null || cat != null) ...[
-            const SizedBox(height: AppTokens.sp4),
-            Text(
-              [
-                if (unit != null) '单位：$unit',
-                if (cat != null) '品类：$cat',
-              ].join('  ·  '),
-              style: t.textStyles.sm.copyWith(color: t.caption),
-            ),
-          ],
-          const SizedBox(height: AppTokens.sp16),
-          if (item.nutritions.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppTokens.sp12),
-              child: Text('暂无营养数据', style: TextStyle(color: t.caption)),
-            )
-          else ...[
-            Text('每 100g 营养',
-                style: t.textStyles.sm.copyWith(color: t.caption, fontWeight: FontWeight.w600)),
-            const SizedBox(height: AppTokens.sp8),
-            ...item.nutritions.entries.map((e) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppTokens.sp4),
-                  child: Row(children: [
-                    Expanded(
-                        child: Text(e.key, style: t.textStyles.md)),
-                    Text(
-                      '${e.value} ${_IngredientItem.unitByCn[e.key] ?? ''}'.trim(),
-                      style: t.textStyles.md.copyWith(fontWeight: FontWeight.w600, color: t.primary),
-                    ),
-                  ]),
-                )),
-          ],
-          const SizedBox(height: AppTokens.sp16),
-        ]),
-      ),
-    );
-  }
 }
 
 class _IngredientItem {
@@ -268,16 +219,6 @@ class _IngredientItem {
 
   /// 营养指标后端字段名（英文）→ 固定展示顺序。
   static const _metricOrder = ['calorie', 'protein', 'fat', 'carb', 'sugar', 'gi'];
-
-  /// 中文指标名 → 单位（每100g）。
-  static const unitByCn = {
-    '热量': 'kcal',
-    '蛋白质': 'g',
-    '脂肪': 'g',
-    '碳水': 'g',
-    '糖': 'g',
-    '升糖指数': '',
-  };
 
   factory _IngredientItem.fromJson(Map<String, dynamic> j) {
     // 后端列表返回 nutrition（Map<英文指标名, 值>，每100g），非 nutritions 数组。
