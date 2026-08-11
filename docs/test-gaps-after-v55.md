@@ -11,12 +11,12 @@
 - 加一个轻量校验：CI 部署后或 PR 检查里，对 `e2e-seed.sql` 做 `EXPLAIN`/dry-run（在 H2/临时库），列不匹配即失败。
 - 或在 `V*__*.sql` 改表结构时，维护一个 checklist 提醒同步 `e2e-seed.sql`（CONTRIBUTING 或迁移规范）。
 
-### 2. admin Web UI 完全没有组件/端到端测试
-**现象**：staging admin 登录按钮点击不跳转（Vue 路由/token 存储问题），直到手动浏览器验证才发现。整个 admin（11 页）零 UI 测试覆盖。
-**缺口**：`menu-admin` 没有 `@vue/test-utils` 组件测试，也没有 Playwright/Cypress E2E。
-**建议补**：
-- 最低限：加 admin 登录流程的 Playwright 端到端（登录→跳转 home→断言 URL/token），覆盖最关键的认证链路。
-- 进阶：食材/菜谱/采购页的核心 CRUD 加组件测试。
+### 2. admin Web UI 测试覆盖（登录 bug 误判已澄清）
+**现象（已澄清）**：2026-08-11 端到端验证时，staging admin 登录按钮点击不跳转，当时判断为前端 Vue 路由/token 问题。**后经 curl 诊断确认是误判**——当时正逢 CI 部署 menu-api 的 502 窗口（API 短暂不可用），admin 登录本身正常：API 恢复后 `POST /auth/login` → `GET /auth/me` → 业务接口链路全通。
+**缺口**：`menu-admin` 仍没有 `@vue/test-utils` 组件测试，也没有 Playwright E2E（11 页零 UI 测试覆盖）。admin 后端认证链路已被 `GuduE2EFlowTest` 覆盖（loginAdmin + 调各接口），但前端组件/路由/交互无自动化测试。
+**建议补**（按需，非紧急——登录 bug 既已澄清，此项降级）：
+- 最低限：加 admin 登录 Playwright smoke（登录→跳转 home→断言 URL/token），防认证链路回归。
+- 进阶：食材/菜谱/采购页核心 CRUD 加 `@vue/test-utils` 组件测试。
 
 ## P1 — V55 新增逻辑的边界覆盖
 

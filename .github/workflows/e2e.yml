@@ -1,0 +1,75 @@
+# ============================================================
+# 咕嘟小食单 · E2E 回归（P0-1）
+#
+# 用途：在 CI 跑 GuduE2EFlowTest（13+ 场景的全链路集成测试），
+#       覆盖「e2e-seed.sql 与 schema 迁移一致性」+ 业务回归。
+#       本地难连 staging DB（安全组拦 13306），CI 通过 SSH 隧道连。
+#
+# 触发：
+#   - workflow_dispatch（手动，避免每次 push 都跑 40s+ 且清 staging 数据）
+#   - pull_request（可选，PR 时跑回归；默认注释掉，按需打开）
+#
+# 原理：CI runner 起 SSH 隧道（localhost:13306/16379 → staging DB/Redis），
+#       maven 跑 E2E 连 localhost。等价于本地 ssh -L + mvn test 的 CI 版。
+#
+# 依赖 GitHub Secrets（除部署已有的 SSH_* 外，需补一个）：
+#   - SSH_HOST / SSH_USER / SSH_PASS / SSH_PORT（部署已有）
+#   - STAGING_MYSQL_ROOT_PASSWORD：staging MySQL root 密码（需在仓库 Secrets 补）
+# ============================================================
+name: E2E
+
+on:
+  workflow_dispatch:        # 手动触发（推荐）
+  # pull_request:          # 需要每个 PR 跑回归时打开
+  #   branches: [feat/mvp, main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install sshpass
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+
+      - name: Open SSH tunnel to staging DB/Redis
+        env:
+          SSHPASS: ${{ secrets.SSH_PASS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT || 22 }}
+        run: |
+          # 后台 SSH 隧道：CI runner localhost:13306/16379 → staging DB/Redis
+          sshpass -e ssh -fNL 13306:127.0.0.1:13306 -L 16379:127.0.0.1:16379 \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -p "$SSH_PORT" "$SSH_USER@$SSH_HOST"
+          sleep 3
+          # 验证隧道
+          nc -z 127.0.0.1 13306 && echo "DB tunnel OK" || (echo "DB tunnel FAIL" && exit 1)
+          nc -z 127.0.0.1 16379 && echo "Redis tunnel OK" || (echo "Redis tunnel FAIL" && exit 1)
+
+      - name: Run GuduE2EFlowTest
+        working-directory: menu-api
+        env:
+          DB_HOST: 127.0.0.1
+          REDIS_HOST: 127.0.0.1
+          MYSQL_ROOT_PASSWORD: ${{ secrets.STAGING_MYSQL_ROOT_PASSWORD }}
+        run: |
+          # E2E 连 localhost（走隧道）→ staging DB/Redis
+          # 注意：e2e-seed.sql 每用例前清理动态业务表，会清 staging 开发数据（测试库可接受）
+          ./mvnw test -Dtest=GuduE2EFlowTest -B -q
+
+      - name: Upload surefire reports on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-surefire-reports
+          path: menu-api/target/surefire-reports/
+          if-no-files-found: ignore
