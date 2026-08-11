@@ -22,20 +22,18 @@ CREATE TABLE IF NOT EXISTS stock_log (
 ) COMMENT '库存档位变动流水';
 
 -- 3) 存量映射：pantry → ingredient_stock（幂等：已存在该食材则跳过；近似映射，用户后续可改）
---    规则：Σgrams ≤ 0 → NONE；0 < Σgrams < low_threshold → LOW；否则 ENOUGH；
---          grams 全 NULL → 按 Σamount 近似（>0 即 ENOUGH）
+--    规则：Σgrams ≤ 0 → NONE；> 0 → ENOUGH；grams 全 NULL → 按 Σamount 近似（>0 即 ENOUGH）。
+--    （V55 删除 ingredient.low_threshold 后不再区分 LOW，LOW 档由用户手动改）
 INSERT INTO ingredient_stock (ingredient_id, level, update_time)
 SELECT p.ingredient_id,
        CASE
          WHEN SUM(p.grams) IS NULL THEN
            CASE WHEN COALESCE(SUM(p.amount), 0) > 0 THEN 'ENOUGH' ELSE 'NONE' END
          WHEN SUM(p.grams) <= 0 THEN 'NONE'
-         WHEN COALESCE(i.low_threshold, 0) > 0 AND SUM(p.grams) < i.low_threshold THEN 'LOW'
          ELSE 'ENOUGH'
        END,
        MAX(p.update_time)
 FROM pantry p
-JOIN ingredient i ON i.id = p.ingredient_id
 WHERE p.deleted = 0
   AND NOT EXISTS (SELECT 1 FROM ingredient_stock s WHERE s.ingredient_id = p.ingredient_id)
-GROUP BY p.ingredient_id, i.low_threshold;
+GROUP BY p.ingredient_id;
