@@ -174,7 +174,9 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                // Row 非弹性子项收到无限宽约束，必须给固定宽度（否则 ElevatedButton 布局断言失败）
                 SizedBox(
+                  width: 72,
                   height: 56,
                   child: ElevatedButton(
                     onPressed: _aiLoading ? null : _onAiFill,
