@@ -107,7 +107,7 @@ public class DishController {
 
     @DeleteMapping("/{id}")
     public R<?> del(@PathVariable Long id) {
-        svc.removeById(id);
+        svc.deleteFull(id);
         return R.ok(null);
     }
 }

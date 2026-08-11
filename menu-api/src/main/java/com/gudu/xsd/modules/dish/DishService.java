@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gudu.xsd.modules.cookbook.CookingRecord;
 import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import com.gudu.xsd.modules.dish.mapper.DishDictMapper;
+import com.gudu.xsd.modules.dish.mapper.DishHistoryMapper;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.dish.mapper.DishMapper;
 import com.gudu.xsd.modules.dish.mapper.DishStepMapper;
@@ -35,6 +36,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     private final DishStepMapper stepMapper;
     private final DishDictMapper dictRelMapper;
     private final DishIngredientMapper dishIngMapper;
+    private final DishHistoryMapper historyMapper;
     private final IngredientNutritionMapper ingredientNutritionMapper;
     private final IngredientMapper ingredientMapper;
     private final NutritionCalcService nutritionCalc;
@@ -85,6 +87,19 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             r.setRelType(relType);
             dictRelMapper.insert(r);
         }
+    }
+
+    /**
+     * 删除菜谱（错误数据清理，列表左滑删除）：连带物理清步骤/菜系标签分类关联/用料/编辑历史，
+     * 主表软删（deleted=1）。做菜记录（cooking_record）保留——是历史行为记录，不随菜谱删除抹掉。
+     */
+    @Transactional
+    public void deleteFull(Long id) {
+        stepMapper.delete(new QueryWrapper<DishStep>().eq("dish_id", id));
+        dictRelMapper.delete(new QueryWrapper<DishDict>().eq("dish_id", id));
+        dishIngMapper.delete(new QueryWrapper<DishIngredient>().eq("dish_id", id));
+        historyMapper.delete(new QueryWrapper<DishHistory>().eq("dish_id", id));
+        removeById(id);
     }
 
     /** 详情：菜品 + 步骤 + 菜系/标签/分类 ID + 食材用量。 */

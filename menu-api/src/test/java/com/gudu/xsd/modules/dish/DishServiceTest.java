@@ -3,6 +3,7 @@ package com.gudu.xsd.modules.dish;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import com.gudu.xsd.modules.dish.mapper.DishDictMapper;
+import com.gudu.xsd.modules.dish.mapper.DishHistoryMapper;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.dish.mapper.DishMapper;
 import com.gudu.xsd.modules.dish.mapper.DishStepMapper;
@@ -44,6 +45,7 @@ class DishServiceTest {
     private DishStepMapper stepMapper;
     private DishDictMapper dictRelMapper;
     private DishIngredientMapper dishIngMapper;
+    private DishHistoryMapper historyMapper;
     private IngredientNutritionMapper ingredientNutritionMapper;
     private IngredientMapper ingredientMapper;
     private CookingRecordMapper cookingRecordMapper;
@@ -57,6 +59,7 @@ class DishServiceTest {
         stepMapper = Mockito.mock(DishStepMapper.class);
         dictRelMapper = Mockito.mock(DishDictMapper.class);
         dishIngMapper = Mockito.mock(DishIngredientMapper.class);
+        historyMapper = Mockito.mock(DishHistoryMapper.class);
         ingredientNutritionMapper = Mockito.mock(IngredientNutritionMapper.class);
         ingredientMapper = Mockito.mock(IngredientMapper.class);
         cookingRecordMapper = Mockito.mock(CookingRecordMapper.class);
@@ -70,7 +73,7 @@ class DishServiceTest {
 
     /** 构造带指定 dictMapper/pantryService 的 DishService（baseMapper 由调用方注入）。 */
     private DishService newSvc(DictMapper dm, PantryService ps) {
-        DishService s = new DishService(stepMapper, dictRelMapper, dishIngMapper,
+        DishService s = new DishService(stepMapper, dictRelMapper, dishIngMapper, historyMapper,
                 ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(),
                 dm, cookingRecordMapper, ps);
         injectBaseMapper(s, dishMapper);
@@ -353,6 +356,24 @@ class DishServiceTest {
         verify(dictRelMapper, never()).insert(any());
         verify(dishIngMapper).delete(any());
         verify(dishIngMapper, never()).insert(any());
+    }
+
+    // ===================== deleteFull：列表左滑删除（错误数据清理） =====================
+
+    /** deleteFull：连带物理清 步骤/关联/用料/编辑历史，主表软删。 */
+    @Test
+    void deleteFull_连带清理关联表_主表软删() {
+        // spy + stub removeById（绕过 ServiceImpl 的 TableInfo 缓存依赖，照 newSvcForSave 范式）
+        DishService s = Mockito.spy(newSvc(dictMapper, pantryService));
+        Mockito.doReturn(true).when(s).removeById(99L);
+
+        s.deleteFull(99L);
+
+        verify(stepMapper).delete(any());
+        verify(dictRelMapper).delete(any());
+        verify(dishIngMapper).delete(any());
+        verify(historyMapper).delete(any());
+        verify(s).removeById(99L);
     }
 
     // ===================== detail：单位名 + 库存档位回填 =====================

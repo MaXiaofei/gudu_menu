@@ -200,11 +200,36 @@ class _DishListPageState extends State<DishListPage> {
                                   );
                                 }
                                 final dish = _dishes[i];
-                                return _DishCard(
+                                final card = _DishCard(
                                   dish: dish,
                                   onTapOverride: widget.selectForMenuId != null
                                       ? () => _addToMenu(dish)
                                       : null,
+                                );
+                                // 选择模式（加菜）不删除；普通浏览支持左滑删除错误菜谱
+                                if (widget.selectForMenuId != null) return card;
+                                return Dismissible(
+                                  key: ValueKey('dish-${dish.id}'),
+                                  direction: DismissDirection.endToStart,
+                                  background: Container(
+                                    margin: const EdgeInsets.only(bottom: 7),
+                                    alignment: Alignment.centerRight,
+                                    padding: const EdgeInsets.only(right: 20),
+                                    decoration: BoxDecoration(
+                                      color: AppTokens.error,
+                                      borderRadius: BorderRadius.circular(AppTokens.rMd),
+                                    ),
+                                    child: const Icon(Icons.delete_outline,
+                                        color: Colors.white),
+                                  ),
+                                  confirmDismiss: (_) => _confirmDelete(dish),
+                                  onDismissed: (_) {
+                                    setState(() =>
+                                        _dishes.removeWhere((d) => d.id == dish.id));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('已删除「${dish.name}」')));
+                                  },
+                                  child: card,
                                 );
                               },
                             ),
@@ -249,6 +274,39 @@ class _DishListPageState extends State<DishListPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('加入失败')));
       }
+    }
+  }
+
+  /// 左滑删除确认：弹窗确认 → 调删除接口；成功返回 true（卡片滑走），
+  /// 失败提示并返回 false（卡片弹回）。
+  Future<bool> _confirmDelete(Dish dish) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除菜谱'),
+        content: Text('确定删除「${dish.name}」吗？\n删除后不可恢复。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('删除',
+                  style: TextStyle(
+                      color: AppTokens.error, fontWeight: FontWeight.w700))),
+        ],
+      ),
+    );
+    if (ok != true) return false;
+    try {
+      await DishService.deleteDish(dish.id);
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+      }
+      return false;
     }
   }
 

@@ -113,6 +113,12 @@ class DishService {
     await ApiClient.instance.delete('/dish/draft/$id');
   }
 
+  /// 删除菜谱（列表左滑删除，清理错误数据）：DELETE /dish/{id}，
+  /// 后端连带清步骤/关联/用料/历史，主表软删。
+  static Future<void> deleteDish(int id) async {
+    await ApiClient.instance.delete('/dish/$id');
+  }
+
   /// 做菜确认弹窗数据：GET /menu/{id}/cook-materials
   /// （本次用到的食材 + 当前档位 + 是否调料；不落库、不判断够不够）。
   static Future<CookMaterials> cookMaterials(int menuId) async {
