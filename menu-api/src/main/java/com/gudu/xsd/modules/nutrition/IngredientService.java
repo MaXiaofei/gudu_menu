@@ -123,9 +123,13 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         }
         Map<Long, String> metricNameById = metricMapper.selectList(null).stream()
                 .collect(Collectors.toMap(NutritionMetric::getId, NutritionMetric::getName));
+        Map<Long, String> unitName = unitNameMap();
+        Map<Long, String> categoryName = categoryNameMap();
         IngredientVO vo = toVO(ing, metricNameById,
                 nutritionOf(id),
-                stockMap(List.of(id)).get(id), unitNameMap());
+                stockMap(List.of(id)).get(id), unitName);
+        vo.setUnitName(unitName.get(ing.getUnitId()));
+        vo.setCategoryName(categoryName.get(ing.getPurchaseCategoryId()));
         vo.setUnitGramCount(unitGramCounts(List.of(id)).getOrDefault(id, 0));
         return vo;
     }
