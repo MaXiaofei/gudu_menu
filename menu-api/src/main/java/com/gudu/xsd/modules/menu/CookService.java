@@ -6,8 +6,10 @@ import com.gudu.xsd.modules.cookbook.CookingRecord;
 import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import com.gudu.xsd.modules.dict.SysDict;
 import com.gudu.xsd.modules.dict.mapper.DictMapper;
+import com.gudu.xsd.modules.dish.Dish;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
+import com.gudu.xsd.modules.dish.mapper.DishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuMapper;
 import com.gudu.xsd.modules.menu.prep.MenuPrepStatus;
@@ -52,6 +54,7 @@ public class CookService {
     private final MenuMapper menuMapper;
     private final MenuDishMapper menuDishMapper;
     private final DishIngredientMapper dishIngredientMapper;
+    private final DishMapper dishMapper;
     private final CookingRecordMapper cookingRecordMapper;
     private final PantryService pantryService;
     private final NeedAggregator needAggregator;
@@ -61,7 +64,7 @@ public class CookService {
     private final MenuPrepStatusMapper menuPrepStatusMapper;
 
     /**
-     * 做菜确认弹窗数据：本次用到的食材（聚合用量）+ 当前档位 + 是否调料（调料默认"用了一些"）。
+     * 做菜确认弹窗数据：本次用到的食材（用量原文）+ 当前档位 + 是否调料（调料默认"用了一些"）。
      * 只读聚合，不落库、不判断够不够。
      */
     public CookMaterialsVO cookMaterials(Long menuId) {
@@ -69,7 +72,7 @@ public class CookService {
         if (menu == null) {
             throw new BizException("食集不存在");
         }
-        Map<Long, BigDecimal> needByIng = aggregateNeed(menuId);
+        Map<Long, List<NeedAggregator.UsageText>> needByIng = aggregateNeed(menuId);
         if (needByIng.isEmpty()) {
             return new CookMaterialsVO(menuId, List.of());
         }
@@ -80,15 +83,23 @@ public class CookService {
                         new QueryWrapper<IngredientStock>().in("ingredient_id", ids)).stream()
                 .collect(Collectors.toMap(IngredientStock::getIngredientId, IngredientStock::getLevel, (a, b) -> a));
         Set<Long> condimentCategoryIds = condimentCategoryIds();
+        // dishId → 菜名（用量原文前缀）
+        Map<Long, String> dishNameById = dishNameMap(needByIng.keySet().stream()
+                .flatMap(k -> needByIng.get(k).stream()).map(NeedAggregator.UsageText::dishId)
+                .filter(Objects::nonNull).distinct().toList());
 
         List<CookMaterialsVO.Item> items = new ArrayList<>();
         for (Long id : ids) {
             Ingredient ing = ingMap.get(id);
             if (ing == null) continue;
+            List<String> usageTexts = needByIng.get(id).stream()
+                    .map(u -> formatUsageText(dishNameById.get(u.dishId()), u))
+                    .filter(Objects::nonNull)
+                    .toList();
             items.add(new CookMaterialsVO.Item(
                     id,
                     ing.getName(),
-                    needByIng.get(id),
+                    usageTexts,
                     levelMap.getOrDefault(id, IngredientStock.LEVEL_NONE),
                     ing.getPurchaseCategoryId() != null && condimentCategoryIds.contains(ing.getPurchaseCategoryId())));
         }
@@ -125,7 +136,7 @@ public class CookService {
             }
         }
 
-        Map<Long, BigDecimal> needByIng = aggregateNeed(menuId);
+        Map<Long, List<NeedAggregator.UsageText>> needByIng = aggregateNeed(menuId);
         List<Long> dishIds = needByIng.isEmpty() ? List.of() : dishIds(menuId);
         // 用材总结（B6）：结构化写 memo（"用完:1,2;用了一些:3"），供食记页展示
         String memo = buildUsedMemo(usedUp, partiallyUsed);
@@ -145,14 +156,46 @@ public class CookService {
 
     // ===================== 内部辅助 =====================
 
-    /** 聚合食集各菜用量（by ingredientId）。 */
-    private Map<Long, BigDecimal> aggregateNeed(Long menuId) {
+    /** 聚合食集各菜用量原文（by ingredientId）。 */
+    private Map<Long, List<NeedAggregator.UsageText>> aggregateNeed(Long menuId) {
         List<MenuDish> mds = menuDishMapper.selectList(
                 new QueryWrapper<MenuDish>().eq("menu_id", menuId));
         List<Long> dishIds = mds.stream().map(MenuDish::getDishId).filter(Objects::nonNull).distinct()
                 .collect(Collectors.toList());
         Map<Long, List<DishIngredient>> byDish = loadDishIngredients(dishIds);
+        fillUnitNames(byDish);
         return needAggregator.aggregate(mds, byDish);
+    }
+
+    /** 批量回填用量单位名（用量原文展示用：dish_ingredient.unit_id → sys_dict unit）。 */
+    private void fillUnitNames(Map<Long, List<DishIngredient>> byDish) {
+        List<Long> unitIds = byDish.values().stream().flatMap(List::stream)
+                .map(DishIngredient::getUnitId).filter(Objects::nonNull).distinct().toList();
+        if (unitIds.isEmpty()) return;
+        Map<Long, String> unitNameById = dictMapper.selectBatchIds(unitIds).stream()
+                .collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
+        byDish.values().stream().flatMap(List::stream)
+                .forEach(di -> di.setUnitName(unitNameById.get(di.getUnitId())));
+    }
+
+    /** dishId → 菜名（用量原文前缀）。 */
+    private Map<Long, String> dishNameMap(List<Long> dishIds) {
+        if (dishIds.isEmpty()) return Map.of();
+        return dishMapper.selectBatchIds(dishIds).stream()
+                .collect(Collectors.toMap(Dish::getId, Dish::getName, (a, b) -> a));
+    }
+
+    /** 用量原文：「菜名 2个」；份数>1 时「菜名 2个 ×3」；用量缺失返回 null。 */
+    private String formatUsageText(String dishName, NeedAggregator.UsageText u) {
+        if (u.amount() == null) return null;
+        String head = dishName != null ? dishName : ("菜#" + u.dishId());
+        String amt = u.amount().stripTrailingZeros().toPlainString();
+        StringBuilder sb = new StringBuilder(head).append(' ').append(amt);
+        if (u.unitName() != null && !u.unitName().isBlank()) sb.append(u.unitName());
+        if (u.servingFactor() != null && u.servingFactor().compareTo(BigDecimal.ONE) > 0) {
+            sb.append(" ×").append(u.servingFactor().stripTrailingZeros().toPlainString());
+        }
+        return sb.toString();
     }
 
     private List<Long> dishIds(Long menuId) {

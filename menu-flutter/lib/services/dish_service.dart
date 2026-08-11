@@ -265,8 +265,8 @@ class CookMaterials {
 class CookMaterialItem {
   final int ingredientId;
   final String? ingredientName;
-  /// 聚合用量（显示用，不参与任何库存判断）。
-  final double needGrams;
+  /// 用量原文（V55 去单位：后端已拼菜名，如「番茄炒蛋 2个」；显示用，不参与任何库存判断）。
+  final List<String> usageTexts;
   /// 当前档位 ENOUGH / LOW / NONE。
   final String level;
   /// 是否调料（采购品类=调味料，默认"用了一些"）。
@@ -275,7 +275,7 @@ class CookMaterialItem {
   const CookMaterialItem({
     required this.ingredientId,
     this.ingredientName,
-    required this.needGrams,
+    required this.usageTexts,
     required this.level,
     required this.isCondiment,
   });
@@ -283,7 +283,9 @@ class CookMaterialItem {
   factory CookMaterialItem.fromJson(Map<String, dynamic> j) => CookMaterialItem(
         ingredientId: (j['ingredientId'] as num).toInt(),
         ingredientName: j['ingredientName'] as String?,
-        needGrams: (j['needGrams'] as num?)?.toDouble() ?? 0,
+        usageTexts: ((j['usageTexts'] ?? const []) as List)
+            .map((e) => e as String)
+            .toList(),
         level: j['level'] as String? ?? 'NONE',
         isCondiment: j['isCondiment'] as bool? ?? false,
       );

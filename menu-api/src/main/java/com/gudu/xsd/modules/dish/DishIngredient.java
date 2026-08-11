@@ -9,7 +9,10 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 /**
- * 菜品-食材用量：某菜用了某食材多少克。
+ * 菜品-食材用量：某菜用了某食材多少。
+ *
+ * V55（食材去单位）：grams 列停用（换算表已删，不再转克），用量表达回到
+ * amount + unitName（"2 个"）；采购/备菜聚合按用量原文走，不再按克汇总。
  */
 @Data
 @TableName("dish_ingredient")
@@ -27,9 +30,6 @@ public class DishIngredient {
 
     /** 自然单位 → sys_dict(group=unit)。旧数据 = 'g'。 */
     private Long unitId;
-
-    /** 内部记账基准克数 = amount × grams_per_unit（保存时算，查询零换算）。 */
-    private BigDecimal grams;
 
     /** 食材名（非持久化，详情接口批量回填，避免前端 N+1 查名字）。 */
     @TableField(exist = false)

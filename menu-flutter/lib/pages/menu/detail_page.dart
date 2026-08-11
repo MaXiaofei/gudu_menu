@@ -722,8 +722,15 @@ class _PrepItemRow extends StatelessWidget {
                       style: t.textStyles.chip.copyWith(
                           color: _prepStockColor(item.stockLevel!), fontWeight: FontWeight.w700)),
                 ),
-              Text('${item.totalGrams.toStringAsFixed(0)}g',
-                  style: t.textStyles.sm.copyWith(color: t.caption)),
+              // 用量原文（V55 去单位：如「番茄炒蛋 2个 + 番茄汤 3个」，不再按克汇总）
+              Flexible(
+                child: Text(
+                  item.usageTexts.join(' + '),
+                  style: t.textStyles.sm.copyWith(color: t.caption),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               const SizedBox(width: AppTokens.sp8),
               // 状态 chip 在行尾（原型：待备白底描边；已备/化冻中/腌制中实底白字）
               Container(
@@ -1526,8 +1533,7 @@ class _PrepShoppingSheetState extends State<_PrepShoppingSheet> {
                           child: Text(it.ingredientName,
                               style: t.textStyles.md.copyWith(color: t.title)),
                         ),
-                        Text('${it.totalGrams.toStringAsFixed(0)}g',
-                            style: t.textStyles.sm.copyWith(color: t.caption)),
+                        // V55 去单位：加采购弹窗不再显示克数
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

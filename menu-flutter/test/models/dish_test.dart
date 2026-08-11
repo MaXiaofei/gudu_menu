@@ -27,7 +27,6 @@ void main() {
       expect(d.sourceName, '下厨房');
       expect(d.sourceUrl, 'https://www.xiachufang.com/recipe/1/');
       expect(d.coverUrl, '/img/a.jpg');
-      expect(d.price, 18.5);
     });
 
     test('name 缺省兜底空串', () {
@@ -40,7 +39,6 @@ void main() {
       expect(d.cookTime, isNull);
       expect(d.prepTime, isNull);
       expect(d.difficulty, isNull);
-      expect(d.price, isNull);
     });
   });
 

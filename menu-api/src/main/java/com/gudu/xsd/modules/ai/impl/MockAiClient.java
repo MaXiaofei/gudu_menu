@@ -93,7 +93,7 @@ public class MockAiClient implements AiClient {
         List<MenuRecommender.CandidateDish> list = new ArrayList<>();
         for (CandidateDish c : req.candidates()) {
             list.add(new MenuRecommender.CandidateDish(
-                    c.dishId(), c.name(), c.price(), c.nutrition(), c.ingredientNames()));
+                    c.dishId(), c.name(), c.nutrition(), c.ingredientNames()));
         }
         Map<String, Object> hc = req.healthConstraints() == null
                 ? Map.of() : req.healthConstraints();
@@ -103,7 +103,7 @@ public class MockAiClient implements AiClient {
         List<String> allergies = hc.get("allergies") instanceof List<?> al
                 ? al.stream().map(String::valueOf).toList() : List.of();
         long seed = req.memberId() == null ? 42L : req.memberId();
-        return new MenuRecommendResponse(menuRecommender.recommend(list, cons, allergies, req.budget(),
+        return new MenuRecommendResponse(menuRecommender.recommend(list, cons, allergies,
                 req.scope() == null ? "DAY" : req.scope(), seed));
     }
 

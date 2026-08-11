@@ -76,7 +76,7 @@ class PantryControllerTest {
         v.setIngredientId(10L);
         v.setIngredientName(name);
         v.setAmount(amount);
-        v.setUnitName("g");
+        // V55：unitName 随食材去单位删除
         v.setExpireDate(expire);
         // lowThreshold 已挪到 ingredient（V39），pantry 行不再带阈值
         return v;

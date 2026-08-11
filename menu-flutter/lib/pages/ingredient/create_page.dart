@@ -9,12 +9,11 @@ import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
 import '../../widgets/loading_empty.dart';
 
-/// 录入食材：
+/// 录入食材（V55 去单位：不再录计量单位/默认单位）：
 /// - 食材名 + AI 补全营养按钮
-/// - 计量单位（从字典加载 Tag 列表，点选，也可输入自定义）
 /// - 采购分类（从字典加载 Tag 列表，点选，也可输入自定义）
 /// - 6 项营养指标（热量/蛋白/脂肪/碳水/糖/GI），AI 可自动填充
-/// - 保存（自定义单位/分类自动补入 dict）
+/// - 保存（自定义分类自动补入 dict）
 class CreateIngredientPage extends StatefulWidget {
   const CreateIngredientPage({super.key});
 
@@ -25,16 +24,12 @@ class CreateIngredientPage extends StatefulWidget {
 class _CreateIngredientPageState extends State<CreateIngredientPage> {
   final _nameCtrl = TextEditingController();
   final _nutritionMap = <int, TextEditingController>{};
-  final _customUnitCtrl = TextEditingController();
   final _customCatCtrl = TextEditingController();
 
-  List<DictItem> _units = [];
   List<DictItem> _purchases = [];
   List<NutritionMetric> _metrics = [];
 
-  int? _unitId;
   int? _purchaseCategoryId;
-  bool _showCustomUnit = false;
   bool _showCustomCat = false;
 
   bool _aiLoading = false;
@@ -50,21 +45,18 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
   void dispose() {
     _nameCtrl.dispose();
     for (final c in _nutritionMap.values) { c.dispose(); }
-    _customUnitCtrl.dispose();
     _customCatCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _loadDicts() async {
     final results = await Future.wait([
-      IngredientService.listDictByGroup('unit'),
       IngredientService.listDictByGroup('purchase_category'),
       DishService.metrics(),
     ]);
     setState(() {
-      _units = results[0] as List<DictItem>;
-      _purchases = results[1] as List<DictItem>;
-      _metrics = results[2] as List<NutritionMetric>;
+      _purchases = results[0] as List<DictItem>;
+      _metrics = results[1] as List<NutritionMetric>;
       for (final m in _metrics) {
         _nutritionMap.putIfAbsent(m.id, () => TextEditingController());
       }
@@ -100,14 +92,7 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
       _showSnack('请输入食材名');
       return;
     }
-    if (_unitId == null && !_showCustomUnit) {
-      _showSnack('请选择计量单位');
-      return;
-    }
-    if (_purchaseCategoryId == null && !_showCustomCat) {
-      _showSnack('请选择采购分类');
-      return;
-    }
+    // V55 去单位：名称必填，采购分类/营养可空（编辑页可补）
     final nutritions = <Map<String, dynamic>>[];
     for (final m in _metrics) {
       final raw = _nutritionMap[m.id]?.text.trim() ?? '';
@@ -118,21 +103,10 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
         }
       }
     }
-    if (nutritions.isEmpty) {
-      _showSnack('请填写或 AI 补全营养指标');
-      return;
-    }
 
     setState(() => _saving = true);
     try {
-      // 处理自定义单位/分类：先 upsert dict 获取 id
-      int? unitId = _unitId;
-      if (unitId == null && _showCustomUnit) {
-        final customName = _customUnitCtrl.text.trim();
-        if (customName.isNotEmpty) {
-          unitId = await IngredientService.upsertDict(customName, 'unit');
-        }
-      }
+      // 处理自定义分类：先 upsert dict 获取 id
       int? catId = _purchaseCategoryId;
       if (catId == null && _showCustomCat) {
         final customName = _customCatCtrl.text.trim();
@@ -144,7 +118,6 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
       await IngredientService.createIngredient({
         'ingredient': {
           'name': name,
-          'unitId': unitId,
           'purchaseCategoryId': catId,
         },
         'nutritions': nutritions,
@@ -228,36 +201,8 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
             ),
             const SizedBox(height: 16),
 
-            // 计量单位（Tag 列表点选）
-            _sectionLabel('计量单位'),
-            const SizedBox(height: 8),
-            _buildChipSelector(
-              items: _units,
-              selectedId: _unitId,
-              onSelected: (id) => setState(() { _unitId = id; _showCustomUnit = false; }),
-              showCustom: _showCustomUnit,
-              onCustomTap: () => setState(() { _unitId = null; _showCustomUnit = !_showCustomUnit; _customUnitCtrl.clear(); }),
-              emptyText: '单位字典加载中…',
-            ),
-            if (_showCustomUnit)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: TextField(
-                  controller: _customUnitCtrl,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: '输入自定义单位，如：扎、捆',
-                    filled: true, fillColor: t.bg,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    isDense: true,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 16),
-
-            // 采购分类（Tag 列表点选）
-            _sectionLabel('采购分类'),
+            // 采购分类（Tag 列表点选，可选）
+            _sectionLabel('采购分类（可选）'),
             const SizedBox(height: 8),
             _buildChipSelector(
               items: _purchases,
@@ -284,8 +229,8 @@ class _CreateIngredientPageState extends State<CreateIngredientPage> {
               ),
             const SizedBox(height: 24),
 
-            // 营养指标
-            _sectionLabel('营养（每 100g）'),
+            // 营养指标（可选，AI 可补）
+            _sectionLabel('营养（每 100g，可选）'),
             const SizedBox(height: 8),
             if (_metrics.isEmpty)
               const Padding(

@@ -250,7 +250,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             vo.setId(p.getId());
             vo.setIngredientId(p.getIngredientId());
             vo.setAmount(p.getAmount());
-            vo.setUnitId(p.getUnitId());
+            // V55：unitId 随食材去单位停用回填（pantry 批次表 legacy，通知不再展示单位）
             vo.setExpireDate(p.getExpireDate());
             vo.setStorage(p.getStorage());
             vo.setUpdateTime(p.getUpdateTime());

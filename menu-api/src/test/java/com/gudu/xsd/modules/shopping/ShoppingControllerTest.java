@@ -71,13 +71,12 @@ class ShoppingControllerTest {
     private final ObjectMapper om = new ObjectMapper();
 
     /** 造一个明细 VO（带中文 + 参考克 + 采购单位名）。 */
-    private ShoppingItemVO itemVO(Long id, String ing, BigDecimal refG, BigDecimal amt, Long unitId, String unitName) {
+    private ShoppingItemVO itemVO(Long id, String ing, BigDecimal amt, Long unitId, String unitName) {
         ShoppingItemVO v = new ShoppingItemVO();
         v.setId(id);
         v.setListId(1L);
         v.setIngredientId(10L);
         v.setIngredientName(ing);
-        v.setReferenceGrams(refG);
         v.setPurchaseAmount(amt);
         v.setPurchaseUnitId(unitId);
         v.setPurchaseUnitName(unitName);
@@ -122,15 +121,15 @@ class ShoppingControllerTest {
     }
 
     @Test
-    void 查采购清单详情_返回带参考克和采购单位中文() throws Exception {
+    void 查采购清单详情_返回采购单位中文() throws Exception {
         ShoppingListVO vo = new ShoppingListVO();
         vo.setId(1L);
         vo.setSourcePlanId(7L);
         vo.setTimeRange("plan");
         vo.setStartDate(LocalDate.of(2026, 6, 16));
         vo.setEndDate(LocalDate.of(2026, 6, 22));
-        // 番茄：参考约 500g，用户填 1 斤
-        ShoppingItemVO tomato = itemVO(1L, "番茄", new BigDecimal("500"), new BigDecimal("1"), 40L, "斤");
+        // 番茄：用户填 1 斤（V55：referenceGrams 停用不再回填）
+        ShoppingItemVO tomato = itemVO(1L, "番茄", new BigDecimal("1"), 40L, "斤");
         vo.setItems(List.of(tomato));
         vo.setGrouped(Map.of(24L, List.of(tomato)));
         vo.setCategoryNames(Map.of(24L, "蔬菜"));
@@ -140,7 +139,6 @@ class ShoppingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.items[0].ingredientName").value("番茄"))
-                .andExpect(jsonPath("$.data.items[0].referenceGrams").value(500))
                 .andExpect(jsonPath("$.data.items[0].purchaseAmount").value(1))
                 .andExpect(jsonPath("$.data.items[0].purchaseUnitName").value("斤"))
                 .andExpect(jsonPath("$.data.items[0].purchaseCategoryName").value("蔬菜"));

@@ -28,7 +28,7 @@ const sortOrder = ref<'asc' | 'desc'>('desc')
 const pageNum = ref(1)
 const pageSize = 15
 
-const unitOptions = ref<DictItem[]>([])
+// V55（食材去单位）：unitOptions（单位字典）删除，原「计量单位」必填与「单位」列随单位解绑移除
 const purchaseOptions = ref<DictItem[]>([])
 const metrics = ref<NutritionMetric[]>([])
 
@@ -89,8 +89,7 @@ async function load() {
 }
 
 async function loadDicts() {
-  const [u, p] = await Promise.all([listByGroup('unit'), listByGroup('purchase_category')])
-  unitOptions.value = u
+  const [p] = await Promise.all([listByGroup('purchase_category')])
   purchaseOptions.value = p
   metrics.value = await listNutritionMetrics()
 }
@@ -130,9 +129,6 @@ function clearPurchaseFilter() {
   purchaseFilter.value = null
 }
 
-function unitName(id?: number) {
-  return unitOptions.value.find((u) => u.id === id)?.name ?? '-'
-}
 function purchaseName(id?: number) {
   return purchaseOptions.value.find((p) => p.id === id)?.name ?? '-'
 }
@@ -150,11 +146,9 @@ const editing = ref<Ingredient | null>(null)
 const baseForm = reactive<{
   id?: number
   name: string
-  unitId: number | undefined
   purchaseCategoryId: number | undefined
 }>({
   name: '',
-  unitId: undefined,
   purchaseCategoryId: undefined,
 })
 
@@ -196,7 +190,6 @@ void nutritionText
 function resetForm() {
   baseForm.id = undefined
   baseForm.name = ''
-  baseForm.unitId = undefined
   baseForm.purchaseCategoryId = undefined
   for (const m of metrics.value) {
     nutritionMap[m.id] = undefined
@@ -214,7 +207,6 @@ async function openEdit(row: Ingredient) {
   resetForm()
   baseForm.id = row.id
   baseForm.name = row.name
-  baseForm.unitId = row.unitId
   baseForm.purchaseCategoryId = row.purchaseCategoryId
   // 拉取已有营养值
   try {
@@ -234,10 +226,6 @@ async function onSubmit() {
     ElMessage.warning('请填写食材名称')
     return
   }
-  if (baseForm.unitId === undefined) {
-    ElMessage.warning('请选择计量单位')
-    return
-  }
   if (baseForm.purchaseCategoryId === undefined) {
     ElMessage.warning('请选择采购分类')
     return
@@ -249,9 +237,9 @@ async function onSubmit() {
       nutritions.push({ metricId: m.id, value: Number(v) })
     }
   }
+  // V55（食材去单位）：不再提交 unitId
   const ingredient = {
     name: baseForm.name.trim(),
-    unitId: baseForm.unitId,
     purchaseCategoryId: baseForm.purchaseCategoryId,
   }
   if (editing.value) {
@@ -302,9 +290,6 @@ async function onDelete(row: Ingredient) {
     </div>
     <el-table v-loading="loading" :data="list" border @sort-change="onSortChange">
       <el-table-column label="名称" prop="name" min-width="160" />
-      <el-table-column label="单位" width="100">
-        <template #default="{ row }">{{ unitName(row.unitId) }}</template>
-      </el-table-column>
       <el-table-column label="采购分类" width="140">
         <template #default="{ row }">{{ purchaseName(row.purchaseCategoryId) }}</template>
       </el-table-column>
@@ -344,18 +329,13 @@ async function onDelete(row: Ingredient) {
             AI 补全营养（按名称预估 6 项，mock 待接 GLM，请核对）
           </el-button>
         </el-form-item>
-        <el-form-item label="计量单位">
-          <el-select v-model="baseForm.unitId" placeholder="选择单位" style="width: 100%">
-            <el-option v-for="u in unitOptions" :key="u.id" :label="u.name" :value="u.id" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="采购分类">
           <el-select v-model="baseForm.purchaseCategoryId" placeholder="选择分类" style="width: 100%">
             <el-option v-for="p in purchaseOptions" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
 
-        <el-divider content-position="left">营养指标（每单位含量）</el-divider>
+        <el-divider content-position="left">营养指标（每 100g 含量）</el-divider>
         <div class="nut-grid">
           <el-form-item
             v-for="m in metrics"

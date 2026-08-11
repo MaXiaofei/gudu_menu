@@ -42,8 +42,8 @@ public class DishQueryService {
             List<IngredientNutrition> nuts = ingredientNutritionMapper.selectList(
                     new QueryWrapper<IngredientNutrition>().eq("ingredient_id", di.getIngredientId()));
             for (IngredientNutrition n : nuts) {
-                BigDecimal qty = di.getGrams() != null ? di.getGrams() : di.getAmount();
-                items.add(new NutritionCalcService.Item(n.getMetricId(), n.getValue(), qty));
+                // V55：无换算后 qty 直接取用量数字（营养本次未启用，走兜底语义）
+                items.add(new NutritionCalcService.Item(n.getMetricId(), n.getValue(), di.getAmount()));
             }
         }
         return nutritionCalc.aggregateDish(items, serving == null ? BigDecimal.ONE : serving);

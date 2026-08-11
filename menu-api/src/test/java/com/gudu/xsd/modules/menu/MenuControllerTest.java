@@ -106,15 +106,14 @@ class MenuControllerTest {
     }
 
     @Test
-    void 菜单汇总_返回总价和营养() throws Exception {
+    void 菜单汇总_返回营养() throws Exception {
         MenuService.MenuSummary summary = new MenuService.MenuSummary(
-                new BigDecimal("36.5"), Map.of(1L, new BigDecimal("200")));
+                Map.of(1L, new BigDecimal("200")));
         given(svc.summary(eq(1L))).willReturn(summary);
 
         mvc.perform(get("/menu/1/summary"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.totalPrice").value(36.5))
                 .andExpect(jsonPath("$.data.totalNutrition.1").value(200));
     }
 

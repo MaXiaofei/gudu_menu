@@ -210,8 +210,6 @@ class ShoppingServiceTest {
             ((ShoppingList) inv.getArgument(0)).setId(9L);
             return true;
         }).when(spied).save(any(ShoppingList.class));
-        given(menuDishMapper.selectList(any())).willReturn(List.of(md(1, "2")));
-        given(dishIngredientMapper.selectList(any())).willReturn(List.of(di(1, 10, "100")));
         given(itemMapper.selectCount(any())).willReturn(0L);
         given(itemMapper.insert(any())).willReturn(1);
 
@@ -224,7 +222,9 @@ class ShoppingServiceTest {
         ArgumentCaptor<ShoppingItem> itemCap = ArgumentCaptor.forClass(ShoppingItem.class);
         verify(itemMapper).insert(itemCap.capture());
         assertThat(itemCap.getValue().getIngredientId()).isEqualTo(10L);
-        assertThat(itemCap.getValue().getReferenceGrams()).isEqualByComparingTo("200"); // 100×2 份
+        // V55：referenceGrams 停用不再填，totalAmount 兜底 0
+        assertThat(itemCap.getValue().getReferenceGrams()).isNull();
+        assertThat(itemCap.getValue().getTotalAmount()).isEqualByComparingTo("0");
     }
 
     @Test
@@ -234,7 +234,6 @@ class ShoppingServiceTest {
         existing.setId(5L);
         existing.setSourceMenuId(1L);
         doReturn(List.of(existing)).when(spied).list(any(Wrapper.class));
-        given(menuDishMapper.selectList(any())).willReturn(List.of()); // 无菜品 → 无聚合用量
         // 10 不在清单（新增），11 已在清单（跳过）
         given(itemMapper.selectCount(any())).willReturn(0L, 1L);
 
@@ -455,11 +454,11 @@ class ShoppingServiceTest {
         return m;
     }
 
-    private static DishIngredient di(long dishId, long ingId, String grams) {
+    private static DishIngredient di(long dishId, long ingId, String amount) {
         DishIngredient d = new DishIngredient();
         d.setDishId(dishId);
         d.setIngredientId(ingId);
-        d.setGrams(new BigDecimal(grams));
+        d.setAmount(new BigDecimal(amount));
         return d;
     }
 }

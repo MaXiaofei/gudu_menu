@@ -72,8 +72,7 @@ class DishServiceTest {
     private DishService newSvc(DictMapper dm, PantryService ps) {
         DishService s = new DishService(stepMapper, dictRelMapper, dishIngMapper,
                 ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(),
-                dm, new com.gudu.xsd.modules.nutrition.UnitConvertService(java.util.Set.of(20L)),
-                cookingRecordMapper, ps);
+                dm, cookingRecordMapper, ps);
         injectBaseMapper(s, dishMapper);
         return s;
     }
@@ -272,7 +271,7 @@ class DishServiceTest {
 
     // ===================== saveFull（整体替换保存） =====================
 
-    /** saveFull：步骤 + 字典关联 + 食材用量 全部先删后插；grams 按克单位直通。 */
+    /** saveFull：步骤 + 字典关联 + 食材用量 全部先删后插；用量原文（amount+unitId）原样落库。 */
     @Test
     void saveFull_整体替换_步骤关联食材先删后插() {
         DishService svcWithDicts = newSvcForSave(dictMapper, pantryService);
@@ -284,7 +283,7 @@ class DishServiceTest {
         DishIngredient ing = new DishIngredient();
         ing.setIngredientId(10L);
         ing.setAmount(bd("200"));
-        ing.setUnitId(20L); // 克单位 → grams 直通 200
+        ing.setUnitId(20L); // 克单位
 
         DishSaveDTO dto = new DishSaveDTO();
         dto.setDish(dish);
@@ -305,25 +304,25 @@ class DishServiceTest {
         verify(dictRelMapper, times(3)).insert(relCaptor.capture());
         assertThat(relCaptor.getAllValues()).extracting(DishDict::getRelType)
                 .containsExactlyInAnyOrder("cuisine", "tag", "category");
-        // 食材：删 1 次 + 插 1 次，grams 被算出（克单位直通）
+        // 食材：删 1 次 + 插 1 次；V55 不再换算克，用量原文（amount/unitId）原样落库
         ArgumentCaptor<DishIngredient> ingCaptor = ArgumentCaptor.forClass(DishIngredient.class);
         verify(dishIngMapper).delete(any());
         verify(dishIngMapper, times(1)).insert(ingCaptor.capture());
-        assertThat(ingCaptor.getValue().getGrams()).isEqualByComparingTo("200");
+        assertThat(ingCaptor.getValue().getAmount()).isEqualByComparingTo("200");
+        assertThat(ingCaptor.getValue().getUnitId()).isEqualTo(20L);
         assertThat(ingCaptor.getValue().getDishId()).isEqualTo(1L);
     }
 
-    /** saveFull：非克单位 → grams = amount × gramsPerUnit（unitConvert 查表）。 */
+    /** saveFull：非克单位用量（如「2个」）原样落库，不再换算克（V55）。 */
     @Test
-    void saveFull_非克单位_grams按系数算() {
-        // 用真实 UnitConvertService 但 gramUnitIds 不含 22（个）→ 走非克分支
+    void saveFull_非克单位_用量原文原样落库() {
         DishService svcReal = Mockito.spy(newSvc(null, null));
         Mockito.doReturn(true).when(svcReal).saveOrUpdate(any(Dish.class));
 
         DishIngredient ing = new DishIngredient();
         ing.setIngredientId(10L);
         ing.setAmount(bd("2"));      // 2 个
-        ing.setUnitId(22L);          // 「个」非克单位
+        ing.setUnitId(22L);          // 「个」
         DishSaveDTO dto = new DishSaveDTO();
         dto.setDish(dish(1L, "x"));
         dto.setIngredients(List.of(ing));
@@ -332,8 +331,9 @@ class DishServiceTest {
 
         ArgumentCaptor<DishIngredient> ingCaptor = ArgumentCaptor.forClass(DishIngredient.class);
         verify(dishIngMapper).insert(ingCaptor.capture());
-        // gramsPerUnit 查表（mapper=null）返回 null → grams=null（未配置兜底，不硬算）
-        assertThat(ingCaptor.getValue().getGrams()).isNull();
+        // 用量原文保留：amount=2、unitId=22（换算表已删，无 grams 计算）
+        assertThat(ingCaptor.getValue().getAmount()).isEqualByComparingTo("2");
+        assertThat(ingCaptor.getValue().getUnitId()).isEqualTo(22L);
     }
 
     /** saveFull：null 步骤/关联/食材 → 只删不插（不报错）。 */

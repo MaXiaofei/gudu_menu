@@ -153,7 +153,6 @@ public class AiClientRouter implements AiClient {
 
     private String buildCacheKey(MenuRecommendRequest req) {
         long memberId = req.memberId() == null ? 0L : req.memberId();
-        long budget = req.budget() == null ? 0L : req.budget().longValue();
         String scope = req.scope() == null ? "DAY" : req.scope();
         // 候选菜 id 列表的 hash
         String dishIds = "";
@@ -162,7 +161,7 @@ public class AiClientRouter implements AiClient {
                     .map(c -> String.valueOf(c.dishId()))
                     .collect(java.util.stream.Collectors.joining(","));
         }
-        String raw = memberId + "|" + budget + "|" + scope + "|" + dishIds;
+        String raw = memberId + "|" + scope + "|" + dishIds;
         int hash = raw.hashCode();
         return CACHE_PREFIX + memberId + ":" + hash;
     }

@@ -43,6 +43,7 @@ class CookServiceTest {
     @Mock MenuMapper menuMapper;
     @Mock MenuDishMapper menuDishMapper;
     @Mock DishIngredientMapper dishIngredientMapper;
+    @Mock com.gudu.xsd.modules.dish.mapper.DishMapper dishMapper;
     @Mock CookingRecordMapper cookingRecordMapper;
     @Mock PantryService pantryService;
     @Mock IngredientMapper ingredientMapper;
@@ -55,7 +56,7 @@ class CookServiceTest {
     @BeforeEach
     void setup() {
         MockitoAnnotations.openMocks(this);
-        cookService = new CookService(menuMapper, menuDishMapper, dishIngredientMapper,
+        cookService = new CookService(menuMapper, menuDishMapper, dishIngredientMapper, dishMapper,
                 cookingRecordMapper, pantryService, new NeedAggregator(), ingredientMapper,
                 ingredientStockMapper, dictMapper, menuPrepStatusMapper);
         // 模拟 MyBatis insert 回填 id
@@ -72,11 +73,12 @@ class CookServiceTest {
         return m;
     }
 
-    private DishIngredient di(long dishId, long ingId, String grams) {
+    private DishIngredient di(long dishId, long ingId, String amount, String unitName) {
         DishIngredient d = new DishIngredient();
         d.setDishId(dishId);
         d.setIngredientId(ingId);
-        d.setGrams(new BigDecimal(grams));
+        d.setAmount(new BigDecimal(amount));
+        d.setUnitName(unitName);
         return d;
     }
 
@@ -92,7 +94,7 @@ class CookServiceTest {
     void cookByMenu_用完和用了一些分别更新档位() {
         when(menuMapper.selectById(7L)).thenReturn(menu(7L));
         when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "2")));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100"), di(1, 20, "50")));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100", "g"), di(1, 20, "50", "g")));
 
         CookResult r = cookService.cookByMenu(7L, 99L, List.of(10L), List.of(20L));
 
@@ -126,7 +128,7 @@ class CookServiceTest {
     void cookByMenu_用户没确认任何食材_只写食记并标完成() {
         when(menuMapper.selectById(7L)).thenReturn(menu(7L));
         when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "1")));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100")));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100", "g")));
 
         cookService.cookByMenu(7L, 99L, List.of(), List.of());
 
@@ -143,7 +145,7 @@ class CookServiceTest {
         when(menuMapper.selectById(7L)).thenReturn(menu(7L));
         when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "2"), md(2, "1")));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(
-                di(1, 10, "100"), di(1, 20, "30"), di(2, 20, "20")));
+                di(1, 10, "100", "g"), di(1, 20, "30", "g"), di(2, 20, "20", "g")));
         Ingredient tomato = new Ingredient();
         tomato.setId(10L);
         tomato.setName("番茄");
@@ -159,17 +161,31 @@ class CookServiceTest {
         condiment.setId(30L);
         condiment.setName("调味料");
         when(dictMapper.selectList(any())).thenReturn(List.of(condiment));
+        // 菜名回填（用量原文前缀）
+        com.gudu.xsd.modules.dish.Dish dish1 = new com.gudu.xsd.modules.dish.Dish();
+        dish1.setId(1L);
+        dish1.setName("番茄炒蛋");
+        com.gudu.xsd.modules.dish.Dish dish2 = new com.gudu.xsd.modules.dish.Dish();
+        dish2.setId(2L);
+        dish2.setName("蛋花汤");
+        when(dishMapper.selectBatchIds(any())).thenReturn(List.of(dish1, dish2));
+        // 单位名回填（fillUnitNames 查 sys_dict unit）
+        SysDict unitG = new SysDict();
+        unitG.setId(20L);
+        unitG.setName("g");
+        when(dictMapper.selectBatchIds(any())).thenReturn(List.of(unitG));
 
         CookMaterialsVO vo = cookService.cookMaterials(7L);
 
         assertThat(vo.items()).hasSize(2);
         CookMaterialsVO.Item tomatoItem = vo.items().get(0);
         assertThat(tomatoItem.ingredientName()).isEqualTo("番茄");
-        assertThat(tomatoItem.needGrams()).isEqualByComparingTo("200"); // 100×2 份
+        // V55：用量原文（菜名 + amount + 单位），不按克合并
+        assertThat(tomatoItem.usageTexts()).containsExactly("番茄炒蛋 100g ×2");
         assertThat(tomatoItem.level()).isEqualTo(IngredientStock.LEVEL_ENOUGH);
         assertThat(tomatoItem.isCondiment()).isFalse();
         CookMaterialsVO.Item saltItem = vo.items().get(1);
-        assertThat(saltItem.needGrams()).isEqualByComparingTo("80"); // 30×2 + 20×1
+        assertThat(saltItem.usageTexts()).containsExactlyInAnyOrder("番茄炒蛋 30g ×2", "蛋花汤 20g");
         assertThat(saltItem.level()).isEqualTo(IngredientStock.LEVEL_NONE); // 没建档默认没有
         assertThat(saltItem.isCondiment()).isTrue();
     }

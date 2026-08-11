@@ -159,7 +159,7 @@ class GuduE2EFlowTest {
         long listId = gen.get("data").asLong();
         assertThat(listId).isPositive();
 
-        // 查清单详情：番茄参考克 = 300g（菜谱用量），purchase_amount/unit 草稿态为 null
+        // 查清单详情：番茄在清单中（V55：referenceGrams 停用不再填），purchase_amount/unit 草稿态为 null
         JsonNode detail = get(token, "/shopping/" + listId);
         assertThat(detail.get("code").asInt()).isEqualTo(0);
         JsonNode data = detail.get("data");
@@ -172,9 +172,8 @@ class GuduE2EFlowTest {
             }
         }
         assertThat(tomato).as("采购清单应含番茄").isNotNull();
-        assertThat(tomato.get("referenceGrams").asDouble())
-                .as("番茄炒蛋番茄用量参考克 = 300g")
-                .isEqualTo(300.0);
+        assertThat(tomato.get("referenceGrams").isNull())
+                .as("V55 后 referenceGrams 不再写入（列保留停用）").isTrue();
         // 草稿态：采购量/单位未填
         assertThat(tomato.get("purchaseAmount").isNull()).as("草稿态采购量应为空").isTrue();
 
@@ -334,16 +333,15 @@ class GuduE2EFlowTest {
         assertThat(map.has("6")).as("落库应含 gi").isTrue();
     }
 
-    /** 场景7（AI）：菜单推荐 DAY scope → 候选 ≤ 1 组、每组 totalPrice ≤ budget。 */
+    /** 场景7（AI）：菜单推荐 DAY scope → 候选 ≤ 1 组（V55：预算链路已删）。 */
     @Test
-    void AI_菜单推荐_DAY候选受限且不超预算() {
+    void AI_菜单推荐_DAY候选受限() {
         String token = loginAdmin();
         post(token, "/member/current?memberId=" + MEMBER_CHEF, null);
 
-        // 候选池：番茄炒蛋(dish=1，含营养)。budget 给一个能容纳的值。
+        // 候选池：番茄炒蛋(dish=1，含营养)
         Map<String, Object> req = new HashMap<>();
         req.put("memberId", MEMBER_CHEF);
-        req.put("budget", 100);   // 番茄炒蛋参考价远低于 100
         req.put("scope", "DAY");
         JsonNode r = post(token, "/ai/menu/recommend", req);
         assertThat(r.get("code").asInt())
@@ -351,10 +349,7 @@ class GuduE2EFlowTest {
         JsonNode arr = r.get("data");
         assertThat(arr.isArray()).isTrue();
         assertThat(arr.size()).as("DAY 至多 1 组候选").isLessThanOrEqualTo(1);
-        // 每组 totalPrice ≤ budget
         for (JsonNode g : arr) {
-            double total = g.get("totalPrice").asDouble();
-            assertThat(total).as("候选总价不超预算 100").isLessThanOrEqualTo(100.0);
             // source = mock
             assertThat(g.get("source").asText()).isEqualTo("mock");
             // dishes 非空
@@ -363,9 +358,9 @@ class GuduE2EFlowTest {
         }
     }
 
-    /** 场景8：建菜单 + 关联番茄炒蛋 + 汇总总价/营养。 */
+    /** 场景8：建菜单 + 关联番茄炒蛋 + 汇总营养（V55：价格链路已删）。 */
     @Test
-    void 菜单_建菜单关联番茄炒蛋_汇总总价营养() {
+    void 菜单_建菜单关联番茄炒蛋_汇总营养() {
         String token = loginAdmin();
 
         // 建菜单并关联番茄炒蛋（2 份）
@@ -394,12 +389,10 @@ class GuduE2EFlowTest {
         assertThat(d.get("dishes").size()).isEqualTo(1);
         assertThat(d.get("dishes").get(0).get("dishId").asLong()).isEqualTo(DISH_FANQIE_CHAODAN);
 
-        // 汇总：总价 > 0、营养含 calorie(metricId=1)
+        // 汇总：营养含 calorie(metricId=1)
         JsonNode summary = get(token, "/menu/" + menuId + "/summary");
         assertThat(summary.get("code").asInt()).isEqualTo(0);
         JsonNode s = summary.get("data");
-        assertThat(s.get("totalPrice").asDouble())
-                .as("菜单总价应 > 0").isGreaterThan(0);
         assertThat(s.get("totalNutrition").has("1"))
                 .as("菜单营养汇总应含 calorie(metricId=1)").isTrue();
         // 番茄炒蛋 2 份 calorie > 0

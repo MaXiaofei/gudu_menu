@@ -136,19 +136,15 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                 : ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ingIds)).stream()
                         .collect(Collectors.toMap(Ingredient::getId, i -> i, (a, b) -> a));
 
-        // 组装 Usage（克数 × 份数系数）
+        // 组装 Usage（V55：不再合计用量，采购单只按食材去重；采购量由用户后填）
         List<Usage> usages = new ArrayList<>();
         for (DishIngredient di : dis) {
             Ingredient ing = ingById.get(di.getIngredientId());
             if (ing == null) continue;
-            BigDecimal factor = factorByDish.getOrDefault(di.getDishId(), BigDecimal.ONE);
-            // 改读 grams（内部克基准）；旧数据迁移后 grams=amount，兼容
-            BigDecimal baseGrams = di.getGrams() != null ? di.getGrams()
-                    : (di.getAmount() != null ? di.getAmount() : BigDecimal.ZERO);
-            usages.add(new Usage(ing.getId(), baseGrams.multiply(factor), ing.getPurchaseCategoryId()));
+            usages.add(new Usage(ing.getId(), ing.getPurchaseCategoryId()));
         }
 
-        // 聚合（按 ingredient_id 去重 → referenceGrams）
+        // 聚合（按 ingredient_id 去重）
         List<ShoppingAggregator.ShoppingLine> lines = aggregator.aggregate(usages);
 
         // 落库
@@ -158,10 +154,9 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             ShoppingItem item = new ShoppingItem();
             item.setListId(list.getId());
             item.setIngredientId(l.ingredientId());
-            item.setReferenceGrams(l.referenceGrams());
             item.setPurchaseCategoryId(l.purchaseCategoryId());
-            // 兼容旧字段：referenceGrams 同步写 totalAmount（参考用，不删列）
-            item.setTotalAmount(l.referenceGrams());
+            // 兼容旧字段：totalAmount 列 NOT NULL 无默认值，兜底 0（referenceGrams 已停用不写）
+            item.setTotalAmount(BigDecimal.ZERO);
             item.setPurchased(0);
             // purchase_amount / purchase_unit_id 留 null（用户后填）
             itemMapper.insert(item);
@@ -306,8 +301,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
 
     /**
      * 备菜一键加采购（V42）：把备菜清单里勾选的食材加入该食集的采购清单。
-     * 该食集已有清单（source_menu_id）则复用，无则新建；逐项追加，同清单同食材去重；
-     * reference_grams 取食集聚合用量（备菜 Tab 展示用）。
+     * 该食集已有清单（source_menu_id）则复用，无则新建；逐项追加，同清单同食材去重
+     * （V55：referenceGrams 停用不再填）。
      *
      * @return 采购清单 id
      */
@@ -333,7 +328,6 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             listId = rows.get(0).getId();
         }
 
-        Map<Long, BigDecimal> needByIng = aggregateMenuNeedGrams(menuId);
         int added = 0;
         for (Long ingId : valid) {
             Long count = itemMapper.selectCount(new QueryWrapper<ShoppingItem>()
@@ -342,7 +336,6 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             ShoppingItem item = new ShoppingItem();
             item.setListId(listId);
             item.setIngredientId(ingId);
-            item.setReferenceGrams(needByIng.get(ingId));
             item.setTotalAmount(BigDecimal.ZERO); // total_amount NOT NULL 无默认值，兜底 0
             item.setPurchased(0);
             itemMapper.insert(item);
@@ -350,28 +343,6 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         }
         if (added == 0) throw new BizException("所选食材已在采购清单中");
         return listId;
-    }
-
-    /** 食集聚合用量（by ingredientId，fromPrep 填 reference_grams 用）。 */
-    private Map<Long, BigDecimal> aggregateMenuNeedGrams(Long menuId) {
-        List<MenuDish> mds = menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId));
-        List<Long> dishIds = mds.stream().map(MenuDish::getDishId).filter(Objects::nonNull).distinct().toList();
-        if (dishIds.isEmpty()) return Map.of();
-        List<DishIngredient> rows = dishIngredientMapper.selectList(
-                new QueryWrapper<DishIngredient>().in("dish_id", dishIds));
-        Map<Long, BigDecimal> factorByDish = new HashMap<>();
-        for (MenuDish md : mds) {
-            if (md.getDishId() == null) continue;
-            BigDecimal f = md.getServingFactor() == null ? BigDecimal.ONE : md.getServingFactor();
-            factorByDish.merge(md.getDishId(), f, BigDecimal::add);
-        }
-        Map<Long, BigDecimal> need = new HashMap<>();
-        for (DishIngredient di : rows) {
-            if (di.getIngredientId() == null || di.getGrams() == null) continue;
-            BigDecimal f = factorByDish.getOrDefault(di.getDishId(), BigDecimal.ONE);
-            need.merge(di.getIngredientId(), di.getGrams().multiply(f), BigDecimal::add);
-        }
-        return need;
     }
 
     /**
@@ -545,7 +516,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         removeById(listId);
     }
 
-    /** 给 item 列表填中文展示名（食材名/单位名/品类名/采购单位名）+ 档位 badge（V42）。 */
+    /** 给 item 列表填中文展示名（食材名/品类名/采购单位名）+ 档位 badge（V42）。 */
     private List<ShoppingItemVO> fillVoNames(List<ShoppingItem> rows) {
         if (rows.isEmpty()) return new ArrayList<>();
         // 食材名
@@ -554,15 +525,13 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                 .stream().collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
         // 档位 badge（V42）：读 ingredient_stock，映射 没有/快用完/有；无建档的项标灰（不标记）
         Map<Long, String> levelByIng = pantryService.levelMap(ingIds);
-        // 单位 + 品类 + 采购单位字典（一次性查三组）
+        // 品类 + 采购单位字典（一次性查两组；unit 组 V55 起不再回填 legacy unitName）
         List<SysDict> dicts = dictMapper.selectList(
-                new QueryWrapper<SysDict>().in("dict_group", List.of("unit", "purchase_category", "purchase_unit")));
-        Map<Long, String> unitName = new HashMap<>();
+                new QueryWrapper<SysDict>().in("dict_group", List.of("purchase_category", "purchase_unit")));
         Map<Long, String> catName = new HashMap<>();
         Map<Long, String> purchaseUnitName = new HashMap<>();
         for (SysDict d : dicts) {
             switch (d.getDictGroup()) {
-                case "unit" -> unitName.put(d.getId(), d.getName());
                 case "purchase_category" -> catName.put(d.getId(), d.getName());
                 case "purchase_unit" -> purchaseUnitName.put(d.getId(), d.getName());
             }
@@ -577,17 +546,11 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                 display = it.getCustomName();
             }
             vo.setIngredientName(display);
-            vo.setUnitName(unitName.get(it.getUnitId()));
             vo.setPurchaseCategoryName(catName.get(it.getPurchaseCategoryId()));
             vo.setPurchaseUnitName(purchaseUnitName.get(it.getPurchaseUnitId()));
-            // 兜底标灰：有 ingredientId 且 referenceGrams 为 null/0 视为未配置换算
-            vo.setConvertConfigured(it.getIngredientId() == null
-                    || (it.getReferenceGrams() != null && it.getReferenceGrams().compareTo(BigDecimal.ZERO) > 0));
             // 档位 badge：ingredientId 为空（手动加项）或没建档 → null（前端标灰「手动加」）
             String level = it.getIngredientId() == null ? null : levelByIng.get(it.getIngredientId());
             vo.setStockStatus(mapLevelStatus(level));
-            vo.setPantryGrams(null);
-            vo.setShortageGrams(null);
             out.add(vo);
         }
         return out;
@@ -646,8 +609,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             ShoppingItem item = new ShoppingItem();
             item.setListId(list.getId());
             item.setPurchased(0);
-            item.setReferenceGrams(pi.gramsEstimate());
-            // total_amount 列 NOT NULL 无默认值，兜底设 0
+            // total_amount 列 NOT NULL 无默认值，兜底设 0（referenceGrams 停用不写）
             item.setTotalAmount(BigDecimal.ZERO);
 
             Long matchedId = ShoppingTextParser.matchIngredient(pi.name(), pool);

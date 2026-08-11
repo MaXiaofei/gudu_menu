@@ -274,12 +274,7 @@ void main() {
       expect(v.amountText, '3 个');
     });
 
-    test('amountText: 无 purchaseAmount 回退 referenceGrams → "约 Ng"', () {
-      final v = ShoppingItemVO.fromJson({'id': 1, 'referenceGrams': 500.0});
-      expect(v.amountText, '约 500g');
-    });
-
-    test('amountText: 都没有 → 空串', () {
+    test('amountText: 都没有 → 空串（V55 referenceGrams 已删）', () {
       expect(ShoppingItemVO.fromJson({'id': 1}).amountText, '');
     });
   });

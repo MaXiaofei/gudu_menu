@@ -173,7 +173,7 @@ public abstract class OpenAiCompatibleClient implements AiClient {
                         }
                         if (c == null) continue;
                         dishes.add(new MenuCandidate.DishItem(
-                                c.dishId(), c.name(), BigDecimal.ONE, c.price()));
+                                c.dishId(), c.name(), BigDecimal.ONE));
                         if (c.nutrition() != null) {
                             for (var e : c.nutrition().entrySet()) {
                                 nut.merge(e.getKey(), e.getValue(), BigDecimal::add);
@@ -187,10 +187,8 @@ public abstract class OpenAiCompatibleClient implements AiClient {
                 if (reasonsNode.isArray()) {
                     for (JsonNode r : reasonsNode) reasons.add(r.asText());
                 }
-                BigDecimal total = dishes.stream()
-                        .map(MenuCandidate.DishItem::price)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-                out.add(new MenuCandidate(dishes, total, nut, 0.0, reasons, provider()));
+                // V55：totalPrice 随价格链路删除
+                out.add(new MenuCandidate(dishes, nut, 0.0, reasons, provider()));
             }
             // LLM 一组没选出来（全编造/全超预算）→ 降级规则
             if (out.isEmpty()) {
@@ -259,7 +257,7 @@ public abstract class OpenAiCompatibleClient implements AiClient {
         if (req.candidates() != null) {
             for (CandidateDish c : req.candidates()) {
                 list.add(new MenuRecommender.CandidateDish(
-                        c.dishId(), c.name(), c.price(), c.nutrition(), c.ingredientNames()));
+                        c.dishId(), c.name(), c.nutrition(), c.ingredientNames()));
             }
         }
         Map<String, Object> hc = req.healthConstraints() == null
@@ -270,15 +268,14 @@ public abstract class OpenAiCompatibleClient implements AiClient {
         List<String> allergies = hc.get("allergies") instanceof List<?> al
                 ? al.stream().map(String::valueOf).toList() : List.of();
         long seed = req.memberId() == null ? 42L : req.memberId();
-        return menuRecommender.recommend(list, cons, allergies, req.budget(),
+        return menuRecommender.recommend(list, cons, allergies,
                 req.scope() == null ? "DAY" : req.scope(), seed);
     }
 
-    /** 组装 user prompt：候选菜（紧凑 JSON 格式）+ 健康约束 + 预算。 */
+    /** 组装 user prompt：候选菜（紧凑 JSON 格式）+ 健康约束（V55：预算已删）。 */
     private static String buildUserPrompt(List<CandidateDish> candidates, MenuRecommendRequest req) {
         StringBuilder sb = new StringBuilder();
         sb.append("scope=").append(req.scope() == null ? "DAY" : req.scope());
-        sb.append(" budget=").append(req.budget());
         Map<String, Object> hc = req.healthConstraints() == null ? Map.of() : req.healthConstraints();
         sb.append(" health=").append(hc.isEmpty() ? "none" : hc);
         sb.append("\ncandidates=[");
@@ -286,8 +283,7 @@ public abstract class OpenAiCompatibleClient implements AiClient {
             CandidateDish c = candidates.get(i);
             if (i > 0) sb.append(",");
             sb.append("{\"id\":").append(c.dishId())
-                    .append(",\"n\":\"").append(c.name())
-                    .append("\",\"p\":").append(c.price()).append("}");
+                    .append(",\"n\":\"").append(c.name()).append("\"}");
         }
         sb.append(']');
         return sb.toString();

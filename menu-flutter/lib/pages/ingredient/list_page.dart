@@ -8,8 +8,8 @@ import '../../widgets/loading_empty.dart';
 
 /// 食材库列表页（对齐原型 pantry-ingredient.html）：
 /// 顶部「+ 添加」右对齐独占一行（§13.1 管理列表页无大标题）+ 搜索 + 分类筛选。
-/// 每项：名称 + 品类标签 +「默认 单位 · ¥价/单位」副标题 + 已设换算/去补徽标；
-/// 没设换算的标黄虚线提醒补全（菜价/营养算不准）。
+/// 每项：名称 + 品类标签 + 食用属性标记（V55 去单位：原「默认 单位 · ¥价/单位」副标题
+/// 与已设换算/去补徽标随单位解绑一并删除）。
 class IngredientListPage extends StatefulWidget {
   const IngredientListPage({super.key});
   @override
@@ -116,16 +116,11 @@ class _IngredientListPageState extends State<IngredientListPage> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          // 操作行：+ 添加 右对齐独占一行（§13.1 管理列表页无大标题）
+          // 操作行：返回箭头 + 添加 右对齐独占一行（§13.1 管理列表页无大标题）
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(4, 0, 16, 0),
             child: Row(children: [
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Text('‹',
-                    style: TextStyle(
-                        fontSize: 22, color: t.title, fontWeight: FontWeight.w800)),
-              ),
+              const BackButton(),
               const Spacer(),
               GestureDetector(
                 onTap: () async {
@@ -195,16 +190,14 @@ class _IngredientListPageState extends State<IngredientListPage> {
                     color: t.primary,
                     onRefresh: _reload,
                     child: _items.isEmpty
-                        ? ListView(children: [
-                            const SizedBox(height: 120),
-                            Center(
-                                child: Text('暂无食材',
-                                    style: TextStyle(color: t.caption))),
+                        ? ListView(children: const [
+                            SizedBox(height: 120),
+                            EmptyView(text: '暂无食材'),
                           ])
                         : ListView.builder(
                             controller: _scroll,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _items.length + 2,
+                            itemCount: _items.length + 1,
                             itemBuilder: (_, i) {
                               if (i == _items.length) {
                                 return Padding(
@@ -218,21 +211,23 @@ class _IngredientListPageState extends State<IngredientListPage> {
                                   ),
                                 );
                               }
-                              if (i == _items.length + 1) {
-                                return Padding(
-                                  padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
-                                  child: Text(
-                                    '食材从「我的」进入；没设换算的标黄，提醒补全',
-                                    textAlign: TextAlign.center,
-                                    style: t.textStyles.sm
-                                        .copyWith(color: t.caption),
-                                  ),
-                                );
-                              }
                               return _buildCard(_items[i]);
                             },
                           ),
                   ),
+          ),
+          // 底部注（原型 footer bar）：食材从「我的」进入
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 9, 16, 12),
+            decoration: BoxDecoration(
+              color: t.card,
+              border: Border(top: BorderSide(color: t.border)),
+            ),
+            child: Text(
+              '食材从「我的」进入；点击食材可编辑食用属性',
+              textAlign: TextAlign.center,
+              style: t.textStyles.sm.copyWith(color: t.caption),
+            ),
           ),
         ]),
       ),
@@ -265,13 +260,12 @@ class _IngredientListPageState extends State<IngredientListPage> {
 
   Widget _buildCard(_IngredientItem item) {
     final t = AppTokens.of(context);
-    final hasGram = item.unitGramCount > 0;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: hasGram ? t.card : t.highlight,
-        border: Border.all(color: hasGram ? t.border : AppTokens.warning),
+        color: t.card,
+        border: Border.all(color: t.border),
         borderRadius: BorderRadius.circular(AppTokens.rMd),
       ),
       child: InkWell(
@@ -291,7 +285,7 @@ class _IngredientListPageState extends State<IngredientListPage> {
                         style: t.textStyles.md.copyWith(
                             fontWeight: FontWeight.w800, color: t.title)),
                   ),
-                  if (item.edible != 1 && item.categoryName != null) ...[
+                  if (item.categoryName != null) ...[
                     const SizedBox(width: 5),
                     Text(item.categoryName!,
                         style: t.textStyles.xs.copyWith(
@@ -302,50 +296,25 @@ class _IngredientListPageState extends State<IngredientListPage> {
                 ]),
                 const SizedBox(height: 2),
                 Text(
-                  hasGram ? item.subtitle : '没设单位换算，菜价/营养算不准',
-                  style: t.textStyles.xs.copyWith(
-                      color: hasGram ? t.caption : t.primaryDeep),
+                  item.subtitle,
+                  style: t.textStyles.xs.copyWith(color: t.caption),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          if (hasGram)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppTokens.success,
-                borderRadius: BorderRadius.circular(99),              ),
-              child: Text('已设换算',
-                  style: t.textStyles.xs.copyWith(
-                      color: Colors.white, fontWeight: FontWeight.w800)),
-            )
-          else
-            Text('去补',
-                style: t.textStyles.sm.copyWith(
-                    color: t.primary, fontWeight: FontWeight.w800)),
         ]),
       ),
     );
   }
 }
 
-/// 列表项：名称 + 默认单位/单价副标题 + 品类 + 换算条数 + 食用属性。
+/// 列表项：名称 + 品类 + 食用属性（V55 去单位：原默认单位/单价/换算徽标字段已删）。
 class _IngredientItem {
   final int id;
   final String name;
 
-  /// 默认单位名（ingredient.unit_id → 字典）。
-  final String? unitName;
-
-  /// 单价（元/默认单位）。
-  final double price;
-
   /// 采购品类名（可空）。
   final String? categoryName;
-
-  /// 单位→克换算条数（0 = 没设换算，标黄去补）。
-  final int unitGramCount;
 
   /// 食用属性：1食用/2饮料零食/3生活用品。
   final int edible;
@@ -353,36 +322,24 @@ class _IngredientItem {
   const _IngredientItem({
     required this.id,
     required this.name,
-    this.unitName,
-    this.price = 0,
     this.categoryName,
-    this.unitGramCount = 0,
     this.edible = 1,
   });
 
   factory _IngredientItem.fromJson(Map<String, dynamic> j) => _IngredientItem(
         id: (j['id'] as num).toInt(),
         name: (j['name'] ?? '') as String,
-        unitName: (j['unitName'] as String?)?.trim().isNotEmpty == true
-            ? j['unitName'] as String
-            : null,
-        price: (j['price'] as num?)?.toDouble() ?? 0,
         categoryName: (j['categoryName'] as String?)?.trim().isNotEmpty == true
             ? j['categoryName'] as String
             : null,
-        unitGramCount: (j['unitGramCount'] as num?)?.toInt() ?? 0,
         edible: (j['edible'] as num?)?.toInt() ?? 1,
       );
 
-  /// 「默认 个 · ¥1/个」（原型）；无价格只显单位；非食用补「非营养/非食用」。
+  /// 副标题：非食用/非营养标记（V55 起不再有默认单位/单价）。
   String get subtitle {
-    final parts = <String>['默认 ${unitName ?? '-'}'];
-    if (price > 0) parts.add('¥${_fmtPrice(price)}/$unitName');
+    final parts = <String>[];
     if (edible == 2) parts.add('非营养');
     if (edible == 3) parts.add('非食用');
-    return parts.join(' · ');
+    return parts.isEmpty ? '点击编辑' : parts.join(' · ');
   }
-
-  static String _fmtPrice(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 }

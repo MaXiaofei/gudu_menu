@@ -938,63 +938,39 @@ class _CreateDishPageState extends State<CreateDishPage>
       _showSnack('已加过「${ing.name}」');
       return;
     }
-    // 下厨房式：自动带出食材默认单位（主单位名），用户只填数字
-    setState(() => _ingredients.add(_IngredientRow(
-        ingredientId: ing.id, name: ing.name, unit: ing.unitName ?? '')));
+    // V55（食材去单位）：不再自动带出单位，菜谱用量单位由用户手填
+    setState(() =>
+        _ingredients.add(_IngredientRow(ingredientId: ing.id, name: ing.name)));
     Navigator.pop(ctx);
   }
 
-  /// 新建食材共用弹层（原型 ⑤ 屏，§16.5）：名称 + 分类 + 默认单位 + 克换算 + 单价，
+  /// 新建食材共用弹层（原型 ⑤ 屏，§16.5）：名称 + 分类。
   /// 建档成功 → 自动加为用料行并回到表单（菜谱加料与采购入库同用此弹层）。
+  /// V55（食材去单位）：默认单位/克换算/单价随单位解绑删除。
   /// [presetName] 用料弹层搜索词预填（食材库没有时不用再输一遍）。
   Future<void> _onCreateIngredient(BuildContext sheetCtx,
       {String presetName = ''}) async {
     Navigator.pop(sheetCtx); // 先关用料弹层
     final t = AppTokens.of(context);
     final nameCtrl = TextEditingController(text: presetName);
-    final gramCtrl = TextEditingController(); // 「1 个 = 300 g」
-    final priceCtrl = TextEditingController();
-    int? unitId; // 默认单位（必填，默认 g）
     int? catId; // 分类（可选）
     var saving = false;
 
     Future<void> createAndPick() async {
       final name = nameCtrl.text.trim();
-      if (name.isEmpty || unitId == null) return;
+      if (name.isEmpty) return;
       saving = true;
       try {
         final ingId = await IngredientService.createIngredient({
           'ingredient': {
             'name': name,
-            'unitId': unitId,
             if (catId != null) 'purchaseCategoryId': catId,
-            if (priceCtrl.text.trim().isNotEmpty)
-              'price': double.tryParse(priceCtrl.text.trim()),
           },
           'nutritions': [],
         });
-        // 克换算「1 个 = 300 g」→ 保存单位换算（§16.5，可后补）
-        final m = RegExp(r'^(\d+(?:\.\d+)?)\s*[=＝]\s*(\d+(?:\.\d+)?)\s*g?$')
-            .firstMatch(gramCtrl.text.trim());
-        if (m != null) {
-          try {
-            await IngredientService.saveUnitGrams(ingId, [
-              {
-                'unitId': unitId,
-                'gramsPerUnit': double.tryParse(m.group(2)!),
-                'isDefault': 1,
-              }
-            ]);
-          } catch (_) {}
-        }
         if (!mounted) return;
         setState(() {
-          final unitName = _unitDict
-              .where((u) => u.id == unitId)
-              .map((u) => u.name)
-              .firstOrNull;
-          _ingredients.add(_IngredientRow(
-              ingredientId: ingId, name: name, unit: unitName ?? ''));
+          _ingredients.add(_IngredientRow(ingredientId: ingId, name: name));
           _commonIngredients = [
             IngredientItem(id: ingId, name: name),
             ..._commonIngredients,
@@ -1036,7 +1012,7 @@ class _CreateDishPageState extends State<CreateDishPage>
                 const SizedBox(height: 12),
                 Text('新建食材', style: t.textStyles.subtitle),
                 const SizedBox(height: 2),
-                Text('名称和单位必填，其他可后补',
+                Text('名称必填，分类可后补',
                     style: t.textStyles.xs.copyWith(color: t.caption)),
                 // 名称 *
                 const SizedBox(height: 12),
@@ -1104,133 +1080,13 @@ class _CreateDishPageState extends State<CreateDishPage>
                     }).toList(),
                   ),
                 ],
-                // 默认单位 *
-                const SizedBox(height: 12),
-                Text('默认单位',
-                    style: t.textStyles.xs.copyWith(
-                        color: t.caption,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1)),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _unitDict.map((u) {
-                    final sel = unitId == u.id;
-                    return InkWell(
-                      onTap: () => setSheet(() => unitId = u.id),
-                      borderRadius: BorderRadius.circular(AppTokens.rSm),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: sel ? t.primary : t.card,
-                          borderRadius: BorderRadius.circular(AppTokens.rSm),
-                          border: sel ? null : Border.all(color: t.border),
-                        ),
-                        child: Text(u.name,
-                            style: t.textStyles.xs.copyWith(
-                              color: sel ? t.card : t.body,
-                              fontWeight: FontWeight.w800,
-                            )),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                // 克换算 / 单价（可选）
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 12),
-                          Text('克换算（可选）',
-                              style: t.textStyles.xs.copyWith(
-                                  color: t.caption,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1)),
-                          const SizedBox(height: 5),
-                          TextField(
-                            controller: gramCtrl,
-                            style: t.textStyles.xs,
-                            decoration: InputDecoration(
-                              hintText: '1 个 = 300 g',
-                              filled: true,
-                              fillColor: t.bg,
-                              isDense: true,
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.rMd),
-                                borderSide: BorderSide(color: t.border),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.rMd),
-                                borderSide: BorderSide(color: t.border),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.rMd),
-                                borderSide:
-                                    BorderSide(color: t.primary, width: 1.5),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppTokens.sp10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 12),
-                          Text('单价（可选）',
-                              style: t.textStyles.xs.copyWith(
-                                  color: t.caption,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1)),
-                          const SizedBox(height: 5),
-                          TextField(
-                            controller: priceCtrl,
-                            keyboardType: TextInputType.number,
-                            style: t.textStyles.xs,
-                            decoration: InputDecoration(
-                              hintText: '¥ 2 / 个',
-                              filled: true,
-                              fillColor: t.bg,
-                              isDense: true,
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.rMd),
-                                borderSide: BorderSide(color: t.border),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.rMd),
-                                borderSide: BorderSide(color: t.border),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.rMd),
-                                borderSide:
-                                    BorderSide(color: t.primary, width: 1.5),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                // V55（食材去单位）：默认单位/克换算/单价区块已删除
                 const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,
                   height: 46,
                   child: ElevatedButton(
-                    onPressed: (nameCtrl.text.trim().isEmpty || unitId == null)
+                    onPressed: nameCtrl.text.trim().isEmpty
                         ? null
                         : () async {
                             setSheet(() => saving = true);

@@ -14,9 +14,11 @@ import java.util.Set;
 /**
  * 菜单推荐纯函数（算法地基，不依赖外部状态；参照 MenuCalcService 范式）。
  *
- * <p>职责：过滤（健康指标上限 + 过敏食材）→ 打分（蛋白含量为主，达标奖励）→ 组合（控制总价 ≤ 预算）→
+ * <p>职责：过滤（健康指标上限 + 过敏食材）→ 打分（蛋白含量为主，达标奖励）→ 组合 →
  * 按 scope 限量（DAY 1 组 / WEEK 3 组）。候选池查菜 + 营养是 IO，由 AiService 在调用前组装成
  * {@link CandidateDish} 传入；本类只做确定性算法。
+ *
+ * <p>V55（食材去单位）：预算（budget）约束随价格链路删除，组合不再按总价过滤。
  *
  * <p>seed 用于在多个等分组之间做确定性选择，避免同一输入每次返回不同候选顺序。
  */
@@ -31,11 +33,10 @@ public class MenuRecommender {
      *
      * @param id            dishId
      * @param name          菜名
-     * @param price         单价（1 份）
      * @param nutrition     per 份营养 metricId -> 值
      * @param ingredients   食材名列表（用于过敏过滤）
      */
-    public record CandidateDish(Long id, String name, BigDecimal price,
+    public record CandidateDish(Long id, String name,
                                  Map<Long, BigDecimal> nutrition, List<String> ingredients) {}
 
     private static final long METRIC_SUGAR = 5L;
@@ -49,13 +50,12 @@ public class MenuRecommender {
      * @param candidates 候选菜池（已查营养/食材，IO 在 AiService 完成）
      * @param cons       健康约束（null 字段不约束）
      * @param allergies  过敏食材名（菜名/食材名命中即剔）
-     * @param budget     总预算上限（每组 totalPrice ≤ budget）；null 视为无上限
      * @param scope      DAY（1 组）/ WEEK（3 组）；其他按 DAY
      * @param seed       等分确定性扰动种子
      * @return 推荐候选组（已按 score 降序）
      */
     public List<MenuCandidate> recommend(List<CandidateDish> candidates, Constraints cons,
-                                         List<String> allergies, BigDecimal budget,
+                                         List<String> allergies,
                                          String scope, long seed) {
         // 1. 过滤：过敏原硬过滤（食物过敏不能软化）；健康约束改为软扣分（不排除）
         List<CandidateDish> pool = new ArrayList<>();
@@ -66,15 +66,14 @@ public class MenuRecommender {
         }
         if (pool.isEmpty()) return List.of();
 
-        // 2. 组合：单菜 + 两菜配对，过滤超预算 + 双超标排除
+        // 2. 组合：单菜 + 两菜配对，双超标排除（V55：预算过滤已删）
         List<List<CandidateDish>> combos = new ArrayList<>();
         for (CandidateDish d : pool) {
-            if (withinBudget(List.of(d), budget)) combos.add(List.of(d));
+            combos.add(List.of(d));
         }
         for (int i = 0; i < pool.size(); i++) {
             for (int j = i + 1; j < pool.size(); j++) {
                 List<CandidateDish> pair = List.of(pool.get(i), pool.get(j));
-                if (!withinBudget(pair, budget)) continue;
                 // 配额规则：两道都超标 → 排除该组合
                 if (comboOverLimit(pair, cons)) continue;
                 combos.add(pair);
@@ -157,20 +156,7 @@ public class MenuRecommender {
         return false;
     }
 
-    // ---------------- 预算 / 打分 ----------------
-
-    private static boolean withinBudget(List<CandidateDish> combo, BigDecimal budget) {
-        if (budget == null) return true;
-        return totalPrice(combo).compareTo(budget) <= 0;
-    }
-
-    private static BigDecimal totalPrice(List<CandidateDish> combo) {
-        BigDecimal sum = BigDecimal.ZERO;
-        for (CandidateDish d : combo) {
-            sum = sum.add(d.price() == null ? BigDecimal.ZERO : d.price());
-        }
-        return sum;
-    }
+    // ---------------- 打分 ----------------
 
     /**
      * 打分：蛋白总量为主 + 搭配奖励 + 健康软扣分。
@@ -218,9 +204,8 @@ public class MenuRecommender {
     private static MenuCandidate toCandidate(Scored s) {
         List<MenuCandidate.DishItem> items = new ArrayList<>();
         for (CandidateDish d : s.dishes) {
-            items.add(new MenuCandidate.DishItem(d.id(), d.name(), BigDecimal.ONE, d.price()));
+            items.add(new MenuCandidate.DishItem(d.id(), d.name(), BigDecimal.ONE));
         }
-        BigDecimal total = totalPrice(s.dishes);
         Map<Long, BigDecimal> nut = new java.util.HashMap<>();
         for (CandidateDish d : s.dishes) {
             if (d.nutrition() == null) continue;
@@ -231,7 +216,7 @@ public class MenuRecommender {
         List<String> reasons = new ArrayList<>();
         reasons.add("蛋白含量较高，营养均衡");
         if (s.dishes.size() >= 2) reasons.add("荤素搭配");
-        return new MenuCandidate(items, total, nut, s.score, reasons, SOURCE);
+        return new MenuCandidate(items, nut, s.score, reasons, SOURCE);
     }
 
     private static final class Scored {

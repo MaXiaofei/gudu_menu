@@ -39,8 +39,16 @@ class MenuPrepServiceTest {
         menuPrepStatusMapper = Mockito.mock(MenuPrepStatusMapper.class);
         com.gudu.xsd.modules.pantry.PantryService pantryService = Mockito.mock(com.gudu.xsd.modules.pantry.PantryService.class);
         Mockito.when(pantryService.levelMap(Mockito.any())).thenReturn(java.util.Map.of());
+        // 单位字典回填（用量原文展示用）：g(20)、个(22)
+        com.gudu.xsd.modules.dict.mapper.DictMapper dictMapper =
+                Mockito.mock(com.gudu.xsd.modules.dict.mapper.DictMapper.class);
+        com.gudu.xsd.modules.dict.SysDict g = new com.gudu.xsd.modules.dict.SysDict();
+        g.setId(20L); g.setName("g");
+        com.gudu.xsd.modules.dict.SysDict ge = new com.gudu.xsd.modules.dict.SysDict();
+        ge.setId(22L); ge.setName("个");
+        Mockito.when(dictMapper.selectBatchIds(Mockito.any())).thenReturn(List.of(g, ge));
         svc = new MenuPrepService(menuService, dishIngredientMapper, ingredientMapper,
-                menuPrepStatusMapper, new PrepAggregator(), pantryService);
+                menuPrepStatusMapper, new PrepAggregator(), pantryService, dictMapper);
     }
 
     private Menu menu(Long id) {
@@ -54,11 +62,12 @@ class MenuPrepServiceTest {
         return new MenuService.MenuDishVO(id, menuId, dishId, new BigDecimal(factor), name, null, null, null, null);
     }
 
-    private DishIngredient di(Long dishId, Long ingId, String grams) {
+    private DishIngredient di(Long dishId, Long ingId, String amount, Long unitId) {
         DishIngredient d = new DishIngredient();
         d.setDishId(dishId);
         d.setIngredientId(ingId);
-        d.setGrams(new BigDecimal(grams));
+        d.setAmount(new BigDecimal(amount));
+        d.setUnitId(unitId);
         return d;
     }
 
@@ -93,7 +102,7 @@ class MenuPrepServiceTest {
     void getPrep_单菜单主料_进items_状态默认PENDING() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
                 menu(1L), List.of(md(1L, 1L, 10L, "1", "番茄炒蛋")), 0));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 1L, "300")));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 1L, "300", 20L)));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(1L, "番茄", 1L)));
         when(menuPrepStatusMapper.selectList(any())).thenReturn(List.of());
 
@@ -101,7 +110,8 @@ class MenuPrepServiceTest {
 
         assertThat(vo.items()).hasSize(1);
         assertThat(vo.items().get(0).ingredientName()).isEqualTo("番茄");
-        assertThat(vo.items().get(0).totalGrams()).isEqualByComparingTo("300");
+        // V55：用量原文（菜名 + amount + 单位）
+        assertThat(vo.items().get(0).usageTexts()).containsExactly("番茄炒蛋 300g");
         assertThat(vo.items().get(0).status()).isEqualTo("PENDING");
         assertThat(vo.items().get(0).shared()).isFalse();
         assertThat(vo.condiments()).isEmpty();
@@ -114,7 +124,7 @@ class MenuPrepServiceTest {
     void getPrep_调味料_折叠到condiments_计入进度() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
                 menu(1L), List.of(md(1L, 1L, 10L, "1", "清炒虾仁")), 0));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 16L, "10")));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 16L, "10", 20L)));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(16L, "食用油", 30L)));
         when(menuPrepStatusMapper.selectList(any())).thenReturn(List.of());
 
@@ -132,7 +142,7 @@ class MenuPrepServiceTest {
     void getPrep_调料READY_计入进度() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
                 menu(1L), List.of(md(1L, 1L, 10L, "1", "清炒虾仁")), 0));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 16L, "10")));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 16L, "10", 20L)));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(16L, "食用油", 30L)));
         MenuPrepStatus ready = new MenuPrepStatus();
         ready.setMenuId(1L);
@@ -146,15 +156,15 @@ class MenuPrepServiceTest {
         assertThat(vo.readyCount()).isEqualTo(1);
     }
 
-    /** 两菜共用一料：shared=true、dishCount=2、dishNames 含两菜、grams 合并。 */
+    /** 两菜共用一料：shared=true、dishCount=2、dishNames 含两菜、用量原文明细保留。 */
     @Test
-    void getPrep_两菜共用料_shared为true且合并() {
+    void getPrep_两菜共用料_shared为true且明细保留() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
                 menu(1L), List.of(
                         md(1L, 1L, 10L, "1", "番茄炒蛋"),
                         md(2L, 1L, 20L, "1", "番茄汤")), 0));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of(
-                di(10L, 1L, "100"), di(20L, 1L, "200")));
+                di(10L, 1L, "100", 20L), di(20L, 1L, "2", 22L)));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(1L, "番茄", 1L)));
         when(menuPrepStatusMapper.selectList(any())).thenReturn(List.of());
 
@@ -164,7 +174,7 @@ class MenuPrepServiceTest {
         PrepItemVO item = vo.items().get(0);
         assertThat(item.shared()).isTrue();
         assertThat(item.dishCount()).isEqualTo(2);
-        assertThat(item.totalGrams()).isEqualByComparingTo("300");
+        assertThat(item.usageTexts()).containsExactlyInAnyOrder("番茄炒蛋 100g", "番茄汤 2个");
         assertThat(item.dishNames()).containsExactlyInAnyOrder("番茄炒蛋", "番茄汤");
     }
 
@@ -173,7 +183,7 @@ class MenuPrepServiceTest {
     void getPrep_status关联_DB有READY则取DB值计入进度() {
         when(menuService.detail(1L)).thenReturn(new MenuService.MenuDetail(
                 menu(1L), List.of(md(1L, 1L, 10L, "1", "番茄炒蛋")), 0));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 1L, "300")));
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(10L, 1L, "300", 20L)));
         when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(ing(1L, "番茄", 1L)));
         MenuPrepStatus ready = new MenuPrepStatus();
         ready.setMenuId(1L);

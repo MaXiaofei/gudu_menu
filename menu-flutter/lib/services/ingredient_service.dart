@@ -47,11 +47,10 @@ class IngredientService {
     return (result as num).toInt();
   }
 
-  /// 全部食材列表（id + name + 现有库存 + 主单位）：GET /ingredient?pageSize=1000
+  /// 全部食材列表（id + name + 品类）：GET /ingredient?pageSize=1000
   ///
   /// 例外于 DESIGN.md §12.1（列表须分页）：用于建菜/采购选食材下拉，需全量。
-  /// V41：后端挂 stockAmount/stockUnitName（现有 X 个 · 单位，手动添加页用）；
-  /// 旧后端无此字段时兜底 0 / null。
+  /// V55（食材去单位）：stockAmount/stockUnitName 字段已随单位解绑删除。
   static Future<List<IngredientItem>> listAll() async {
     final data = await ApiClient.instance.get('/ingredient', query: {
       'pageNum': 1,
@@ -82,7 +81,7 @@ class IngredientService {
     return [];
   }
 
-  /// 新增字典项（自定义单位/分类），返回新 id。新增后失效字典缓存（新单位立即可见）。
+  /// 新增字典项（自定义分类），返回新 id。新增后失效字典缓存（新分类立即可见）。
   static Future<int> upsertDict(String name, String group) async {
     final result = await ApiClient.instance.post('/dict', body: {
       'name': name,
@@ -92,22 +91,7 @@ class IngredientService {
     return (result as num).toInt();
   }
 
-  /// 保存食材克换算（新建食材共用弹层「克换算」用）：
-  /// PUT /ingredient/{id}/unit-grams，rows = [{unitId, gramsPerUnit, isDefault}]。
-  static Future<void> saveUnitGrams(
-      int ingredientId, List<Map<String, dynamic>> rows) async {
-    await ApiClient.instance.put('/ingredient/$ingredientId/unit-grams',
-        body: rows);
-  }
-
-  /// 查食材的单位换算：GET /ingredient/{id}/unit-grams（编辑页加载）。
-  static Future<List<UnitGram>> fetchUnitGrams(int ingredientId) async {
-    final data = await ApiClient.instance.get('/ingredient/$ingredientId/unit-grams');
-    final list = data is List ? data : const [];
-    return list.map((e) => UnitGram.fromJson(e as Map<String, dynamic>)).toList();
-  }
-
-  /// 更新食材信息（名称/默认单位/单价/采购品类）：PUT /ingredient。
+  /// 更新食材信息（名称/采购品类/食用属性）：PUT /ingredient。
   static Future<void> updateIngredient(Map<String, dynamic> data) async {
     await ApiClient.instance.put('/ingredient', body: data);
   }
@@ -116,39 +100,6 @@ class IngredientService {
   static Future<void> deleteIngredient(int id) async {
     await ApiClient.instance.delete('/ingredient/$id');
   }
-}
-
-/// 食材单位换算行（编辑页用）。
-class UnitGram {
-  final int? id;
-  final int? unitId;
-  final String? unitName;
-  final double gramsPerUnit;
-  final bool isDefault;
-
-  const UnitGram({
-    this.id,
-    this.unitId,
-    this.unitName,
-    required this.gramsPerUnit,
-    required this.isDefault,
-  });
-
-  factory UnitGram.fromJson(Map<String, dynamic> j) => UnitGram(
-        id: (j['id'] as num?)?.toInt(),
-        unitId: (j['unitId'] as num?)?.toInt(),
-        unitName: j['unitName'] as String?,
-        gramsPerUnit: (j['gramsPerUnit'] as num?)?.toDouble() ?? 0,
-        isDefault: (j['isDefault'] as num?)?.toInt() == 1,
-      );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'unitId': unitId,
-        'unitName': unitName,
-        'gramsPerUnit': gramsPerUnit,
-        'isDefault': isDefault ? 1 : 0,
-      };
 }
 
 /// 用量自由文本解析（写菜谱用料，§16.3）：
@@ -196,31 +147,19 @@ class DictItem {
       );
 }
 
-/// 食材库项（手动添加「库里已有」用）：id + name + 当前库存余量 + 主单位。
-/// V41：stockAmount/stockUnitName 来自后端；旧后端缺字段时兜底 0 / null。
+/// 食材库项（写菜谱/采购选食材下拉用）：id + name。
+/// V55（食材去单位）：stockAmount/stockUnitName 字段已随单位解绑删除。
 class IngredientItem {
   final int id;
   final String name;
 
-  /// 当前库存余量（pantry SUM(amount)，主单位）。
-  final double stockAmount;
-
-  /// 主单位名（可空）。
-  final String? unitName;
-
   const IngredientItem({
     required this.id,
     required this.name,
-    this.stockAmount = 0,
-    this.unitName,
   });
 
   factory IngredientItem.fromJson(Map<String, dynamic> j) => IngredientItem(
         id: (j['id'] as num).toInt(),
         name: (j['name'] ?? '') as String,
-        stockAmount: (j['stockAmount'] as num?)?.toDouble() ?? 0,
-        unitName: (j['stockUnitName'] as String?)?.trim().isNotEmpty == true
-            ? j['stockUnitName'] as String
-            : null,
       );
 }

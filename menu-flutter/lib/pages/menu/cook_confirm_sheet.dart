@@ -169,8 +169,13 @@ class _CookConfirmSheetState extends State<CookConfirmSheet> {
             Text(it.ingredientName ?? '食材#${it.ingredientId}',
                 style: t.textStyles.md.copyWith(color: t.title, fontWeight: FontWeight.w600)),
             const SizedBox(height: 2),
-            Text('家里：${StockLevel.label(it.level)}${it.needGrams > 0 ? ' · 用 ${_fmtGrams(it.needGrams)}' : ''}',
-                style: t.textStyles.sm.copyWith(color: t.caption)),
+            // V55 去单位：用量原文（如「番茄炒蛋 2个」），不再显示克数
+            Text(
+              it.usageTexts.isEmpty
+                  ? '家里：${StockLevel.label(it.level)}'
+                  : '家里：${StockLevel.label(it.level)} · ${it.usageTexts.join(' + ')}',
+              style: t.textStyles.sm.copyWith(color: t.caption),
+            ),
           ]),
         ),
         // 三态 chips
@@ -198,11 +203,6 @@ class _CookConfirmSheetState extends State<CookConfirmSheet> {
           ),
       ]),
     );
-  }
-
-  static String _fmtGrams(double g) {
-    if (g == g.roundToDouble()) return '${g.toInt()}g';
-    return '${g.toStringAsFixed(1)}g';
   }
 }
 

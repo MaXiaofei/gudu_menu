@@ -10,16 +10,16 @@ import java.util.Map;
  * <p> nutrition 为 per 份营养（已按份数折算，非 per100g），metricId -> 值。
  * ingredientNames 为该菜食材名列表（用于 LLM 理解 + 过敏识别）。
  *
+ * <p>V55（食材去单位）：price 字段随价格链路删除。
+ *
  * @param dishId         dishId
  * @param name           菜名
- * @param price          单价（1 份）
  * @param nutrition      per 份营养 metricId -> 值
  * @param ingredientNames 食材名列表
  */
 public record CandidateDish(
         Long dishId,
         String name,
-        BigDecimal price,
         Map<Long, BigDecimal> nutrition,
         List<String> ingredientNames) {
 }

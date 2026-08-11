@@ -50,8 +50,8 @@ class PrepItem {
   final String ingredientName;
   /// 库存档位 ENOUGH/LOW/NONE（家里：充足/不足/用完，B5）。
   final String? stockLevel;
-  /// 聚合总克数（已 ×servingFactor，不减库存）。
-  final double totalGrams;
+  /// 用量原文明细（V55 去单位：后端已拼菜名，如「番茄炒蛋 2个」「蛋花汤 3个」）。
+  final List<String> usageTexts;
   /// 被几道菜用到。
   final int dishCount;
   /// 用到该食材的菜名列表（共用高亮用）。
@@ -64,7 +64,7 @@ class PrepItem {
     required this.ingredientId,
     required this.ingredientName,
     this.stockLevel,
-    required this.totalGrams,
+    required this.usageTexts,
     required this.dishCount,
     required this.dishNames,
     required this.status,
@@ -75,7 +75,9 @@ class PrepItem {
         ingredientId: (j['ingredientId'] as num).toInt(),
         ingredientName: (j['ingredientName'] ?? '') as String,
         stockLevel: j['stockLevel'] as String?,
-        totalGrams: (j['totalGrams'] as num?)?.toDouble() ?? 0,
+        usageTexts: ((j['usageTexts'] ?? const []) as List)
+            .map((e) => e as String)
+            .toList(),
         dishCount: (j['dishCount'] as num?)?.toInt() ?? 0,
         dishNames: ((j['dishNames'] ?? const []) as List)
             .map((e) => e as String)
@@ -88,7 +90,7 @@ class PrepItem {
         ingredientId: ingredientId,
         ingredientName: ingredientName,
         stockLevel: stockLevel,
-        totalGrams: totalGrams,
+        usageTexts: usageTexts,
         dishCount: dishCount,
         dishNames: dishNames,
         status: s,

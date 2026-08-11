@@ -94,18 +94,17 @@ class AiControllerTest {
 
     @Test
     void 菜单推荐_返回R结构_候选数组() throws Exception {
-        MenuCandidate.DishItem item = new MenuCandidate.DishItem(1L, "番茄炒蛋", BigDecimal.ONE, new BigDecimal("10"));
-        MenuCandidate c = new MenuCandidate(List.of(item), new BigDecimal("10"),
+        MenuCandidate.DishItem item = new MenuCandidate.DishItem(1L, "番茄炒蛋", BigDecimal.ONE);
+        MenuCandidate c = new MenuCandidate(List.of(item),
                 Map.of(1L, new BigDecimal("300")), 12.5, List.of("蛋白高"), "mock");
         given(svc.recommendMenu(any(MenuRecommendRequest.class))).willReturn(List.of(c));
 
-        String body = "{\"memberId\":1,\"budget\":50,\"scope\":\"DAY\"}";
+        String body = "{\"memberId\":1,\"scope\":\"DAY\"}";
         mvc.perform(post("/ai/menu/recommend").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data[0].dishes[0].dishId").value(1))
                 .andExpect(jsonPath("$.data[0].dishes[0].name").value("番茄炒蛋"))
-                .andExpect(jsonPath("$.data[0].totalPrice").value(10))
                 .andExpect(jsonPath("$.data[0].source").value("mock"))
                 .andExpect(jsonPath("$.data[0].reasons[0]").value("蛋白高"));
     }

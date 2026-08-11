@@ -63,18 +63,15 @@ class AiServiceTest {
         svc = new AiService(aiClient, ingredientService, ingredientMapper,
                 dishService, dishQueryService, dishIngredientMapper,
                 memberMapper, aiCallLogMapper, new ObjectMapper(),
-                new AiInputGuard(), menuRecommender,
-                mock(com.gudu.xsd.modules.dish.mapper.DishMapper.class),
-                mock(com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper.class));
+                new AiInputGuard(), menuRecommender);
         // @Value 在 new 出来的实例上不生效，手动注入默认额度
         org.springframework.test.util.ReflectionTestUtils.setField(svc, "dailyLimit", 50);
     }
 
-    private Dish dish(long id, String name, String price) {
+    private Dish dish(long id, String name) {
         Dish d = new Dish();
         d.setId(id);
         d.setName(name);
-        d.setPrice(new BigDecimal(price));
         return d;
     }
 
@@ -82,7 +79,7 @@ class AiServiceTest {
     void 菜单推荐_调aiClient_不再直接MenuRecommender() {
         // mock 候选池
         IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋", "10"), dish(2, "黄瓜", "5")));
+        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋"), dish(2, "黄瓜")));
         when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
         when(dishQueryService.nutrition(anyLong(), any(BigDecimal.class)))
                 .thenReturn(Map.of(2L, new BigDecimal("10")));
@@ -91,7 +88,7 @@ class AiServiceTest {
 
         when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of()));
 
-        var req = new MenuRecommendRequest(1L, new BigDecimal("100"), "DAY",
+        var req = new MenuRecommendRequest(1L, "DAY",
                 null, null, null, null, null);
         svc.recommendMenu(req);
 
@@ -109,14 +106,14 @@ class AiServiceTest {
         when(memberMapper.selectById(1L)).thenReturn(m);
 
         IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋", "10")));
+        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋")));
         when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
         when(dishQueryService.nutrition(eq(1L), any(BigDecimal.class)))
                 .thenReturn(Map.of(2L, new BigDecimal("12"), 5L, new BigDecimal("3")));
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
         when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of()));
 
-        var req = new MenuRecommendRequest(1L, new BigDecimal("100"), "DAY",
+        var req = new MenuRecommendRequest(1L, "DAY",
                 null, null, null, null, null);
         svc.recommendMenu(req);
 
@@ -128,7 +125,6 @@ class AiServiceTest {
         CandidateDish c = enriched.candidates().get(0);
         assertThat(c.dishId()).isEqualTo(1L);
         assertThat(c.name()).isEqualTo("番茄炒蛋");
-        assertThat(c.price()).isEqualByComparingTo("10");
         assertThat(c.nutrition()).containsEntry(2L, new BigDecimal("12"));
         // healthConstraints 含 sugarMax / calMax / allergies
         assertThat(enriched.healthConstraints()).containsKey("sugarMax");
@@ -138,18 +134,18 @@ class AiServiceTest {
     @Test
     void 菜单推荐_返回aiClient结果() {
         IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋", "10")));
+        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋")));
         when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
         when(dishQueryService.nutrition(anyLong(), any(BigDecimal.class))).thenReturn(Map.of());
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
         when(memberMapper.selectById(anyLong())).thenReturn(null);
 
         MenuCandidate expected = new MenuCandidate(
-                List.of(new MenuCandidate.DishItem(1L, "番茄炒蛋", BigDecimal.ONE, new BigDecimal("10"))),
-                new BigDecimal("10"), Map.of(), 0.0, List.of("清淡"), "deepseek");
+                List.of(new MenuCandidate.DishItem(1L, "番茄炒蛋", BigDecimal.ONE)),
+                Map.of(), 0.0, List.of("清淡"), "deepseek");
         when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of(expected)));
 
-        var req = new MenuRecommendRequest(1L, new BigDecimal("100"), "DAY",
+        var req = new MenuRecommendRequest(1L, "DAY",
                 null, null, null, null, null);
         var out = svc.recommendMenu(req);
         assertThat(out).containsExactly(expected);
@@ -164,7 +160,7 @@ class AiServiceTest {
         // 今日已调用 50 次（=dailyLimit）→ 第 51 次拒绝
         when(aiCallLogMapper.selectCount(any())).thenReturn(50L);
 
-        var req = new MenuRecommendRequest(1L, new BigDecimal("100"), "DAY",
+        var req = new MenuRecommendRequest(1L, "DAY",
                 null, null, null, null, null);
         assertThatThrownBy(() -> svc.recommendMenu(req))
                 .isInstanceOf(BizException.class)
@@ -177,14 +173,14 @@ class AiServiceTest {
     void 菜单推荐_额度未超_正常调用() {
         when(aiCallLogMapper.selectCount(any())).thenReturn(10L);
         IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋", "10")));
+        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋")));
         when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
         when(dishQueryService.nutrition(anyLong(), any(BigDecimal.class))).thenReturn(Map.of());
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
         when(memberMapper.selectById(anyLong())).thenReturn(null);
         when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of()));
 
-        var req = new MenuRecommendRequest(1L, new BigDecimal("100"), "DAY",
+        var req = new MenuRecommendRequest(1L, "DAY",
                 null, null, null, null, null);
         svc.recommendMenu(req);
         verify(aiClient).recommendMenu(any());
@@ -198,7 +194,7 @@ class AiServiceTest {
         when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
         when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of()));
 
-        var req = new MenuRecommendRequest(null, new BigDecimal("100"), "DAY",
+        var req = new MenuRecommendRequest(null, "DAY",
                 null, null, null, null, null);
         svc.recommendMenu(req);
         verify(aiCallLogMapper, never()).selectCount(any());

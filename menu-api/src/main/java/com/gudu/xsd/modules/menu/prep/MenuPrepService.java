@@ -1,6 +1,8 @@
 package com.gudu.xsd.modules.menu.prep;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.gudu.xsd.modules.dict.SysDict;
+import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.menu.MenuService;
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,6 +43,7 @@ public class MenuPrepService {
     private final MenuPrepStatusMapper menuPrepStatusMapper;
     private final PrepAggregator aggregator;
     private final com.gudu.xsd.modules.pantry.PantryService pantryService;
+    private final DictMapper dictMapper;
 
     /** GET /menu/{id}/prep：聚合全量用料 + 备料状态 + 共用高亮 + 调料分组 + 进度（含调料）。 */
     public MenuPrepVO getPrep(Long menuId) {
@@ -52,7 +56,9 @@ public class MenuPrepService {
         List<DishIngredient> dis = dishIngredientMapper.selectList(
                 new QueryWrapper<DishIngredient>().in("dish_id", dishIds));
 
-        // 2. 构造 Usage（每菜的 servingFactor × 每个 DishIngredient 的 grams）
+        // 2. 批量回填单位名（用量原文展示用：dish_ingredient.unit_id → sys_dict unit）
+        Map<Long, String> unitNameById = unitNameMap(dis);
+        // 3. 构造 Usage（每菜的 servingFactor + 用量原文 amount/unitName；V55 不再算克）
         Map<Long, BigDecimal> factorByDish = dishes.stream().collect(Collectors.toMap(
                 MenuService.MenuDishVO::dishId,
                 d -> d.servingFactor() != null ? d.servingFactor() : BigDecimal.ONE,
@@ -63,13 +69,14 @@ public class MenuPrepService {
                         di.getDishId(),
                         factorByDish.getOrDefault(di.getDishId(), BigDecimal.ONE),
                         di.getIngredientId(),
-                        di.getGrams() != null ? di.getGrams() : di.getAmount()))
+                        di.getAmount(),
+                        unitNameById.get(di.getUnitId())))
                 .toList();
 
-        // 3. 聚合（纯函数，已单测）
+        // 4. 聚合（纯函数，已单测）
         List<PrepAggregator.PrepLine> lines = aggregator.aggregate(usages);
 
-        // 4. 批量查 ingredient（name + purchaseCategoryId 判调料）
+        // 5. 批量查 ingredient（name + purchaseCategoryId 判调料）
         List<Long> ingIds = lines.stream().map(PrepAggregator.PrepLine::ingredientId).toList();
         Map<Long, Ingredient> ingById = ingIds.isEmpty() ? Map.of()
                 : ingredientMapper.selectBatchIds(ingIds).stream()
@@ -101,9 +108,14 @@ public class MenuPrepService {
                     && ing.getPurchaseCategoryId() == CONDIMENT_CATEGORY_ID;
             List<String> dishNames = line.dishIds().stream()
                     .map(dishNameById::get).filter(Objects::nonNull).toList();
+            // V55：用量原文（如「番茄炒蛋 2个」；份数>1 时「2个 ×3」）
+            List<String> usageTexts = line.usages().stream()
+                    .map(u -> formatUsageText(dishNameById.get(u.dishId()), u))
+                    .filter(Objects::nonNull)
+                    .toList();
             String status = statusByIng.getOrDefault(line.ingredientId(), PrepStatus.PENDING.name());
             String stockLevel = levelByIng.getOrDefault(line.ingredientId(), "NONE");
-            PrepItemVO vo = new PrepItemVO(line.ingredientId(), name, line.totalGrams(),
+            PrepItemVO vo = new PrepItemVO(line.ingredientId(), name, usageTexts,
                     line.dishCount(), dishNames, status, line.dishCount() >= 2, stockLevel);
             if (isCondiment) {
                 condiments.add(vo);
@@ -113,6 +125,28 @@ public class MenuPrepService {
             if (PrepStatus.READY.name().equals(status)) readyCount++;
         }
         return new MenuPrepVO(items, condiments, readyCount, items.size() + condiments.size());
+    }
+
+    /** 单位字典（sys_dict group=unit）id -> name；unitId 缺失时返回 null（HashMap 容忍 null key）。 */
+    private Map<Long, String> unitNameMap(List<DishIngredient> dis) {
+        List<Long> unitIds = dis.stream().map(DishIngredient::getUnitId)
+                .filter(Objects::nonNull).distinct().toList();
+        if (unitIds.isEmpty()) return new HashMap<>();
+        return dictMapper.selectBatchIds(unitIds).stream()
+                .collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
+    }
+
+    /** 用量原文：「菜名 2个」；份数>1 时「菜名 2个 ×3」；菜名/用量缺失返回 null。 */
+    private String formatUsageText(String dishName, PrepAggregator.UsageText u) {
+        if (u.amount() == null) return null;
+        String head = dishName != null ? dishName : ("菜#" + u.dishId());
+        String amt = u.amount().stripTrailingZeros().toPlainString();
+        StringBuilder sb = new StringBuilder(head).append(' ').append(amt);
+        if (u.unitName() != null && !u.unitName().isBlank()) sb.append(u.unitName());
+        if (u.servingFactor() != null && u.servingFactor().compareTo(BigDecimal.ONE) > 0) {
+            sb.append(" ×").append(u.servingFactor().stripTrailingZeros().toPlainString());
+        }
+        return sb.toString();
     }
 
     /** PUT /menu/{id}/prep/{ingredientId}：upsert 备料状态（无则 insert，有则 update）。 */

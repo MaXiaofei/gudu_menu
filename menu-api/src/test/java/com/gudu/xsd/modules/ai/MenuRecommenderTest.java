@@ -12,7 +12,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * MenuRecommender 纯函数测试（TDD 先红后绿）。
- * 覆盖：健康约束过滤（糖上限）/ 过敏过滤 / 预算上限 / 打分排序 / 组合数。
+ * 覆盖：健康约束过滤（糖上限）/ 过敏过滤 / 打分排序 / 组合数。
+ *
+ * <p>V55（食材去单位）：预算（budget）链路删除，候选菜不再携带 price。
  *
  * <p>纯函数只做「过滤 + 打分 + 组合」，候选池与营养查表是 IO（AiService 负责），不在此处。
  * 测试 new MenuRecommender()，无外部依赖。
@@ -21,11 +23,11 @@ class MenuRecommenderTest {
 
     private final MenuRecommender r = new MenuRecommender();
 
-    /** 造候选菜：含营养（metricId->per100g 或 per份，本测试直接用 per 份值）+ 价格 + 食材名。 */
-    private static CandidateDish dish(long id, String name, BigDecimal price,
+    /** 造候选菜：含营养（metricId->per 份值）+ 食材名（V55 无价格）。 */
+    private static CandidateDish dish(long id, String name,
                                        double sugar, double protein,
                                        List<String> ingredients) {
-        return new CandidateDish(id, name, price,
+        return new CandidateDish(id, name,
                 Map.of(2L, BigDecimal.valueOf(protein), 5L, BigDecimal.valueOf(sugar)),
                 ingredients);
     }
@@ -38,10 +40,10 @@ class MenuRecommenderTest {
         // A 糖 5g（达标），B 糖 30g（超 25 上限）—— 两者蛋白相近，
         // 故 DAY 单组首选应是未超标的 A。
         var dishes = List.of(
-                dish(1, "A", new BigDecimal("10"), 5, 10, List.of()),
-                dish(2, "B", new BigDecimal("10"), 30, 10, List.of()));
+                dish(1, "A", 5, 10, List.of()),
+                dish(2, "B", 30, 10, List.of()));
         var cons = new Constraints(new BigDecimal("25"), null); // sugarMax=25, calMax=null
-        var groups = r.recommend(dishes, cons, List.of(), new BigDecimal("1000"), "DAY", 42L);
+        var groups = r.recommend(dishes, cons, List.of(), "DAY", 42L);
         assertThat(groups).isNotEmpty();
         // DAY 单组：排第一的候选组以达标菜 A 打头（软扣分让 B 落后）
         var topDishIds = groups.get(0).dishes().stream()
@@ -54,33 +56,14 @@ class MenuRecommenderTest {
     @Test
     void 过敏过滤_含过敏食材剔除() {
         var dishes = List.of(
-                dish(1, "花生鸡丁", new BigDecimal("10"), 5, 15, List.of("花生", "鸡肉")),
-                dish(2, "番茄炒蛋", new BigDecimal("10"), 5, 10, List.of("番茄", "鸡蛋")));
+                dish(1, "花生鸡丁", 5, 15, List.of("花生", "鸡肉")),
+                dish(2, "番茄炒蛋", 5, 10, List.of("番茄", "鸡蛋")));
         var cons = new Constraints(null, null);
-        var groups = r.recommend(dishes, cons, List.of("花生"), new BigDecimal("1000"), "DAY", 1L);
+        var groups = r.recommend(dishes, cons, List.of("花生"), "DAY", 1L);
         var allDishIds = groups.stream()
                 .flatMap(g -> g.dishes().stream()).map(d -> d.dishId()).toList();
         assertThat(allDishIds).doesNotContain(1L); // 含花生被剔
         assertThat(allDishIds).contains(2L);
-    }
-
-    // ---------------- 预算 ----------------
-
-    @Test
-    void 预算_组合不超budget() {
-        var dishes = List.of(
-                dish(1, "A", new BigDecimal("30"), 1, 10, List.of()),
-                dish(2, "B", new BigDecimal("30"), 1, 10, List.of()),
-                dish(3, "C", new BigDecimal("30"), 1, 10, List.of()));
-        var cons = new Constraints(null, null);
-        BigDecimal budget = new BigDecimal("50");
-        var groups = r.recommend(dishes, cons, List.of(), budget, "DAY", 1L);
-        // 每组 totalPrice 都不得超过 budget
-        for (var g : groups) {
-            assertThat(g.totalPrice())
-                    .as("候选组总价不得超过预算 50")
-                    .isLessThanOrEqualTo(budget);
-        }
     }
 
     // ---------------- 打分排序 ----------------
@@ -88,10 +71,10 @@ class MenuRecommenderTest {
     @Test
     void 打分顺序_蛋白高的组排前() {
         var dishes = List.of(
-                dish(1, "高蛋白", new BigDecimal("10"), 1, 30, List.of()),
-                dish(2, "低蛋白", new BigDecimal("10"), 1, 5, List.of()));
+                dish(1, "高蛋白", 1, 30, List.of()),
+                dish(2, "低蛋白", 1, 5, List.of()));
         var cons = new Constraints(null, null);
-        var groups = r.recommend(dishes, cons, List.of(), new BigDecimal("1000"), "DAY", 1L);
+        var groups = r.recommend(dishes, cons, List.of(), "DAY", 1L);
         assertThat(groups).isNotEmpty();
         // 第一组的 score >= 最后一组 score（降序）
         if (groups.size() > 1) {
@@ -108,11 +91,11 @@ class MenuRecommenderTest {
     @Test
     void 组合数_DAY至多1组_WEEK至多3组() {
         var dishes = List.of(
-                dish(1, "A", new BigDecimal("10"), 1, 10, List.of()),
-                dish(2, "B", new BigDecimal("10"), 1, 10, List.of()));
+                dish(1, "A", 1, 10, List.of()),
+                dish(2, "B", 1, 10, List.of()));
         var cons = new Constraints(null, null);
-        var day = r.recommend(dishes, cons, List.of(), new BigDecimal("1000"), "DAY", 1L);
-        var week = r.recommend(dishes, cons, List.of(), new BigDecimal("1000"), "WEEK", 1L);
+        var day = r.recommend(dishes, cons, List.of(), "DAY", 1L);
+        var week = r.recommend(dishes, cons, List.of(), "WEEK", 1L);
         assertThat(day).hasSizeLessThanOrEqualTo(1);
         assertThat(week).hasSizeLessThanOrEqualTo(3);
     }
@@ -123,9 +106,9 @@ class MenuRecommenderTest {
     void 候选全被过敏原过滤_返回空列表() {
         // 当前实现：健康超标走软扣分不剔除，但过敏原是硬过滤（食物过敏不能软化）。
         // 唯一候选含过敏食材「花生」→ 池被掏空 → 返回空列表。
-        var dishes = List.of(dish(1, "X", new BigDecimal("10"), 100, 10, List.of("花生")));
+        var dishes = List.of(dish(1, "X", 100, 10, List.of("花生")));
         var cons = new Constraints(new BigDecimal("25"), null);
-        var groups = r.recommend(dishes, cons, List.of("花生"), new BigDecimal("1000"), "DAY", 1L);
+        var groups = r.recommend(dishes, cons, List.of("花生"), "DAY", 1L);
         assertThat(groups).isEmpty();
     }
 }

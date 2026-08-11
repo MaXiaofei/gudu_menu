@@ -14,7 +14,7 @@ void main() {
                 'ingredientId': 10,
                 'ingredientName': '鸡蛋',
                 'stockLevel': 'ENOUGH',
-                'totalGrams': 200,
+                'usageTexts': ['番茄炒蛋 2个', '蛋花汤 3个'],
                 'dishCount': 2,
                 'dishNames': ['番茄炒蛋', '蛋花汤'],
                 'status': 'READY',
@@ -23,7 +23,7 @@ void main() {
               {
                 'ingredientId': 11,
                 'ingredientName': '番茄',
-                'totalGrams': 150,
+                'usageTexts': ['番茄炒蛋 300g'],
                 'dishCount': 1,
                 'dishNames': ['番茄炒蛋'],
                 'status': 'PENDING',
@@ -33,7 +33,7 @@ void main() {
               {
                 'ingredientId': 20,
                 'ingredientName': '盐',
-                'totalGrams': 5,
+                'usageTexts': ['番茄炒蛋 5g'],
                 'dishCount': 3,
                 'dishNames': ['番茄炒蛋', '蛋花汤', '红烧肉'],
                 'status': 'READY',
@@ -50,6 +50,7 @@ void main() {
       expect(prep.items.length, 2);
       expect(prep.condiments.length, 1);
       expect(prep.items.first.ingredientName, '鸡蛋');
+      expect(prep.items.first.usageTexts, ['番茄炒蛋 2个', '蛋花汤 3个']);
       expect(prep.items.first.status, PrepStatus.ready);
       expect(prep.items.first.shared, isTrue);
       expect(prep.items[1].status, PrepStatus.pending);

@@ -1,18 +1,20 @@
 package com.gudu.xsd.modules.menu.prep;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 备菜列表一行（按食材聚合）：食材 + 总用量 + 来自哪些菜 + 备料状态 + 是否共用。
+ * 备菜列表一行（按食材聚合）：食材 + 用量原文明细 + 来自哪些菜 + 备料状态 + 是否共用。
  *
  * <p>参照 {@link com.gudu.xsd.modules.shopping.ShoppingItemVO} VO 范式（record + 中文友好字段）。
+ *
+ * <p>V55（食材去单位）：totalGrams 改为 usageTexts —— 每道菜用量原文
+ * （如「番茄炒蛋 2个」「蛋花汤 3个」），不再按克汇总。
  */
 public record PrepItemVO(
         Long ingredientId,
         String ingredientName,
-        /** 聚合总克数（已 ×servingFactor，不减库存）。 */
-        BigDecimal totalGrams,
+        /** 用量原文明细（已拼菜名，如「番茄炒蛋 2个」；份数>1 时「2个 ×3」）。 */
+        List<String> usageTexts,
         /** 被几道菜用到。 */
         int dishCount,
         /** 用到该食材的菜名列表（共用高亮用，来自 #2 detail 冗余的 dishName）。 */

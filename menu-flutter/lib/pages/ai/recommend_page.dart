@@ -9,7 +9,7 @@ import '../../services/mealplan_service.dart';
 import '../../stores/member_store.dart';
 import '../../widgets/action_bar.dart';
 
-/// 智能荐菜：输入预算/范围/筛选 → AI 推荐菜品组合。
+/// 智能荐菜：输入范围/筛选 → AI 推荐菜品组合（V55：预算输入随价格链路删除）。
 class AiRecommendPage extends StatefulWidget {
   const AiRecommendPage({super.key});
   @override
@@ -18,7 +18,6 @@ class AiRecommendPage extends StatefulWidget {
 
 class _AiRecommendPageState extends State<AiRecommendPage> {
   String _scope = 'DAY';
-  String _budget = '50';
   String _maxMinutes = '';
   String _maxDifficulty = '';
   bool _loading = false;
@@ -40,7 +39,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
 
       final body = <String, dynamic>{
         'memberId': memberId,
-        'budget': double.tryParse(_budget) ?? 50,
         'scope': _scope,
       };
       if (_maxMinutes.isNotEmpty) body['maxMinutes'] = int.tryParse(_maxMinutes);
@@ -85,36 +83,21 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             child: Column(children: [
               Text('智能荐菜', style: t.textStyles.subtitle.copyWith(color: t.card)),
               const SizedBox(height: 8),
-              Text('根据预算和健康约束推荐菜品组合', style: t.textStyles.sm.copyWith(color: Colors.white70)),
+              Text('根据健康约束推荐菜品组合', style: t.textStyles.sm.copyWith(color: Colors.white70)),
             ]),
           ),
           const SizedBox(height: 16),
 
-          // 范围 + 预算
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: t.bg, borderRadius: BorderRadius.circular(AppTokens.rSm),
-              ),
-              child: Row(children: [
-                _scopeChip('一天', 'DAY'), _scopeChip('一周', 'WEEK'),
-              ]),
+          // 范围（V55：预算输入已删）
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: t.bg, borderRadius: BorderRadius.circular(AppTokens.rSm),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: TextEditingController(text: _budget),
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: '预算(元)', isDense: true,
-                  filled: true, fillColor: t.bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
-                ),
-                onChanged: (v) => _budget = v,
-              ),
-            ),
-          ]),
+            child: Row(children: [
+              _scopeChip('一天', 'DAY'), _scopeChip('一周', 'WEEK'),
+            ]),
+          ),
           const SizedBox(height: 12),
 
           // 筛选条件

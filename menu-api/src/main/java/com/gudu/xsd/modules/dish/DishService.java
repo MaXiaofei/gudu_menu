@@ -39,7 +39,6 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     private final IngredientMapper ingredientMapper;
     private final NutritionCalcService nutritionCalc;
     private final DictMapper dictMapper;
-    private final com.gudu.xsd.modules.nutrition.UnitConvertService unitConvert;
     private final CookingRecordMapper cookingRecordMapper;
     private final com.gudu.xsd.modules.pantry.PantryService pantryService;
 
@@ -66,13 +65,12 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         saveRels(dishId, dto.getTagIds(), "tag");
         saveRels(dishId, dto.getCategoryIds(), "category");
 
-        // 食材用量
+        // 食材用量（V55：不再换算克数，用量原文 = amount + unitId）
         dishIngMapper.delete(new QueryWrapper<DishIngredient>().eq("dish_id", dishId));
         if (dto.getIngredients() != null) {
             for (DishIngredient ing : dto.getIngredients()) {
                 ing.setId(null);
                 ing.setDishId(dishId);
-                ing.setGrams(unitConvert.toGramsFor(ing.getIngredientId(), ing.getAmount(), ing.getUnitId()));
                 dishIngMapper.insert(ing);
             }
         }
@@ -328,8 +326,8 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             List<IngredientNutrition> nuts = ingredientNutritionMapper.selectList(
                     new QueryWrapper<IngredientNutrition>().eq("ingredient_id", di.getIngredientId()));
             for (IngredientNutrition n : nuts) {
-                BigDecimal qty = di.getGrams() != null ? di.getGrams() : di.getAmount();
-                items.add(new NutritionCalcService.Item(n.getMetricId(), n.getValue(), qty));
+                // V55：无换算后 qty 直接取用量数字（营养本次未启用，走兜底语义）
+                items.add(new NutritionCalcService.Item(n.getMetricId(), n.getValue(), di.getAmount()));
             }
         }
         return nutritionCalc.aggregateDish(items);

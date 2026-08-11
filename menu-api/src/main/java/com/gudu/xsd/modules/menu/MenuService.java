@@ -6,13 +6,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.dish.Dish;
-import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.DishQueryService;
-import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
 import com.gudu.xsd.modules.dish.mapper.DishMapper;
-import com.gudu.xsd.modules.nutrition.Ingredient;
-import com.gudu.xsd.modules.nutrition.UnitConvertService;
-import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuMapper;
 import lombok.RequiredArgsConstructor;
@@ -32,9 +27,6 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     private final DishMapper dishMapper;
     private final DishQueryService dishQueryService;
     private final MenuCalcService menuCalc;
-    private final DishIngredientMapper dishIngredientMapper;
-    private final IngredientMapper ingredientMapper;
-    private final UnitConvertService unitConvert;
 
     /**
      * 分页查食集列表。按创建时间倒序。
@@ -217,42 +209,17 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         return copy.getId();
     }
 
-    /** 菜单汇总：各菜份数营养（复用 NutritionCalcService）+ 价格，调 MenuCalcService 纯函数。 */
+    /** 菜单汇总：各菜份数营养（复用 NutritionCalcService），调 MenuCalcService 纯函数。
+     *  V55：价格链路整体删除（食材去单位后不再按克计价）。 */
     public MenuSummary summary(Long id) {
         MenuDetail md = detail(id);
         List<MenuCalcService.MenuLine> lines = new ArrayList<>();
         for (MenuDishVO d : md.dishes()) {
-            // 价格改按食材用量算（评审§12）：Σ(dish_ingredient.grams × 每克单价)
-            BigDecimal price = priceByIngredients(d.dishId());
             Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.dishId(), BigDecimal.ONE);
             BigDecimal factor = (d.servingFactor() != null) ? d.servingFactor() : BigDecimal.ONE;
-            lines.add(new MenuCalcService.MenuLine(price, nut, factor));
+            lines.add(new MenuCalcService.MenuLine(nut, factor));
         }
-        return new MenuSummary(menuCalc.totalPrice(lines), menuCalc.totalNutrition(lines));
-    }
-
-    /** 按用量算单菜 1 份价格 = Σ(dish_ingredient.grams × 每克单价)。
-     *  每克单价 = ingredient.price / defaultGramsPerUnit；未配置换算的食材跳过（评审§12）。 */
-    private BigDecimal priceByIngredients(Long dishId) {
-        List<DishIngredient> dis = dishIngredientMapper.selectList(
-                new QueryWrapper<DishIngredient>().eq("dish_id", dishId));
-        if (dis.isEmpty()) return BigDecimal.ZERO;
-        List<Long> ingIds = dis.stream().map(DishIngredient::getIngredientId)
-                .filter(java.util.Objects::nonNull).distinct().toList();
-        if (ingIds.isEmpty()) return BigDecimal.ZERO;
-        Map<Long, Ingredient> ingById = ingredientMapper.selectBatchIds(ingIds).stream()
-                .collect(java.util.stream.Collectors.toMap(Ingredient::getId, i -> i, (a, b) -> a));
-        BigDecimal sum = BigDecimal.ZERO;
-        for (DishIngredient di : dis) {
-            Ingredient ing = ingById.get(di.getIngredientId());
-            if (ing == null || ing.getPrice() == null) continue;
-            BigDecimal gpu = unitConvert.defaultGramsPerUnit(di.getIngredientId());
-            if (gpu == null || gpu.signum() == 0) continue;  // 未配置换算，跳过
-            BigDecimal grams = di.getGrams() != null ? di.getGrams() : di.getAmount();
-            if (grams == null) continue;
-            sum = sum.add(ing.getPrice().divide(gpu, 6, java.math.RoundingMode.HALF_UP).multiply(grams));
-        }
-        return sum;
+        return new MenuSummary(menuCalc.totalNutrition(lines));
     }
 
     /** MenuDish 视图：冗余菜名/封面/备注，避免前端逐菜 GET /dish/{id} 取名（评审 N+1）。 */
@@ -263,5 +230,5 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     /** 食集详情：menu + 菜列表 + 总烹饪分钟（Σ 各菜 cookTime，原型副标题「约 N 分钟」）。 */
     public record MenuDetail(Menu menu, List<MenuDishVO> dishes, int totalMinutes) {}
 
-    public record MenuSummary(BigDecimal totalPrice, Map<Long, BigDecimal> totalNutrition) {}
+    public record MenuSummary(Map<Long, BigDecimal> totalNutrition) {}
 }

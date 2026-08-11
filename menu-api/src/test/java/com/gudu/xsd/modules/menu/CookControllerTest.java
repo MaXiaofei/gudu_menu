@@ -60,12 +60,13 @@ class CookControllerTest {
     @Test
     void GET_确认弹窗数据() throws Exception {
         CookMaterialsVO.Item item = new CookMaterialsVO.Item(10L, "番茄",
-                new java.math.BigDecimal("200"), "ENOUGH", false);
+                List.of("番茄炒蛋 200g"), "ENOUGH", false);
         given(cookService.cookMaterials(7L)).willReturn(new CookMaterialsVO(7L, List.of(item)));
 
         mvc.perform(get("/menu/7/cook-materials"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].ingredientName").value("番茄"))
+                .andExpect(jsonPath("$.data.items[0].usageTexts[0]").value("番茄炒蛋 200g"))
                 .andExpect(jsonPath("$.data.items[0].level").value("ENOUGH"))
                 .andExpect(jsonPath("$.data.items[0].isCondiment").value(false));
         verify(cookService).cookMaterials(7L);

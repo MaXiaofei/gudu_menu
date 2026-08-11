@@ -9,7 +9,8 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** 用量聚合纯函数测试。照 PantryServiceTest 范式：new NeedAggregator() 不依赖 Spring。 */
+/** 用量聚合纯函数测试。照 PantryServiceTest 范式：new NeedAggregator() 不依赖 Spring。
+ *  V55（食材去单位）：聚合输出用量原文（amount + unitName），不再按克合计。 */
 class NeedAggregatorTest {
 
     private final NeedAggregator agg = new NeedAggregator();
@@ -21,55 +22,63 @@ class NeedAggregatorTest {
         return m;
     }
 
-    private DishIngredient di(long dishId, long ingId, String grams) {
+    private DishIngredient di(long dishId, long ingId, String amount, String unitName) {
         DishIngredient d = new DishIngredient();
         d.setDishId(dishId);
         d.setIngredientId(ingId);
-        d.setGrams(grams == null ? null : new BigDecimal(grams));
+        d.setAmount(amount == null ? null : new BigDecimal(amount));
+        d.setUnitName(unitName);
         return d;
     }
 
     @Test
-    void 单菜单份_用量等于grams() {
-        Map<Long, BigDecimal> need = agg.aggregate(
+    void 单菜单份_用量原文保留() {
+        Map<Long, List<NeedAggregator.UsageText>> need = agg.aggregate(
                 List.of(md(1, "1")),
-                Map.of(1L, List.of(di(1, 10, "100"))));
-        assertThat(need).containsEntry(10L, new BigDecimal("100"));
+                Map.of(1L, List.of(di(1, 10, "100", "g"))));
+        assertThat(need).containsKey(10L);
+        assertThat(need.get(10L)).hasSize(1);
+        assertThat(need.get(10L).get(0).amount()).isEqualByComparingTo("100");
+        assertThat(need.get(10L).get(0).unitName()).isEqualTo("g");
+        assertThat(need.get(10L).get(0).dishId()).isEqualTo(1L);
     }
 
     @Test
-    void 份数翻倍_用量乘份数() {
-        Map<Long, BigDecimal> need = agg.aggregate(
+    void 份数翻倍_servingFactor随明细携带() {
+        Map<Long, List<NeedAggregator.UsageText>> need = agg.aggregate(
                 List.of(md(1, "2")),
-                Map.of(1L, List.of(di(1, 10, "100"), di(1, 11, "50"))));
-        assertThat(need).containsEntry(10L, new BigDecimal("200"))
-                        .containsEntry(11L, new BigDecimal("100"));
+                Map.of(1L, List.of(di(1, 10, "100", "g"), di(1, 11, "50", "g"))));
+        assertThat(need.get(10L)).hasSize(1);
+        assertThat(need.get(10L).get(0).servingFactor()).isEqualByComparingTo("2");
+        assertThat(need).containsKey(11L);
     }
 
     @Test
-    void 多菜共用食材_用量相加() {
-        // 菜1用葱50g、菜2用葱30g，各1份 → 葱共需80g
-        Map<Long, BigDecimal> need = agg.aggregate(
+    void 多菜共用食材_两笔用量原文都保留() {
+        // 菜1用番茄100g、菜2用番茄2个 → 番茄两笔明细（不按克合并）
+        Map<Long, List<NeedAggregator.UsageText>> need = agg.aggregate(
                 List.of(md(1, "1"), md(2, "1")),
-                Map.of(1L, List.of(di(1, 10, "50")),
-                       2L, List.of(di(2, 10, "30"))));
-        assertThat(need).containsEntry(10L, new BigDecimal("80"));
+                Map.of(1L, List.of(di(1, 10, "100", "g")),
+                       2L, List.of(di(2, 10, "2", "个"))));
+        assertThat(need.get(10L)).hasSize(2);
+        assertThat(need.get(10L)).extracting(NeedAggregator.UsageText::unitName)
+                .containsExactlyInAnyOrder("g", "个");
     }
 
     @Test
     void 同菜多条menu_dish_份数累加() {
-        // audit §6：菜1误加入两次各1份 → 按2份算（扣减只对现有数据正确聚合，去重在加菜接口）
-        Map<Long, BigDecimal> need = agg.aggregate(
+        // audit §6：菜1误加入两次各1份 → 按2份算
+        Map<Long, List<NeedAggregator.UsageText>> need = agg.aggregate(
                 List.of(md(1, "1"), md(1, "1")),
-                Map.of(1L, List.of(di(1, 10, "100"))));
-        assertThat(need).containsEntry(10L, new BigDecimal("200"));
+                Map.of(1L, List.of(di(1, 10, "100", "g"))));
+        assertThat(need.get(10L).get(0).servingFactor()).isEqualByComparingTo("2");
     }
 
     @Test
-    void grams为空_跳过该行() {
-        Map<Long, BigDecimal> need = agg.aggregate(
+    void 用量为空_跳过该行() {
+        Map<Long, List<NeedAggregator.UsageText>> need = agg.aggregate(
                 List.of(md(1, "1")),
-                Map.of(1L, List.of(di(1, 10, "100"), di(1, 11, null))));
+                Map.of(1L, List.of(di(1, 10, "100", "g"), di(1, 11, null, null))));
         assertThat(need).containsOnlyKeys(10L);
     }
 

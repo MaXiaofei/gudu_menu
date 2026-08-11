@@ -237,7 +237,7 @@ void main() {
               {
                 'ingredientId': 1,
                 'ingredientName': '番茄',
-                'needGrams': 200.5,
+                'usageTexts': ['番茄炒蛋 2个'],
                 'level': 'ENOUGH',
                 'isCondiment': false,
               },
@@ -256,7 +256,7 @@ void main() {
       expect(m.items.length, 2);
       expect(m.items[0].ingredientId, 1);
       expect(m.items[0].ingredientName, '番茄');
-      expect(m.items[0].needGrams, 200.5);
+      expect(m.items[0].usageTexts, ['番茄炒蛋 2个']);
       expect(m.items[0].level, 'ENOUGH');
       expect(m.items[0].isCondiment, isFalse);
       expect(m.items[1].isCondiment, isTrue);
@@ -366,7 +366,7 @@ void main() {
   });
 
   group('CookMaterialItem.fromJson', () {
-    test('缺 level/isCondiment/needGrams → 默认值', () {
+    test('缺 level/isCondiment/usageTexts → 默认值', () {
       final item = CookMaterialItem.fromJson({
         'ingredientId': 8,
         'ingredientName': '盐',
@@ -374,7 +374,7 @@ void main() {
 
       expect(item.ingredientId, 8);
       expect(item.ingredientName, '盐');
-      expect(item.needGrams, 0);
+      expect(item.usageTexts, isEmpty);
       expect(item.level, 'NONE');
       expect(item.isCondiment, isFalse);
     });
@@ -383,12 +383,12 @@ void main() {
       final item = CookMaterialItem.fromJson({
         'ingredientId': 9,
         'ingredientName': '糖',
-        'needGrams': 50,
+        'usageTexts': ['番茄炒蛋 10g'],
         'level': 'LOW',
         'isCondiment': true,
       });
 
-      expect(item.needGrams, 50);
+      expect(item.usageTexts, ['番茄炒蛋 10g']);
       expect(item.level, 'LOW');
       expect(item.isCondiment, isTrue);
     });

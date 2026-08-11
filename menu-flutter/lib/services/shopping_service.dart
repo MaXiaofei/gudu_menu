@@ -241,40 +241,31 @@ class ShoppingListVO {
 
 /// 采购项 VO。
 ///
-/// 三色余色字段（Plan B ShoppingController 补全）：
-/// - [pantryGrams] 家中现有克数（customName 手动加项为 null）。
-/// - [stockStatus] 三色状态：`RED_NONE` 没有 / `YELLOW_SHORT` 差 X / `GREEN_ENOUGH` 够；
-///   customName 项或无用量为 null，前端标灰「手动加」。
-/// - [shortageGrams] 差多少克（RED=needGrams、YELLOW=need-have、GREEN=0）。
+/// V55（食材去单位）：referenceGrams（参考克提示）与 pantryGrams/shortageGrams（旧余色）
+/// 字段已随单位解绑删除；采购量表达用 [purchaseAmount] + [purchaseUnitName]（用户手填）。
 class ShoppingItemVO {
   final int id;
   final int? ingredientId;
   final String? ingredientName;
   final String? customName;
-  final double? referenceGrams;
   final double? purchaseAmount;
   final String? purchaseUnitName;
   final int? purchaseCategoryId;
   final String? purchaseCategoryName;
   final int purchased;
-  final double? pantryGrams;
   final String? stockStatus;
-  final double? shortageGrams;
 
   const ShoppingItemVO({
     required this.id,
     this.ingredientId,
     this.ingredientName,
     this.customName,
-    this.referenceGrams,
     this.purchaseAmount,
     this.purchaseUnitName,
     this.purchaseCategoryId,
     this.purchaseCategoryName,
     required this.purchased,
-    this.pantryGrams,
     this.stockStatus,
-    this.shortageGrams,
   });
 
   factory ShoppingItemVO.fromJson(Map<String, dynamic> j) => ShoppingItemVO(
@@ -282,22 +273,18 @@ class ShoppingItemVO {
         ingredientId: (j['ingredientId'] as num?)?.toInt(),
         ingredientName: j['ingredientName'] as String?,
         customName: j['customName'] as String?,
-        referenceGrams: (j['referenceGrams'] as num?)?.toDouble(),
         purchaseAmount: (j['purchaseAmount'] as num?)?.toDouble(),
         purchaseUnitName: j['purchaseUnitName'] as String?,
         purchaseCategoryId: (j['purchaseCategoryId'] as num?)?.toInt(),
         purchaseCategoryName: j['purchaseCategoryName'] as String?,
         purchased: (j['purchased'] as num?)?.toInt() ?? 0,
-        pantryGrams: (j['pantryGrams'] as num?)?.toDouble(),
         stockStatus: j['stockStatus'] as String?,
-        shortageGrams: (j['shortageGrams'] as num?)?.toDouble(),
       );
 
   String get displayName => ingredientName ?? customName ?? '#$ingredientId';
   bool get isPurchased => purchased == 1;
   String get amountText {
     if (purchaseAmount != null) return '${_fmt(purchaseAmount!)} ${purchaseUnitName ?? ''}';
-    if (referenceGrams != null) return '约 ${referenceGrams!.toInt()}g';
     return '';
   }
 

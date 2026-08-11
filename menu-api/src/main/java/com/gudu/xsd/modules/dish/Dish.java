@@ -7,7 +7,6 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,8 +28,6 @@ public class Dish {
 
     /** 烹饪时间（分钟）。 */
     private Integer cookTime;
-
-    private BigDecimal price;
 
     /** 难度 1-5。 */
     private Integer difficulty;
