@@ -272,14 +272,16 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         ShoppingListVO vo = new ShoppingListVO();
         BeanUtils.copyProperties(list, vo);
         vo.setItems(items);
-        // 分区视图
+        // 分区视图：purchase_category_id 为空（手动加项没选品类）归入 0L 占位组——
+        // Map 不允许 null key（Jackson 序列化抛「Null key for a Map」→ 详情 500），
+        // 前端 categoryNames[0] 取不到时兜底显示「未分类/其他」。
         Map<Long, List<ShoppingItemVO>> grouped = new LinkedHashMap<>();
         Map<Long, String> catNames = new LinkedHashMap<>();
         for (ShoppingItemVO it : items) {
-            grouped.computeIfAbsent(it.getPurchaseCategoryId(), k -> new ArrayList<>()).add(it);
-            if (it.getPurchaseCategoryId() != null) {
-                catNames.putIfAbsent(it.getPurchaseCategoryId(), it.getPurchaseCategoryName());
-            }
+            long key = it.getPurchaseCategoryId() != null ? it.getPurchaseCategoryId() : 0L;
+            grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(it);
+            catNames.putIfAbsent(key, it.getPurchaseCategoryId() != null
+                    ? it.getPurchaseCategoryName() : "未分类");
         }
         vo.setGrouped(grouped);
         vo.setCategoryNames(catNames);
@@ -329,6 +331,11 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         }
 
         int added = 0;
+        // 食材 → 采购品类（批量一次查，V56：加购项带出品类，分区正常显示）
+        Map<Long, Long> catByIng = valid.isEmpty() ? Map.of() : ingredientMapper
+                .selectList(new QueryWrapper<Ingredient>().in("id", valid)).stream()
+                .collect(Collectors.toMap(Ingredient::getId, Ingredient::getPurchaseCategoryId,
+                        (a, b) -> a, HashMap::new));
         for (Long ingId : valid) {
             Long count = itemMapper.selectCount(new QueryWrapper<ShoppingItem>()
                     .eq("list_id", listId).eq("ingredient_id", ingId));
@@ -337,6 +344,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             item.setListId(listId);
             item.setIngredientId(ingId);
             item.setTotalAmount(BigDecimal.ZERO); // total_amount NOT NULL 无默认值，兜底 0
+            item.setPurchaseCategoryId(catByIng.get(ingId));
             item.setPurchased(0);
             itemMapper.insert(item);
             added++;

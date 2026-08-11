@@ -140,6 +140,12 @@ class ShoppingServiceTest {
         assertThat(byId.get(102L).getStockStatus()).isEqualTo("YELLOW_SHORT"); // 快用完
         assertThat(byId.get(103L).getStockStatus()).isEqualTo("GREEN_ENOUGH"); // 有
         assertThat(byId.get(104L).getStockStatus()).isNull();          // 手动加项：不标记
+
+        // V56：purchase_category_id 为空的项归入 0L 占位组（Map 不允许 null key，
+        // 否则 Jackson 序列化抛异常 → 详情 500）；前端 categoryNames[0] 兜底「未分类/其他」
+        assertThat(vo.getGrouped().keySet()).containsExactly(0L);
+        assertThat(vo.getGrouped().get(0L)).hasSize(4);
+        assertThat(vo.getCategoryNames().get(0L)).isEqualTo("未分类");
     }
 
     // ===================== togglePurchased（V42 入库设档位） =====================
