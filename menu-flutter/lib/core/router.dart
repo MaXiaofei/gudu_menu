@@ -187,7 +187,10 @@ GoRouter createRouter(AuthStore auth) {
           builder: (_, __) => const MealPlanPage()),
       GoRoute(
           path: '/shopping',
-          builder: (_, __) => const ShoppingPage()),
+          builder: (_, state) => ShoppingPage(
+              // 备菜一键加购跳转：?listId= 加载完自动打开详情
+              initialListId:
+                  int.tryParse(state.uri.queryParameters['listId'] ?? ''))),
       GoRoute(
           path: '/dailylog',
           builder: (_, __) => const DailyLogPage()),

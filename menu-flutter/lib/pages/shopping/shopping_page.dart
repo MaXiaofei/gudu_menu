@@ -17,7 +17,9 @@ import '../../widgets/loading_empty.dart';
 /// 分享：右上角 → 全屏预览页（所见即所得）→ 复制文字 / 转图片。
 /// 自定义采购：空清单「添加」弹窗（名称+数量单位一框、逐条添加、行尾删除）+ 标题旁 ✎ 改名。
 class ShoppingPage extends StatefulWidget {
-  const ShoppingPage({super.key});
+  /// 从备菜「一键加采购」跳转进来时传入：列表加载完自动打开该清单详情。
+  final int? initialListId;
+  const ShoppingPage({super.key, this.initialListId});
   @override
   State<ShoppingPage> createState() => _ShoppingPageState();
 }
@@ -78,6 +80,11 @@ class _ShoppingPageState extends State<ShoppingPage> {
       _hasMore = pg.records.length >= _pageSize;
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
+    // 备菜一键加购跳转进来：列表加载完自动打开该清单详情
+    final target = widget.initialListId;
+    if (target != null) {
+      _openDetail(target);
+    }
   }
 
   Future<void> _loadMore() async {

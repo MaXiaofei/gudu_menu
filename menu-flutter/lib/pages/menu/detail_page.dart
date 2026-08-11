@@ -487,10 +487,10 @@ class _PrepTabState extends State<_PrepTab> {
     );
     if (selected == null || selected.isEmpty) return;
     try {
-      await ShoppingService.fromPrep(widget.menuId, selected.toList());
+      final listId = await ShoppingService.fromPrep(widget.menuId, selected.toList());
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已加入采购清单')));
+      // 加购成功：直接跳转到该采购清单的详情
+      context.push('/shopping?listId=$listId');
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context)
