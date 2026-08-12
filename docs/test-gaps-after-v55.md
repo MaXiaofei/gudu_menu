@@ -49,16 +49,33 @@
 **现象**：V55 把 `totalGrams` 改 `usageTexts` 后，`copyWithStatus`（备菜状态切换时复制）也改了字段。目前 `prep.dart` 没有针对 `copyWithStatus` 保留 `usageTexts` 的单测。
 **建议补**：加一个 model 单测：构造 PrepItem → copyWithStatus(ready) → 断言 usageTexts/dishNames 等字段原样保留，只 status 变。
 
-## P3 — 环境与工具链
+## P3 — 环境与工具链（已补）
 
-### 9. APP instrumented test 缺失
-**现象**：APP 在模拟器上 force-stop 后 `monkey`/`am start` 偶发回桌面（启动稳定性）。整个 `menu-flutter` 没有 integration_test（instrumented test），启动/导航流程无自动化覆盖。
-**建议补**：用 `integration_test` 包加 1-2 个 smoke test（启动→登录→进首页→断言看到菜谱列表），能在模拟器上跑，捕获启动级回归。
+### 9. APP instrumented test（已补 ✅）
+**原现象**：整个 `menu-flutter` 没有 integration_test（instrumented test），启动/导航流程无自动化覆盖。
+**已补（2026-08-12）**：加 `integration_test/smoke_test.dart` + `pubspec.yaml` 加 `integration_test` SDK 依赖。smoke 测试启动完整 APP（`app.main()` 含 ApiClient/AuthStore/ThemeController 初始化）→ 等待未登录跳登录页 → 断言登录页标题/输入框/登录按钮可见。模拟器实测通过（`All tests passed!`）。
+**后续可扩展**：登录→进首页→点菜谱详情的 happy path；但 smoke 已能捕获入口崩溃/路由错配/持久化异常等启动级回归。
 
-### 10. 本地连 staging DB 的隧道方案不可靠
-**现象**：`scripts/db_tunnel.py`（HTTP CONNECT 代理隧道）实测 MySQL greeting 丢失（CONNECT 响应多读应用层数据未处理 leftover），本地跑 E2E 走不通；最终靠 SSH 隧道（`.env` 凭证）才连上。
-**缺口**：`db_tunnel.py` 的 leftover 处理 bug 没修复，文档也没说明"本地跑 E2E 优先用 SSH 隧道"。
-**建议补**：修 `db_tunnel.py` 的 leftover 回传（参考本次 `/tmp/multi_tunnel.py` 的修复），或在 `docs/CI-CD-SETUP.md` 补"本地跑 E2E"章节说明 SSH 隧道用法。
+### 10. 本地连 staging DB 的隧道 leftover bug（已修 ✅）
+**原现象**：`scripts/db_tunnel.py` 的 HTTP CONNECT 隧道，`recv` 读完响应头后可能多读应用层数据（MySQL greeting），未回传客户端，致 greeting 丢失、pymysql 卡死在握手。本地跑 E2E 走不通，最终靠 SSH 隧道绕过。
+**已修（2026-08-12）**：`db_tunnel.py` 与 `run_migrations.py` 的 `make_tunnel` 现在返回 `(socket, leftover_bytes)`，pump/连接前先 `conn.sendall(leftover)` 把响应头后多读的应用层数据回传客户端。Python 语法校验通过。注意：若代理出口 IP 仍被 DB 安全组拦（独立于 leftover），需走 SSH 隧道（`.env` 凭证 + `ssh -L`）。
+
+---
+
+## 全部测试缺口处理状态（2026-08-12 更新）
+
+| 项 | 级别 | 状态 |
+|---|---|---|
+| #1 e2e-seed.sql 与 schema 一致性校验 | P0 | ✅ 加 `.github/workflows/e2e.yml`（CI 手动跑 E2E，覆盖 seed 一致性 + 回归） |
+| #2 admin Web UI 测试 | P0 | ✅ 登录 bug 澄清为误判（CI 502 窗口）；Vue 组件测试降级按需补 |
+| #3 formatUsageText 边界 | P1 | ✅ 抽 `UsageTextFormatter` + 9 单测 |
+| #4 generate 不写 referenceGrams | P1 | ✅ ShoppingServiceTest 加断言 |
+| #5 聚合器 null 边界 | P1 | ✅ MenuPrepServiceTest 加 null unitId / ×N |
+| #6 E2E 反向断言 | P2 | ✅ GuduE2EFlowTest 加已删字段不返回 |
+| #7 ShoppingItemVO 忽略 legacy | P2 | ✅ Flutter shopping_service_test 加用例 |
+| #8 PrepItem.copyWithStatus | P2 | ✅ 新建 prep_test.dart |
+| #9 APP integration test | P3 | ✅ integration_test/smoke_test.dart |
+| #10 DB 隧道 leftover | P3 | ✅ 修 db_tunnel.py / run_migrations.py |
 
 ---
 

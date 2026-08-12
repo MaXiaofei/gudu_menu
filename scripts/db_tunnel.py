@@ -16,16 +16,19 @@ def make_tunnel():
     s = socket.create_connection((PROXY_HOST, PROXY_PORT), timeout=15)
     s.sendall(f"CONNECT {DB_HOST}:{DB_PORT} HTTP/1.1\r\nHost: {DB_HOST}:{DB_PORT}\r\n\r\n".encode())
     s.settimeout(15)
-    resp = b""
-    while b"\r\n\r\n" not in resp:
+    buf = b""
+    while b"\r\n\r\n" not in buf:
         chunk = s.recv(4096)
         if not chunk:
             raise RuntimeError("代理无响应")
-        resp += chunk
-    if b" 200 " not in resp.split(b"\r\n", 1)[0]:
+        buf += chunk
+    if b" 200 " not in buf.split(b"\r\n", 1)[0]:
         raise RuntimeError("CONNECT 被拒")
+    # P3-10 修复：CONNECT 响应头后 recv 可能多读应用层数据（如 MySQL greeting），
+    # 必须把 leftover 回传客户端，否则握手包丢失、pymysql 卡死在等 greeting。
+    leftover = buf.split(b"\r\n\r\n", 1)[1] if b"\r\n\r\n" in buf else b""
     s.settimeout(None)
-    return s
+    return s, leftover
 
 
 def pump(a, b):
@@ -57,11 +60,19 @@ def main():
     while True:
         conn, _ = ls.accept()
         try:
-            tunnel = make_tunnel()
+            tunnel, leftover = make_tunnel()
         except Exception as e:
             print(f"隧道建立失败: {e}", flush=True)
             conn.close()
             continue
+        # P3-10：CONNECT 响应后多读的应用层数据先回传客户端（关键：否则 MySQL greeting 丢失）
+        if leftover:
+            try:
+                conn.sendall(leftover)
+            except OSError:
+                conn.close()
+                tunnel.close()
+                continue
         threading.Thread(target=pump, args=(conn, tunnel), daemon=True).start()
         print("新连接已转发", flush=True)
 

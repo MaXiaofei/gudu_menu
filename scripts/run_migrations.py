@@ -21,16 +21,18 @@ SQL_DIR = "/Users/maxiaofei/mygithub/menu-new/menu-api/sql"
 def make_tunnel():
     s = socket.create_connection((PROXY_HOST, PROXY_PORT), timeout=15)
     s.sendall(f"CONNECT {DB_HOST}:{DB_PORT} HTTP/1.1\r\nHost: {DB_HOST}:{DB_PORT}\r\n\r\n".encode())
-    resp = b""
-    while b"\r\n\r\n" not in resp:
+    buf = b""
+    while b"\r\n\r\n" not in buf:
         chunk = s.recv(4096)
         if not chunk:
             raise RuntimeError("代理无响应")
-        resp += chunk
-    status = resp.split(b"\r\n", 1)[0].decode()
+        buf += chunk
+    status = buf.split(b"\r\n", 1)[0].decode()
     if " 200 " not in status:
         raise RuntimeError(f"CONNECT 失败: {status}")
-    return s
+    # P3-10 修复：CONNECT 响应头后 recv 可能多读应用层数据（MySQL greeting），需回传客户端
+    leftover = buf.split(b"\r\n\r\n", 1)[1] if b"\r\n\r\n" in buf else b""
+    return s, leftover
 
 
 def pump(a, b, stop):
@@ -65,7 +67,10 @@ def main():
     print(f"隧道: 127.0.0.1:{LOCAL_PORT} → {DB_HOST}:{DB_PORT} (代理 {PROXY_HOST}:{PROXY_PORT})")
 
     conn_sock, _ = ls.accept()
-    tunnel = make_tunnel()
+    tunnel, leftover = make_tunnel()
+    # P3-10：CONNECT 响应后多读的应用层数据先回传 pymysql（否则 MySQL greeting 丢失、卡死握手）
+    if leftover:
+        conn_sock.sendall(leftover)
     stop = threading.Event()
     threading.Thread(target=pump, args=(conn_sock, tunnel, stop), daemon=True).start()
     threading.Thread(target=pump, args=(tunnel, conn_sock, stop), daemon=True).start()
