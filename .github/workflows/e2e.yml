@@ -26,15 +26,16 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25   # 首次跑 maven 下载依赖 ~10min；有 maven 缓存后 ~4min
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup JDK 17
+      - name: Setup JDK 17 (with maven cache)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+          cache: 'maven'   # 缓存 ~/.m2，二次跑大幅提速
 
       - name: Install sshpass
         run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
