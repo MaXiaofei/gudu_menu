@@ -79,11 +79,11 @@ class _FoodLogDetailPageState extends State<FoodLogDetailPage> {
                 GestureDetector(
                   onTap: () => context.pop(),
                   child: Text('‹',
-                      style: TextStyle(fontSize: 20, color: _t.title, fontWeight: FontWeight.w800)),
+                      style: _t.textStyles.h3),
                 ),
                 const Spacer(),
                 Text('⋯',
-                    style: TextStyle(fontSize: 14, color: _t.title)),
+                    style: _t.textStyles.md.copyWith(color: _t.title)),
               ]),
             ),
             Expanded(

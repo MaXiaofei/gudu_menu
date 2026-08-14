@@ -245,14 +245,66 @@ ThemeData buildBrandTheme(AppTokens t) {
         disabledForegroundColor: Colors.white,
         minimumSize: const Size(double.infinity, 48),
         elevation: 0,
+        // 按钮文案统一：15/w800 白字（此前各页手写 w800 不一，字号缺省）
+        textStyle: const TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w800, height: 1.2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTokens.rMd),
         ),
       ),
     ),
+    // 文字按钮统一：14/w700 主色（危险操作在页面侧 copyWith error 色）
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: t.primary,
+        textStyle: const TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w700, height: 1.2),
+      ),
+    ),
+    // 描边按钮统一：14/w700 主色 + 主色描边 + 48 高（与主按钮同尺寸语言）
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: t.primary,
+        side: BorderSide(color: t.primary, width: 1.5),
+        minimumSize: const Size(double.infinity, 48),
+        textStyle: const TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w700, height: 1.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.rMd),
+        ),
+      ),
+    ),
+    // 错误/成功提示统一：深色底白字 13px，floating + 圆角（此前 SnackBar 为 Material 默认样式）
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: t.title,
+      contentTextStyle: TextStyle(
+          fontSize: 13, fontWeight: FontWeight.w500, color: t.card, height: 1.4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.rMd),
+      ),
+    ),
+    // 弹窗统一：标题 16/w700、正文 14、圆角 16
+    dialogTheme: DialogThemeData(
+      backgroundColor: t.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.rLg),
+      ),
+      titleTextStyle: TextStyle(
+          fontSize: 16, fontWeight: FontWeight.w700, color: t.title, height: 1.3),
+      contentTextStyle: TextStyle(
+          fontSize: 14, fontWeight: FontWeight.w400, color: t.body, height: 1.5),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: t.bg,
+      // 输入文字统一 14px（此前各页 12~16 不一）；hint 12 caption 色
+      hintStyle: TextStyle(
+          fontSize: 12, fontWeight: FontWeight.w400, color: t.caption, height: 1.5),
+      labelStyle: TextStyle(
+          fontSize: 14, fontWeight: FontWeight.w500, color: t.body, height: 1.5),
+      floatingLabelStyle: TextStyle(
+          fontSize: 12, fontWeight: FontWeight.w700, color: t.primary, height: 1.4),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTokens.rMd),
@@ -379,4 +431,12 @@ class VxTextStyles {
 
   /// Tab 栏、页脚元信息，9px。
   TextStyle get meta => micro;
+
+  /// 输入框内文字（14/w500）。
+  TextStyle get input => TextStyle(
+      fontSize: 14, fontWeight: FontWeight.w500, color: md.color, height: 1.5);
+
+  /// 危险操作按钮文字（删除/移除/撤回，14/w700 error）。
+  TextStyle get danger => const TextStyle(
+      fontSize: 14, fontWeight: FontWeight.w700, color: AppTokens.error, height: 1.2);
 }

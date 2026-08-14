@@ -283,8 +283,8 @@ class _FoodLogPageState extends State<FoodLogPage> {
 
   Widget _stat(String value, String label) {
     return Column(children: [
-      Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
-      Text(label, style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: .9))),
+      Text(value, style: _t.textStyles.subtitle.copyWith(color: Colors.white)),
+      Text(label, style: _t.textStyles.micro.copyWith(color: Colors.white.withValues(alpha: .9))),
     ]);
   }
 

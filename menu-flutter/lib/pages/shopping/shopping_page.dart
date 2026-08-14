@@ -173,7 +173,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
             // 批量删除（§15 批量操作）
             TextButton(
               onPressed: () => setState(() => _listSelectMode = true),
-              child: const Text('批量删除', style: TextStyle(color: AppTokens.error)),
+              child: Text('批量删除', style: t.textStyles.danger),
             ),
             // 操作行：新建（自定义采购入口）
             TextButton.icon(
@@ -271,7 +271,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除', style: TextStyle(color: AppTokens.error))),
+              child: Text('删除', style: AppTokens.of(ctx).textStyles.danger)),
         ],
       ),
     );
@@ -366,7 +366,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除', style: TextStyle(color: AppTokens.error))),
+              child: Text('删除', style: AppTokens.of(ctx).textStyles.danger)),
         ],
       ),
     );
@@ -456,7 +456,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
       onTap: hasName ? _showRenameSheet : null,
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(hasName ? d.name! : '采购单 #${d.id}',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            style: t.textStyles.subtitle),
         if (hasName) ...[
           const SizedBox(width: 4),
           Icon(Icons.edit_outlined, size: 16, color: t.primary),
@@ -665,7 +665,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('移除', style: TextStyle(color: AppTokens.error))),
+              child: Text('移除', style: AppTokens.of(ctx).textStyles.danger)),
         ],
       ),
     );
@@ -690,7 +690,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('留着')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('撤回入库', style: TextStyle(color: AppTokens.error))),
+              child: Text('撤回入库', style: AppTokens.of(ctx).textStyles.danger)),
         ],
       ),
     );

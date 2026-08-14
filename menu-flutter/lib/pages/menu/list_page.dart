@@ -249,13 +249,9 @@ class _MenuListPageState extends State<MenuListPage> {
                       onRefresh: _reload,
                       child: _menus.isEmpty
                           ? ListView(
-                              children: [
-                                EmptyView(
-                                  text: '还没有食集',
-                                  subtitle: '把几道菜凑成一顿饭\n备料、采购、做菜一次搞定',
-                                  actionLabel: '建一个食集',
-                                  onAction: _createMenu,
-                                ),
+                              children: const [
+                                // 空态不放 CTA：右上角「新建食集」按钮已在同一屏（§13.1 操作右对齐），避免双入口
+                                EmptyView(text: '还没有食集'),
                               ],
                             )
                           : ListView.builder(
@@ -545,8 +541,7 @@ class _InitialStack extends StatelessWidget {
       height: _size,
       child: Text(
         initial,
-        style: TextStyle(
-          fontSize: 12,
+        style: t.textStyles.sm.copyWith(
           fontWeight: FontWeight.w600,
           color: t.title.withAlpha(115), // ≈ 0.45 透明度，同 dish 列表占位
         ),

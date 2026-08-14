@@ -92,7 +92,7 @@ class _DishPreviewPageState extends State<DishPreviewPage> {
                     onTap: () => Navigator.of(context).pop(),
                     child: Text('‹',
                         style: TextStyle(
-                            fontSize: 24,
+                            fontSize: 22,
                             color: t.title,
                             fontWeight: FontWeight.w800)),
                   ),

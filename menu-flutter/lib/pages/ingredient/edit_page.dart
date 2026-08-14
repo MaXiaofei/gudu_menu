@@ -153,7 +153,7 @@ class _IngredientEditPageState extends State<IngredientEditPage> {
               onTap: _confirmDelete,
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: Text('✕', style: TextStyle(fontSize: 14, color: t.caption)),
+                child: Text('✕', style: t.textStyles.md.copyWith(color: t.caption)),
               ),
             ),
             subtitle: _loading

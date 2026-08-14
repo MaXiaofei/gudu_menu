@@ -334,7 +334,7 @@ class _DishListPageState extends State<DishListPage> {
                     child: TextField(
                       controller: _keywordCtrl,
                       focusNode: _searchFocus,
-                      style: t.textStyles.sm.copyWith(color: t.title),
+                      style: t.textStyles.input.copyWith(color: t.title),
                       // 隐藏系统光标，用自定义闪烁竖线代替
                       showCursor: false,
                       decoration: InputDecoration(

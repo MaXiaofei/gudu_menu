@@ -302,7 +302,7 @@ class _PantryListPageState extends State<PantryListPage> {
               child: TextField(
                 controller: _searchCtrl,
                 focusNode: _searchFocus,
-                style: t.textStyles.sm.copyWith(color: t.title),
+                style: t.textStyles.input.copyWith(color: t.title),
                 decoration: InputDecoration(
                   isCollapsed: true,
                   border: InputBorder.none,

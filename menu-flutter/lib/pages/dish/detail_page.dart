@@ -143,7 +143,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
         final t = AppTokens.of(ctx);
         return AlertDialog(
           title: Text('新建食集',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: t.title)),
+              style: t.textStyles.lg),
           content: TextField(
             controller: ctrl,
             autofocus: true,
@@ -183,11 +183,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(AppTokens.sp16),
-                child: Text('加到哪个食集？',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: t.title)),
+                child: Text('加到哪个食集？', style: t.textStyles.lg),
               ),
               const Divider(height: 1),
               ...menus.map((m) {
@@ -200,7 +196,7 @@ class _DishDetailPageState extends State<DishDetailPage> {
                       title: Text(m.name),
                       subtitle: Text(
                         '$dateStr · 份数 ${m.servingCount ?? 1} · ${m.isDone ? '已完成' : '进行中'}',
-                        style: TextStyle(fontSize: 12, color: t.caption),
+                        style: t.textStyles.caption.copyWith(color: t.caption),
                       ),
                     onTap: () => Navigator.of(ctx).pop(m.id),
                     );
@@ -409,20 +405,18 @@ class _DishDetailPageState extends State<DishDetailPage> {
                                         ),
                                         alignment: Alignment.center,
                                         child: Text(ing.displayName.characters.first,
-                                            style: TextStyle(fontSize: 14, color: t.primaryDeep)),
+                                            style: t.textStyles.md.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w600)),
                                       ),
                                       const SizedBox(width: AppTokens.sp8),
                                       Expanded(
                                         child: Text(ing.displayName,
-                                            style: TextStyle(
-                                                fontSize: 13,
+                                            style: t.textStyles.sm.copyWith(
                                                 fontWeight: FontWeight.w700,
                                                 color: t.title)),
                                       ),
                                       // 用量（自然单位优先：「2 个」「适量」，§16.3；与库存解耦不标档位）
                                       Text(ing.amountText,
-                                          style: TextStyle(
-                                              fontSize: 13,
+                                          style: t.textStyles.sm.copyWith(
                                               fontWeight: FontWeight.w800,
                                               color: t.title)),
                                     ],
