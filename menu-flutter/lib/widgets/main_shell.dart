@@ -27,7 +27,6 @@ class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
-    const recommendIndex = 2;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       body: navigationShell,
@@ -36,7 +35,6 @@ class MainShell extends StatelessWidget {
         child: SizedBox(
           height: 56 + bottomPadding,
           child: Stack(
-            clipBehavior: Clip.none,
             children: [
               // 底栏顶部分隔线
               Positioned(
@@ -48,35 +46,17 @@ class MainShell extends StatelessWidget {
                   child: const SizedBox(height: 1, width: double.infinity),
                 ),
               ),
-              // 4 个普通 tab（菜谱/食集/库存/我的），中间留白给 FAB
+              // 5 个等宽 tab（菜谱/食集/推荐/库存/我的）——2026-08-14：推荐去凸起，与其他风格一致
               Padding(
                 padding: EdgeInsets.only(bottom: bottomPadding),
                 child: Row(
                   children: [
                     _navItem(t, 0, Icons.menu_book_outlined, Icons.menu_book, '菜谱'),
                     _navItem(t, 1, Icons.restaurant_menu_outlined, Icons.restaurant_menu, '食集'),
-                    const Spacer(),
+                    _navItem(t, 2, Icons.auto_awesome_outlined, Icons.auto_awesome, '推荐'),
                     _navItem(t, 3, Icons.kitchen_outlined, Icons.kitchen, '库存'),
                     _navItem(t, 4, Icons.person_outline, Icons.person, '我的'),
                   ],
-                ),
-              ),
-              // 凸起推荐按钮（置顶，最上层接收点击）：胶囊直接显示「推荐」二字，无图标
-              Positioned(
-                left: 0,
-                right: 0,
-                top: -16,
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _RecommendFab(
-                        selected: navigationShell.currentIndex == recommendIndex,
-                        onTap: () => _goBranch(recommendIndex),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],
@@ -113,34 +93,3 @@ class MainShell extends StatelessWidget {
   }
 }
 
-/// 凸起推荐按钮（独立 widget，自带 Material 确保点击命中）：
-/// 胶囊形直接显示「推荐」二字（2026-08-14：去图标改文案）。
-class _RecommendFab extends StatelessWidget {
-  final bool selected;
-  final VoidCallback onTap;
-  const _RecommendFab({required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? t.primaryDeep : t.primary,
-            borderRadius: BorderRadius.circular(AppTokens.rPill),
-            border: Border.all(color: t.card, width: 3),
-            boxShadow: t.elevationFab,
-          ),
-          child: Text('推荐',
-              style: t.textStyles.sm.copyWith(
-                  color: Colors.white, fontWeight: FontWeight.w800)),
-        ),
-      ),
-    );
-  }
-}
