@@ -165,65 +165,6 @@ class OpenAiCompatibleClientTest {
                 Map.of(2L, new BigDecimal("10")), List.of());
     }
 
-    private MenuRecommendRequest reqWithCandidates(List<CandidateDish> cands) {
-        return new MenuRecommendRequest(
-                1L, "DAY",
-                null, null, null, null, null,
-                cands, Map.of("sugarMax", new BigDecimal("25")));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"deepseek", "glm"})
-    void 菜单推荐_从候选选菜_dishId真实映射(String source) throws Exception {
-        var cands = List.of(cd(101, "番茄炒蛋"), cd(102, "黄瓜炒肉"));
-        stubContent("{\"menus\":[{\"dishes\":[{\"dishId\":101,\"name\":\"番茄炒蛋\"}],"
-                + "\"reasons\":[\"清淡\"]}]}");
-        var out = client(source).recommendMenu(reqWithCandidates(cands));
-        assertThat(out.groups()).hasSize(1);
-        var g = out.groups().get(0);
-        assertThat(g.source()).isEqualTo(source);
-        assertThat(g.dishes()).hasSize(1);
-        assertThat(g.dishes().get(0).dishId()).isEqualTo(101L);   // 真实映射，非编造
-        assertThat(g.dishes().get(0).name()).isEqualTo("番茄炒蛋");
-        assertThat(g.reasons()).contains("清淡");
-        verifyNoInteractions(menuRecommender);
-    }
-
-    @Test
-    void 菜单推荐_LLM编造dishId_跳过降级规则() throws Exception {
-        var cands = List.of(cd(101, "番茄炒蛋"));
-        stubContent("{\"menus\":[{\"dishes\":[{\"dishId\":999,\"name\":\"编造菜\"}]}]}");
-        client("deepseek").recommendMenu(reqWithCandidates(cands));
-        verify(menuRecommender).recommend(any(), any(), any(), anyString(), anyLong());
-    }
-
-    @Test
-    void 菜单推荐_网络失败_降级规则() {
-        when(responseSpec.body(JsonNode.class)).thenThrow(new RuntimeException("connect refused"));
-        when(menuRecommender.recommend(any(), any(), any(), anyString(), anyLong()))
-                .thenReturn(List.of());
-        var out = client("glm").recommendMenu(reqWithCandidates(List.of(cd(101, "番茄炒蛋"))));
-        assertThat(out.groups()).isEmpty();
-        verify(menuRecommender).recommend(any(), any(), any(), anyString(), anyLong());
-    }
-
-    @Test
-    void 菜单推荐_WEEK_scope_至多3组() throws Exception {
-        var cands = List.of(cd(1, "菜1"), cd(2, "菜2"), cd(3, "菜3"), cd(4, "菜4"));
-        stubContent("{\"menus\":[" +
-                "{\"dishes\":[{\"dishId\":1,\"name\":\"菜1\"}],\"reasons\":[]}," +
-                "{\"dishes\":[{\"dishId\":2,\"name\":\"菜2\"}],\"reasons\":[]}," +
-                "{\"dishes\":[{\"dishId\":3,\"name\":\"菜3\"}],\"reasons\":[]}," +
-                "{\"dishes\":[{\"dishId\":4,\"name\":\"菜4\"}],\"reasons\":[]}," +
-                "{\"dishes\":[{\"dishId\":1,\"name\":\"菜1\"}],\"reasons\":[]}]}");
-        var req = new MenuRecommendRequest(1L, "WEEK",
-                null, null, null, null, null, cands, Map.of());
-        var out = client("deepseek").recommendMenu(req);
-        assertThat(out.groups()).hasSizeLessThanOrEqualTo(3);
-    }
-
-    // ---------------- 菜品估算 ----------------
-
     @ParameterizedTest
     @ValueSource(strings = {"deepseek", "glm"})
     void 菜品估算_解析返回(String source) throws Exception {

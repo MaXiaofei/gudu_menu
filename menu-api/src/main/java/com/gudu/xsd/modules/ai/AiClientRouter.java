@@ -4,7 +4,6 @@ import com.gudu.xsd.modules.ai.dto.DishEstimateRequest;
 import com.gudu.xsd.modules.ai.dto.DishEstimateResponse;
 import com.gudu.xsd.modules.ai.dto.MenuCandidate;
 import com.gudu.xsd.modules.ai.dto.MenuRecommendRequest;
-import com.gudu.xsd.modules.ai.dto.MenuRecommendResponse;
 import com.gudu.xsd.modules.ai.dto.NutritionFillRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -119,51 +118,6 @@ public class AiClientRouter implements AiClient {
     @Override
     public NutritionFillResponse fillNutrition(NutritionFillRequest req) {
         return currentClient().fillNutrition(req);
-    }
-
-    private static final String CACHE_PREFIX = "ai:menu:";
-    private static final int CACHE_TTL_SECONDS = 300; // 5 分钟
-
-    @Override
-    public MenuRecommendResponse recommendMenu(MenuRecommendRequest req) {
-        // 构建缓存 key：memberId + budget + scope + candidate dish IDs
-        String cacheKey = buildCacheKey(req);
-        try {
-            String cached = redis.opsForValue().get(cacheKey);
-            if (cached != null && !cached.isEmpty()) {
-                MenuRecommendResponse mr = objectMapper.readValue(cached, MenuRecommendResponse.class);
-                log.info("menu_recommend cache hit key={}", cacheKey);
-                return mr;
-            }
-        } catch (Exception e) {
-            log.warn("menu_recommend cache read failed key={} err={}", cacheKey, e.getMessage());
-        }
-
-        MenuRecommendResponse resp = currentClient().recommendMenu(req);
-
-        // 写缓存（5 分钟 TTL）
-        try {
-            String json = objectMapper.writeValueAsString(resp);
-            redis.opsForValue().set(cacheKey, json, java.time.Duration.ofSeconds(CACHE_TTL_SECONDS));
-        } catch (Exception e) {
-            log.warn("menu_recommend cache write failed key={} err={}", cacheKey, e.getMessage());
-        }
-        return resp;
-    }
-
-    private String buildCacheKey(MenuRecommendRequest req) {
-        long memberId = req.memberId() == null ? 0L : req.memberId();
-        String scope = req.scope() == null ? "DAY" : req.scope();
-        // 候选菜 id 列表的 hash
-        String dishIds = "";
-        if (req.candidates() != null && !req.candidates().isEmpty()) {
-            dishIds = req.candidates().stream()
-                    .map(c -> String.valueOf(c.dishId()))
-                    .collect(java.util.stream.Collectors.joining(","));
-        }
-        String raw = memberId + "|" + scope + "|" + dishIds;
-        int hash = raw.hashCode();
-        return CACHE_PREFIX + memberId + ":" + hash;
     }
 
     @Override

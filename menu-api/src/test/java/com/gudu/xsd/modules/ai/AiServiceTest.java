@@ -6,7 +6,6 @@ import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.ai.dto.CandidateDish;
 import com.gudu.xsd.modules.ai.dto.MenuCandidate;
 import com.gudu.xsd.modules.ai.dto.MenuRecommendRequest;
-import com.gudu.xsd.modules.ai.dto.MenuRecommendResponse;
 import com.gudu.xsd.modules.ai.mapper.AiCallLogMapper;
 import com.gudu.xsd.modules.dish.Dish;
 import com.gudu.xsd.modules.dish.DishSearchDTO;
@@ -46,6 +45,8 @@ class AiServiceTest {
     private AiCallLogMapper aiCallLogMapper;
     private DishIngredientMapper dishIngredientMapper;
     private MenuRecommender menuRecommender;
+    private com.gudu.xsd.modules.dish.DishVectorService dishVectorService;
+    private TasteProfileService tasteProfileService;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -59,11 +60,13 @@ class AiServiceTest {
         memberMapper = mock(MemberMapper.class);
         aiCallLogMapper = mock(AiCallLogMapper.class);
         menuRecommender = mock(MenuRecommender.class);
+        dishVectorService = mock(com.gudu.xsd.modules.dish.DishVectorService.class);
+        tasteProfileService = mock(TasteProfileService.class);
 
         svc = new AiService(aiClient, ingredientService, ingredientMapper,
                 dishService, dishQueryService, dishIngredientMapper,
                 memberMapper, aiCallLogMapper, new ObjectMapper(),
-                new AiInputGuard(), menuRecommender);
+                new AiInputGuard(), menuRecommender, dishVectorService, tasteProfileService);
         // @Value 在 new 出来的实例上不生效，手动注入默认额度
         org.springframework.test.util.ReflectionTestUtils.setField(svc, "dailyLimit", 50);
     }
@@ -76,129 +79,101 @@ class AiServiceTest {
     }
 
     @Test
-    void 菜单推荐_调aiClient_不再直接MenuRecommender() {
-        // mock 候选池
-        IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋"), dish(2, "黄瓜")));
-        when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
-        when(dishQueryService.nutrition(anyLong(), any(BigDecimal.class)))
-                .thenReturn(Map.of(2L, new BigDecimal("10")));
+    void 菜单推荐_向量召回_组合_理由enrich() {
+        // 向量召回：1 道候选（metadata dishId/name + score）
+        org.springframework.ai.document.Document doc =
+                new org.springframework.ai.document.Document("菜名：番茄炒蛋",
+                        java.util.Map.of("dishId", 10, "name", "番茄炒蛋"));
+        when(dishVectorService.semanticSearch(any(), anyInt(), any(), any()))
+                .thenReturn(List.of(doc));
+        when(tasteProfileService.profileText(any())).thenReturn("番茄炒蛋、番茄炒蛋");
+        when(tasteProfileService.recentDishIds(any(), anyInt())).thenReturn(List.of());
+        when(dishService.getById(10L)).thenReturn(dish(10L, "番茄炒蛋"));
+        when(dishQueryService.nutrition(anyLong(), any())).thenReturn(java.util.Map.of());
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
-        when(memberMapper.selectById(anyLong())).thenReturn(null); // 无健康档案
+        // 组合器返回一组（真实纯函数太重，直接 mock）
+        var group = new MenuCandidate(
+                List.of(new MenuCandidate.DishItem(10L, "番茄炒蛋", BigDecimal.ONE)),
+                java.util.Map.of(), 1.0, List.of("蛋白含量较高，营养均衡"), "rule");
+        when(menuRecommender.recommend(any(), any(), any(), any(), anyLong()))
+                .thenReturn(List.of(group));
 
-        when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of()));
-
-        var req = new MenuRecommendRequest(1L, "DAY",
-                null, null, null, null, null);
-        svc.recommendMenu(req);
-
-        // 关键断言：aiClient.recommendMenu 被调用
-        verify(aiClient).recommendMenu(any());
-    }
-
-    @Test
-    void 菜单推荐_候选上下文与健康约束被回填() {
-        Member m = new Member();
-        m.setId(1L);
-        m.setHealthProfile(Map.of(
-                "constraints", Map.of("sugarMax", 25, "calMax", 600),
-                "allergies", List.of("花生")));
-        when(memberMapper.selectById(1L)).thenReturn(m);
-
-        IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋")));
-        when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
-        when(dishQueryService.nutrition(eq(1L), any(BigDecimal.class)))
-                .thenReturn(Map.of(2L, new BigDecimal("12"), 5L, new BigDecimal("3")));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
-        when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of()));
-
-        var req = new MenuRecommendRequest(1L, "DAY",
-                null, null, null, null, null);
-        svc.recommendMenu(req);
-
-        // 捕获传给 aiClient 的 req，断言 candidates + healthConstraints 已回填
-        ArgumentCaptor<MenuRecommendRequest> cap = ArgumentCaptor.forClass(MenuRecommendRequest.class);
-        verify(aiClient).recommendMenu(cap.capture());
-        MenuRecommendRequest enriched = cap.getValue();
-        assertThat(enriched.candidates()).hasSize(1);
-        CandidateDish c = enriched.candidates().get(0);
-        assertThat(c.dishId()).isEqualTo(1L);
-        assertThat(c.name()).isEqualTo("番茄炒蛋");
-        assertThat(c.nutrition()).containsEntry(2L, new BigDecimal("12"));
-        // healthConstraints 含 sugarMax / calMax / allergies
-        assertThat(enriched.healthConstraints()).containsKey("sugarMax");
-        assertThat(enriched.healthConstraints()).containsKey("allergies");
-    }
-
-    @Test
-    void 菜单推荐_返回aiClient结果() {
-        IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋")));
-        when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
-        when(dishQueryService.nutrition(anyLong(), any(BigDecimal.class))).thenReturn(Map.of());
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
-        when(memberMapper.selectById(anyLong())).thenReturn(null);
-
-        MenuCandidate expected = new MenuCandidate(
-                List.of(new MenuCandidate.DishItem(1L, "番茄炒蛋", BigDecimal.ONE)),
-                Map.of(), 0.0, List.of("清淡"), "deepseek");
-        when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of(expected)));
-
-        var req = new MenuRecommendRequest(1L, "DAY",
-                null, null, null, null, null);
+        var req = new MenuRecommendRequest(1L, "DAY", "清淡下饭", null, null, null, null, null);
         var out = svc.recommendMenu(req);
-        assertThat(out).containsExactly(expected);
-        // 日志记录一次
-        verify(aiCallLogMapper,  atLeastOnce()).insert(any(AiCallLog.class));
+
+        assertThat(out).hasSize(1);
+        assertThat(out.get(0).source()).isEqualTo("vector");
+        // 理由 enrich：口味相近在最前，原规则理由保留
+        assertThat(out.get(0).reasons().get(0)).contains("番茄炒蛋");
+        assertThat(out.get(0).reasons()).anyMatch(r -> r.contains("蛋白"));
+        // 召回 query 带偏好 + 画像
+        var cq = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(dishVectorService).semanticSearch(cq.capture(), anyInt(), any(), any());
+        assertThat(cq.getValue()).contains("清淡下饭").contains("口味类似");
     }
 
-    // ---------------- 护栏：额度限制 + 输入预检 ----------------
+    @Test
+    void 菜单推荐_召回排除近期做过() {
+        org.springframework.ai.document.Document d1 =
+                new org.springframework.ai.document.Document("a", java.util.Map.of("dishId", 10, "name", "A"));
+        org.springframework.ai.document.Document d2 =
+                new org.springframework.ai.document.Document("b", java.util.Map.of("dishId", 11, "name", "B"));
+        when(dishVectorService.semanticSearch(any(), anyInt(), any(), any()))
+                .thenReturn(List.of(d1, d2));
+        when(tasteProfileService.profileText(any())).thenReturn("");
+        // dishId=10 近期做过 → 排除，只剩 11
+        when(tasteProfileService.recentDishIds(any(), anyInt())).thenReturn(List.of(10L));
+        when(dishService.getById(11L)).thenReturn(dish(11L, "B"));
+        when(dishQueryService.nutrition(anyLong(), any())).thenReturn(java.util.Map.of());
+        when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
+        when(menuRecommender.recommend(any(), any(), any(), any(), anyLong()))
+                .thenReturn(List.of());
+
+        var req = new MenuRecommendRequest(1L, "DAY", null, null, null, null, null, null);
+        svc.recommendMenu(req);
+
+        verify(dishService, never()).getById(10L);
+        verify(dishService).getById(11L);
+    }
+
+    @Test
+    void 菜单推荐_召回为空_返回空列表() {
+        when(dishVectorService.semanticSearch(any(), anyInt(), any(), any()))
+                .thenReturn(List.of());
+        when(tasteProfileService.profileText(any())).thenReturn("");
+
+        var req = new MenuRecommendRequest(1L, "DAY", null, null, null, null, null, null);
+        assertThat(svc.recommendMenu(req)).isEmpty();
+    }
 
     @Test
     void 菜单推荐_今日额度超限_抛BizException() {
-        // 今日已调用 50 次（=dailyLimit）→ 第 51 次拒绝
         when(aiCallLogMapper.selectCount(any())).thenReturn(50L);
-
-        var req = new MenuRecommendRequest(1L, "DAY",
-                null, null, null, null, null);
+        var req = new MenuRecommendRequest(1L, "DAY", null, null, null, null, null, null);
         assertThatThrownBy(() -> svc.recommendMenu(req))
-                .isInstanceOf(BizException.class)
-                .hasMessageContaining("已达上限");
-        // 拒绝后不应再调 aiClient
-        verifyNoInteractions(aiClient);
+                .isInstanceOf(com.gudu.xsd.common.BizException.class)
+                .hasMessageContaining("上限");
     }
 
     @Test
     void 菜单推荐_额度未超_正常调用() {
-        when(aiCallLogMapper.selectCount(any())).thenReturn(10L);
-        IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of(dish(1, "番茄炒蛋")));
-        when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
-        when(dishQueryService.nutrition(anyLong(), any(BigDecimal.class))).thenReturn(Map.of());
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
-        when(memberMapper.selectById(anyLong())).thenReturn(null);
-        when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of()));
-
-        var req = new MenuRecommendRequest(1L, "DAY",
-                null, null, null, null, null);
+        when(aiCallLogMapper.selectCount(any())).thenReturn(3L);
+        when(tasteProfileService.profileText(any())).thenReturn("");
+        when(dishVectorService.semanticSearch(any(), anyInt(), any(), any()))
+                .thenReturn(List.of());
+        var req = new MenuRecommendRequest(1L, "DAY", null, null, null, null, null, null);
         svc.recommendMenu(req);
-        verify(aiClient).recommendMenu(any());
+        verify(aiCallLogMapper).insert(any(AiCallLog.class));
     }
 
     @Test
     void 菜单推荐_无member_不限额度() {
-        // memberId=null → 不查额度、不拒绝
-        IPage<Dish> page = mock(IPage.class);
-        when(page.getRecords()).thenReturn(List.of());
-        when(dishService.search(any(DishSearchDTO.class))).thenReturn(page);
-        when(aiClient.recommendMenu(any())).thenReturn(new MenuRecommendResponse(List.of()));
-
-        var req = new MenuRecommendRequest(null, "DAY",
-                null, null, null, null, null);
+        when(tasteProfileService.profileText(any())).thenReturn("");
+        when(dishVectorService.semanticSearch(any(), anyInt(), any(), any()))
+                .thenReturn(List.of());
+        var req = new MenuRecommendRequest(null, "DAY", null, null, null, null, null, null);
         svc.recommendMenu(req);
         verify(aiCallLogMapper, never()).selectCount(any());
-        verify(aiClient).recommendMenu(any());
     }
 
     @Test

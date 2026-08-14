@@ -4,13 +4,11 @@ import com.gudu.xsd.modules.ai.dto.DishEstimateRequest;
 import com.gudu.xsd.modules.ai.dto.DishEstimateResponse;
 import com.gudu.xsd.modules.ai.dto.MenuCandidate;
 import com.gudu.xsd.modules.ai.dto.MenuRecommendRequest;
-import com.gudu.xsd.modules.ai.dto.MenuRecommendResponse;
 import com.gudu.xsd.modules.ai.dto.NutritionFillRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillResponse;
 
 import java.util.List;
 
-import com.gudu.xsd.modules.ai.dto.MenuRecommendResponse;
 
 /**
  * AI 能力策略接口（参照 NotificationChannel 范式）。
@@ -24,9 +22,6 @@ public interface AiClient {
 
     /** 营养补全：按食材名返回 per 100g 的 6 项指标值（参考中国食物成分表 / 分类兜底）。 */
     NutritionFillResponse fillNutrition(NutritionFillRequest req);
-
-    /** 菜单推荐：基于候选菜池 + 健康约束 + 预算，输出若干组候选菜单及 token 用量。 */
-    MenuRecommendResponse recommendMenu(MenuRecommendRequest req);
 
     /** 菜品/一餐营养估算：根据文字描述估算该餐总营养（V2 方案2，纯文本）。 */
     DishEstimateResponse estimateDish(DishEstimateRequest req);

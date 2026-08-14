@@ -11,7 +11,6 @@ import com.gudu.xsd.modules.ai.dto.DishEstimateRequest;
 import com.gudu.xsd.modules.ai.dto.DishEstimateResponse;
 import com.gudu.xsd.modules.ai.dto.MenuCandidate;
 import com.gudu.xsd.modules.ai.dto.MenuRecommendRequest;
-import com.gudu.xsd.modules.ai.dto.MenuRecommendResponse;
 import com.gudu.xsd.modules.ai.dto.NutritionFillRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillResponse;
 import com.gudu.xsd.modules.nutrition.IngredientNutrition;
@@ -115,92 +114,6 @@ public abstract class OpenAiCompatibleClient implements AiClient {
         }
     }
 
-    // ---------------- 菜单推荐 ----------------
-
-    @Override
-    public MenuRecommendResponse recommendMenu(MenuRecommendRequest req) {
-        // 无候选上下文 → 无法让 LLM 从候选选，直接走规则降级（候选组装是 AiService 的职责）。
-        if (req.candidates() == null || req.candidates().isEmpty()) {
-            return new MenuRecommendResponse(ruleFallback(req));
-        }
-        try {
-            String k = key();
-            if (k == null || k.isBlank()) {
-                throw new BizException("API_KEY 未配置，降级规则");
-            }
-            // 候选限量，避免 token 爆；保留 dishId -> 候选 的映射以解析回真实 id。
-            List<CandidateDish> limited = req.candidates().size() > MAX_CANDIDATES
-                    ? req.candidates().subList(0, MAX_CANDIDATES)
-                    : req.candidates();
-            Map<Long, CandidateDish> byId = new HashMap<>();
-            for (CandidateDish c : limited) {
-                byId.put(c.dishId(), c);
-            }
-
-            String user = buildUserPrompt(limited, req);
-            ChatResult cr = chat(
-                    ROLE_LOCK + "你是家庭菜单推荐助手。根据健康约束/预算/口味，从给定的候选菜里选菜组成菜单，"
-                            + "返回 JSON 对象 {\"menus\":[{\"dishes\":[{\"dishId\":数字,\"name\":\"菜名\"}],"
-                            + "\"reasons\":[\"...\"]}]}。"
-                            + "只能从候选菜里选，dishId 必须用候选里给出的真实数字，不编造。"
-                            + "scope 为 DAY 时返回 1 组菜单，WEEK 时返回至多 3 组。只返回 JSON。",
-                    user);
-            JsonNode root = parseJson(cr.content);
-            // 兼容：根可能是数组也可能是 {menus:[...]}
-            JsonNode arr = root.isArray() ? root : root.path("menus");
-            if (!arr.isArray()) {
-                throw new BizException(provider() + " 返回非数组");
-            }
-
-            int limit = "WEEK".equalsIgnoreCase(req.scope()) ? 3 : 1;
-            List<MenuCandidate> out = new ArrayList<>();
-            for (JsonNode g : arr) {
-                if (out.size() >= limit) break;
-                List<MenuCandidate.DishItem> dishes = new ArrayList<>();
-                Map<Long, BigDecimal> nut = new HashMap<>();
-                JsonNode dishesNode = g.path("dishes");
-                if (dishesNode.isArray()) {
-                    for (JsonNode d : dishesNode) {
-                        long dishId = d.path("dishId").asLong(0L);
-                        CandidateDish c = byId.get(dishId);
-                        // LLM 编造的 dishId（不在候选里）→ 跳过，防止返回不存在的菜。
-                        if (c == null) {
-                            // 次选：按名字匹配候选（LLM 有时会改名）
-                            String nm = d.path("name").asText("");
-                            c = byId.values().stream()
-                                    .filter(x -> nm.equals(x.name()))
-                                    .findFirst().orElse(null);
-                        }
-                        if (c == null) continue;
-                        dishes.add(new MenuCandidate.DishItem(
-                                c.dishId(), c.name(), BigDecimal.ONE));
-                        if (c.nutrition() != null) {
-                            for (var e : c.nutrition().entrySet()) {
-                                nut.merge(e.getKey(), e.getValue(), BigDecimal::add);
-                            }
-                        }
-                    }
-                }
-                if (dishes.isEmpty()) continue; // 该组全部不在候选，丢弃
-                List<String> reasons = new ArrayList<>();
-                JsonNode reasonsNode = g.path("reasons");
-                if (reasonsNode.isArray()) {
-                    for (JsonNode r : reasonsNode) reasons.add(r.asText());
-                }
-                // V55：totalPrice 随价格链路删除
-                out.add(new MenuCandidate(dishes, nut, 0.0, reasons, provider()));
-            }
-            // LLM 一组没选出来（全编造/全超预算）→ 降级规则
-            if (out.isEmpty()) {
-                throw new BizException(provider() + " 未选出有效候选，降级规则");
-            }
-            return new MenuRecommendResponse(out, cr.tokensIn, cr.tokensOut);
-        } catch (Exception e) {
-            log.warn("{} recommendMenu 失败，降级规则: {}", provider(), e.getMessage());
-            return new MenuRecommendResponse(ruleFallback(req));
-        }
-    }
-
     // ---------------- 菜品/一餐营养估算（纯文本描述） ----------------
 
     @Override
@@ -251,47 +164,6 @@ public abstract class OpenAiCompatibleClient implements AiClient {
                 .stripTrailingZeros();
     }
 
-    /** 规则降级：用 MenuRecommender 在候选池上过滤/打分/组合。 */
-    private List<MenuCandidate> ruleFallback(MenuRecommendRequest req) {
-        List<MenuRecommender.CandidateDish> list = new ArrayList<>();
-        if (req.candidates() != null) {
-            for (CandidateDish c : req.candidates()) {
-                list.add(new MenuRecommender.CandidateDish(
-                        c.dishId(), c.name(), c.nutrition(), c.ingredientNames()));
-            }
-        }
-        Map<String, Object> hc = req.healthConstraints() == null
-                ? Map.of() : req.healthConstraints();
-        MenuRecommender.Constraints cons = new MenuRecommender.Constraints(
-                toBd(hc.get("sugarMax")), toBd(hc.get("calMax")));
-        @SuppressWarnings("unchecked")
-        List<String> allergies = hc.get("allergies") instanceof List<?> al
-                ? al.stream().map(String::valueOf).toList() : List.of();
-        long seed = req.memberId() == null ? 42L : req.memberId();
-        return menuRecommender.recommend(list, cons, allergies,
-                req.scope() == null ? "DAY" : req.scope(), seed);
-    }
-
-    /** 组装 user prompt：候选菜（紧凑 JSON 格式）+ 健康约束（V55：预算已删）。 */
-    private static String buildUserPrompt(List<CandidateDish> candidates, MenuRecommendRequest req) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("scope=").append(req.scope() == null ? "DAY" : req.scope());
-        Map<String, Object> hc = req.healthConstraints() == null ? Map.of() : req.healthConstraints();
-        sb.append(" health=").append(hc.isEmpty() ? "none" : hc);
-        sb.append("\ncandidates=[");
-        for (int i = 0; i < candidates.size(); i++) {
-            CandidateDish c = candidates.get(i);
-            if (i > 0) sb.append(",");
-            sb.append("{\"id\":").append(c.dishId())
-                    .append(",\"n\":\"").append(c.name()).append("\"}");
-        }
-        sb.append(']');
-        return sb.toString();
-    }
-
-    /**
-     * Chat 调用结果：content 文本 + token 用量。
-     */
     private record ChatResult(String content, int tokensIn, int tokensOut) {}
 
     // ---------------- 内部：HTTP + 解析 ----------------

@@ -8,7 +8,6 @@ import com.gudu.xsd.modules.ai.dto.DishEstimateRequest;
 import com.gudu.xsd.modules.ai.dto.DishEstimateResponse;
 import com.gudu.xsd.modules.ai.dto.MenuCandidate;
 import com.gudu.xsd.modules.ai.dto.MenuRecommendRequest;
-import com.gudu.xsd.modules.ai.dto.MenuRecommendResponse;
 import com.gudu.xsd.modules.ai.dto.NutritionFillRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillResponse;
 import com.gudu.xsd.modules.ai.mapper.AiCallLogMapper;
@@ -28,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -67,6 +67,8 @@ public class AiService {
     private final ObjectMapper objectMapper;
     private final AiInputGuard inputGuard;
     private final MenuRecommender menuRecommender;
+    private final com.gudu.xsd.modules.dish.DishVectorService dishVectorService;
+    private final TasteProfileService tasteProfileService;
 
     /** 每 member 每日 AI 调用上限（配置 gudu.ai.daily-limit，默认 50）。null/无 member 不限。 */
     @Value("${gudu.ai.daily-limit:50}")
@@ -109,15 +111,19 @@ public class AiService {
         }
     }
 
-    // ---------------- 菜单推荐 ----------------
+    // ---------------- 菜单推荐（2026-08 全向量化重写：废除 LLM 生成链路） ----------------
 
+    /**
+     * 向量化推荐：口味画像 + 偏好文本 → 菜谱向量库召回 TopK → 健康过滤/打分/组合（规则纯函数）
+     * → 模板理由。无 LLM 调用（原 chat 生成链路已删除）。
+     */
     public List<MenuCandidate> recommendMenu(MenuRecommendRequest req) {
         long start = System.currentTimeMillis();
         String reqJson = safeJson(req);
         // 额度护栏：有 member 维度时，校验今日调用次数（scene 无关，全 AI 接口共用额度）。
         checkDailyLimit(req.memberId());
         try {
-            // 1. 取成员健康档案（constraints / allergies）→ healthConstraints
+            // 1. 取成员健康档案（constraints / allergies）
             Constraints cons = new Constraints(null, null);
             List<String> allergies = List.of();
             if (req.memberId() != null) {
@@ -127,104 +133,89 @@ public class AiService {
                     allergies = parseAllergies(m.getHealthProfile());
                 }
             }
-            // 2. 候选池：DishService.search
-            DishSearchDTO q = new DishSearchDTO();
-            q.setPageNum(1);
-            q.setPageSize(50);
-            q.setCuisineIds(req.cuisineIds());
-            q.setTagIds(req.tagIds());
-            q.setCategoryIds(req.categoryIds());
-            q.setMaxMinutes(req.maxMinutes());
-            q.setMaxDifficulty(req.maxDifficulty());
-            List<Dish> dishes = dishService.search(q).getRecords();
 
-            // 3. 各菜组装 CandidateDish：营养(per份) + 食材名
+            // 2. 口味画像 + 偏好文本 → 向量召回查询
+            String profile = tasteProfileService.profileText(req.memberId());
+            String pref = (req.preference() == null || req.preference().isBlank())
+                    ? "家常菜" : req.preference().trim();
+            String query = profile.isEmpty() ? pref : pref + "，口味类似：" + profile;
+            Set<Long> exclude = new java.util.HashSet<>(
+                    tasteProfileService.recentDishIds(req.memberId(), 30));
+
+            // 3. 菜谱向量库召回（带难度/时长过滤）
+            List<Document> hits = dishVectorService.semanticSearch(
+                    query, 50, req.maxDifficulty(), req.maxMinutes());
+            if (hits.isEmpty()) {
+                logCall("menu_recommend", req.memberId(), reqJson, null,
+                        0, 0, BigDecimal.ZERO, "vector", "ok", "vector store empty", start);
+                return List.of();
+            }
+
+            // 4. 组装候选（营养 per 份 + 食材名，供过敏过滤与打分）；排除近 30 天做过的
             List<CandidateDish> candidates = new ArrayList<>();
+            Map<Long, Double> simByDish = new HashMap<>();
             Map<Long, String> ingNameCache = new HashMap<>();
-            for (Dish d : dishes) {
-                Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.getId(), BigDecimal.ONE);
+            for (Document d : hits) {
+                Object dishIdObj = d.getMetadata().get("dishId");
+                if (!(dishIdObj instanceof Number n)) continue;
+                Long dishId = n.longValue();
+                if (dishId == null || exclude.contains(dishId)) continue;
+                if (simByDish.containsKey(dishId)) continue;
+                Dish dish = dishService.getById(dishId);
+                if (dish == null) continue;
+                simByDish.put(dishId, d.getScore() == null ? 0.0 : d.getScore());
+                Map<Long, BigDecimal> nut = dishQueryService.nutrition(dishId, BigDecimal.ONE);
                 if (nut == null) nut = Map.of();
-                List<String> ingNames = ingredientNamesOf(d.getId(), ingNameCache);
-                candidates.add(new CandidateDish(d.getId(), d.getName(), nut, ingNames));
+                List<String> ingNames = ingredientNamesOf(dishId, ingNameCache);
+                candidates.add(new CandidateDish(dishId, dish.getName(), nut, ingNames));
             }
 
-            // 4. 规则引擎先跑：过滤/打分/组合，取 Top 5 结果里的菜品作为 LLM 候选
-            Map<String, Object> hc = new HashMap<>();
-            if (cons.sugarMax() != null) hc.put("sugarMax", cons.sugarMax());
-            if (cons.calMax() != null) hc.put("calMax", cons.calMax());
-            if (!allergies.isEmpty()) hc.put("allergies", allergies);
-
-            // 组装成 MenuRecommender 候选
-            List<MenuRecommender.CandidateDish> rcList = new ArrayList<>();
-            for (CandidateDish cd : candidates) {
-                rcList.add(new MenuRecommender.CandidateDish(
-                        cd.dishId(), cd.name(), cd.nutrition(), cd.ingredientNames()));
-            }
+            // 5. 规则引擎组合（纯函数保留：过滤/打分/组合/限量）
+            List<MenuRecommender.CandidateDish> rcList = candidates.stream()
+                    .map(cd -> new MenuRecommender.CandidateDish(
+                            cd.dishId(), cd.name(), cd.nutrition(), cd.ingredientNames()))
+                    .toList();
             long seed = req.memberId() == null ? 42L : req.memberId();
-            final List<MenuCandidate> ruleResult = menuRecommender.recommend(
+            List<MenuCandidate> result = menuRecommender.recommend(
                     rcList, cons, allergies,
                     req.scope() == null ? "DAY" : req.scope(), seed);
 
-            // 从规则结果中提取唯一菜品，去重后取 top 5
-            Set<Long> ruleDishIds = new LinkedHashSet<>();
-            for (MenuCandidate mc : ruleResult) {
-                for (MenuCandidate.DishItem di : mc.dishes()) {
-                    ruleDishIds.add(di.dishId());
-                    if (ruleDishIds.size() >= 5) break;
-                }
-                if (ruleDishIds.size() >= 5) break;
-            }
+            // 6. 模板理由 enrich：口味相近 / 快手 / 健康约束
+            String topFavorite = profile.isEmpty() ? "" : profile.split("、")[0];
+            final Constraints consF = cons;
+            List<MenuCandidate> enriched = result.stream()
+                    .map(mc -> new MenuCandidate(mc.dishes(), mc.totalNutrition(), mc.score(),
+                            enrichReasons(mc, topFavorite, consF), "vector"))
+                    .toList();
 
-            // 过滤出这 5 个候选
-            List<CandidateDish> top5 = new ArrayList<>();
-            Map<Long, CandidateDish> byId = candidates.stream()
-                    .collect(Collectors.toMap(CandidateDish::dishId, c -> c, (a, b) -> a));
-            for (Long id : ruleDishIds) {
-                CandidateDish c = byId.get(id);
-                if (c != null) top5.add(c);
-            }
-            if (top5.size() < 3) {
-                top5 = candidates.stream().limit(5).collect(Collectors.toList());
-            }
-
-            // 5. LLM 从规则预选的 Top 5 中做最终选择 + 生成理由
-            MenuRecommendRequest enriched = new MenuRecommendRequest(
-                    req.memberId(), req.scope(),
-                    req.cuisineIds(), req.tagIds(), req.categoryIds(),
-                    req.maxMinutes(), req.maxDifficulty(),
-                    top5, hc);
-            MenuRecommendResponse mr;
-            try {
-                mr = aiClient.recommendMenu(enriched);
-            } catch (RuntimeException llmErr) {
-                // LLM 失败 → 降级规则引擎结果（不抛异常，保证用户拿到推荐）
-                log.warn("LLM recommendMenu 失败，降级规则结果: {}", llmErr.getMessage());
-                logCall("menu_recommend", req.memberId(), reqJson, null,
-                        0, 0, BigDecimal.ZERO, aiClient.provider(), "fail",
-                        "llm error, fallback to rule: " + llmErr.getMessage(), start);
-                return ruleResult;
-            }
-
-            // LLM 返回空 → 也降级规则结果
-            if (mr.groups() == null || mr.groups().isEmpty()) {
-                logCall("menu_recommend", req.memberId(), reqJson, null,
-                        mr.tokensIn(), mr.tokensOut(), BigDecimal.ZERO, aiClient.provider(), "ok",
-                        "llm empty, fallback to rule", start);
-                return ruleResult;
-            }
-
-            logCall("menu_recommend", req.memberId(), reqJson, safeJson(mr.groups()),
-                    mr.tokensIn(), mr.tokensOut(), BigDecimal.ZERO, aiClient.provider(), "ok", null, start);
-            return mr.groups();
+            logCall("menu_recommend", req.memberId(), reqJson, safeJson(enriched),
+                    0, 0, BigDecimal.ZERO, "vector", "ok", null, start);
+            return enriched;
         } catch (BizException e) {
             logCall("menu_recommend", req.memberId(), reqJson, null,
-                    0, 0, BigDecimal.ZERO, aiClient.provider(), "fail", e.getMessage(), start);
+                    0, 0, BigDecimal.ZERO, "vector", "fail", e.getMessage(), start);
             throw e;
         } catch (RuntimeException e) {
             logCall("menu_recommend", req.memberId(), reqJson, null,
-                    0, 0, BigDecimal.ZERO, aiClient.provider(), "fail", e.getMessage(), start);
+                    0, 0, BigDecimal.ZERO, "vector", "fail", e.getMessage(), start);
             throw e;
         }
+    }
+
+    /** 模板理由（替代 LLM 生成）：在规则引擎理由前加「口味相近/健康约束」上下文。 */
+    private List<String> enrichReasons(MenuCandidate mc, String topFavorite, Constraints cons) {
+        List<String> reasons = new ArrayList<>();
+        if (!topFavorite.isEmpty()) {
+            reasons.add("与你近期常做的「" + topFavorite + "」口味相近");
+        }
+        if (cons.calMax() != null) {
+            reasons.add("符合热量上限约束");
+        }
+        if (cons.sugarMax() != null) {
+            reasons.add("符合低糖约束");
+        }
+        reasons.addAll(mc.reasons());
+        return reasons;
     }
 
     // ---------------- 菜品/一餐营养估算 ----------------

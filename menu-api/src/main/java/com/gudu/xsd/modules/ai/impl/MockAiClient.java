@@ -8,7 +8,6 @@ import com.gudu.xsd.modules.ai.dto.DishEstimateRequest;
 import com.gudu.xsd.modules.ai.dto.DishEstimateResponse;
 import com.gudu.xsd.modules.ai.dto.MenuCandidate;
 import com.gudu.xsd.modules.ai.dto.MenuRecommendRequest;
-import com.gudu.xsd.modules.ai.dto.MenuRecommendResponse;
 import com.gudu.xsd.modules.ai.dto.NutritionFillRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillResponse;
 import com.gudu.xsd.modules.nutrition.IngredientNutrition;
@@ -82,38 +81,6 @@ public class MockAiClient implements AiClient {
         }
         return new NutritionFillResponse(toNutritionList(v), SOURCE);
     }
-
-    @Override
-    public MenuRecommendResponse recommendMenu(MenuRecommendRequest req) {
-        // provider=mock 时：用规则 MenuRecommender 在 req.candidates（AiService 已回填）上过滤/打分/组合。
-        // 候选为空（异常调用）直接返回空。
-        if (req.candidates() == null || req.candidates().isEmpty()) {
-            return new MenuRecommendResponse(List.of());
-        }
-        List<MenuRecommender.CandidateDish> list = new ArrayList<>();
-        for (CandidateDish c : req.candidates()) {
-            list.add(new MenuRecommender.CandidateDish(
-                    c.dishId(), c.name(), c.nutrition(), c.ingredientNames()));
-        }
-        Map<String, Object> hc = req.healthConstraints() == null
-                ? Map.of() : req.healthConstraints();
-        MenuRecommender.Constraints cons = new MenuRecommender.Constraints(
-                toBd(hc.get("sugarMax")), toBd(hc.get("calMax")));
-        @SuppressWarnings("unchecked")
-        List<String> allergies = hc.get("allergies") instanceof List<?> al
-                ? al.stream().map(String::valueOf).toList() : List.of();
-        long seed = req.memberId() == null ? 42L : req.memberId();
-        return new MenuRecommendResponse(menuRecommender.recommend(list, cons, allergies,
-                req.scope() == null ? "DAY" : req.scope(), seed));
-    }
-
-    private static BigDecimal toBd(Object o) {
-        if (o == null) return null;
-        if (o instanceof BigDecimal b) return b;
-        if (o instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
-        try { return new BigDecimal(o.toString().trim()); } catch (Exception e) { return null; }
-    }
-
     // ---------------- 菜品/一餐营养估算（mock 兜底） ----------------
 
     /**
