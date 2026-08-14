@@ -89,3 +89,29 @@ WHERE id = 1;
 -- ============================================================
 INSERT INTO pantry(ingredient_id, amount, unit_id, grams, expire_date, deleted)
 VALUES (1, 500.00, 20, 500.00, CURDATE() + INTERVAL 1 DAY, 0);
+
+-- ============================================================
+-- E2E 自建数据兜底清理（GuduE2ECoverageTest 可重复跑）：
+-- 动态表上面已清，但 sys_dict/member 等静态表不在清理范围；
+-- Coverage 测试自建的字典/成员有唯一约束（uk_group_name / phone），
+-- 残留会导致下次运行 Duplicate 冲突 → 每测试前按名字/前缀清掉。
+-- ============================================================
+DELETE FROM sys_dict WHERE name LIKE 'E2E%';
+DELETE FROM sys_dict WHERE name LIKE 'e2e%';
+DELETE FROM member WHERE phone LIKE '1390000%';
+DELETE FROM member WHERE name LIKE 'E2E%';
+-- E2E 自建菜（连同步骤/用料/字典关联先清孤儿）
+DELETE di FROM dish_ingredient di LEFT JOIN dish d ON d.id = di.dish_id
+  WHERE d.id IS NULL OR d.name LIKE 'E2E%';
+DELETE ds FROM dish_step ds LEFT JOIN dish d ON d.id = ds.dish_id
+  WHERE d.id IS NULL OR d.name LIKE 'E2E%';
+DELETE dd FROM dish_dict dd LEFT JOIN dish d ON d.id = dd.dish_id
+  WHERE d.id IS NULL OR d.name LIKE 'E2E%';
+DELETE FROM dish WHERE name LIKE 'E2E%';
+DELETE FROM dish_draft WHERE name LIKE 'E2E%';
+DELETE FROM menu WHERE name LIKE 'E2E%';
+DELETE FROM nutrition_metric WHERE name LIKE 'e2e%';
+DELETE inn FROM ingredient_nutrition inn
+  LEFT JOIN ingredient i ON i.id = inn.ingredient_id
+  WHERE i.id IS NULL OR i.name LIKE 'E2E%';
+DELETE FROM ingredient WHERE name LIKE 'E2E%';
