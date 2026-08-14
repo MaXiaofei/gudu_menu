@@ -9,6 +9,7 @@ import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/search_box.dart';
 import '../../widgets/status_chip.dart';
 
 /// 库存主页（分页版，对齐 44829 批次 pantry-page.html 定稿）。
@@ -145,12 +146,6 @@ class _PantryListPageState extends State<PantryListPage> {
   }
 
   /// ✕ 清空搜索，恢复三组分页视图。
-  void _clearQuery() {
-    _debounce?.cancel();
-    _searchCtrl.clear();
-    setState(() => _query = '');
-    _load();
-  }
 
   /// 某档加载下一页（组尾「加载更多」）。
   Future<void> _loadMore(String level) async {
@@ -283,43 +278,15 @@ class _PantryListPageState extends State<PantryListPage> {
     );
   }
 
-  /// 搜索框：⌕ 图标 + 输入 + ✕ 清除（输入即搜，300ms 防抖，对齐 pantry-page.html 定稿）。
+  /// 搜索框：统一 SearchBox（⌕ 放大镜 + 输入 + ✕ 清除，输入即搜 300ms 防抖，§11.1.2）。
   Widget _buildSearchBox(AppTokens t) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, AppTokens.sp10, 14, 0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp10, vertical: 9),
-        decoration: BoxDecoration(
-          color: t.card,
-          border: Border.all(color: t.border),
-          borderRadius: BorderRadius.circular(AppTokens.rMd),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.search, size: 16, color: t.caption),
-            const SizedBox(width: AppTokens.sp6),
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl,
-                focusNode: _searchFocus,
-                style: t.textStyles.input.copyWith(color: t.title),
-                decoration: InputDecoration(
-                  isCollapsed: true,
-                  border: InputBorder.none,
-                  hintText: '搜库存',
-                  hintStyle: t.textStyles.sm.copyWith(color: t.caption),
-                  contentPadding: EdgeInsets.zero,
-                ),
-                onChanged: _onQueryChanged,
-              ),
-            ),
-            if (_searching)
-              GestureDetector(
-                onTap: _clearQuery,
-                child: Icon(Icons.close, size: 16, color: t.caption),
-              ),
-          ],
-        ),
+      child: SearchBox(
+        controller: _searchCtrl,
+        focusNode: _searchFocus,
+        hint: '搜库存',
+        onChanged: _onQueryChanged,
       ),
     );
   }

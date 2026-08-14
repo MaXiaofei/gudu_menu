@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/app_theme.dart';
+import '../../widgets/search_box.dart';
 import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
 import '../../services/upload_service.dart';
@@ -138,10 +139,17 @@ class _CreateDishPageState extends State<CreateDishPage>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl.addListener(_onTabChanged);
     _draftId = widget.draftId;
     _initialSignature = _signature();
     _loadIngredientBase();
     if (_draftId != null) _loadDraft();
+  }
+
+  /// 分段切换：TabController 变化不会自动重建外层（§16.1 写菜谱/导入链接），
+  /// 监听后 setState 刷新分段按钮选中态。
+  void _onTabChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 草稿箱「继续编辑」：加载草稿回填表单（§16.4）。
@@ -809,31 +817,13 @@ class _CreateDishPageState extends State<CreateDishPage>
                 Text('常用直接点；其他输入名称匹配，没有就新建',
                     style: t.textStyles.xs.copyWith(color: t.caption)),
                 const SizedBox(height: 10),
-                // 搜索框
-                TextField(
+                // 搜索框（统一 SearchBox：白底单层 + 框内放大镜，§11.1.2）
+                SearchBox(
+                  hint: '搜食材库',
                   onChanged: (v) async {
                     await onSearch(v);
                     if (ctx.mounted) setSheet(() {});
                   },
-                  decoration: InputDecoration(
-                    hintText: '搜食材库',
-                    prefixIcon: const Icon(Icons.search, size: 18),
-                    filled: true,
-                    fillColor: t.bg,
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTokens.rMd),
-                      borderSide: BorderSide(color: t.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTokens.rMd),
-                      borderSide: BorderSide(color: t.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTokens.rMd),
-                      borderSide: BorderSide(color: t.primary, width: 1.5),
-                    ),
-                  ),
                 ),
                 // 常用食材 chips（未搜索时显示）
                 if (keyword.isEmpty && _commonIngredients.isNotEmpty) ...[

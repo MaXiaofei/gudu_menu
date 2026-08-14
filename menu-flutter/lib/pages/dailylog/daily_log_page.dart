@@ -7,6 +7,7 @@ import '../../services/dailylog_service.dart';
 import '../../services/dish_service.dart';
 import '../../stores/member_store.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/search_box.dart';
 import '../../widgets/time_select.dart';
 
 /// 每日饮食记录。
@@ -210,13 +211,8 @@ class _DailyLogPageState extends State<DailyLogPage> {
                   ),
                 ] else ...[
                   // 从菜库选（服务端搜索，每页 10 条）
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: '搜索菜品…',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true, fillColor: t.bg,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-                    ),
+                  SearchBox(
+                    hint: '搜索菜品…',
                     onChanged: (v) async {
                       final kw = v.trim();
                       if (kw.isEmpty) {

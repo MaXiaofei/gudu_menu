@@ -6,6 +6,7 @@ import '../../services/pantry_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/search_box.dart';
 
 /// 入库页（V42 档位版，对齐 44829 批次 pantry-manual-add-v2 定稿）。
 ///
@@ -187,41 +188,13 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
 
   /// 搜索框：⌕ 图标 + 输入 + ✕ 清除（对齐 pantry-page.html 定稿形态）。
   Widget _buildSearchBox(AppTokens t) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp10, vertical: 9),
-      decoration: BoxDecoration(
-        color: t.card,
-        border: Border.all(color: t.border),
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.search, size: 16, color: t.caption),
-          const SizedBox(width: AppTokens.sp6),
-          Expanded(
-            child: TextField(
-              controller: _searchCtrl,
-              focusNode: _searchFocus,
-              style: t.textStyles.input.copyWith(color: t.title),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: '搜库存',
-                hintStyle: t.textStyles.sm.copyWith(color: t.caption),
-                contentPadding: EdgeInsets.zero,
-              ),
-              onChanged: (v) => setState(() => _query = v),
-            ),
-          ),
-          if (_query.isNotEmpty)
-            GestureDetector(
-              onTap: () {
-                _searchCtrl.clear();
-                setState(() => _query = '');
-              },
-              child: Icon(Icons.close, size: 16, color: t.caption),
-            ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, AppTokens.sp10, 14, 0),
+      child: SearchBox(
+        controller: _searchCtrl,
+        focusNode: _searchFocus,
+        hint: '搜库存',
+        onChanged: (v) => setState(() => _query = v),
       ),
     );
   }

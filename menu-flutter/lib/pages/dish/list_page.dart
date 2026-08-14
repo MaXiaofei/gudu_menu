@@ -9,6 +9,7 @@ import '../../services/ingredient_service.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/search_box.dart';
 
 /// 排序：cooked=做过最多；latest=最新。
 enum _SortMode { cooked, latest }
@@ -42,7 +43,6 @@ class _DishListPageState extends State<DishListPage> {
   bool _loading = false;
   bool _hasMore = true;
   bool _firstLoading = true;
-  bool _hasText = false;
 
   _SortMode _sort = _SortMode.latest;
 
@@ -316,61 +316,13 @@ class _DishListPageState extends State<DishListPage> {
   Widget _buildSearchBox(AppTokens t) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, AppTokens.sp4, 14, AppTokens.sp8),
-      child: Container(
-        // 浅色细边框圆角框（柔和输入区域，不是橙色粗边框胶囊）
-        decoration: BoxDecoration(
-          color: t.card,
-          borderRadius: BorderRadius.circular(AppTokens.rMd),
-          border: Border.all(color: t.border, width: 1),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 9),
-        child: Row(
-          children: [
-            // 搜索文字（深棕 12px）+ 闪烁竖线光标
-            Expanded(
-              child: Row(
-                children: [
-                  Flexible(
-                    child: TextField(
-                      controller: _keywordCtrl,
-                      focusNode: _searchFocus,
-                      style: t.textStyles.input.copyWith(color: t.title),
-                      // 隐藏系统光标，用自定义闪烁竖线代替
-                      showCursor: false,
-                      decoration: InputDecoration(
-                        isCollapsed: true,
-                        border: InputBorder.none,
-                        hintText: '搜菜名',
-                        hintStyle: t.textStyles.caption,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onChanged: (v) => setState(() => _hasText = v.isNotEmpty),
-                      onSubmitted: (_) => _reload(),
-                    ),
-                  ),
-                  // 橙色闪烁竖线光标（原型 gap:8px 后紧跟竖线）
-                  if (_searchFocus.hasFocus && _hasText) ...[
-                    const SizedBox(width: 8),
-                    const _BlinkingCursor(),
-                  ],
-                ],
-              ),
-            ),
-            // ✕ 清除按钮（原型：11px 文字 ✕）
-            if (_hasText)
-              GestureDetector(
-                onTap: () {
-                  _keywordCtrl.clear();
-                  setState(() => _hasText = false);
-                  _reload();
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(left: AppTokens.sp8),
-                  child: Text('✕', style: t.textStyles.xs),
-                ),
-              ),
-          ],
-        ),
+      // 统一搜索框（DESIGN.md §11.1.2）：白底细边框单层 + 框内放大镜 + 14px hint
+      child: SearchBox(
+        controller: _keywordCtrl,
+        focusNode: _searchFocus,
+        hint: '搜菜名',
+        customCursor: true,
+        onSubmitted: (_) => _reload(),
       ),
     );
   }
@@ -560,53 +512,6 @@ class _DishCard extends StatelessWidget {
         style: t.textStyles.lg.copyWith(
           color: t.title.withAlpha(115), // ≈ 0.45 透明度
           fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-/// 搜索框闪烁竖线光标：宽1 高14 橙色，AnimatedOpacity 周期闪烁。
-/// 对应原型 cookbook-search.html 的 `animation:blink 1s infinite` 竖线。
-class _BlinkingCursor extends StatefulWidget {
-  const _BlinkingCursor();
-
-  @override
-  State<_BlinkingCursor> createState() => _BlinkingCursorState();
-}
-
-class _BlinkingCursorState extends State<_BlinkingCursor>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    )..repeat(reverse: true);
-    _opacity = Tween(begin: 1.0, end: 0.0).animate(_ctrl);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    return AnimatedBuilder(
-      animation: _opacity,
-      builder: (_, __) => Opacity(
-        opacity: _opacity.value,
-        child: Container(
-          width: 1,
-          height: 14,
-          color: t.primary, // DESIGN.md §11.2 走 token，不裸色值
         ),
       ),
     );

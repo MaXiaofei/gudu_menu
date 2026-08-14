@@ -216,8 +216,8 @@ void main() {
     expect(find.text('找到 0 个'), findsOneWidget);
     expect(find.text('搜不到「橙子」'), findsOneWidget);
 
-    // ✕ 清空 → 恢复分组视图
-    await tester.tap(find.byIcon(Icons.close));
+    // ✕ 清空 → 恢复分组视图（统一 SearchBox 的 ✕ 文字清除按钮）
+    await tester.tap(find.text('✕'));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
     expect(find.text('全部 5'), findsOneWidget);

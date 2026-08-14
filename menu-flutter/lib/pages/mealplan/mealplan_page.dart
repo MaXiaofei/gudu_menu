@@ -7,6 +7,7 @@ import '../../services/ingredient_service.dart';
 import '../../services/mealplan_service.dart';
 import '../../services/shopping_service.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/search_box.dart';
 
 /// 排菜计划页：竖向日期列表，每天按动态餐段展开。
 /// 支持翻周导航、份数选择、一键生成采购单。
@@ -185,13 +186,8 @@ class _MealPlanPageState extends State<MealPlanPage> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('$_pickMeal · 选菜', style: t.textStyles.subtitle),
             const SizedBox(height: AppTokens.sp12),
-            TextField(
-              decoration: InputDecoration(
-                hintText: '搜索菜品…',
-                prefixIcon: const Icon(Icons.search),
-                filled: true, fillColor: t.bg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
-              ),
+            SearchBox(
+              hint: '搜索菜品…',
               onChanged: (v) async {
                 if (v.trim().isEmpty) { setSheetState(() => _dishSearchResults = []); return; }
                 try {
