@@ -166,13 +166,34 @@
 | `ts.body` | 14/w400 | 正文 |
 | `ts.caption` | 12/w400 | 辅助说明 |
 | `ts.chip` | 10/w800 | Chip/Badge 文字 |
-| `ts.meta` | 9/w800 | Tab 文字/元信息 |
+| `ts.meta` | 9/w800 | 元信息（Tab 文字见 11.1.2） |
+| `ts.input` | 14/w500 | 输入框内文字 |
+| `ts.danger` | 14/w700 红 | 危险操作按钮文字（删除/移除/撤回） |
 
 完整阶梯（display→micro 共 11 档）见 `VxTextStyles` 类定义。
 
 **禁止：**
 - ❌ 手写 `fontSize: N` — 一律走 `ts.xxx` 或 `ts.xxx.copyWith()`
 - ❌ `fontWeight: FontWeight.w800` 滥用 — w800 仅限 display/h1/h2/tiny/micro 五档
+
+#### 11.1.2 组件文字规范（全局主题，新增 2026-08-14）
+
+以下组件文字**由全局主题统一**（`buildBrandTheme`），页面侧禁止再手写样式覆盖字号/字重：
+
+| 组件 | 统一样式 | 来源 |
+|---|---|---|
+| SnackBar（错误/成功提示） | 13/w500 深棕底白字，floating + rMd 圆角 | `snackBarTheme` |
+| 主按钮 ElevatedButton | 15/w800 白字 | `elevatedButtonTheme.textStyle` |
+| 文字按钮 TextButton | 14/w700 主色 | `textButtonTheme` |
+| 描边按钮 OutlinedButton | 14/w700 主色 + 主色描边 + 48 高 | `outlinedButtonTheme` |
+| 弹窗 AlertDialog | 标题 16/w700、正文 14/w400、rLg 圆角 | `dialogTheme` |
+| 输入框 | 输入 14、hint 12 caption 色 | `inputDecorationTheme` |
+
+页面级约定：
+- **危险操作按钮**（删除/移除/撤回/批量删除）一律 `ts.danger`（或弹窗内 `AppTokens.of(ctx).textStyles.danger`），禁止只写 `TextStyle(color: AppTokens.error)` 丢字号字重。
+- **底部功能栏 Tab 文字**：`ts.tiny`（10px，2026-08-14 从 micro 9px 上调），推荐位同。
+- **搜索框**：输入文字 `ts.input`（14px），hint 保持 12 与输入形成层次；行内紧凑表单输入（如用料行）可用 `ts.sm`。
+- **图形符号豁免**：返回箭头 `‹`、`✕` 等符号可写死 fontSize（图形性质，非文案）。
 
 ### 11.2 颜色：必须用 AppTokens，禁止裸色值
 
