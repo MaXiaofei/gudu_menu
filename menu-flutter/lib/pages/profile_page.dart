@@ -32,8 +32,9 @@ class ProfilePage extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp32),
                 children: [
-            // 用户头部卡
+            // 用户头部卡 = 当前就餐成员入口（点击进家庭成员列表切换）
             AppCard(
+              onTap: () => context.push('/members'),
               child: Row(
                 children: [
                   Container(
@@ -53,15 +54,20 @@ class ProfilePage extends StatelessWidget {
                         Text(auth.nickname.isNotEmpty ? auth.nickname : '掌勺人',
                             style: t.textStyles.subtitle),
                         const SizedBox(height: AppTokens.sp4),
+                        // 当前就餐成员（登录即定；未拉到成员时兜底显示登录人）
                         Text(
                           member.currentName.isNotEmpty
                               ? '当前就餐：${member.currentName}'
-                              : '未选择就餐成员',
+                              : auth.nickname.isNotEmpty
+                                  ? '当前就餐：${auth.nickname}'
+                                  : '选择就餐成员 ›',
                           style: t.textStyles.sm.copyWith(color: t.caption),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right, size: 18, color: t.caption),
                 ],
               ),
             ),
@@ -74,7 +80,11 @@ class ProfilePage extends StatelessWidget {
                   _SettingTile(
                     icon: Icons.people_outline,
                     label: '家庭成员',
-                    onTap: () {},
+                    // 尾部显示当前就餐成员名（进列表页可切换）
+                    value: member.currentName.isNotEmpty
+                        ? member.currentName
+                        : null,
+                    onTap: () => context.push('/members'),
                   ),
                   const Divider(height: 1, indent: 56),
                   _SettingTile(

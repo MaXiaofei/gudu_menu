@@ -42,6 +42,11 @@ class _MenuAppState extends State<MenuApp> {
       widget.authStore.logout();
       _router.go('/login');
     };
+    // 已登录才启动拉家庭成员 + 当前就餐成员（登录时后端已定 currentMemberId）。
+    // 未登录不发请求（登录成功后由登录页重拉）。
+    if (widget.authStore.isLoggedIn) {
+      _memberStore.load();
+    }
   }
 
   @override

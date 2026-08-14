@@ -24,6 +24,7 @@ import '../pages/menu/list_page.dart';
 import '../pages/ingredient/create_page.dart';
 import '../pages/ingredient/edit_page.dart';
 import '../pages/ingredient/list_page.dart';
+import '../pages/member/member_list_page.dart';
 import '../pages/login_page.dart';
 import '../pages/profile_page.dart';
 import '../stores/auth_store.dart';
@@ -178,6 +179,10 @@ GoRouter createRouter(AuthStore auth) {
       GoRoute(
           path: '/create-ingredient',
           builder: (_, __) => const CreateIngredientPage()),
+      // 家庭成员（我的 tab 进入）
+      GoRoute(
+          path: '/members',
+          builder: (_, __) => const MemberListPage()),
       // 以下为 P1/P2 占位，后续替换为真实页面
       GoRoute(
           path: '/ai-estimate',

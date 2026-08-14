@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/app_theme.dart';
 import '../stores/auth_store.dart';
+import '../stores/member_store.dart';
 
 /// 登录页（复刻 menu-mini/src/pages/login/Login.vue）。
 /// 用户名+密码登录；成功后 AuthStore 变更触发 go_router redirect 到首页。
@@ -31,8 +32,12 @@ class _LoginPageState extends State<LoginPage> {
           .showSnackBar(const SnackBar(content: Text('请输入用户名和密码')));
       return;
     }
+    // await 前先取 store 引用，避免跨异步 gap 用 context（analyze 规则）
+    final memberStore = context.read<MemberStore>();
     // 登录成功后 AuthStore 变更触发 redirect 到首页
     await context.read<AuthStore>().login(u, p);
+    // 登录即定就餐成员（后端 login 时写 currentMemberId），重拉成员列表 + 当前成员
+    await memberStore.load();
   }
 
   @override
