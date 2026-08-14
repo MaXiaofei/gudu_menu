@@ -61,7 +61,7 @@ class MainShell extends StatelessWidget {
                   ],
                 ),
               ),
-              // 凸起推荐 FAB + label（置顶，最上层接收点击）
+              // 凸起推荐按钮（置顶，最上层接收点击）：胶囊直接显示「推荐」二字，无图标
               Positioned(
                 left: 0,
                 right: 0,
@@ -74,15 +74,6 @@ class MainShell extends StatelessWidget {
                       _RecommendFab(
                         selected: navigationShell.currentIndex == recommendIndex,
                         onTap: () => _goBranch(recommendIndex),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '推荐',
-                        style: t.textStyles.tiny.copyWith(
-                          color: navigationShell.currentIndex == recommendIndex
-                              ? t.primary
-                              : t.caption,
-                        ),
                       ),
                     ],
                   ),
@@ -122,7 +113,8 @@ class MainShell extends StatelessWidget {
   }
 }
 
-/// 凸起推荐 FAB（独立 widget，自带 Material 确保点击命中）。
+/// 凸起推荐按钮（独立 widget，自带 Material 确保点击命中）：
+/// 胶囊形直接显示「推荐」二字（2026-08-14：去图标改文案）。
 class _RecommendFab extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
@@ -134,19 +126,20 @@ class _RecommendFab extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        customBorder: const CircleBorder(),
+        customBorder: const StadiumBorder(),
         onTap: onTap,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: selected ? t.primaryDeep : t.primary,
-              shape: BoxShape.circle,
-              border: Border.all(color: t.card, width: 3),
-              boxShadow: t.elevationFab,
-            ),
-            child: const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? t.primaryDeep : t.primary,
+            borderRadius: BorderRadius.circular(AppTokens.rPill),
+            border: Border.all(color: t.card, width: 3),
+            boxShadow: t.elevationFab,
           ),
+          child: Text('推荐',
+              style: t.textStyles.sm.copyWith(
+                  color: Colors.white, fontWeight: FontWeight.w800)),
+        ),
       ),
     );
   }

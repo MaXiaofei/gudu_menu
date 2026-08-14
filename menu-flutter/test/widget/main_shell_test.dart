@@ -55,8 +55,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('PAGE_4'), findsOneWidget);
 
-    // 点凸起"推荐"FAB（通过 icon 定位）→ index 2
-    await tester.tap(find.byIcon(Icons.auto_awesome));
+    // 点凸起「推荐」胶囊按钮（2026-08-14 去图标改文案）→ index 2
+    await tester.tap(find.text('推荐'));
     await tester.pumpAndSettle();
     expect(find.text('PAGE_2'), findsOneWidget);
 
