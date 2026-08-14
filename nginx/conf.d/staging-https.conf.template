@@ -1,0 +1,47 @@
+# ============================================================
+#  预发环境 HTTPS 配置（staging.imxf.cloud → menu-admin-staging）
+#  部署时机：certbot 签发 staging.imxf.cloud 证书后，
+#  cp staging-https.conf.template staging.conf && reload
+#  依赖：front-nginx 需已接入 staging 网络（可解析 menu-admin-staging）
+# ============================================================
+
+# HTTP → HTTPS 重定向（ACME 续期验证保留）
+server {
+    listen 80;
+    server_name staging.imxf.cloud;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS 主服务 → 预发前端容器（其内层 nginx 再反代 /gudu/ 到 menu-api-staging）
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name staging.imxf.cloud;
+
+    ssl_certificate     /etc/letsencrypt/live/staging.imxf.cloud/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/staging.imxf.cloud/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    add_header Strict-Transport-Security "max-age=63072000" always;
+
+    location / {
+        proxy_pass http://menu-admin-staging:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 50m;
+    }
+}
