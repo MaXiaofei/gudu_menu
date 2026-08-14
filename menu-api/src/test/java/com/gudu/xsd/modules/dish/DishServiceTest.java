@@ -46,6 +46,7 @@ class DishServiceTest {
     private DishDictMapper dictRelMapper;
     private DishIngredientMapper dishIngMapper;
     private DishHistoryMapper historyMapper;
+    private DishVectorService vectorService;
     private IngredientNutritionMapper ingredientNutritionMapper;
     private IngredientMapper ingredientMapper;
     private CookingRecordMapper cookingRecordMapper;
@@ -60,6 +61,7 @@ class DishServiceTest {
         dictRelMapper = Mockito.mock(DishDictMapper.class);
         dishIngMapper = Mockito.mock(DishIngredientMapper.class);
         historyMapper = Mockito.mock(DishHistoryMapper.class);
+        vectorService = Mockito.mock(DishVectorService.class);
         ingredientNutritionMapper = Mockito.mock(IngredientNutritionMapper.class);
         ingredientMapper = Mockito.mock(IngredientMapper.class);
         cookingRecordMapper = Mockito.mock(CookingRecordMapper.class);
@@ -75,7 +77,7 @@ class DishServiceTest {
     private DishService newSvc(DictMapper dm, PantryService ps) {
         DishService s = new DishService(stepMapper, dictRelMapper, dishIngMapper, historyMapper,
                 ingredientNutritionMapper, ingredientMapper, new NutritionCalcService(),
-                dm, cookingRecordMapper, ps);
+                dm, cookingRecordMapper, ps, vectorService);
         injectBaseMapper(s, dishMapper);
         return s;
     }

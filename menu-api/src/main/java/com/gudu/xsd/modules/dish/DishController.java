@@ -24,6 +24,48 @@ public class DishController {
     private final DishService svc;
     private final DishQueryService querySvc;
     private final RecipeImporter recipeImporter;
+    private final DishVectorService vectorSvc;
+
+    /** 语义找菜请求：自然语言 query + 相似候选数/难度/时长过滤（均可选）。 */
+    @lombok.Data
+    public static class SemanticSearchReq {
+        private String query;
+        private Integer topK;
+        private Integer maxDifficulty;
+        private Integer maxMinutes;
+    }
+
+    /** 语义找菜结果项。 */
+    public record SemanticHit(Long dishId, String name, Double score,
+                              Integer difficulty, Integer cookTime) {}
+
+    /** 语义找菜：自然语言（「清淡下饭」「酸甜口」）→ 向量相似召回菜谱。 */
+    @PostMapping("/semantic-search")
+    public R<List<SemanticHit>> semanticSearch(@RequestBody SemanticSearchReq req) {
+        if (req.getQuery() == null || req.getQuery().isBlank()) {
+            throw new BizException("请输入想吃的描述");
+        }
+        List<SemanticHit> hits = vectorSvc.semanticSearch(
+                        req.getQuery().trim(), req.getTopK(),
+                        req.getMaxDifficulty(), req.getMaxMinutes())
+                .stream()
+                .map(d -> new SemanticHit(
+                        ((Number) d.getMetadata().get("dishId")).longValue(),
+                        (String) d.getMetadata().get("name"),
+                        d.getScore(),
+                        d.getMetadata().get("difficulty") == null ? null
+                                : ((Number) d.getMetadata().get("difficulty")).intValue(),
+                        d.getMetadata().get("cookTime") == null ? null
+                                : ((Number) d.getMetadata().get("cookTime")).intValue()))
+                .toList();
+        return R.ok(hits);
+    }
+
+    /** 存量菜谱向量重建（部署后建库 / 数据修复用，分批 embedding）。 */
+    @PostMapping("/vector/rebuild")
+    public R<Integer> rebuildVectors() {
+        return R.ok(vectorSvc.rebuildAll());
+    }
 
     @GetMapping
     public R<List<Dish>> list() {

@@ -43,6 +43,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     private final DictMapper dictMapper;
     private final CookingRecordMapper cookingRecordMapper;
     private final com.gudu.xsd.modules.pantry.PantryService pantryService;
+    private final DishVectorService vectorService;
 
     /** 保存菜品（新增或更新），整体替换步骤 + 菜系/标签/分类关联 + 食材用量。 */
     @Transactional
@@ -76,6 +77,8 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                 dishIngMapper.insert(ing);
             }
         }
+        // 向量库同步（旁路：失败不阻断保存，内部 warn）
+        vectorService.upsertDish(dishId);
     }
 
     private void saveRels(Long dishId, List<Long> dictIds, String relType) {
@@ -99,6 +102,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         dictRelMapper.delete(new QueryWrapper<DishDict>().eq("dish_id", id));
         dishIngMapper.delete(new QueryWrapper<DishIngredient>().eq("dish_id", id));
         historyMapper.delete(new QueryWrapper<DishHistory>().eq("dish_id", id));
+        vectorService.removeDish(id);
         removeById(id);
     }
 
