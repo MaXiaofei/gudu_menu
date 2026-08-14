@@ -102,15 +102,15 @@ class CookServiceTest {
         verify(pantryService).useUp(10L, StockLog.ACTION_COOK, null);
         verify(pantryService).partialUse(20L, StockLog.ACTION_COOK_PARTIAL, null);
         // 每菜一条 cooking_record（source=menu，memo=用材总结）
-        verify(cookingRecordMapper, times(1)).insert(argThat(rec ->
+        verify(cookingRecordMapper, times(1)).insert(argThat((CookingRecord rec) ->
                 rec.getMenuId() == 7L && "menu".equals(rec.getSource())
                 && "用完:10;用了一些:20".equals(rec.getMemo())));
         // 食集标完成
-        verify(menuMapper).updateById(argThat(m -> "DONE".equals(((Menu) m).getStatus())
+        verify(menuMapper).updateById(argThat((Menu m) -> "DONE".equals(((Menu) m).getStatus())
                 && ((Menu) m).getFinishedAt() != null));
         // 备菜全 READY（聚合用料 10/20 两个食材）
-        verify(menuPrepStatusMapper).insert(argThat(mps -> mps.getIngredientId() == 10L));
-        verify(menuPrepStatusMapper).insert(argThat(mps -> mps.getIngredientId() == 20L));
+        verify(menuPrepStatusMapper).insert(argThat((MenuPrepStatus mps) -> mps.getIngredientId() == 10L));
+        verify(menuPrepStatusMapper).insert(argThat((MenuPrepStatus mps) -> mps.getIngredientId() == 20L));
     }
 
     @Test
@@ -134,8 +134,8 @@ class CookServiceTest {
 
         verify(pantryService, never()).useUp(any(), any(), any());
         verify(pantryService, never()).partialUse(any(), any(), any());
-        verify(cookingRecordMapper, times(1)).insert(argThat(rec -> rec.getMemo() == null));
-        verify(menuMapper).updateById(argThat(m -> "DONE".equals(((Menu) m).getStatus())));
+        verify(cookingRecordMapper, times(1)).insert(argThat((CookingRecord rec) -> rec.getMemo() == null));
+        verify(menuMapper).updateById(argThat((Menu m) -> "DONE".equals(((Menu) m).getStatus())));
     }
 
     // ===================== cookMaterials（确认弹窗数据） =====================

@@ -94,7 +94,7 @@ class PantryServiceTest {
     void setLevel_非法档位_抛异常() {
         assertThatThrownBy(() -> svc.setLevel(10L, "MEGA", StockLog.ACTION_MANUAL, null, null))
                 .hasMessageContaining("档位");
-        verify(stockMapper, never()).insert(any());
+        verify(stockMapper,  never()).insert(any(IngredientStock.class));
     }
 
     @Test
@@ -137,8 +137,8 @@ class PantryServiceTest {
 
         svc.partialUse(10L, StockLog.ACTION_COOK_PARTIAL, null);
 
-        verify(stockMapper, never()).updateById(any());
-        verify(stockLogMapper, never()).insert(any());
+        verify(stockMapper,  never()).updateById(any(IngredientStock.class));
+        verify(stockLogMapper,  never()).insert(any(StockLog.class));
     }
 
     @Test
@@ -147,8 +147,8 @@ class PantryServiceTest {
 
         svc.partialUse(10L, StockLog.ACTION_COOK_PARTIAL, null);
 
-        verify(stockMapper, never()).updateById(any());
-        verify(stockLogMapper, never()).insert(any());
+        verify(stockMapper,  never()).updateById(any(IngredientStock.class));
+        verify(stockLogMapper,  never()).insert(any(StockLog.class));
     }
 
     @Test
@@ -157,9 +157,9 @@ class PantryServiceTest {
 
         svc.partialUse(10L, StockLog.ACTION_COOK_PARTIAL, null);
 
-        verify(stockMapper, never()).insert(any());
-        verify(stockMapper, never()).updateById(any());
-        verify(stockLogMapper, never()).insert(any());
+        verify(stockMapper,  never()).insert(any(IngredientStock.class));
+        verify(stockMapper,  never()).updateById(any(IngredientStock.class));
+        verify(stockLogMapper,  never()).insert(any(StockLog.class));
     }
 
     // ===================== manualAdd =====================
@@ -183,7 +183,7 @@ class PantryServiceTest {
     @Test
     void manualAdd_未匹配_新建食材并设为指定档位() {
         when(ingredientMapper.selectList(any())).thenReturn(List.of());
-        when(ingredientMapper.insert(any())).thenAnswer(inv -> {
+        when(ingredientMapper.insert(any(Ingredient.class))).thenAnswer(inv -> {
             ((Ingredient) inv.getArgument(0)).setId(55L);
             return 1;
         });
@@ -229,7 +229,7 @@ class PantryServiceTest {
         svc.removeLevel(10L, StockLog.ACTION_UNDO, null, 5L);
 
         verify(stockMapper, never()).deleteById((java.io.Serializable) any());
-        verify(stockLogMapper, never()).insert(any());
+        verify(stockLogMapper,  never()).insert(any(StockLog.class));
     }
 
     // ===================== grouped / itemDetail / levelMap =====================

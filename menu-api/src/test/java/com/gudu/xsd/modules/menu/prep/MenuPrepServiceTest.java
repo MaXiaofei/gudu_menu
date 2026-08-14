@@ -235,10 +235,10 @@ class MenuPrepServiceTest {
 
         svc.updateStatus(1L, 5L, PrepStatus.READY);
 
-        verify(menuPrepStatusMapper).insert(argThat(m ->
+        verify(menuPrepStatusMapper).insert(argThat((MenuPrepStatus m) ->
                 m != null && m.getMenuId() == 1L && m.getIngredientId() == 5L
                         && "READY".equals(m.getStatus())));
-        verify(menuPrepStatusMapper, never()).updateById(any());
+        verify(menuPrepStatusMapper,  never()).updateById(any(MenuPrepStatus.class));
     }
 
     /** 存在则 updateById（status 被改写）。 */
@@ -254,7 +254,7 @@ class MenuPrepServiceTest {
         svc.updateStatus(1L, 5L, PrepStatus.READY);
 
         verify(menuPrepStatusMapper).updateById(existing);
-        verify(menuPrepStatusMapper, never()).insert(any());
+        verify(menuPrepStatusMapper,  never()).insert(any(MenuPrepStatus.class));
         assertThat(existing.getStatus()).isEqualTo("READY");
     }
 }

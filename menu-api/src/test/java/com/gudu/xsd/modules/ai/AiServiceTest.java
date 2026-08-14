@@ -150,7 +150,7 @@ class AiServiceTest {
         var out = svc.recommendMenu(req);
         assertThat(out).containsExactly(expected);
         // 日志记录一次
-        verify(aiCallLogMapper, atLeastOnce()).insert(any());
+        verify(aiCallLogMapper,  atLeastOnce()).insert(any(AiCallLog.class));
     }
 
     // ---------------- 护栏：额度限制 + 输入预检 ----------------

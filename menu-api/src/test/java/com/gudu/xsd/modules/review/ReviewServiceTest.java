@@ -98,7 +98,7 @@ class ReviewServiceTest {
             SaSession session = mock(SaSession.class);
             stp.when(StpUtil::getSession).thenReturn(session);
             when(session.getLong("currentMemberId")).thenReturn(1L);
-            when(reviewMapper.insert(any())).thenAnswer(inv -> {
+            when(reviewMapper.insert(any(Review.class))).thenAnswer(inv -> {
                 ((Review) inv.getArgument(0)).setId(9L);
                 return 1;
             });
@@ -110,8 +110,8 @@ class ReviewServiceTest {
             Long id = svc.submit(dto);
 
             assertThat(id).isEqualTo(9L);
-            verify(reviewMapper).insert(any());
-            verify(reviewScoreMapper, org.mockito.Mockito.times(2)).insert(any());
+            verify(reviewMapper).insert(any(Review.class));
+            verify(reviewScoreMapper,  org.mockito.Mockito.times(2)).insert(any(ReviewScore.class));
         }
     }
 

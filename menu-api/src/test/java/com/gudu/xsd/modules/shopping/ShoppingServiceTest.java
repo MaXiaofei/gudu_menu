@@ -73,7 +73,7 @@ class ShoppingServiceTest {
         tomato.setName("番茄");
         tomato.setPurchaseCategoryId(24L);
         given(ingredientMapper.selectList(any())).willReturn(List.of(tomato));
-        given(itemMapper.insert(any())).willAnswer(inv -> {
+        given(itemMapper.insert(any(ShoppingItem.class))).willAnswer(inv -> {
             ((ShoppingItem) inv.getArgument(0)).setId(66L);
             return 1;
         });
@@ -92,7 +92,7 @@ class ShoppingServiceTest {
     @Test
     void 添加自定义项_未命中食材_ingredientId留空name存customName() {
         given(ingredientMapper.selectList(any())).willReturn(List.of());
-        given(itemMapper.insert(any())).willAnswer(inv -> {
+        given(itemMapper.insert(any(ShoppingItem.class))).willAnswer(inv -> {
             ((ShoppingItem) inv.getArgument(0)).setId(77L);
             return 1;
         });
@@ -217,7 +217,7 @@ class ShoppingServiceTest {
             return true;
         }).when(spied).save(any(ShoppingList.class));
         given(itemMapper.selectCount(any())).willReturn(0L);
-        given(itemMapper.insert(any())).willReturn(1);
+        given(itemMapper.insert(any(ShoppingItem.class))).willReturn(1);
 
         Long listId = spied.fromPrep(1L, List.of(10L));
 

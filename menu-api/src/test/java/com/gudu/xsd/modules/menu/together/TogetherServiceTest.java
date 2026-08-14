@@ -79,7 +79,7 @@ class TogetherServiceTest {
     void 生成邀请_返回6位口令和token() {
         given(menuMapper.selectById(7L)).willReturn(menu(7L, "今晚的饭"));
         given(inviteMapper.selectOne(any())).willReturn(null);
-        given(inviteMapper.insert(any())).willReturn(1);
+        given(inviteMapper.insert(any(MenuInvite.class))).willReturn(1);
 
         TogetherService.InviteVO vo = svc.invite(7L, 1L);
 
@@ -98,8 +98,8 @@ class TogetherServiceTest {
 
         TogetherService.InviteVO vo = svc.invite(7L, 1L);
 
-        verify(inviteMapper, never()).insert(any());
-        verify(inviteMapper).updateById(argThat(inv ->
+        verify(inviteMapper,  never()).insert(any(MenuInvite.class));
+        verify(inviteMapper).updateById(argThat((MenuInvite inv) ->
                 inv.getCode().equals(vo.code()) && inv.getToken().equals(vo.token())));
     }
 
@@ -166,7 +166,7 @@ class TogetherServiceTest {
     @Test
     void 访客加入_首次创建guestKey() {
         given(inviteMapper.selectOne(any())).willReturn(invite("ABC123", "tok"));
-        given(joinMapper.insert(any())).willAnswer(inv -> {
+        given(joinMapper.insert(any(MenuJoin.class))).willAnswer(inv -> {
             ((MenuJoin) inv.getArgument(0)).setId(1L);
             return 1;
         });
@@ -184,7 +184,7 @@ class TogetherServiceTest {
     @Test
     void 访客加入_每次新建guestKey不按昵称复用() {
         given(inviteMapper.selectOne(any())).willReturn(invite("ABC123", "tok"));
-        given(joinMapper.insert(any())).willAnswer(inv -> {
+        given(joinMapper.insert(any(MenuJoin.class))).willAnswer(inv -> {
             ((MenuJoin) inv.getArgument(0)).setId(2L);
             return 1;
         });
@@ -197,7 +197,7 @@ class TogetherServiceTest {
         assertThat(v1.guestKey()).isNotBlank();
         assertThat(v2.guestKey()).isNotBlank();
         assertThat(v1.guestKey()).isNotEqualTo(v2.guestKey());
-        verify(joinMapper, org.mockito.Mockito.times(2)).insert(any());
+        verify(joinMapper,  org.mockito.Mockito.times(2)).insert(any(MenuJoin.class));
     }
 
     @Test
@@ -208,7 +208,7 @@ class TogetherServiceTest {
         member.setId(5L);
         member.setName("老张");
         given(memberMapper.selectById(5L)).willReturn(member);
-        given(joinMapper.insert(any())).willReturn(1);
+        given(joinMapper.insert(any(MenuJoin.class))).willReturn(1);
         given(menuMapper.selectById(7L)).willReturn(menu(7L, "今晚的饭"));
 
         svc.join("tok", null, 5L);
@@ -282,7 +282,7 @@ class TogetherServiceTest {
         member.setId(1L);
         member.setName("我");
         given(memberMapper.selectById(1L)).willReturn(member);
-        given(joinMapper.insert(any())).willReturn(1);
+        given(joinMapper.insert(any(MenuJoin.class))).willReturn(1);
         given(joinMapper.selectList(any())).willReturn(List.of());
         given(menuDishMapper.selectList(any())).willReturn(List.of());
         given(activityMapper.selectList(any())).willReturn(List.of());
@@ -316,7 +316,7 @@ class TogetherServiceTest {
 
         assertThatThrownBy(() -> svc.updateNickname(7L, TogetherService.Identity.guest("guest-1"), "  "))
                 .hasMessageContaining("昵称");
-        verify(joinMapper, never()).updateById(any());
+        verify(joinMapper,  never()).updateById(any(MenuJoin.class));
     }
 
     @Test
@@ -362,11 +362,11 @@ class TogetherServiceTest {
         dish.setId(10L);
         dish.setName("红烧肉");
         given(dishMapper.selectById(10L)).willReturn(dish);
-        given(menuDishMapper.insert(any())).willAnswer(inv -> {
+        given(menuDishMapper.insert(any(MenuDish.class))).willAnswer(inv -> {
             ((MenuDish) inv.getArgument(0)).setId(21L);
             return 1;
         });
-        given(activityMapper.insert(any())).willReturn(1);
+        given(activityMapper.insert(any(MenuActivity.class))).willReturn(1);
 
         Long id = svc.addItem(7L, TogetherService.Identity.member(5L), 10L, null, "少放辣");
 
@@ -389,8 +389,8 @@ class TogetherServiceTest {
     void 加菜_自定义菜名_dishId为空存customName() {
         MenuJoin me = join(null, "guest-1", "小王");
         given(joinMapper.selectOne(any())).willReturn(me);
-        given(menuDishMapper.insert(any())).willReturn(1);
-        given(activityMapper.insert(any())).willReturn(1);
+        given(menuDishMapper.insert(any(MenuDish.class))).willReturn(1);
+        given(activityMapper.insert(any(MenuActivity.class))).willReturn(1);
 
         svc.addItem(7L, TogetherService.Identity.guest("guest-1"), null, "  糖拌西红柿 ", null);
 
@@ -409,7 +409,7 @@ class TogetherServiceTest {
 
         assertThatThrownBy(() -> svc.addItem(7L, TogetherService.Identity.guest("guest-1"), null, "  ", null))
                 .hasMessageContaining("选择菜或输入菜名");
-        verify(menuDishMapper, never()).insert(any());
+        verify(menuDishMapper,  never()).insert(any(MenuDish.class));
     }
 
     @Test
@@ -436,7 +436,7 @@ class TogetherServiceTest {
         dish.setName("红烧肉");
         given(dishMapper.selectById(10L)).willReturn(dish);
         given(menuDishMapper.deleteById(21L)).willReturn(1);
-        given(activityMapper.insert(any())).willReturn(1);
+        given(activityMapper.insert(any(MenuActivity.class))).willReturn(1);
 
         svc.removeItem(7L, TogetherService.Identity.guest("guest-1"), 21L);
 
@@ -460,7 +460,7 @@ class TogetherServiceTest {
         assertThatThrownBy(() -> svc.removeItem(7L, TogetherService.Identity.guest("guest-1"), 99L))
                 .hasMessageContaining("不在这个食集");
         verify(menuDishMapper, never()).deleteById(anyLong());
-        verify(activityMapper, never()).insert(any());
+        verify(activityMapper,  never()).insert(any(MenuActivity.class));
     }
 
     private static <T> T argThat(org.mockito.ArgumentMatcher<T> matcher) {

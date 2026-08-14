@@ -55,9 +55,18 @@ class MenuServiceTest {
         Mockito.doReturn(true).when(svc).saveOrUpdate(any(Menu.class));
     }
 
+
+    /** 沿继承链找字段（MP 3.5.9+ ServiceImpl 的 baseMapper 在父类 CrudRepository）。 */
+    static java.lang.reflect.Field findFieldUp(Object target, String name) throws NoSuchFieldException {
+        for (Class<?> k = target.getClass(); k != null; k = k.getSuperclass()) {
+            try { return k.getDeclaredField(name); } catch (NoSuchFieldException ignored) {}
+        }
+        throw new NoSuchFieldException(name);
+    }
+
     private static void injectBaseMapper(MenuService svc, MenuMapper mapper) {
         try {
-            var f = com.baomidou.mybatisplus.extension.service.impl.ServiceImpl.class.getDeclaredField("baseMapper");
+            var f = findFieldUp(svc, "baseMapper"); // MP 3.5.9+ baseMapper 在父类 CrudRepository
             f.setAccessible(true);
             f.set(svc, mapper);
         } catch (Exception e) {

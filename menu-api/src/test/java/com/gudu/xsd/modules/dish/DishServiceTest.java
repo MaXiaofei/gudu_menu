@@ -87,9 +87,18 @@ class DishServiceTest {
         return s;
     }
 
+
+    /** 沿继承链找字段（MP 3.5.9+ ServiceImpl 的 baseMapper 在父类 CrudRepository）。 */
+    static java.lang.reflect.Field findFieldUp(Object target, String name) throws NoSuchFieldException {
+        for (Class<?> k = target.getClass(); k != null; k = k.getSuperclass()) {
+            try { return k.getDeclaredField(name); } catch (NoSuchFieldException ignored) {}
+        }
+        throw new NoSuchFieldException(name);
+    }
+
     private static void injectBaseMapper(DishService svc, DishMapper mapper) {
         try {
-            var f = com.baomidou.mybatisplus.extension.service.impl.ServiceImpl.class.getDeclaredField("baseMapper");
+            var f = findFieldUp(svc, "baseMapper"); // MP 3.5.9+ baseMapper 在父类 CrudRepository
             f.setAccessible(true);
             f.set(svc, mapper);
         } catch (Exception e) {
@@ -300,7 +309,7 @@ class DishServiceTest {
 
         // 步骤：删 1 次 + 插 1 次
         verify(stepMapper).delete(any());
-        verify(stepMapper, times(1)).insert(any());
+        verify(stepMapper,  times(1)).insert(any(DishStep.class));
         // 字典关联：删 1 次 + 插 3 次（cuisine/tag/category 各 1）
         ArgumentCaptor<DishDict> relCaptor = ArgumentCaptor.forClass(DishDict.class);
         verify(dictRelMapper).delete(any());
@@ -351,11 +360,11 @@ class DishServiceTest {
         svcWithDicts.saveFull(dto);
 
         verify(stepMapper).delete(any());
-        verify(stepMapper, never()).insert(any());
+        verify(stepMapper,  never()).insert(any(DishStep.class));
         verify(dictRelMapper).delete(any());
-        verify(dictRelMapper, never()).insert(any());
+        verify(dictRelMapper,  never()).insert(any(DishDict.class));
         verify(dishIngMapper).delete(any());
-        verify(dishIngMapper, never()).insert(any());
+        verify(dishIngMapper,  never()).insert(any(DishIngredient.class));
     }
 
     // ===================== deleteFull：列表左滑删除（错误数据清理） =====================
