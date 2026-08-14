@@ -24,7 +24,29 @@
         <knife4j.version>4.5.0</knife4j.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring AI 1.1.x（Boot 3.5 线）：向量库/embedding 统一版本管理 -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>1.1.8</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
+        <!-- Spring AI：embedding（本地 Ollama bge-m3）+ PGVector 向量库 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
+        </dependency>
         <!-- Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -43,12 +43,36 @@ services:
     ports:
       - "16379:6379"   # 错开生产的 6379
 
+  # PGVector 向量库（菜谱向量语义检索，Spring AI 自动建 vector_store 表）
+  gudu-pgvector:
+    image: pgvector/pgvector:pg17
+    container_name: gudu-pgvector-staging
+    restart: unless-stopped
+    networks: [staging-net]
+    environment:
+      POSTGRES_DB: gudu
+      POSTGRES_USER: gudu
+      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD:-gudu_vec_2026}
+    ports:
+      - "15432:5432"   # 错开生产的 5432
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+
+  # Ollama：本地 embedding（bge-m3，免费无 quota；首次部署需 ollama pull bge-m3）
+  gudu-ollama:
+    image: ollama/ollama
+    container_name: gudu-ollama-staging
+    restart: unless-stopped
+    networks: [staging-net]
+    volumes:
+      - ollama-data:/root/.ollama
+
   menu-api:
     build: ./menu-api
     container_name: menu-api-staging
     restart: unless-stopped
     networks: [staging-net]
-    depends_on: [gudu-mysql, gudu-redis]
+    depends_on: [gudu-mysql, gudu-redis, gudu-pgvector, gudu-ollama]
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: Asia/Shanghai
@@ -56,6 +80,10 @@ services:
       GLM_API_KEY: ${STAGING_GLM_API_KEY:-${GLM_API_KEY:-}}
       GUDU_AI_PROVIDER: ${STAGING_AI_PROVIDER:-mock}   # 测试默认 mock，不烧 key
       MYSQL_ROOT_PASSWORD: ${STAGING_MYSQL_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD}}
+      # 向量库 + 本地 embedding 连接（容器内 service name）
+      PGVECTOR_HOST: gudu-pgvector
+      PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-gudu_vec_2026}
+      OLLAMA_BASE_URL: http://gudu-ollama:11434
       # 上传目录覆写：与生产 /app/uploads/prod 隔离
       SPRING_APPLICATION_JSON: '{"gudu":{"upload-dir":"/app/uploads/staging"}}'
     volumes:
@@ -89,3 +117,5 @@ networks:
 volumes:
   mysql-data:
   uploads:
+  pgvector-data:
+  ollama-data:

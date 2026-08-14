@@ -13,6 +13,28 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 50MB
+  ai:
+    ollama:
+      # 本地 embedding（bge-m3）。备选云 API：base-url 换硅基流动 + spring.ai.openai.*（OpenAI 兼容）
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      embedding:
+        model: bge-m3
+      # 只用 embedding，禁用 chat 自动配置（chat 走项目自有 AiClientRouter）
+      chat:
+        enabled: false
+    vectorstore:
+      pgvector:
+        # 容器内 service name gudu-pgvector；本地开发连 127.0.0.1:15432
+        host: ${PGVECTOR_HOST:127.0.0.1}
+        port: ${PGVECTOR_PORT:5432}
+        database: gudu
+        username: gudu
+        password: ${PGVECTOR_PASSWORD:gudu_vec_2026}
+        # 启动自动建 vector_store 表 + 索引
+        initialize-schema: true
+        dimensions: 1024          # bge-m3 输出维度
+        distance-type: COSINE_DISTANCE
+        index-type: HNSW
 
 mybatis-plus:
   configuration:
