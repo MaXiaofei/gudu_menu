@@ -1,30 +1,112 @@
 <script setup lang="ts">
-import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
-onLaunch(() => {
+import { onLaunch } from "@dcloudio/uni-app";
+import { silentLogin } from "@/api/auth";
+onLaunch(async () => {
   const token = uni.getStorageSync("token");
+  const loggedOut = uni.getStorageSync("logged_out");
   if (!token) {
-    uni.reLaunch({ url: "/pages/login/Login" });
+    if (loggedOut) {
+      // 主动退出过的用户：不自动静默登录，进登录页自己选
+      uni.reLaunch({ url: "/pages/login/Login" });
+      return;
+    }
+    // 新用户零门槛：wx.login 静默登录（无感），失败才进账号登录页
+    const ok = await silentLogin();
+    if (!ok) {
+      uni.reLaunch({ url: "/pages/login/Login" });
+    }
   }
 });
-onShow(() => {
-  console.log("App Show");
-});
-onHide(() => {
-  console.log("App Hide");
-});
 </script>
+
 <style lang="scss">
-@import "uview-plus/index.scss";
-/* ============ 温暖咕嘟·卡片流（Flutter 风格移植） ============ */
-/* 全局奶油白底 #FDFAF4 + 卡片白底大圆角 18 + 柔和阴影 + 暖橙渐变按钮 */
+/* ============================================================
+ * 设计 token（对齐 menu-flutter AppTokens.cream，DESIGN.md 权威）
+ * 页面统一奶油底 #FDFAF4；组件一律用 var(--xx) 取值
+ * ============================================================ */
 page {
-  background: #FDFAF4;
-  color: #4A382A;
+  /* 色板 */
+  --primary: #E89150;
+  --primary-deep: #D17A3C;
+  --primary-soft: #F6D9BE;
+  --secondary: #FBF0DD;
+  --accent: #B8762E;
+  --bg: #FDFAF4;
+  --card: #FFFFFF;
+  --border: #F0E6D6;
+  --title: #4A382A;
+  --body: #6E5C49;
+  --caption: #9C8C7A;
+  --highlight: #FFF7EC;
+  --success: #4FAE6E;
+  --warning: #E5A938;
+  --warning-text: #B8860B; /* 黄底上的可读文字档（chips/警示文案用） */
+  --error: #DB5A4E;
+  --info: #4FA0D0;
+
+  /* 圆角（AppTokens rSm/rMd/rLg/rXl/rPill） */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+
+  /* 间距（AppTokens sp 系列） */
+  --sp-4: 4px;
+  --sp-6: 6px;
+  --sp-8: 8px;
+  --sp-10: 10px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-20: 20px;
+  --sp-24: 24px;
+
+  background: var(--bg);
+  color: var(--title);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
 
-/* 通用卡片：白底 + 大圆角 + 柔和阴影 */
+/* ---- 原生元素复位 ---- */
+button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+}
+button::after { border: none; }
+input { font-size: 14px; color: var(--title); }
+
+/* ---- 通用按钮（对齐 APP 48px 通栏 CTA） ---- */
+.btn-primary {
+  background: var(--primary);
+  color: #FFFFFF;
+  border-radius: var(--r-md);
+  padding: 13px 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+.btn-primary[disabled],
+.btn-primary.is-disabled {
+  background: var(--border);
+  color: rgba(255, 255, 255, 0.85);
+}
+.btn-ghost {
+  background: var(--card);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--r-md);
+  padding: 12px 0;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ============================================================
+ * 以下为登录页（保留的旧代码）依赖的全局类，勿删
+ * ============================================================ */
 .yh-card {
   background: #FFFFFF;
   border-radius: 18px;
@@ -32,7 +114,6 @@ page {
   padding: 16px;
   margin-bottom: 12px;
 }
-/* 兼容旧类名 .card */
 .card {
   background: #FFFFFF;
   border-radius: 18px;
@@ -40,8 +121,6 @@ page {
   padding: 16px;
   margin-bottom: 12px;
 }
-
-/* 渐变按钮（暖橙） */
 .yh-btn-gradient {
   background: linear-gradient(135deg, #E89150, #D17A3C);
   color: #FFFFFF;
@@ -60,8 +139,6 @@ page {
   color: rgba(255, 255, 255, 0.85);
   box-shadow: none;
 }
-
-/* 次按钮：白底描边暖橙 */
 .yh-btn-ghost {
   background: #FFFFFF;
   color: #E89150;
@@ -72,52 +149,4 @@ page {
   line-height: 1.4;
 }
 .yh-btn-ghost::after { border: none; }
-
-/* 小标题（暖灰） */
-.yh-section-title {
-  font-size: 14px;
-  color: #9C8C7A;
-  margin: 16px 0 8px;
-  display: flex;
-  align-items: center;
-}
-
-/* 暖橙 tag */
-.yh-tag {
-  display: inline-block;
-  background: rgba(232, 145, 80, 0.1);
-  color: #E89150;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 12px;
-}
-
-/* 文字色 */
-.yh-text-primary { color: #4A382A; }
-.yh-text-secondary { color: #9C8C7A; }
-.yh-text-hint { color: #9C8C7A; }
-
-/* 原生 input 复位（统一奶油白填充 + 暖橙聚焦边） */
-input {
-  font-size: 14px;
-  color: #4A382A;
-}
-
-/* 原生 button 复位 */
-button {
-  background: transparent;
-  border: none;
-  padding: 0;
-  margin: 0;
-  line-height: normal;
-}
-button::after { border: none; }
-
-/* 隐藏原生 tabBar，改用自定义 CustomTabBar 组件渲染（u-icon 矢量图标 + 凸起推荐 FAB） */
-uni-tabbar,
-.uni-tabbar,
-.uni-app--showlayout--tabbar .uni-tabbar-bottom {
-  display: none !important;
-  height: 0 !important;
-}
 </style>

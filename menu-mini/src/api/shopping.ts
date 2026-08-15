@@ -1,112 +1,131 @@
 import { request } from '@/utils/request'
+import type { Page } from './common'
 
-// 采购清单（redesign：三数据源 menu/dish/plan + 用户填采购量+采购单位 斤/把/个）
-export interface ShoppingItemVO {
+/** 采购清单摘要（列表行）。 */
+export interface ShoppingListSummary {
   id: number
-  listId?: number
-  ingredientId: number | null
-  ingredientName?: string
-  /** V30：手动添加未命中食材时存的自由食材名，展示时 ingredientName 已 fallback 到它。 */
+  name?: string | null
+  sourceType?: string | null // menu / dish / plan / custom / custom_text
+  startDate?: string | null
+  endDate?: string | null
+  createTime?: string | null
+}
+
+/** 采购项。 */
+export interface ShoppingItem {
+  id: number
+  ingredientName?: string | null
   customName?: string | null
-  referenceGrams?: number
   purchaseAmount?: number | null
-  purchaseUnitId?: number | null
-  purchaseUnitName?: string
-  totalAmount?: number
-  unitId?: number
-  unitName?: string
-  purchaseCategoryId?: number
-  purchaseCategoryName?: string
-  purchased?: number // 0 未买 / 1 已买
-  /** Plan B：家中现有克数（customName 手动加项为 null） */
-  pantryGrams?: number | null
-  /** Plan B：三色状态 RED_NONE 没有 / YELLOW_SHORT 差 X / GREEN_ENOUGH 够；customName 项或无用量为 null */
-  stockStatus?: 'RED_NONE' | 'YELLOW_SHORT' | 'GREEN_ENOUGH' | null
-  /** Plan B：差多少克（RED=needGrams、YELLOW=need-have、GREEN=0） */
-  shortageGrams?: number | null
-  [k: string]: any
+  purchaseUnitName?: string | null
+  stockStatus?: string | null // RED_NONE / YELLOW_SHORT / GREEN_ENOUGH / null=手动加
+  purchased?: number
 }
 
-export interface ShoppingListVO {
+/** 采购清单详情。 */
+export interface ShoppingDetail {
   id: number
-  sourcePlanId?: number
-  timeRange?: string
-  startDate?: string
-  endDate?: string
-  createdAt?: string
-  items: ShoppingItemVO[]
-  grouped?: Record<string, ShoppingItemVO[]>
+  name?: string | null
+  sourceType?: string | null
+  startDate?: string | null
+  endDate?: string | null
+  items: ShoppingItem[]
+  grouped?: Record<string, ShoppingItem[]>
   categoryNames?: Record<string, string>
-  [k: string]: any
 }
 
-export interface ShoppingList {
-  id: number
-  sourcePlanId?: number
-  timeRange?: string
-  startDate?: string
-  endDate?: string
-  createdAt?: string
-  [k: string]: any
+export interface RestockResult {
+  restocked: number
+  markedOnly: number
 }
 
-export type ShoppingSourceType = 'menu' | 'dish' | 'plan'
-
-export interface GenerateReq {
-  sourceType: ShoppingSourceType
-  sourceId?: number
-  sourceIds?: number[]
-}
-
-// 生成采购草稿（三数据源 menu/dish/plan）
-export const generate = (req: GenerateReq) =>
-  request<number>({ url: '/shopping/generate', method: 'POST', data: req })
-
-// 建空采购单（自定义采购入口），返回新 shopping_list.id
-export const createShopping = () =>
-  request<number>({ url: '/shopping/create', method: 'POST' })
-
-// 采购清单详情（含 items 中文 + 品类分区 + 采购单位中文）
-export const getDetail = (listId: number) =>
-  request<ShoppingListVO>({ url: `/shopping/${listId}`, method: 'GET' })
-
-// 按食集查采购清单（含 items + 三色）；未生成返回 null（前端据此显"生成"按钮）。Plan E。
-export const getMenuShopping = (menuId: number) =>
-  request<ShoppingListVO | null>({ url: `/shopping/by-menu/${menuId}`, method: 'GET' })
-
-// 采购清单分页列表（小程序拉全量）
-export const listShopping = () =>
-  request<{ records: ShoppingList[]; total: number }>({
+/** 清单分页。 */
+export function listShopping(pageNum = 1, pageSize = 10): Promise<Page<ShoppingListSummary>> {
+  return request<Page<ShoppingListSummary>>({
     url: '/shopping',
     method: 'GET',
-    data: { pageNum: 1, pageSize: 1000 }
-  }).then((p: any) => p.records || [])
-
-// 用户填采购量 + 采购单位
-export const updatePurchase = (itemId: number, purchaseAmount: number, purchaseUnitId: number) =>
-  request<any>({
-    url: `/shopping/item/${itemId}`,
-    method: 'PUT',
-    data: { purchaseAmount, purchaseUnitId }
+    data: { pageNum, pageSize },
   })
+}
 
-// 手动添加自定义采购项（V30）：采购清单不强绑菜单/菜品
-// name 命中已有 ingredient → 关联；未命中 → ingredientId=null + name 存 custom_name
-export const addCustomItem = (listId: number, name: string, amount: number | null, unitId: number | null, purchaseCategoryId: number | null) =>
-  request<number>({
+/** 清单详情（items + 分类分区）。 */
+export function shoppingDetail(id: number): Promise<ShoppingDetail> {
+  return request<ShoppingDetail>({ url: `/shopping/${id}`, method: 'GET' })
+}
+
+/** 建空采购单 → id。 */
+export function createEmptyList(): Promise<number> {
+  return request<number>({ url: '/shopping/create', method: 'POST' })
+}
+
+/** 批量保存入库（默认记充足）。 */
+export function restockItems(itemIds: number[]): Promise<RestockResult> {
+  return request<RestockResult>({
+    url: '/shopping/restock',
+    method: 'POST',
+    data: { itemIds },
+  })
+}
+
+/** 撤回入库（恢复入库前档位并删项）。 */
+export function undoRestock(itemId: number): Promise<void> {
+  return request({ url: `/shopping/item/${itemId}/undo-restock`, method: 'POST' })
+}
+
+/** 手动加项（名称+数量文本）。 */
+export function addCustomItem(p: {
+  listId: number
+  name: string
+  amount?: number
+}): Promise<void> {
+  return request({
     url: '/shopping/item/custom',
     method: 'POST',
-    data: { listId, name, amount, unitId, purchaseCategoryId }
+    data: { listId: p.listId, name: p.name, amount: p.amount },
   })
+}
 
-// 勾选/取消已买
-export const togglePurchased = (itemId: number) =>
-  request<any>({ url: `/shopping/item/${itemId}/purchased`, method: 'PUT' })
+/** 删单项。 */
+export function removeShoppingItem(itemId: number): Promise<void> {
+  return request({ url: `/shopping/item/${itemId}`, method: 'DELETE' })
+}
 
-// 删除明细
-export const deleteItem = (itemId: number) =>
-  request<any>({ url: `/shopping/item/${itemId}`, method: 'DELETE' })
+/** 删整单。 */
+export function deleteShoppingList(id: number): Promise<void> {
+  return request({ url: `/shopping/${id}`, method: 'DELETE' })
+}
 
-// 删除整张清单
-export const deleteList = (listId: number) =>
-  request<any>({ url: `/shopping/${listId}`, method: 'DELETE' })
+/** 清单改名。 */
+export function renameShoppingList(listId: number, name: string): Promise<void> {
+  return request({ url: `/shopping/${listId}/name`, method: 'PUT', data: { name } })
+}
+
+/** 来源类型 → 中文。 */
+export function sourceTypeLabel(t?: string | null): string {
+  switch (t) {
+    case 'menu': return '菜单'
+    case 'dish': return '菜品'
+    case 'plan': return '周计划'
+    case 'custom': return '自定义'
+    case 'custom_text': return '文本录入'
+    default: return '采购'
+  }
+}
+
+/** 数量展示（整数去小数，否则 1 位）。 */
+export function amountText(it: ShoppingItem): string {
+  const a = it.purchaseAmount
+  if (a == null) return ''
+  const s = Number.isInteger(a) ? String(a) : a.toFixed(1)
+  return `${s} ${it.purchaseUnitName || ''}`.trim()
+}
+
+/** 库存徽章：{ 文案, 色键 }。 */
+export function stockBadge(it: ShoppingItem): { text: string; color: string } | null {
+  switch (it.stockStatus) {
+    case 'RED_NONE': return { text: '家里：用完', color: 'var(--error)' }
+    case 'YELLOW_SHORT': return { text: '家里：不足', color: 'var(--warning-text)' }
+    case 'GREEN_ENOUGH': return { text: '家里：充足', color: 'var(--success)' }
+    default: return { text: '手动加', color: 'var(--caption)' }
+  }
+}

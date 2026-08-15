@@ -19,7 +19,7 @@
           <input
             class="ipt"
             v-model="form.username"
-            placeholder="手机号 或 admin"
+            placeholder="手机号 / 账号"
             placeholder-class="ipt-ph"
           />
         </view>
@@ -43,6 +43,10 @@
       <button class="yh-btn-gradient login-btn" :disabled="loading" @click="onLogin">
         {{ loading ? '登录中…' : '登 录' }}
       </button>
+      <view class="wx-divider"><text class="wx-divider-txt">或</text></view>
+      <button class="wx-btn" :disabled="wxLoading" @click="onWxLogin">
+        {{ wxLoading ? '微信登录中…' : '微信一键登录' }}
+      </button>
     </view>
   </view>
 </template>
@@ -50,11 +54,28 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useAuthStore } from '@/store/auth'
+import { silentLogin } from '@/api/auth'
 
 const auth = useAuthStore()
 const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 const showPwd = ref(false)
+const wxLoading = ref(false)
+
+/** 微信一键登录：静默 wx.login → wx-login → 进首页（新用户自动建号）。 */
+async function onWxLogin() {
+  wxLoading.value = true
+  try {
+    const r = await silentLogin()
+    if (r) {
+      uni.switchTab({ url: '/pages/dish/List' })
+    } else {
+      uni.showToast({ title: '微信登录失败，可先用账号登录', icon: 'none' })
+    }
+  } finally {
+    wxLoading.value = false
+  }
+}
 
 async function onLogin() {
   if (!form.username || !form.password) {
@@ -64,7 +85,7 @@ async function onLogin() {
   loading.value = true
   try {
     await auth.login(form.username, form.password)
-    uni.switchTab({ url: '/pages/index/Index' })
+    uni.switchTab({ url: '/pages/dish/List' })
   } catch {
     // request.ts 已弹 toast
   } finally {
@@ -180,4 +201,40 @@ async function onLogin() {
   line-height: 96rpx;
   font-size: 32rpx;
 }
+
+
+/* 微信一键登录 */
+.wx-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.wx-divider::before,
+.wx-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #F0E6D6;
+}
+.wx-divider-txt {
+  font-size: 11px;
+  color: #9C8C7A;
+}
+.wx-btn {
+  background: #07C160;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.wx-btn::after { border: none; }
+.wx-btn[disabled] {
+  background: rgba(7, 193, 96, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+}
+
 </style>

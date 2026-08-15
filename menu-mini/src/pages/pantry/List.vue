@@ -1,306 +1,362 @@
 <template>
-  <view class="pantry">
-    <!-- 顶栏 -->
-    <view class="topbar">
-      <view class="top-left">
-        <text class="crumb">我家</text>
-        <text class="title">我家余量</text>
+  <view class="page">
+    <ui-action-bar>
+      <view class="top-btn ghost" @click="goAdd">入库</view>
+      <view class="top-btn fill" @click="goShopping">去采购</view>
+    </ui-action-bar>
+
+    <!-- 搜索框（输入即搜，300ms 防抖） -->
+    <view class="search-row">
+      <view class="search-box">
+        <text class="search-ico">⌕</text>
+        <input v-model="kwInput" class="search-ipt" placeholder="搜库存" placeholder-class="ph" @input="onInput" />
+        <text v-if="kwInput" class="search-clear" @click="clearKw">✕</text>
       </view>
-      <u-icon class="search-ico" name="search" :size="24" color="#4A382A" />
     </view>
 
-    <view v-if="loading" class="empty">加载中…</view>
-    <view v-else-if="!list.length" class="empty-box">
-      <u-icon class="empty-ico" name="home" :size="80" color="#C9B79F" />
-      <text>还没加过食材，做完菜或采购后会自动入库</text>
+    <!-- 筛选条（搜索态隐藏） -->
+    <view v-if="!searching" class="chips">
+      <view class="chip all" :class="{ on: filter === 'all' }" @click="filter = 'all'">全部 {{ totalCount }}</view>
+      <view class="chip none" :class="{ on: filter === 'none' }" @click="filter = 'none'">用完 {{ summary.none }}</view>
+      <view class="chip low" :class="{ on: filter === 'low' }" @click="filter = 'low'">不足 {{ summary.low }}</view>
+      <view class="chip enough" :class="{ on: filter === 'enough' }" @click="filter = 'enough'">充足 {{ summary.enough }}</view>
     </view>
-    <template v-else>
-      <!-- 闭环提示：缺/空食材 → 去采购（对齐原型 pantry-page） -->
-      <view v-if="cnt.miss > 0" class="loop-hint" @click="goShopping">
-        <u-icon class="loop-ico" name="gift" :size="24" color="#B8762E" />
-        <text class="loop-txt">{{ cnt.miss }} 样扣到空，要去采购补吗？</text>
-        <text class="loop-btn">去采购</text>
-      </view>
 
-      <!-- 三色汇总条 -->
-      <view class="summary">
-        <view class="seg seg-ok">够 {{ cnt.ok }}</view>
-        <view class="seg seg-low">低 {{ cnt.low }}</view>
-        <view class="seg seg-miss">缺 {{ cnt.miss }}</view>
-      </view>
+    <ui-state v-if="loading && first" mode="loading" />
 
-      <!-- 筛选chips -->
-      <view class="chips">
-        <view :class="['chip', filter === 'all' && 'on']" @click="setFilter('all')">全部 {{ list.length }}</view>
-        <view :class="['chip', 'c-miss', filter === 'miss' && 'on']" @click="setFilter('miss')">缺 {{ cnt.miss }}</view>
-        <view :class="['chip', 'c-low', filter === 'low' && 'on']" @click="setFilter('low')">低 {{ cnt.low }}</view>
-        <view :class="['chip', 'c-ok', filter === 'ok' && 'on']" @click="setFilter('ok')">够 {{ cnt.ok }}</view>
+    <!-- 搜索态：结果平铺（服务端已按档位排序）+ 分页 -->
+    <scroll-view v-else-if="searching" scroll-y class="body" @scrolltolower="loadMoreSearch">
+      <view class="found">找到 {{ searchTotal }} 个</view>
+      <view v-if="!searchItems.length" class="no-hit">搜不到「{{ searchingKw }}」</view>
+      <view
+        v-for="it in searchItems"
+        :key="it.ingredientId"
+        class="row"
+        :style="{ borderColor: stockColor(it.level) + '26' }"
+        @click="goDetail(it)"
+      >
+        <ui-avatar :name="it.ingredientName" :size="40" />
+        <view class="info">
+          <text class="name">{{ it.ingredientName || `#${it.ingredientId}` }}</text>
+          <text class="sub">{{ subText(it) }}</text>
+        </view>
+        <text class="lvl" :style="{ color: stockColor(it.level) }">{{ stockLabel(it.level) }}</text>
+        <text class="arrow">›</text>
       </view>
+      <ui-load-more
+        v-if="searchItems.length && searchRemain > 0"
+        :remain="searchRemain"
+        :loading="searchLoadingMore"
+        @more="loadMoreSearch"
+      />
+    </scroll-view>
 
-      <!-- 分组列表 -->
-      <view class="groups">
-        <template v-for="g in groups" :key="g.key">
-          <view v-if="g.items.length" class="grp-label" :class="g.key">
-            {{ g.label }} · {{ g.items.length }}
+    <!-- 分组态：三组独立分页（组标题计数=汇总总数，不随加载变化） -->
+    <scroll-view v-else class="body" scroll-y>
+      <template v-for="sec in sections" :key="sec.key">
+        <view class="sec-title" :style="{ color: sec.color }">{{ sec.label }} · {{ sec.total }}</view>
+        <view
+          v-for="it in items[sec.key]"
+          :key="it.ingredientId"
+          class="row"
+          :style="{ borderColor: stockColor(it.level) + '26' }"
+          @click="goDetail(it)"
+        >
+          <ui-avatar :name="it.ingredientName" :size="40" />
+          <view class="info">
+            <text class="name">{{ it.ingredientName || `#${it.ingredientId}` }}</text>
+            <text class="sub">{{ subText(it) }}</text>
           </view>
-          <view v-for="r in g.items" :key="r.id" class="row">
-            <text class="emoji">{{ initial(r.ingredientName) }}</text>
-            <view class="info">
-              <text class="name">{{ r.ingredientName || '#' + r.ingredientId }}</text>
-              <text class="src">{{ srcText(r) }}</text>
-            </view>
-            <text class="amt" :class="g.key">{{ r.amount }} {{ r.unitName || '' }}</text>
-            <text class="adj" @click="onAdjust(r)">±</text>
-          </view>
-        </template>
-      </view>
-    </template>
-
-    <view style="height: 180rpx;"></view>
-    <CustomTabBar />
+          <text class="lvl" :style="{ color: stockColor(it.level) }">{{ stockLabel(it.level) }}</text>
+          <text class="arrow">›</text>
+        </view>
+        <ui-load-more
+          v-if="remain(sec.key) > 0"
+          :remain="remain(sec.key)"
+          :color="sec.color"
+          :loading="loadingMore[sec.key]"
+          @more="loadMore(sec.key)"
+        />
+      </template>
+      <ui-state v-if="totalCount === 0" mode="empty" text="暂无库存" />
+      <view style="height: 24px" />
+    </scroll-view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
-import { listPantry, type PantryVO } from '@/api/pantry'
-import CustomTabBar from '@/components/CustomTabBar.vue'
+import { ref, reactive, computed } from 'vue'
+import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
+import { listGroupedPage, sourceLabel, sourceSub, type PantryGroupedItem } from '@/api/pantry'
+import { stockColor, stockLabel } from '@/utils/token'
 
-type Tier = 'miss' | 'low' | 'ok'
+const kwInput = ref('')
+const searchingKw = ref('')
+const searching = computed(() => searchingKw.value.length > 0)
 
-const list = ref<PantryVO[]>([])
-const loading = ref(false)
-const filter = ref<'all' | Tier>('all')
+const filter = ref('all')
+const summary = reactive({ enough: 0, low: 0, none: 0 })
+const totalCount = computed(() => summary.enough + summary.low + summary.none)
 
-/** 三色分档：缺(≤0) / 低(<阈值) / 够(其余) */
-function tier(r: PantryVO): Tier {
-  if (Number(r.amount) <= 0) return 'miss'
-  const th = Number(r.lowThreshold)
-  if (th > 0 && Number(r.amount) < th) return 'low'
-  return 'ok'
-}
-
-const cnt = computed(() => {
-  let miss = 0, low = 0, ok = 0
-  for (const r of list.value) {
-    const t = tier(r)
-    if (t === 'miss') miss++
-    else if (t === 'low') low++
-    else ok++
-  }
-  return { miss, low, ok }
-})
-
-const groups = computed(() => {
-  const miss: PantryVO[] = [], low: PantryVO[] = [], ok: PantryVO[] = []
-  for (const r of list.value) {
-    const t = tier(r)
-    if (filter.value !== 'all' && filter.value !== t) continue
-    if (t === 'miss') miss.push(r)
-    else if (t === 'low') low.push(r)
-    else ok.push(r)
-  }
-  return [
-    { key: 'miss' as Tier, label: '缺 / 空', items: miss },
-    { key: 'low' as Tier, label: '偏低', items: low },
-    { key: 'ok' as Tier, label: '充足', items: ok },
+// 三组定义（筛选态过滤显示）
+const sections = computed(() => {
+  const defs = [
+    { key: 'NONE', tag: 'none', label: '用完', color: '#DB5A4E', total: summary.none },
+    { key: 'LOW', tag: 'low', label: '不足', color: '#B8860B', total: summary.low },
+    { key: 'ENOUGH', tag: 'enough', label: '充足', color: '#4FAE6E', total: summary.enough },
   ]
+  return defs.filter((d) => filter.value === 'all' || filter.value === d.tag)
 })
 
-function setFilter(f: 'all' | Tier) {
-  filter.value = f
+// 三组独立分页
+const items = reactive<Record<string, PantryGroupedItem[]>>({ NONE: [], LOW: [], ENOUGH: [] })
+const page = reactive<Record<string, number>>({ NONE: 1, LOW: 1, ENOUGH: 1 })
+const loadingMore = reactive<Record<string, boolean>>({ NONE: false, LOW: false, ENOUGH: false })
+
+// 搜索分页
+const searchItems = ref<PantryGroupedItem[]>([])
+const searchPage = ref(1)
+const searchTotal = ref(0)
+const searchLoadingMore = ref(false)
+const searchRemain = computed(() => searchTotal.value - searchItems.value.length)
+
+const loading = ref(false)
+const first = ref(true)
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let reloadToken = 0
+
+onShow(() => reload())
+onPullDownRefresh(async () => {
+  await reload()
+  uni.stopPullDownRefresh()
+})
+
+function onInput() {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => reload(), 300)
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-function daysBetween(expire?: string): number | null {
-  if (!expire) return null
-  return Math.ceil((new Date(expire).getTime() - new Date(todayStr()).getTime()) / 86400000)
+function clearKw() {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  kwInput.value = ''
+  reload()
 }
 
-/** 行来源/状态说明：缺→空了，临期→剩X天，低→低于警戒，其余→充足 */
-function srcText(r: PantryVO): string {
-  if (Number(r.amount) <= 0) return '空了 · 该补'
-  const d = daysBetween(r.expireDate)
-  if (d !== null && d < 0) return `已过期 ${-d} 天`
-  if (d !== null && d <= 3) return `临期 剩 ${d} 天`
-  const th = Number(r.lowThreshold)
-  if (th > 0 && Number(r.amount) < th) return `低于警戒 ${th}`
-  if (d !== null) return `剩 ${d} 天`
-  return '充足'
-}
-
-/** 无封面图时的占位首字（DESIGN.md §10.4：不用食物 emoji 顶替图片）。 */
-function initial(name?: string): string {
-  if (!name) return '食'
-  return name.trim().charAt(0) || '食'
-}
-
-/** 盘点：弹原生 editable modal（后端调整接口待补，先提示） */
-function onAdjust(r: PantryVO) {
-  uni.showModal({
-    title: `盘点 · ${r.ingredientName || ''}`,
-    content: `系统记 ${r.amount} ${r.unitName || ''}`,
-    editable: true,
-    placeholderText: '实际数了多少？',
-    success: (res) => {
-      if (res.confirm) {
-        uni.showToast({ title: '盘点接口开发中', icon: 'none' })
-      }
-    },
-  })
-}
-
-async function load() {
+async function reload() {
+  const token = ++reloadToken
   loading.value = true
+  searchingKw.value = kwInput.value.trim() // 先同步搜索词再分流
   try {
-    list.value = await listPantry()
+    if (searching.value) {
+      const r = await listGroupedPage({ keyword: searchingKw.value, pageNum: 1 })
+      if (token !== reloadToken) return
+      applySummary(r.summary)
+      searchItems.value = r.items
+      searchPage.value = 1
+      searchTotal.value = r.summary.enough + r.summary.low + r.summary.none
+    } else {
+      const results = await Promise.all([
+        listGroupedPage({ level: 'NONE', pageNum: 1 }),
+        listGroupedPage({ level: 'LOW', pageNum: 1 }),
+        listGroupedPage({ level: 'ENOUGH', pageNum: 1 }),
+      ])
+      if (token !== reloadToken) return
+      applySummary(results[0].summary)
+      items.NONE = results[0].items
+      items.LOW = results[1].items
+      items.ENOUGH = results[2].items
+      page.NONE = page.LOW = page.ENOUGH = 1
+    }
   } catch {
-    /* 静默，request.ts 已 toast */
-  } finally {
+    // request 已 toast
+  }
+  if (token === reloadToken) {
     loading.value = false
+    first.value = false
   }
 }
 
-/** 闭环：缺/空食材 → 去采购清单 */
-function goShopping() {
-  uni.navigateTo({ url: '/pages/shopping/Detail', fail: () => uni.switchTab({ url: '/pages/menu/Home' }) })
+function applySummary(s: { enough: number; low: number; none: number }) {
+  summary.enough = s.enough
+  summary.low = s.low
+  summary.none = s.none
 }
 
-onShow(() => { load() })
+function remain(level: string): number {
+  const total = level === 'NONE' ? summary.none : level === 'LOW' ? summary.low : summary.enough
+  return total - (items[level]?.length ?? 0)
+}
+
+async function loadMore(level: string) {
+  if (loadingMore[level]) return
+  loadingMore[level] = true
+  try {
+    const r = await listGroupedPage({ level, pageNum: page[level] + 1 })
+    page[level] += 1
+    items[level].push(...r.items)
+  } catch {}
+  loadingMore[level] = false
+}
+
+async function loadMoreSearch() {
+  if (searchLoadingMore.value || searchRemain.value <= 0) return
+  searchLoadingMore.value = true
+  try {
+    const r = await listGroupedPage({ keyword: searchingKw.value, pageNum: searchPage.value + 1 })
+    searchPage.value += 1
+    searchItems.value.push(...r.items)
+  } catch {}
+  searchLoadingMore.value = false
+}
+
+function subText(it: PantryGroupedItem): string {
+  const label = sourceLabel(it)
+  if (!label) return it.level === 'NONE' ? '本来就没有' : '无变动记录'
+  return `${label} ${sourceSub(it)}`.trim()
+}
+
+function goDetail(it: PantryGroupedItem) {
+  uni.navigateTo({ url: `/pages/pantry/Detail?id=${it.ingredientId}` })
+}
+function goAdd() {
+  uni.navigateTo({ url: '/pages/pantry/Add' })
+}
+function goShopping() {
+  uni.navigateTo({ url: '/pages/shopping/List' })
+}
 </script>
 
 <style scoped>
-.pantry {
-  min-height: 100vh;
-  background: #FDFAF4;
-  padding: 0 28rpx calc(env(safe-area-inset-bottom) + 40rpx);
-}
-
-/* 顶栏 */
-.topbar {
+.page {
+  height: 100vh;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: calc(env(safe-area-inset-top) + 32rpx) 8rpx 20rpx;
+  flex-direction: column;
+  background: var(--bg);
 }
-.top-left { display: flex; flex-direction: column; gap: 4rpx; }
-.crumb { font-size: 22rpx; color: #9C8C7A; }
-.title { font-size: 44rpx; font-weight: 800; color: #4A382A; }
-.search-ico { display: flex; align-items: flex-end; }
-
-/* 闭环提示（缺→去采购） */
-.loop-hint {
+.top-btn {
+  padding: 5px 12px;
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  font-weight: 700;
+}
+.ghost {
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+.fill {
+  color: #FFFFFF;
+  background: var(--primary);
+}
+.search-row {
+  padding: 8px 14px 0;
+}
+.search-box {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  margin: 0 8rpx 20rpx;
-  background: #FFF7EC;
-  border: 1px solid #E5A938;
-  border-radius: 20rpx;
-  padding: 16rpx 22rpx;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0 10px;
 }
-.loop-ico { display: flex; align-items: center; }
-.loop-txt { flex: 1; font-size: 22rpx; color: #B8762E; line-height: 1.4; }
-.loop-btn {
-  font-size: 22rpx; font-weight: 800; color: #D17A3C;
-  border: 2rpx solid #E89150;
-  padding: 8rpx 18rpx;
-  border-radius: 14rpx;
+.search-ico {
+  color: var(--caption);
+  font-size: 14px;
 }
-
-/* 三色汇总 */
-.summary {
-  display: flex;
-  margin: 0 8rpx 20rpx;
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-.seg {
+.search-ipt {
   flex: 1;
-  padding: 16rpx 12rpx;
-  font-size: 22rpx;
-  font-weight: 800;
-  color: #fff;
-  text-align: center;
+  font-size: 12px;
+  color: var(--title);
+  padding: 9px 0;
 }
-.seg-ok { background: #4FAE6E; }
-.seg-low { background: #E5A938; }
-.seg-miss { background: #DB5A4E; }
-
-/* 筛选chips */
+.search-clear {
+  color: var(--caption);
+  font-size: 13px;
+  padding: 4px;
+}
+.ph { color: var(--caption); }
 .chips {
   display: flex;
-  gap: 12rpx;
-  padding: 0 8rpx 16rpx;
+  gap: 6px;
+  padding: 10px 14px 8px;
 }
 .chip {
-  font-size: 22rpx;
-  font-weight: 600;
-  padding: 10rpx 22rpx;
-  border-radius: 28rpx;
-  background: #fff;
-  border: 2rpx solid #F0E6D6;
-  color: #6E5C49;
-}
-.chip.c-miss { color: #DB5A4E; }
-.chip.c-low { color: #E5A938; }
-.chip.c-ok { color: #4FAE6E; }
-.chip.on { background: #4A382A; color: #fff; border-color: #4A382A; }
-.chip.c-miss.on { background: #DB5A4E; border-color: #DB5A4E; }
-.chip.c-low.on { background: #E5A938; border-color: #E5A938; }
-.chip.c-ok.on { background: #4FAE6E; border-color: #4FAE6E; }
-
-/* 分组列表 */
-.groups { padding: 0 8rpx; }
-.grp-label {
-  font-size: 22rpx;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 2rpx;
-  margin: 24rpx 0 8rpx;
 }
-.grp-label.miss { color: #DB5A4E; }
-.grp-label.low { color: #E5A938; }
-.grp-label.ok { color: #4FAE6E; }
-
+.chip.all { color: var(--body); }
+.chip.none { color: var(--error); }
+.chip.low { color: var(--warning-text); }
+.chip.enough { color: var(--success); }
+.chip.all.on { background: var(--title); border-color: var(--title); color: #FFFFFF; }
+.chip.none.on { background: var(--error); border-color: var(--error); color: #FFFFFF; }
+.chip.low.on { background: var(--warning); border-color: var(--warning); color: #FFFFFF; }
+.chip.enough.on { background: var(--success); border-color: var(--success); color: #FFFFFF; }
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+.found {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--caption);
+  letter-spacing: 1px;
+  margin: 12px 2px 8px;
+}
+.no-hit {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 18px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--caption);
+}
+.sec-title {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin: 10px 2px 4px;
+}
 .row {
   display: flex;
   align-items: center;
-  gap: 18rpx;
-  padding: 22rpx 8rpx;
-  border-bottom: 2rpx dashed #F0E6D6;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  margin-bottom: 4px;
 }
-.emoji {
-  width: 60rpx; height: 60rpx;
-  border-radius: 16rpx;
-  background: #FBF0DD;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  font-size: 30rpx; font-weight: 600;
-  color: rgba(74, 56, 42, 0.45);
+.info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-.info { flex: 1; display: flex; flex-direction: column; gap: 4rpx; }
-.name { font-size: 28rpx; font-weight: 700; color: #4A382A; }
-.src { font-size: 22rpx; color: #9C8C7A; }
-.amt { font-size: 28rpx; font-weight: 800; min-width: 120rpx; text-align: right; }
-.amt.miss { color: #DB5A4E; }
-.amt.low { color: #E5A938; }
-.amt.ok { color: #4A382A; }
-.adj {
-  width: 48rpx; height: 48rpx;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 32rpx; font-weight: 800;
-  color: #D17A3C;
+.name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--title);
 }
-
-/* 空态 */
-.empty { text-align: center; color: #9C8C7A; padding: 200rpx 0; font-size: 26rpx; }
-.empty-box {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 20rpx; padding: 200rpx 40rpx;
-  color: #9C8C7A; font-size: 26rpx; text-align: center;
+.sub {
+  font-size: 9px;
+  color: var(--caption);
 }
-.empty-ico { display: block; }
+.lvl {
+  font-size: 11px;
+  font-weight: 800;
+}
+.arrow {
+  color: var(--caption);
+  font-size: 14px;
+  font-weight: 700;
+}
 </style>

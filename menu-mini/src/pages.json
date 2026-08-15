@@ -1,136 +1,190 @@
 {
-	"pages": [
-		{
-			"path": "pages/login/Login",
-			"style": {
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/dish/List",
-			"style": {
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/dish/Detail",
-			"style": {
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/dish/Review",
-			"style": {
-				"navigationBarTitleText": "好不好吃"
-			}
-		},
-		{
-			"path": "pages/dish/Create",
-			"style": {
-				"navigationBarTitleText": "分享个菜谱"
-			}
-		},
-		{
-			"path": "pages/menu/Home",
-			"style": {
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/menu/Detail",
-			"style": {
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/misc/Home",
-			"style": {
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/index/Index",
-			"style": {
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/profile/Settings",
-			"style": {
-				"navigationBarTitleText": "设置"
-			}
-		},
-		{
-			"path": "pages/shopping/List",
-			"style": {
-				"navigationBarTitleText": "采购"
-			}
-		},
-		{
-			"path": "pages/shopping/Detail",
-			"style": {
-				"navigationBarTitleText": "采购详情"
-			}
-		},
-		{
-			"path": "pages/pantry/List",
-			"style": {
-				"navigationBarTitleText": "家里有啥"
-			}
-		},
-		{
-			"path": "pages/dailylog/Index",
-			"style": {
-				"navigationBarTitleText": "今天吃了啥"
-			}
-		},
-		{
-			"path": "pages/mealplan/Calendar",
-			"style": {
-				"navigationBarTitleText": "本周排菜"
-			}
-		},
-		{
-			"path": "pages/ai/Recommend",
-			"style": {
-				"navigationBarTitleText": "AI智选"
-			}
-		},
-		{
-			"path": "pages/ai/Estimate",
-			"style": {
-				"navigationBarTitleText": "算热量"
-			}
-		},
-		{
-			"path": "pages/cookbook/FindByIngredients",
-			"style": {
-				"navigationBarTitleText": "食材找菜"
-			}
-		},
-		{
-			"path": "pages/ingredient/Create",
-			"style": {
-				"navigationBarTitleText": "食材补全"
-			}
-		}
-	],
-	"globalStyle": {
-		"navigationBarBackgroundColor": "#FDFAF4",
-		"navigationBarTextStyle": "black",
-		"backgroundColor": "#FDFAF4"
-	},
-	"tabBar": {
-		"color": "#9C8C7A",
-		"selectedColor": "#D17A3C",
-		"backgroundColor": "#FFFFFF",
-		"borderStyle": "white",
-		"list": [
-			{ "pagePath": "pages/dish/List", "text": "菜谱" },
-			{ "pagePath": "pages/menu/Home", "text": "食集" },
-			{ "pagePath": "pages/index/Index", "text": "智荐" },
-			{ "pagePath": "pages/pantry/List", "text": "我家余量" },
-			{ "pagePath": "pages/profile/Settings", "text": "我的" }
-		]
-	}
+  "pages": [
+    {
+      "path": "pages/login/Login",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/dish/List",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/dish/Detail",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/menu/List",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/recommend/Index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/pantry/List",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/profile/Profile",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/menu/Detail",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/shopping/List",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/pantry/Add",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/pantry/Detail",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/foodlog/Index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/foodlog/Detail",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/dish/Create",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/dish/Preview",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/dish/Drafts",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/review/Form",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/review/MenuReview",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/review/Mine",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/ingredient/List",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/ingredient/Create",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/ingredient/Edit",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/Index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/together/Pick",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#9C8C7A",
+    "selectedColor": "#D17A3C",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/dish/List",
+        "text": "菜谱"
+      },
+      {
+        "pagePath": "pages/menu/List",
+        "text": "食集"
+      },
+      {
+        "pagePath": "pages/recommend/Index",
+        "text": "推荐"
+      },
+      {
+        "pagePath": "pages/pantry/List",
+        "text": "库存"
+      },
+      {
+        "pagePath": "pages/profile/Profile",
+        "text": "我的"
+      }
+    ]
+  },
+  "easycom": {
+    "custom": {
+      "^ui-(.*)$": "@/components/ui-$1.vue"
+    }
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "",
+    "navigationBarBackgroundColor": "#FDFAF4",
+    "backgroundColor": "#FDFAF4"
+  }
 }

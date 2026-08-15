@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { __testUni } from '../setup'
-import { request } from '@/utils/request'
+import { request, BASE } from '@/utils/request'
 
 // utils/request：统一解包 R{code,msg,data}。
 // 401 清 token+reLaunch；code!=0 toast+抛错；正常返 data。
@@ -25,7 +25,7 @@ describe('utils/request', () => {
     // 请求头带 Authorization（空 token 时不带，但 header 仍构造）
     expect(__testUni.mocks.request).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: '/gudu/x',
+        url: BASE + '/x',
         header: expect.any(Object),
       }),
     )
@@ -82,7 +82,7 @@ describe('utils/request', () => {
     await request({ url: '/auth/login', method: 'POST' })
 
     expect(__testUni.mocks.request).toHaveBeenCalledWith(
-      expect.objectContaining({ url: '/gudu/auth/login' }),
+      expect.objectContaining({ url: BASE + '/auth/login' }),
     )
   })
 })

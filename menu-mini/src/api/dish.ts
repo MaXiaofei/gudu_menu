@@ -1,72 +1,158 @@
 import { request } from '@/utils/request'
+import type { Page } from './common'
 
-export const searchDishes = (params: Record<string, any>) =>
-  request<any>({ url: '/dish/search', method: 'GET', data: params })
-
-/** 营养筛选（POST，支持 nutritionLimits JSON body；GET 无法传 Map）。 */
-export const searchDishesByNutrition = (params: Record<string, any>) =>
-  request<any>({ url: '/dish/search', method: 'POST', data: params })
-
-// 详情：后端 DishDetail record → { dish, steps, cuisineIds, tagIds, categoryIds, ingredients }
-export const dishDetail = (id: number) =>
-  request<any>({ url: `/dish/${id}`, method: 'GET' })
-
-// 份数营养：后端返回 Map<Long指标id, BigDecimal值>（无指标名，名映射留 C1）
-export const dishNutrition = (id: number, serving = 1) =>
-  request<Record<string, any>>({ url: `/dish/${id}/nutrition?serving=${serving}`, method: 'GET' })
-
-// markDone 已废弃：cookDishNow 承担"做菜即标记"，做过列表走 Dish search done。
-
-// 录入新菜：后端 POST /dish @RequestBody DishSaveDTO { dish, steps, cuisineIds, tagIds, categoryIds, ingredients }
-// V1 第一批：仅 dish + steps（关联/食材 YAGNI 留第二批）
-export const saveDish = (data: any) => request({ url: '/dish', method: 'POST', data })
-
-// URL 导入菜谱：后端 POST /dish/import-url?url=xxx 抓网页解析落库，返回新菜品 id
-export const importDishByUrl = (url: string) =>
-  request<number>({ url: `/dish/import-url?url=${encodeURIComponent(url)}`, method: 'POST' })
-
-// 营养指标字典：[{id,name,unit,metricGroup,sort}]，把 nutrition 的 id(→值) 映射成「名字: 值(单位)」
-export const nutritionMetrics = () => request<any[]>({ url: '/nutrition/metric', method: 'GET' })
-
-// ============ Plan A：做菜扣库存链 ============
-
-/** CookController CookResult：deductions/shortages 的 key 是 ingredientId(字符串)。 */
-export interface CookResult {
-  menuId: number | null
-  /** 各食材扣减明细：ingredientId → 克数 */
-  deductions: Record<string, number>
-  /** 欠量：ingredientId → 克数；非空表示库存不够 */
-  shortages: Record<string, number>
-  /** 本次生成的 cooking_record id 列表 */
-  cookingRecordIds: number[]
+/** 菜谱（列表/详情共用；菜系/分类/标签名后端回填）。 */
+export interface Dish {
+  id: number
+  name: string
+  coverUrl?: string | null
+  prepTime?: number | null
+  cookTime?: number | null
+  difficulty?: number | null
+  note?: string | null
+  sourceName?: string | null
+  cuisineNames?: string[]
+  categoryNames?: string[]
+  tagNames?: string[]
+  cookedCount?: number
 }
 
-/** 整集做菜：POST /menu/{id}/cook（聚合食集各菜用量→扣 pantry→每菜写 cooking_record→食集标 DONE） */
-export const cookMenu = (menuId: number) =>
-  request<CookResult>({ url: `/menu/${menuId}/cook`, method: 'POST' })
-
-/** 单菜直做：POST /dish/{id}/cook-now?servings=N（servings 默认 1，不入食集） */
-export const cookDishNow = (dishId: number, servings = 1) =>
-  request<CookResult>({ url: `/dish/${dishId}/cook-now?servings=${servings}`, method: 'POST' })
-
-// ============ 反向找菜（勾选食材 → 推荐能做的菜） ============
-
-// 后端 CookbookService.DishMatch：{ dish:{id,name,...}, matchCount, totalCount, missingIngredients:[name], canMake }
-export interface DishMatch {
-  dish: { id: number; name: string; coverUrl?: string; prepTime?: number; cookTime?: number; difficulty?: number }
-  matchCount: number
-  totalCount: number
-  missingIngredients: string[]
-  canMake: boolean
+/** 步骤（images 为逗号分隔的相对路径串）。 */
+export interface DishStep {
+  seq?: number
+  text: string
+  images?: string | null
 }
 
-/**
- * 反向找菜：传「我有的食材 id」逗号分隔，返回可做/部分可做的菜（全匹配优先）。
- * 后端 GET /cookbook/by-ingredients?ingredientIds=1,2,3 → R<List<DishMatch>>
- */
-export const findDishesByIngredients = (ingredientIds: number[]) =>
-  request<DishMatch[]>({
-    url: `/cookbook/by-ingredients`,
+/** 用料行（自然单位「2 个」「适量」）。 */
+export interface DishIngredient {
+  ingredientId: number
+  ingredientName?: string | null
+  amount?: number | null
+  unitName?: string | null
+}
+
+export interface DishDetail {
+  dish: Dish
+  steps: DishStep[]
+  ingredients: DishIngredient[]
+}
+
+/** 用量展示文本：「2 个」/「适量」/「2」。 */
+export function amountText(ing: DishIngredient): string {
+  const amt = ing.amount
+  const num = amt == null ? '' : Number.isInteger(amt) ? String(amt) : String(amt)
+  const unit = ing.unitName || ''
+  if (!num && !unit) return ''
+  if (!num) return unit
+  return unit ? `${num} ${unit}` : num
+}
+
+export interface DishSearchParams {
+  keyword?: string
+  tagIds?: string // 逗号分隔多选
+  cuisineIds?: string
+  sort?: 'cooked' | 'latest'
+  pageNum: number
+  pageSize?: number
+}
+
+/** 搜索菜谱：GET /dish/search（sort=cooked 做过最多，缺省最新）。 */
+export function searchDishes(p: DishSearchParams): Promise<Page<Dish>> {
+  return request<Page<Dish>>({
+    url: '/dish/search',
     method: 'GET',
-    data: { ingredientIds: ingredientIds.join(',') },
+    data: {
+      keyword: p.keyword || undefined,
+      tagIds: p.tagIds || undefined,
+      cuisineIds: p.cuisineIds || undefined,
+      sort: p.sort === 'cooked' ? 'cooked' : undefined,
+      pageNum: p.pageNum,
+      pageSize: p.pageSize ?? 10,
+    },
   })
+}
+
+/** 菜谱详情：GET /dish/{id}。 */
+export function dishDetail(id: number): Promise<DishDetail> {
+  return request<DishDetail>({ url: `/dish/${id}`, method: 'GET' })
+}
+
+/** 删除菜谱（连带步骤/关联/用料/历史）。 */
+export function deleteDish(id: number): Promise<void> {
+  return request({ url: `/dish/${id}`, method: 'DELETE' })
+}
+
+/** ===== 写菜谱（阶段 6） ===== */
+
+export interface DishSavePayload {
+  dish: {
+    name: string
+    coverUrl?: string
+    note?: string
+    prepTime?: number
+    cookTime?: number
+    difficulty?: number
+  }
+  steps: { seq?: number; sortOrder?: number; text: string; images?: string }[]
+  ingredients: { ingredientId: number; amount?: number; unitId?: number }[]
+  tagIds: number[]
+  cuisineIds: number[]
+}
+
+/** 发布菜谱：POST /dish → 新菜 id。 */
+export function saveDish(p: DishSavePayload): Promise<number> {
+  return request<number>({ url: '/dish', method: 'POST', data: p })
+}
+
+/** 导入链接：POST /dish/import-url?url= → 新菜 id。 */
+export function importDishByUrl(url: string): Promise<number> {
+  return request<number>({ url: '/dish/import-url', method: 'POST', data: { url } })
+}
+
+export interface DishDraftItem {
+  id: number
+  name?: string | null
+  coverUrl?: string | null
+  ingredientCount?: number
+  stepCount?: number
+  updateTime?: string | null
+}
+
+export interface DishDraftDetail {
+  id: number
+  name?: string | null
+  coverUrl?: string | null
+  prepTime?: number | null
+  cookTime?: number | null
+  difficulty?: number | null
+  note?: string | null
+  tagIds: number[]
+  cuisineIds: number[]
+  ingredients: { ingredientId: number; ingredientName?: string | null; amount?: string | null; unitText?: string | null }[]
+  steps: { seq?: number; text: string; images?: string | null }[]
+}
+
+/** 草稿列表（本人，更新时间倒序）。 */
+export function listDrafts(pageNum = 1, pageSize = 10): Promise<Page<DishDraftItem>> {
+  return request<Page<DishDraftItem>>({
+    url: '/dish/draft/list',
+    method: 'GET',
+    data: { pageNum, pageSize },
+  })
+}
+
+/** 存草稿（body 带 id=更新，无 id=新建）→ 草稿 id。 */
+export function saveDraft(body: Partial<DishSavePayload> & { id?: number }): Promise<number> {
+  return request<number>({ url: '/dish/draft', method: 'POST', data: body })
+}
+
+/** 草稿详情（继续编辑回填）。 */
+export function draftDetail(id: number): Promise<DishDraftDetail> {
+  return request<DishDraftDetail>({ url: `/dish/draft/${id}`, method: 'GET' })
+}
+
+/** 删草稿。 */
+export function deleteDraft(id: number): Promise<void> {
+  return request({ url: `/dish/draft/${id}`, method: 'DELETE' })
+}

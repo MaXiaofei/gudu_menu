@@ -1,17 +1,74 @@
-export const BASE = '/gudu' // H5 走 vite proxy；小程序/真机改成 http://<host>:8080/gudu
+// API 基址（双环境 HTTPS，2026-08-15 起）：
+//   预发 staging（feat/mvp 分支自动部署）: https://staging.imxf.cloud/gudu
+//   生产 prod（main 分支）:                 https://imxf.cloud/gudu
+// 本地 H5 调试可临时改 '/gudu' 走 vite proxy。
+export const BASE = 'https://staging.imxf.cloud/gudu'
 
 export function getToken(): string {
   return uni.getStorageSync('token') || ''
 }
 
-export async function request<T = any>(opt: UniApp.RequestOptions): Promise<T> {
+/**
+ * 401 静默自愈（V50）：token 失效时用 wx.login 重新静默登录一次并重放原请求；
+ * 重登也失败（无配置/无网络）才踢登录页。并发 401 共享同一次重登。
+ */
+let reloginPromise: Promise<boolean> | null = null
+
+async function trySilentRelogin(): Promise<boolean> {
+  if (!reloginPromise) {
+    reloginPromise = (async () => {
+      try {
+        const code: string = await new Promise((resolve, reject) =>
+          uni.login({ success: (r: any) => resolve(r.code), fail: (e: any) => reject(e) }),
+        )
+        const res: any = await uni.request({
+          url: BASE + '/auth/wx-login',
+          method: 'POST',
+          data: { code },
+          header: { Authorization: '' },
+        })
+        const body = res.data
+        if (body.code !== 0 || !body.data?.token) return false
+        uni.setStorageSync('token', body.data.token)
+        uni.setStorageSync('nickname', body.data.nickname || '')
+        return true
+      } catch {
+        return false
+      } finally {
+        // 下次 401 可再尝试
+        setTimeout(() => (reloginPromise = null), 100)
+      }
+    })()
+  }
+  return reloginPromise
+}
+
+export async function request<T = any>(
+  opt: UniApp.RequestOptions & { guestKey?: string; _retried?: boolean },
+): Promise<T> {
   const res: any = await uni.request({
     ...opt,
     url: BASE + opt.url,
-    header: { Authorization: getToken(), ...opt.header }
+    header: {
+      Authorization: getToken(),
+      // 朋友点菜免登录凭证（对应 H5 的 X-Guest-Key）
+      ...(opt.guestKey ? { 'X-Guest-Key': opt.guestKey } : {}),
+      ...opt.header,
+    },
   })
   const body = res.data // 后端统一 R{code,msg,data}
   if (body.code === 401) {
+    if (opt.guestKey) {
+      // 访客凭证失效：不跳登录，直接抛错由页面提示重新打开邀请
+      throw new Error(body.msg || '凭证失效，请重新打开邀请链接')
+    }
+    // 静默自愈仅限微信登录用户：账号密码用户 401 直接回登录页（防静默串号到微信新号）
+    const isWxUser = uni.getStorageSync('login_via') === 'wx'
+    const recovered =
+      isWxUser && opt.url !== '/auth/wx-login' ? await trySilentRelogin() : false
+    if (recovered && !opt._retried) {
+      return request<T>({ ...opt, _retried: true }) // 新 token 重放一次
+    }
     uni.removeStorageSync('token')
     uni.reLaunch({ url: '/pages/login/Login' })
     throw new Error('未登录')

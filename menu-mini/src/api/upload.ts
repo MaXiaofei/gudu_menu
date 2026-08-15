@@ -1,48 +1,59 @@
-import { BASE, getToken } from '@/utils/request'
+import { BASE } from '@/utils/request'
+import { getToken } from '@/utils/request'
 
-/**
- * 文件上传公共 helper。
- *
- * 后端：POST /file/upload，multipart，返回单个 URL（String）。
- * header 需带 Sa-Token。与 review.ts 中原 uploadImages 逻辑一致，抽公共以便复用。
- */
+export interface UploadResult {
+  url: string // 原图（相对路径 /gudu/uploads/original/xxx.jpg）
+  thumbnailUrl: string
+  name: string
+}
 
-/** 单图上传：立即传，返回 URL。供「选完即传」使用。 */
-export async function uploadOne(filePath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    uni.uploadFile({
-      url: BASE + '/file/upload',
-      filePath,
-      name: 'file',
-      header: { Authorization: getToken() },
-      success: (res) => {
-        try {
-          const body = JSON.parse(res.data)
-          // 后端统一返回 { code, msg, data }，data 为 URL
-          if (body && body.code === 0) {
-            resolve(body.data)
-            return
-          }
-          // 兼容直接返回 URL 字符串
-          if (typeof body === 'string') {
-            resolve(body)
-            return
-          }
-          reject(new Error(body?.msg || '上传失败'))
-        } catch {
-          reject(new Error('上传响应解析失败'))
-        }
-      },
-      fail: (err) => reject(err),
+/** 选图（相册，count 张）→ 返回本地临时路径。 */
+export function chooseImages(count = 1): Promise<string[]> {
+  return new Promise((resolve) => {
+    uni.chooseMedia({
+      count,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: (res) => resolve(res.tempFiles.map((f) => f.tempFilePath)),
+      fail: () => resolve([]),
     })
   })
 }
 
-/** 多图批量上传：逐张传，全部完成后返回 URL 数组（保持顺序）。 */
-export async function uploadImages(filePaths: string[]): Promise<string[]> {
-  const urls: string[] = []
-  for (const p of filePaths) {
-    urls.push(await uploadOne(p))
+/** 压缩（失败回退原图，对齐 Flutter 策略）。 */
+async function compress(path: string): Promise<string> {
+  try {
+    const r = await uni.compressImage({ src: path, quality: 80 })
+    return r.tempFilePath
+  } catch {
+    return path
   }
-  return urls
+}
+
+/** 上传一张图：POST /file/upload（multipart）→ 原图 + 缩略图 URL。 */
+export async function uploadImage(path: string): Promise<UploadResult> {
+  const filePath = await compress(path)
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: `${BASE}/file/upload`,
+      filePath,
+      name: 'file',
+      formData: { filename: 'upload.jpg' },
+      header: { Authorization: getToken() },
+      success: (res) => {
+        try {
+          const body = JSON.parse(res.data)
+          if (body.code !== 0) {
+            uni.showToast({ title: body.msg || '上传失败', icon: 'none' })
+            reject(new Error(body.msg))
+            return
+          }
+          resolve(body.data as UploadResult)
+        } catch (e) {
+          reject(e)
+        }
+      },
+      fail: (e) => reject(new Error(e.errMsg)),
+    })
+  })
 }

@@ -1,41 +1,77 @@
 import { request } from '@/utils/request'
-import { nutritionMetrics } from './dish'
 
-// 食材库（家庭自建：名 + 单位 + 采购分类 + 6 项 per100g 营养）
-// V1 小程序简化录入（ingredient/Create.vue）：名 + AI 补全营养 + 保存
-
-export interface IngredientNutrition {
-  metricId: number
-  value: number
-}
-export interface IngredientSaveDTO {
-  ingredient: {
-    name: string
-    unitId: number
-    purchaseCategoryId: number
-  }
-  nutritions: IngredientNutrition[]
-}
-
-/** 字典项：单位 / 采购分类（复用配置中心 /dict?group=...） */
-export interface DictItem {
+/** 食材（入库页搜索库用）。 */
+export interface IngredientItem {
   id: number
   name: string
 }
-export const listDictByGroup = (group: string) =>
-  request<{ records: DictItem[] }>({ url: '/dict', method: 'GET', data: { group, pageNum: 1, pageSize: 1000 } }).then(
-    (p: any) => p.records || [],
-  )
 
-/** 营养指标字典：复用 dish.ts 的 nutritionMetrics（[{id,name,unit,...}]） */
-export { nutritionMetrics }
+/** 全部食材（入库页建搜索库；全量理由见 DESIGN.md §12，与 Flutter listAll 一致）。 */
+export async function listAllIngredients(): Promise<IngredientItem[]> {
+  const data = await request<any>({
+    url: '/ingredient',
+    method: 'GET',
+    data: { pageNum: 1, pageSize: 1000 },
+  })
+  return Array.isArray(data) ? data : (data?.records ?? [])
+}
 
-/** 新建食材（对齐后端 POST /ingredient { ingredient, nutritions }） */
-export const createIngredient = (data: IngredientSaveDTO) =>
-  request<number>({ url: '/ingredient', method: 'POST', data })
+/** 新建食材（写菜谱「新建食材」用）→ id。 */
+export function createIngredient(name: string): Promise<number> {
+  return request<number>({
+    url: '/ingredient',
+    method: 'POST',
+    data: { ingredient: { name }, nutritions: [] },
+  })
+}
 
-/** 全部食材（name + id，供「反向找菜」多选）：后端 GET /ingredient → IPage<IngredientVO>，取 records。 */
-export const listAllIngredients = () =>
-  request<any>({ url: '/ingredient', method: 'GET', data: { pageNum: 1, pageSize: 1000 } }).then(
-    (p: any) => (p && p.records) || [],
-  )
+export interface IngredientRow {
+  id: number
+  name: string
+  purchaseCategoryId?: number | null
+  categoryName?: string | null
+  edible?: number | null
+}
+
+/** 食材分页列表（keyword 回车触发 / purchaseCategoryId 分类过滤）。 */
+export function listIngredients(p: {
+  keyword?: string
+  purchaseCategoryId?: number
+  pageNum: number
+  pageSize?: number
+}): Promise<{ records: IngredientRow[]; total: number }> {
+  return request({
+    url: '/ingredient',
+    method: 'GET',
+    data: {
+      keyword: p.keyword || undefined,
+      purchaseCategoryId: p.purchaseCategoryId || undefined,
+      pageNum: p.pageNum,
+      pageSize: p.pageSize ?? 10,
+    },
+  })
+}
+
+/** 食材详情。 */
+export function ingredientDetail(id: number): Promise<IngredientRow> {
+  return request({ url: `/ingredient/${id}`, method: 'GET' })
+}
+
+/** 更新食用属性：PUT /ingredient {id, edible}（1 食用 / 2 饮料零食 / 3 生活用品）。 */
+export function updateIngredient(id: number, edible: number): Promise<void> {
+  return request({ url: '/ingredient', method: 'PUT', data: { id, edible } })
+}
+
+/** 删除食材（关联用量记录保留）。 */
+export function deleteIngredient(id: number): Promise<void> {
+  return request({ url: `/ingredient/${id}`, method: 'DELETE' })
+}
+
+/** upsert 字典（自定义分类用）→ id。 */
+export function upsertDict(name: string, group: string): Promise<number> {
+  return request<number>({
+    url: '/dict',
+    method: 'POST',
+    data: { name, dictGroup: group },
+  })
+}

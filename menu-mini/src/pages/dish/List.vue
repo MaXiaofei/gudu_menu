@@ -1,579 +1,500 @@
 <template>
   <view class="page">
-    <!-- 顶栏：菜谱 + 筛选（对齐原型 cookbook-search） -->
-    <view class="topbar">
-      <text class="title">菜谱</text>
-      <view class="filter-btn" @click="showFilter = !showFilter">
-        <text>{{ showFilter ? '收起' : '筛选' }}</text>
-        <text v-if="activeFilterCount" class="badge">{{ activeFilterCount }}</text>
+    <!-- 选菜模式顶栏（食集「+ 加菜」进入） -->
+    <template v-if="selectForMenuId">
+      <view class="picker-top" :style="{ paddingTop: sb + 'px' }">
+        <text class="picker-back" @click="goBack">‹</text>
+      </view>
+      <view class="picker-hint">选择要加入的菜</view>
+    </template>
+    <ui-action-bar v-else />
+
+    <!-- 搜索框（回车触发） -->
+    <view class="search-row">
+      <view class="search-box">
+        <text class="search-ico">⌕</text>
+        <input
+          v-model="kwInput"
+          class="search-ipt"
+          placeholder="搜菜名"
+          placeholder-class="ph"
+          confirm-type="search"
+          :cursor="kwInput.length"
+          cursor-color="#E89150"
+          @confirm="onSearch"
+        />
+        <text v-if="kwInput" class="search-clear" @click="onClearKw">✕</text>
       </view>
     </view>
 
-    <!-- 搜索框（白底橙边，对齐原型聚焦态） -->
-    <view class="search-box">
-      <u-icon class="s-ico" name="search" :size="20" color="#D17A3C" />
-      <input
-        class="s-input"
-        v-model="keyword"
-        placeholder="搜菜名 / 食材"
-        placeholder-class="s-ph"
-        confirm-type="search"
-        @confirm="reload"
-      />
-      <text v-if="keyword" class="s-clear" @click="clearKeyword">✕</text>
-    </view>
-
-    <!-- 分类标签横滑 -->
-    <scroll-view scroll-x class="cat-scroll" :show-scrollbar="false">
-      <view class="cat-row">
+    <!-- 分类标签条（tag 字典，单选） -->
+    <scroll-view v-if="tags.length" scroll-x class="chip-bar" :show-scrollbar="false">
+      <view class="chip-row">
         <view
-          v-for="c in cats"
-          :key="c.key"
-          :class="['cat-chip', activeCat === c.key ? 'on' : '']"
-          @click="onCat(c.key)"
-        >
-          {{ c.label }}
-        </view>
+          v-for="c in [{ id: 0, name: '全部' }, ...tags]"
+          :key="c.id"
+          class="chip"
+          :class="{ on: selectedTagId === c.id }"
+          @click="onTag(c.id)"
+        >{{ c.name }}</view>
       </view>
     </scroll-view>
 
-    <!-- 排序行（对齐原型：X 道含「关键字」+ 做过最多） -->
+    <!-- 菜系筛选条（cuisine 字典，可与分类叠加） -->
+    <scroll-view v-if="cuisines.length" scroll-x class="chip-bar" :show-scrollbar="false">
+      <view class="chip-row">
+        <view
+          v-for="c in [{ id: 0, name: '全部菜系' }, ...cuisines]"
+          :key="c.id"
+          class="chip"
+          :class="{ on: selectedCuisineId === c.id }"
+          @click="onCuisine(c.id)"
+        >{{ c.name }}</view>
+      </view>
+    </scroll-view>
+
+    <!-- 排序行 -->
     <view class="sort-row">
-      <text class="sort-count">{{ dishes.length }} 道含{{ keyword ? `「${keyword}」` : '全部' }}</text>
-      <text class="sort-pick">做过最多 ▾</text>
-    </view>
-
-    <view v-if="showFilter" class="yh-card filter-panel">
-      <view class="f-title">营养上限（每份不超）</view>
-      <view class="f-grid">
-        <view class="f-cell">
-          <text class="f-label">糖≤(g)</text>
-          <input class="f-input" type="digit" v-model="filters.sugar" placeholder="如25" />
-        </view>
-        <view class="f-cell">
-          <text class="f-label">热量≤(kcal)</text>
-          <input class="f-input" type="digit" v-model="filters.cal" placeholder="如500" />
-        </view>
-      </view>
-
-      <view class="f-title" style="margin-top: 14px;">分类筛选</view>
-      <view class="f-grid">
-        <view class="f-cell">
-          <text class="f-label">菜系</text>
-          <picker mode="selector" :range="cuisineLabels" :value="cuisineIdx" @change="(e:any)=>cuisineIdx=Number(e.detail.value)">
-            <view class="f-picker">{{ cuisineLabels[cuisineIdx] }}</view>
-          </picker>
-        </view>
-        <view class="f-cell">
-          <text class="f-label">分类</text>
-          <picker mode="selector" :range="categoryLabels" :value="categoryIdx" @change="(e:any)=>categoryIdx=Number(e.detail.value)">
-            <view class="f-picker">{{ categoryLabels[categoryIdx] }}</view>
-          </picker>
-        </view>
-      </view>
-      <view class="f-grid" style="margin-top: 8px;">
-        <view class="f-cell">
-          <text class="f-label">标签</text>
-          <picker mode="selector" :range="tagLabels" :value="tagIdx" @change="(e:any)=>tagIdx=Number(e.detail.value)">
-            <view class="f-picker">{{ tagLabels[tagIdx] }}</view>
-          </picker>
-        </view>
-      </view>
-
-      <view class="f-title" style="margin-top: 14px;">其他</view>
-      <view class="f-grid">
-        <view class="f-cell">
-          <text class="f-label">难度≤</text>
-          <picker mode="selector" :range="diffNames" :value="diffIdx" @change="(e:any)=>diffIdx=Number(e.detail.value)">
-            <view class="f-picker">{{ diffNames[diffIdx] }}</view>
-          </picker>
-        </view>
-        <view class="f-cell">
-          <text class="f-label">耗时≤(分)</text>
-          <input class="f-input" type="number" v-model="filters.minutes" placeholder="如30" />
-        </view>
-      </view>
-
-      <view class="f-actions">
-        <button class="yh-btn-ghost half sm" @click="resetFilters">重置</button>
-        <button class="yh-btn-gradient half sm" @click="reload">应用</button>
+      <text class="total">{{ total }} 道</text>
+      <view class="sort-chips">
+        <view class="schip" :class="{ on: sort === 'latest' }" @click="onSort('latest')">最新</view>
+        <view class="schip" :class="{ on: sort === 'cooked' }" @click="onSort('cooked')">做过最多</view>
       </view>
     </view>
 
-    <!-- 菜品列表（方案D：左圆头像 + 右三行，类似微信列表） -->
-    <view v-if="loading && !dishes.length" class="empty">加载中…</view>
-    <view v-else-if="!dishes.length" class="empty">
-      <u-icon class="empty-ico" name="bookmark" :size="56" color="#C9B79F" />
-      <text>还没有自己的菜谱，点 + 录一个吧</text>
-    </view>
-    <view v-else class="dish-list">
-      <view
-        v-for="d in dishes"
-        :key="d.id"
-        class="dish-row"
-        @click="goDetail(d.id)"
-      >
-        <!-- 左圆角方块头像（对齐原型：emoji on #FBF0DD） -->
-        <view class="dish-avatar">
-          <image v-if="d.coverUrl" class="avatar-img" :src="imgUrl(d.coverUrl)" mode="aspectFill" />
-          <text v-else class="avatar-ph">{{ initial(d.name) }}</text>
+    <!-- 列表 -->
+    <view class="list">
+      <view v-for="dish in dishes" :key="dish.id" class="swipe-wrap">
+        <!-- 左滑删除底（仅浏览模式） -->
+        <view v-if="!selectForMenuId" class="swipe-del" @click.stop="confirmDelete(dish)">
+          <text class="swipe-del-txt">删除</text>
         </view>
-        <!-- 右侧三行信息 -->
-        <view class="dish-info">
-          <!-- 第1行：菜名 + 来源标记 -->
-          <view class="dish-r1">
-            <text class="dish-name">{{ d.name }}</text>
-            <text v-if="d.source === 'IMPORT'" class="dish-src">导入</text>
+        <!-- 卡片（滑动位移） -->
+        <view
+          class="card"
+          :style="{ transform: `translateX(${offsets[dish.id] || 0}px)` }"
+          @touchstart="onTs($event, dish.id)"
+          @touchmove="onTm($event, dish.id)"
+          @touchend="onTe($event, dish.id)"
+          @click="onTapCard(dish)"
+        >
+          <image
+            v-if="dish.coverUrl"
+            class="cover"
+            :src="thumbOf(dish.coverUrl)"
+            mode="aspectFill"
+            lazy-load
+          />
+          <ui-avatar v-else :name="dish.name" :size="44" />
+          <view class="info">
+            <text class="name">{{ dish.name }}</text>
+            <text class="sub">{{ subText(dish) }}</text>
           </view>
-          <!-- 第2行：做过·时间·热量（灰字，对齐原型 meta） -->
-          <view class="dish-r2">
-            <text class="dish-meta">{{ cookText(d) }} · {{ totalMinutes(d) || '?' }} 分{{ d.calories ? ' · ' + d.calories + ' kcal' : '' }}</text>
-          </view>
-          <!-- 第3行：家里够 X/Y 样（余色，待后端覆盖率接口；暂用标签降级） -->
-          <view class="dish-r3" v-if="(d.cuisineNames&&d.cuisineNames.length)||(d.categoryNames&&d.categoryNames.length)||(d.tagNames&&d.tagNames.length)">
-            <text v-for="(c, i) in (d.cuisineNames || [])" :key="'c'+i" class="dish-tag">{{ c }}</text>
-            <text v-for="(c, i) in (d.categoryNames || [])" :key="'cat'+i" class="dish-tag">{{ c }}</text>
-            <text v-for="(t, i) in (d.tagNames || [])" :key="'t'+i" class="dish-tag">{{ t }}</text>
-          </view>
+          <text class="arrow">›</text>
         </view>
       </view>
-    </view>
-    <view v-if="dishes.length" class="end">
-      {{ status === 'nomore' ? '— 没有更多了 —' : status === 'loading' ? '加载中…' : '' }}
-    </view>
 
-    <!-- 悬浮 + 按钮 -->
-    <view class="fab" @click="onCreate">+</view>
-    <view style="height: 180rpx;"></view>
-    <CustomTabBar />
+      <!-- 尾部 -->
+      <view v-if="!firstLoading && dishes.length" class="footer">
+        {{ hasMore ? '上拉加载更多' : '没有更多了' }}
+      </view>
+      <ui-state v-if="!firstLoading && !dishes.length" mode="empty" text="暂无菜品" />
+      <ui-state v-if="firstLoading" mode="loading" />
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
-import { searchDishes, searchDishesByNutrition } from '@/api/dish'
-import { request } from '@/utils/request'
-import CustomTabBar from '@/components/CustomTabBar.vue'
+import { ref, reactive } from 'vue'
+import { onLoad, onShow, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { searchDishes, deleteDish, type Dish } from '@/api/dish'
+import { listDict, type DictItem } from '@/api/common'
+import { addDishToMenu } from '@/api/menu'
+import { thumbOf } from '@/utils/image'
+import { statusBarHeight } from '@/utils/token'
 
-const dishes = ref<any[]>([])
+const sb = statusBarHeight()
+
+// ---- 选菜模式（食集「+ 加菜」进入） ----
+const selectForMenuId = ref<number | null>(null)
+
+// ---- 搜索 / 筛选 / 排序 ----
+const kwInput = ref('')
 const keyword = ref('')
+const tags = ref<DictItem[]>([])
+const cuisines = ref<DictItem[]>([])
+const selectedTagId = ref(0)
+const selectedCuisineId = ref(0)
+const sort = ref<'latest' | 'cooked'>('latest')
+
+// ---- 列表分页（DESIGN.md §12.2 每页 10 条） ----
+const dishes = ref<Dish[]>([])
+const total = ref(0)
 const page = ref(1)
-const pageSize = 15 // DESIGN.md §12.2 列表分页约定
-const status = ref<'loadmore' | 'loading' | 'nomore'>('loadmore')
+const hasMore = ref(true)
 const loading = ref(false)
+const firstLoading = ref(true)
 
-const searchOpen = ref(false)
-const showFilter = ref(false)
-const activeCat = ref('all')
+// 左滑位移（dishId → px）
+const offsets = reactive<Record<number, number>>({})
+let touchStartX = 0
+let touchStartY = 0
+let touching = false
 
-const cats = [
-  { key: 'all', label: '全部' },
-  { key: 'done', label: '做过' },
-  { key: 'own', label: '自创' },
-  { key: 'import', label: '导入' },
-  { key: 'star', label: '收藏' },
-]
+onLoad((options) => {
+  selectForMenuId.value = options?.selectForMenuId ? Number(options.selectForMenuId) : null
+  loadDicts()
+  reload()
+})
 
-const filters = reactive({ sugar: '', cal: '', minutes: '' })
-const diffNames = ['不限', '1', '2', '3', '4', '5']
-const diffIdx = ref(0)
-const METRIC_SUGAR = 5
-const METRIC_CAL = 1
-
-// 菜系/分类/标签字典
-const cuisines = ref<any[]>([{ id: 0, name: '不限' }])
-const categories = ref<any[]>([{ id: 0, name: '不限' }])
-const tags = ref<any[]>([{ id: 0, name: '不限' }])
-const cuisineIdx = ref(0)
-const categoryIdx = ref(0)
-const tagIdx = ref(0)
-const cuisineLabels = computed(() => cuisines.value.map((x: any) => x.name))
-const categoryLabels = computed(() => categories.value.map((x: any) => x.name))
-const tagLabels = computed(() => tags.value.map((x: any) => x.name))
+// 写菜谱发布后 switchTab 无法带参 → 全局标志（storage）触发「最新」排序
+onShow(() => {
+  if (uni.getStorageSync('dish_sort_latest')) {
+    uni.removeStorageSync('dish_sort_latest')
+    if (sort.value !== 'latest') {
+      sort.value = 'latest'
+      reload()
+    }
+  }
+})
 
 async function loadDicts() {
   try {
-    const [cu, cat, tg] = await Promise.all([
-      request<any>({ url: '/dict', method: 'GET', data: { group: 'cuisine', pageSize: 1000 } }),
-      request<any>({ url: '/dict', method: 'GET', data: { group: 'category', pageSize: 1000 } }),
-      request<any>({ url: '/dict', method: 'GET', data: { group: 'tag', pageSize: 1000 } }),
-    ])
-    const toList = (r: any) => Array.isArray(r) ? r : (r?.records || [])
-    cuisines.value = [{ id: 0, name: '不限' }, ...toList(cu)]
-    categories.value = [{ id: 0, name: '不限' }, ...toList(cat)]
-    tags.value = [{ id: 0, name: '不限' }, ...toList(tg)]
+    tags.value = await listDict('tag')
+  } catch {}
+  try {
+    cuisines.value = await listDict('cuisine')
   } catch {}
 }
-loadDicts()
 
-const activeFilterCount = computed(() => {
-  let n = 0
-  if (filters.sugar) n++
-  if (filters.cal) n++
-  if (filters.minutes) n++
-  if (diffIdx.value > 0) n++
-  if (cuisineIdx.value > 0) n++
-  if (categoryIdx.value > 0) n++
-  if (tagIdx.value > 0) n++
-  return n
-})
-
-function toggleSearch() {
-  searchOpen.value = !searchOpen.value
-}
-function onCat(key: string) {
-  activeCat.value = key
-  // 当前分类仅做 UI 高亮 + 简单筛选（来源/收藏留 P1 真实接口）
-  reload()
-}
-function clearKeyword() {
-  keyword.value = ''
-  reload()
-}
-function goSettings() {
-  uni.navigateTo({ url: '/pages/profile/Settings' })
-}
-
-function buildParams(pn: number) {
-  const p: Record<string, any> = {
-    keyword: keyword.value,
-    pageNum: pn,
-    pageSize,
+async function fetch(p: number): Promise<Dish[]> {
+  try {
+    const r = await searchDishes({
+      keyword: keyword.value || undefined,
+      tagIds: selectedTagId.value ? String(selectedTagId.value) : undefined,
+      cuisineIds: selectedCuisineId.value ? String(selectedCuisineId.value) : undefined,
+      sort: sort.value,
+      pageNum: p,
+    })
+    total.value = r.total
+    hasMore.value = r.records.length >= 10
+    return r.records
+  } catch {
+    hasMore.value = false
+    return []
   }
-  if (diffIdx.value > 0) p.maxDifficulty = diffIdx.value
-  if (filters.minutes) p.maxMinutes = Number(filters.minutes)
-  // 来源分类
-  if (activeCat.value === 'own') p.source = 'ORIGINAL'
-  if (activeCat.value === 'import') p.source = 'IMPORT'
-  if (activeCat.value === 'done') p.done = true
-  if (activeCat.value === 'star') p.star = true
-  // 菜系/分类/标签
-  if (cuisineIdx.value > 0) p.cuisineIds = [cuisines.value[cuisineIdx.value].id]
-  if (categoryIdx.value > 0) p.categoryIds = [categories.value[categoryIdx.value].id]
-  if (tagIdx.value > 0) p.tagIds = [tags.value[tagIdx.value].id]
-  const limits: Record<string, number> = {}
-  if (filters.sugar) limits[METRIC_SUGAR] = Number(filters.sugar)
-  if (filters.cal) limits[METRIC_CAL] = Number(filters.cal)
-  if (Object.keys(limits).length) p.nutritionLimits = limits
-  return p
-}
-function resetFilters() {
-  filters.sugar = ''
-  filters.cal = ''
-  filters.minutes = ''
-  diffIdx.value = 0
-  cuisineIdx.value = 0
-  categoryIdx.value = 0
-  tagIdx.value = 0
-  reload()
 }
 
 async function reload() {
   page.value = 1
-  dishes.value = []
-  await load()
+  hasMore.value = true
+  firstLoading.value = true
+  dishes.value = await fetch(1)
+  firstLoading.value = false
+  Object.keys(offsets).forEach((k) => delete offsets[Number(k)])
 }
-async function load() {
-  status.value = 'loading'
+
+async function loadMore() {
+  if (loading.value || !hasMore.value) return
   loading.value = true
+  const list = await fetch(page.value + 1)
+  page.value += 1
+  dishes.value.push(...list)
+  loading.value = false
+}
+
+onPullDownRefresh(async () => {
+  await reload()
+  uni.stopPullDownRefresh()
+})
+
+onReachBottom(() => loadMore())
+
+// ---- 交互 ----
+function onSearch() {
+  keyword.value = kwInput.value.trim()
+  reload()
+}
+function onClearKw() {
+  kwInput.value = ''
+  keyword.value = ''
+  reload()
+}
+function onTag(id: number) {
+  if (selectedTagId.value === id) return
+  selectedTagId.value = id
+  reload()
+}
+function onCuisine(id: number) {
+  if (selectedCuisineId.value === id) return
+  selectedCuisineId.value = id
+  reload()
+}
+function onSort(s: 'latest' | 'cooked') {
+  if (sort.value === s) return
+  sort.value = s
+  reload()
+}
+
+function goBack() {
+  uni.navigateBack()
+}
+
+function subText(d: Dish): string {
+  const cooked = d.cookedCount ?? 0
+  if (cooked > 0) return `做过 ${cooked} 次`
+  const mins = (d.prepTime ?? 0) + (d.cookTime ?? 0)
+  return mins > 0 ? `没做过 · ${mins} 分` : '没做过'
+}
+
+// 点卡片：选菜模式 → 加菜返回；浏览 → 详情（左滑态先复位）
+function onTapCard(d: Dish) {
+  if ((offsets[d.id] || 0) !== 0) {
+    offsets[d.id] = 0
+    return
+  }
+  if (selectForMenuId.value) {
+    addDish(selectForMenuId.value, d)
+    return
+  }
+  uni.navigateTo({ url: `/pages/dish/Detail?id=${d.id}` })
+}
+
+async function addDish(menuId: number, d: Dish) {
   try {
-    const params = buildParams(page.value)
-    const r = params.nutritionLimits
-      ? await searchDishesByNutrition(params)
-      : await searchDishes(params)
-    const records = Array.isArray(r) ? r : (r.records || [])
-    // 前端兜底过滤（后端字段名差异，保证 UI 不崩）
-    dishes.value.push(...records)
-    status.value = records.length < pageSize ? 'nomore' : 'loadmore'
+    await addDishToMenu(menuId, d.id, d.name)
+    uni.showToast({ title: '已加入食集', icon: 'none' })
+    setTimeout(() => uni.navigateBack(), 400)
   } catch {
-    status.value = 'loadmore'
-  } finally {
-    loading.value = false
+    uni.showToast({ title: '加入失败', icon: 'none' })
   }
 }
-function totalMinutes(d: any): number {
-  return (Number(d.prepTime) || 0) + (Number(d.cookTime) || 0)
-}
-function difficultyText(d?: number): string {
-  if (d == null) return ''
-  if (d <= 1) return '简单'
-  if (d === 2) return '中等'
-  return '有难度'
-}
-/** 做过次数文案（对齐原型 "做过 6 次" / "没做过"） */
-function cookText(d: any): string {
-  const n = Number(d.cookCount) || 0
-  return n > 0 ? `做过 ${n} 次` : '没做过'
-}
-/** 无封面图时的占位首字（DESIGN.md §10.4：不用食物 emoji 顶替图片）。 */
-function initial(name?: string): string {
-  if (!name) return '菜'
-  return name.trim().charAt(0) || '菜'
-}
-function imgUrl(u: string): string {
-  if (!u) return ''
-  // 后端返回相对根的路径（如 /gudu/uploads/xxx），H5 经 vite proxy 透传到后端；真机直连已含 host
-  return u.startsWith('http') || u.startsWith('/gudu') ? u : '/gudu' + u
-}
-function onCreate() {
-  uni.showActionSheet({
-    itemList: ['手动录入菜谱', '从网页链接导入'],
-    success: (r) => {
-      if (r.tapIndex === 0) {
-        uni.navigateTo({ url: '/pages/dish/Create' })
-      } else if (r.tapIndex === 1) {
-        uni.navigateTo({ url: '/pages/dish/Create?url=1' })
+
+function confirmDelete(d: Dish) {
+  uni.showModal({
+    title: '删除菜谱',
+    content: `确定删除「${d.name}」吗？删除后不可恢复`,
+    confirmText: '删除',
+    confirmColor: '#DB5A4E',
+    success: async ({ confirm }) => {
+      if (!confirm) {
+        offsets[d.id] = 0
+        return
+      }
+      try {
+        await deleteDish(d.id)
+        dishes.value = dishes.value.filter((x) => x.id !== d.id)
+        total.value = Math.max(0, total.value - 1)
+        uni.showToast({ title: `已删除「${d.name}」`, icon: 'none' })
+      } catch {
+        offsets[d.id] = 0
+        uni.showToast({ title: '删除失败，请稍后重试', icon: 'none' })
       }
     },
   })
 }
-function goDetail(id: number) {
-  uni.navigateTo({ url: `/pages/dish/Detail?id=${id}` })
-}
 
-onPullDownRefresh(() => {
-  reload().finally(() => uni.stopPullDownRefresh())
-})
-onReachBottom(() => {
-  if (status.value === 'loadmore') {
-    page.value++
-    load()
-  }
-})
-reload()
+// ---- 左滑手势 ----
+function onTs(e: TouchEvent, id: number) {
+  touchStartX = e.touches[0].clientX
+  touchStartY = e.touches[0].clientY
+  touching = true
+}
+function onTm(e: TouchEvent, id: number) {
+  if (!touching) return
+  const dx = e.touches[0].clientX - touchStartX
+  const dy = Math.abs(e.touches[0].clientY - touchStartY)
+  if (dy > 12) return // 纵向滚动让路
+  const base = offsets[id] || 0
+  offsets[id] = Math.min(0, Math.max(-72, base + dx))
+}
+function onTe(_e: TouchEvent, id: number) {
+  touching = false
+  const cur = offsets[id] || 0
+  offsets[id] = cur < -36 ? -72 : 0
+}
 </script>
 
 <style scoped>
 .page {
-  padding: 0 14px 100px;
   min-height: 100vh;
+  background: var(--bg);
 }
-
-/* 顶栏：菜谱 + 筛选（对齐原型） */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: calc(env(safe-area-inset-top) + 16px) 8rpx 4px;
+/* 选菜模式顶栏 */
+.picker-top {
+  padding: 0 6px;
 }
-.title {
-  font-size: 22px;
-  font-weight: 800;
-  color: #4A382A;
-}
-.filter-btn {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  font-size: 26rpx;
+.picker-back {
+  font-size: 26px;
   font-weight: 700;
-  color: #D17A3C;
+  color: var(--title);
+  padding: 4px 10px;
+  line-height: 1.2;
 }
-
-/* 搜索框：白底橙边（对齐原型聚焦态） */
+.picker-hint {
+  margin: 0 14px 4px;
+  padding: 8px 12px;
+  background: var(--highlight);
+  border: 1px solid var(--primary-soft);
+  border-radius: var(--r-sm);
+  color: var(--title);
+  font-size: 13px;
+}
+/* 搜索 */
+.search-row {
+  padding: 4px 14px 8px;
+}
 .search-box {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #FFFFFF;
-  border: 3rpx solid #E89150;
-  border-radius: 24rpx;
-  padding: 12rpx 24rpx;
-  margin: 16rpx 0 8rpx;
+  gap: 6px;
+  background: var(--card);
+  border: 1.5px solid var(--primary);
+  border-radius: var(--r-md);
+  padding: 0 12px;
 }
-.s-ico { display: flex; align-items: center; }
-.s-input { flex: 1; font-size: 14px; color: #4A382A; }
-.s-ph { color: #9C8C7A; }
-.s-clear { font-size: 14px; color: #9C8C7A; padding: 0 4px; }
-
-/* 分类横滑（选中=深棕底白字，对齐原型） */
-.cat-scroll {
+.search-ico {
+  color: var(--caption);
+  font-size: 15px;
+}
+.search-ipt {
+  flex: 1;
+  font-size: 12px;
+  color: var(--title);
+  padding: 9px 0;
+}
+.ph {
+  color: var(--caption);
+}
+.search-clear {
+  color: var(--caption);
+  font-size: 13px;
+  padding: 4px;
+}
+/* 标签条 */
+.chip-bar {
   white-space: nowrap;
-  margin: 4rpx 0;
 }
-.cat-row {
+.chip-row {
   display: inline-flex;
-  gap: 12rpx;
-  padding: 8rpx 0 12rpx;
+  gap: 6px;
+  padding: 0 14px 6px;
 }
-.cat-chip {
-  display: inline-block;
-  padding: 10rpx 28rpx;
-  border-radius: 16rpx;
-  font-size: 26rpx;
-  color: #6E5C49;
-  background: #FFFFFF;
-  border: 1px solid #F0E6D6;
+.chip {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--body);
+  font-size: 11px;
 }
-.cat-chip.on {
-  background: #4A382A;
+.chip.on {
+  background: var(--title);
+  border-color: var(--title);
   color: #FFFFFF;
-  font-weight: 700;
-  border-color: #4A382A;
 }
-
 /* 排序行 */
 .sort-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  padding: 8rpx 8rpx 12rpx;
-  font-size: 22rpx;
+  padding: 4px 16px 8px;
 }
-.sort-count { color: #9C8C7A; }
-.sort-pick { color: #D17A3C; font-weight: 700; }
-
-/* 筛选 */
-.filter-toggle {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 6rpx 0 10rpx;
-  color: #E89150; font-size: 13px;
+.total {
+  font-size: 12px;
+  color: var(--caption);
 }
-.badge {
-  background: #E89150; color: #fff; font-size: 11px;
-  border-radius: 10px; padding: 0 6px; line-height: 16px;
-}
-.filter-panel { padding: 14px; }
-.f-title { font-size: 12px; color: #9C8C7A; margin-bottom: 8px; }
-.f-grid { display: flex; gap: 8px; }
-.f-cell { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.f-label { font-size: 11px; color: #9C8C7A; }
-.f-input {
-  background: #FDFAF4;
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
-  font-size: 26rpx;
-  color: #4A382A;
-  min-height: 60rpx;
-}
-.f-picker {
-  background: #FDFAF4;
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
-  font-size: 26rpx;
-  color: #4A382A;
-  min-height: 60rpx;
-}
-.f-actions { display: flex; gap: 8px; margin-top: 12px; }
-.half { flex: 1; }
-.sm { height: 64rpx; line-height: 64rpx; font-size: 13px; padding: 0; }
-
-/* 菜品列表（方案D：左圆头像 + 右三行） */
-.dish-list {
+.sort-chips {
   display: flex;
-  flex-direction: column;
-  padding: 8rpx 0;
+  gap: 6px;
 }
-.dish-row {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-  background: #FFFFFF;
-  border: 1px solid #F0E6D6;
-  border-radius: 24rpx;
-  padding: 20rpx;
-  margin-bottom: 14rpx;
+.schip {
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--body);
+  font-size: 11px;
 }
-.dish-avatar {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 22rpx;
+.schip.on {
+  background: var(--title);
+  border-color: var(--title);
+  color: #FFFFFF;
+  font-weight: 700;
+}
+/* 列表 */
+.list {
+  padding: 0 12px 16px;
+}
+.swipe-wrap {
+  position: relative;
+  margin-bottom: 7px;
+  border-radius: var(--r-md);
   overflow: hidden;
-  flex-shrink: 0;
-  background: #FBF0DD;
+}
+.swipe-del {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 72px;
+  background: #E53935;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.avatar-img { width: 100%; height: 100%; }
-.avatar-ph { font-size: 36rpx; font-weight: 600; color: rgba(74, 56, 42, 0.45); }
-.dish-info {
+.swipe-del-txt {
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+}
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px;
+  transition: transform 0.15s ease-out;
+}
+.cover {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  flex-shrink: 0;
+  background: var(--secondary);
+}
+.info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
-  min-width: 0;
-  padding-top: 4rpx;
+  gap: 3px;
 }
-/* 第1行：菜名 + 来源 */
-.dish-r1 {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-}
-.dish-name {
-  font-size: 17px;
-  font-weight: bold;
-  color: #4A382A;
+.name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--title);
   overflow: hidden;
-  white-space: nowrap;
   text-overflow: ellipsis;
-}
-.dish-src {
-  font-size: 18rpx;
-  font-weight: 600;
-  color: #4FA0D0;
-  background: rgba(79, 160, 208, 0.12);
-  border-radius: 8rpx;
-  padding: 2rpx 10rpx;
-  flex-shrink: 0;
-}
-/* 第2行：做过·时间·评分（灰字） */
-.dish-r2 {
-  display: flex;
-  align-items: center;
-}
-.dish-meta {
-  font-size: 24rpx;
-  color: #9C8C7A;
-}
-.dish-dot {
-  font-size: 24rpx;
-  color: #9C8C7A;
-}
-/* 第3行：分类标签（暖橙背景） */
-.dish-r3 {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8rpx;
-  margin-top: 4rpx;
-  overflow: hidden;
   white-space: nowrap;
 }
-.dish-tag {
-  display: inline-block;
-  background: rgba(232, 145, 80, 0.1);
-  color: #E89150;
-  border-radius: 8rpx;
-  padding: 4rpx 16rpx;
-  font-size: 22rpx;
+.sub {
+  font-size: 10px;
+  color: var(--caption);
 }
-
-/* 空态/底部 */
-.empty {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 12px; padding: 80px 0;
-  color: #9C8C7A; font-size: 13px; text-align: center;
+.arrow {
+  color: var(--caption);
+  font-size: 16px;
+  font-weight: 700;
 }
-.empty-ico { display: block; }
-.end { text-align: center; color: #9C8C7A; font-size: 12px; padding: 20rpx 0; }
-
-/* 悬浮 + */
-.fab {
-  position: fixed;
-  right: 36rpx;
-  bottom: calc(env(safe-area-inset-bottom) + 140rpx);
-  width: 108rpx;
-  height: 108rpx;
-  border-radius: 54rpx;
-  background: linear-gradient(135deg, #E89150, #D17A3C);
-  color: #FFFFFF;
-  font-size: 56rpx;
-  font-weight: 300;
-  line-height: 108rpx;
+.footer {
+  padding: 16px 0;
   text-align: center;
-  box-shadow: 0 8rpx 24rpx rgba(232, 145, 80, 0.4);
-  z-index: 99;
+  font-size: 12px;
+  color: var(--caption);
 }
 </style>

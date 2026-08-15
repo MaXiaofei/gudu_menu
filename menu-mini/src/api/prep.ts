@@ -1,42 +1,33 @@
 import { request } from '@/utils/request'
 
-/** 备料状态（后端 PrepStatus enum 名）。 */
-export type PrepStatus = 'PENDING' | 'READY' | 'THAWING' | 'MARINATING'
-
-/** 备菜列表一行（后端 PrepItemVO record）。 */
+/** 备菜项（按食材聚合）。 */
 export interface PrepItem {
   ingredientId: number
   ingredientName: string
-  /** 聚合总克数（已 ×servingFactor，不减库存）。 */
-  totalGrams: number
-  /** 被几道菜用到。 */
-  dishCount: number
-  /** 用到该食材的菜名列表（共用高亮用）。 */
-  dishNames: string[]
-  status: PrepStatus
-  /** 是否共用项（dishCount >= 2），前端 🔥 高亮便利字段。 */
-  shared: boolean
+  stockLevel?: string | null // ENOUGH / LOW / NONE
+  usageTexts?: string[]
+  dishCount?: number
+  dishNames?: string[]
+  status: string // PENDING / READY / THAWING / MARINATING
 }
 
-/** 备菜聚合（后端 MenuPrepVO record）。 */
-export interface MenuPrepVO {
-  /** 主料（purchaseCategoryId != 调味料）。 */
+export interface MenuPrep {
   items: PrepItem[]
-  /** 调料折叠组（purchaseCategoryId=调味料，与菜分组显示、计入进度）。 */
   condiments: PrepItem[]
-  /** 已备数（items + condiments 中 status=READY 的数量）。 */
   readyCount: number
-  /** 共需备料数（= items.length + condiments.length，含调料）。 */
   totalCount: number
 }
 
 /** 备菜聚合：GET /menu/{id}/prep。 */
-export const getMenuPrep = (menuId: number) =>
-  request<MenuPrepVO>({ url: `/menu/${menuId}/prep`, method: 'GET' })
+export function getPrep(menuId: number): Promise<MenuPrep> {
+  return request<MenuPrep>({ url: `/menu/${menuId}/prep`, method: 'GET' })
+}
 
-/** 更新备料状态：PUT /menu/{id}/prep/{ingredientId}?status=READY（query 拼接，参照 markDone 范式）。 */
-export const updatePrepStatus = (
-  menuId: number,
-  ingredientId: number,
-  status: PrepStatus,
-) => request({ url: `/menu/${menuId}/prep/${ingredientId}?status=${status}`, method: 'PUT' })
+/** 更新备料状态（upsert）：PUT /menu/{id}/prep/{ingredientId}?status=READY。 */
+export function updatePrepStatus(menuId: number, ingredientId: number, status: string): Promise<void> {
+  return request({
+    url: `/menu/${menuId}/prep/${ingredientId}`,
+    method: 'PUT',
+    data: { status },
+  })
+}
