@@ -23,6 +23,7 @@ import java.util.Map;
 public class AuthService {
 
     private final MemberMapper memberMapper;
+    private final WxClient wxClient;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public Map<String, Object> login(LoginDTO dto) {
@@ -34,6 +35,27 @@ public class AuthService {
         }
         StpUtil.login(m.getId());
         // 合并:登录即定就餐成员,免切换。兼容现有读 session.currentMemberId 的代码。
+        StpUtil.getSession().set("currentMemberId", m.getId());
+        return Map.of("token", StpUtil.getTokenValue(), "nickname", m.getName());
+    }
+
+    /**
+     * 微信小程序静默登录（V50）：wx.login 的 code → openid → 查/建 member → Sa-Token 发券。
+     * 新用户零门槛：openid 首次出现即自动建号（name=微信用户，phone=wx_ 前缀占位）。
+     * 同一 openid 永远同一账号（换设备数据不丢）。
+     */
+    public Map<String, Object> wxLogin(String code) {
+        String openid = wxClient.code2session(code);
+
+        Member m = memberMapper.selectOne(new QueryWrapper<Member>().eq("openid", openid));
+        if (m == null) {
+            m = new Member();
+            m.setOpenid(openid);
+            m.setName("微信用户");
+            m.setPhone("wx_" + openid.substring(0, Math.min(8, openid.length()))); // 占位手机号（无密码登录）
+            memberMapper.insert(m);
+        }
+        StpUtil.login(m.getId());
         StpUtil.getSession().set("currentMemberId", m.getId());
         return Map.of("token", StpUtil.getTokenValue(), "nickname", m.getName());
     }

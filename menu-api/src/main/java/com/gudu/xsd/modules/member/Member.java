@@ -29,6 +29,9 @@ public class Member {
     /** 登录手机号(V29 合并 user 后,member 自带账号)。admin 用字面量 "admin"。 */
     private String phone;
 
+    /** 微信 openid（小程序静默登录，V50）。同一 openid = 同一账号；可空（账号密码登录的成员）。 */
+    private String openid;
+
     /** BCrypt 密码哈希。null 表示该成员未开通登录(纯家庭成员)。仅服务端比对用，禁止外泄。 */
     @JsonIgnore
     private String passwordHash;
