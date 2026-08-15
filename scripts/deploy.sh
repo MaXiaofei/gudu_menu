@@ -85,8 +85,10 @@ if echo "$SERVICES" | grep -qw menu-api; then
     sleep 5
   done
 
-  echo "❌ 健康检查超时（120s 内未启动）"
-  echo "  查看日志: docker compose $PROJECT_OPT -f $COMPOSE_FILE logs --tail 30 menu-api"
+  echo "❌ 健康检查超时（120s 内未启动），打印容器日志定位："
+  docker compose $PROJECT_OPT -f "$COMPOSE_FILE" logs --tail 80 menu-api || true
+  echo "  容器状态："
+  docker compose $PROJECT_OPT -f "$COMPOSE_FILE" ps menu-api || true
   exit 1
 fi
 
