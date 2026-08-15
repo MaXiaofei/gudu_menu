@@ -104,7 +104,7 @@ jobs:
           password: ${{ secrets.SSH_PASS }}
           port: ${{ secrets.SSH_PORT || 22 }}
           envs: DEPLOY_ENV, SERVICES
-          command_timeout: 15m
+          command_timeout: 45m
           script_stop: true
           script: |
             set -e; if [ "$DEPLOY_ENV" = "prod" ]; then D=/root/gudu; else D=/root/gudu-staging; fi; cd "$D" && git fetch --all --prune && git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)" && SERVICES="$SERVICES" ENV="$DEPLOY_ENV" bash scripts/deploy.sh
