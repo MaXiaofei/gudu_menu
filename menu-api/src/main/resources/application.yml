@@ -4,6 +4,9 @@ server:
     context-path: /gudu
 
 spring:
+  autoconfigure:
+    # 排除 PgVector 自动配置（其误用主 MySQL 数据源；vectorStore 由 PgVectorConfig 显式定义）
+    exclude: org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
   profiles:
     active: dev
   jackson:
