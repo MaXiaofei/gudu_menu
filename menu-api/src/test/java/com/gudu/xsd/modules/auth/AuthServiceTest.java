@@ -53,7 +53,7 @@ class AuthServiceTest {
     void 手机号登录成功_返回token和昵称_session定成员() {
         MemberMapper mm = mock(MemberMapper.class);
         when(mm.selectOne(any(Wrapper.class))).thenReturn(phoneMember());
-        AuthService svc = new AuthService(mm);
+        AuthService svc = new AuthService(mm, mock(WxClient.class));
 
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             SaSession session = mock(SaSession.class);
@@ -73,7 +73,7 @@ class AuthServiceTest {
     void admin账号登录成功_phone为admin字面量() {
         MemberMapper mm = mock(MemberMapper.class);
         when(mm.selectOne(any(Wrapper.class))).thenReturn(adminMember());
-        AuthService svc = new AuthService(mm);
+        AuthService svc = new AuthService(mm, mock(WxClient.class));
 
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             SaSession session = mock(SaSession.class);
@@ -92,7 +92,7 @@ class AuthServiceTest {
     void 手机号不存在_抛用户名或密码错误() {
         MemberMapper mm = mock(MemberMapper.class);
         when(mm.selectOne(any(Wrapper.class))).thenReturn(null);
-        AuthService svc = new AuthService(mm);
+        AuthService svc = new AuthService(mm, mock(WxClient.class));
 
         assertThatThrownBy(() -> svc.login(new LoginDTO("13900000000", "any")))
                 .isInstanceOf(BizException.class)
@@ -103,7 +103,7 @@ class AuthServiceTest {
     void 密码错误_抛用户名或密码错误() {
         MemberMapper mm = mock(MemberMapper.class);
         when(mm.selectOne(any(Wrapper.class))).thenReturn(phoneMember());
-        AuthService svc = new AuthService(mm);
+        AuthService svc = new AuthService(mm, mock(WxClient.class));
 
         assertThatThrownBy(() -> svc.login(new LoginDTO("13800000001", "wrong")))
                 .isInstanceOf(BizException.class)
@@ -117,10 +117,81 @@ class AuthServiceTest {
         m.setPasswordHash(null);
         MemberMapper mm = mock(MemberMapper.class);
         when(mm.selectOne(any(Wrapper.class))).thenReturn(m);
-        AuthService svc = new AuthService(mm);
+        AuthService svc = new AuthService(mm, mock(WxClient.class));
 
         assertThatThrownBy(() -> svc.login(new LoginDTO("13800000001", "pw123")))
                 .isInstanceOf(BizException.class)
                 .hasMessageContaining("用户名或密码错误");
+    }
+
+    // ===================== wxLogin（V50 微信静默登录） =====================
+
+    @Test
+    void 微信登录_老openid_直接登录不建号() {
+        MemberMapper mm = mock(MemberMapper.class);
+        WxClient wx = mock(WxClient.class);
+        when(wx.code2session("code-ok")).thenReturn("oABC123");
+        Member existing = new Member();
+        existing.setId(20L);
+        existing.setName("老微信用户");
+        existing.setOpenid("oABC123");
+        when(mm.selectOne(any(Wrapper.class))).thenReturn(existing);
+
+        AuthService svc = new AuthService(mm, wx);
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            SaSession session = mock(SaSession.class);
+            stp.when(() -> StpUtil.login(20L)).thenAnswer(i -> null);
+            stp.when(StpUtil::getSession).thenReturn(session);
+            stp.when(StpUtil::getTokenValue).thenReturn("tok-wx");
+
+            Map<String, Object> r = svc.wxLogin("code-ok");
+            assertThat(r.get("token")).isEqualTo("tok-wx");
+            assertThat(r.get("nickname")).isEqualTo("老微信用户");
+            verify(session).set("currentMemberId", 20L);
+        }
+        verify(mm, never()).insert(any(Member.class));
+    }
+
+    @Test
+    void 微信登录_新openid_自动建号_昵称微信用户_占位手机号() {
+        MemberMapper mm = mock(MemberMapper.class);
+        WxClient wx = mock(WxClient.class);
+        when(wx.code2session("code-new")).thenReturn("oXYZ_long_openid_9999");
+        when(mm.selectOne(any(Wrapper.class))).thenReturn(null);
+        when(mm.insert(any(Member.class))).thenAnswer(i -> {
+            ((Member) i.getArgument(0)).setId(30L);
+            return 1;
+        });
+
+        AuthService svc = new AuthService(mm, wx);
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            SaSession session = mock(SaSession.class);
+            stp.when(() -> StpUtil.login(30L)).thenAnswer(i -> null);
+            stp.when(StpUtil::getSession).thenReturn(session);
+            stp.when(StpUtil::getTokenValue).thenReturn("tok-new");
+
+            Map<String, Object> r = svc.wxLogin("code-new");
+            assertThat(r.get("nickname")).isEqualTo("微信用户");
+        }
+        // 验证建号参数：openid + 占位 phone（前 8 位）+ 无密码
+        var captor = org.mockito.ArgumentCaptor.forClass(Member.class);
+        verify(mm).insert(captor.capture());
+        Member created = captor.getValue();
+        assertThat(created.getOpenid()).isEqualTo("oXYZ_long_openid_9999");
+        assertThat(created.getPhone()).isEqualTo("wx_" + "oXYZ_lon");
+        assertThat(created.getPasswordHash()).isNull();
+    }
+
+    @Test
+    void 微信登录_code2session失败_抛业务异常() {
+        MemberMapper mm = mock(MemberMapper.class);
+        WxClient wx = mock(WxClient.class);
+        when(wx.code2session("bad")).thenThrow(new BizException("微信登录失败(40029)：invalid code"));
+
+        AuthService svc = new AuthService(mm, wx);
+        assertThatThrownBy(() -> svc.wxLogin("bad"))
+                .isInstanceOf(BizException.class)
+                .hasMessageContaining("40029");
+        verify(mm, never()).insert(any(Member.class));
     }
 }
