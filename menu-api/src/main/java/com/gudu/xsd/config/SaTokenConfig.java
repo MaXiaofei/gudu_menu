@@ -18,6 +18,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                 .addPathPatterns("/**")
                 .excludePathPatterns(
                         "/auth/login",
+                        "/auth/wx-login", // V50 微信小程序静默登录（免登录调用）
                         "/doc.html",
                         "/swagger-ui/**",
                         "/swagger-resources/**",
