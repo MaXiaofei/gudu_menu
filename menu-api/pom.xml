@@ -47,6 +47,13 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
         </dependency>
+
+        <!-- PgVector 独立数据源驱动（PgVectorConfig 指向 PostgreSQL；starter 不带驱动） -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <!-- Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
