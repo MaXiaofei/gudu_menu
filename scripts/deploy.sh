@@ -64,6 +64,21 @@ if echo "$SERVICES" | grep -qw menu-api; then
   done
 fi
 
+# 2.5 向量库扩展确保（幂等）：pgvector 容器存在但 vector 扩展缺失时
+#     Spring AI PgVectorStore 启动 CREATE EXTENSION 会失败导致整个应用起不来。
+if echo "$SERVICES" | grep -qw menu-api; then
+  echo "→ 确保 pgvector vector 扩展..."
+  docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-pgvector \
+    psql -U gudu -d gudu -c 'CREATE EXTENSION IF NOT EXISTS vector;' \
+    || echo "  （pgvector 容器未就绪，跳过——若启动失败请检查 gudu-pgvector 服务）"
+fi
+
+# 2.6 基础服务确保在位（幂等）：pgvector/ollama 等新依赖服务可能从未在服务器创建过
+if echo "$SERVICES" | grep -qw menu-api; then
+  echo "→ 确保基础服务在位（mysql/redis/pgvector/ollama）..."
+  docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-recreate gudu-mysql gudu-redis gudu-pgvector gudu-ollama
+fi
+
 # 3. 重启容器（加载新镜像，--no-deps 不动 mysql/redis）
 for s in $SERVICES; do
   echo "→ 重启 $s..."
