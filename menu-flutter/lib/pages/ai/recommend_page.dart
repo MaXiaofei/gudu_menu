@@ -8,7 +8,7 @@ import '../../services/dailylog_service.dart';
 import '../../stores/member_store.dart';
 import '../../widgets/action_bar.dart';
 
-/// 智能荐菜：输入范围/筛选 → AI 推荐菜品组合（V55：预算输入随价格链路删除）。
+/// 推荐：想吃什么（自然语言）→ 菜谱向量库语义召回 → 组合推荐（2026-08 向量化版）。
 class AiRecommendPage extends StatefulWidget {
   const AiRecommendPage({super.key});
   @override
@@ -103,27 +103,19 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF7B68EE), Color(0xFF9B6FE8)]),
-              borderRadius: BorderRadius.circular(AppTokens.rMd),
-            ),
-            child: Column(children: [
-              Text('智能荐菜', style: t.textStyles.subtitle.copyWith(color: t.card)),
-              const SizedBox(height: 8),
-              Text('说出想吃的口味，结合做菜历史从菜谱语义库推荐', style: t.textStyles.sm.copyWith(color: Colors.white70)),
-            ]),
-          ),
-          const SizedBox(height: 16),
+          // 页面标题（无花哨头部卡：Tab 主页 ActionBar 下直接内容，§13）
+          Text('推荐', style: t.textStyles.subtitle),
+          const SizedBox(height: AppTokens.sp4),
+          Text('说说想吃的口味，从菜谱语义库找菜、组合推荐',
+              style: t.textStyles.caption.copyWith(color: t.caption)),
+          const SizedBox(height: AppTokens.sp16),
 
           // 想吃什么（语义主入口）：自然语言 + 快捷口味 chips
           TextField(
             controller: _prefCtrl,
             decoration: InputDecoration(
-              labelText: '想吃什么',
-              hintText: '如：清淡下饭、酸甜开胃、来点汤',
-              prefixIcon: const Icon(Icons.auto_awesome_outlined),
+              hintText: '想吃什么？如：清淡下饭、酸甜开胃',
+              prefixIcon: const Icon(Icons.search, size: 18),
               isDense: true,
               filled: true, fillColor: t.bg,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
@@ -148,34 +140,45 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                     )).toList(),
           ),
 
-          // 语义找菜即时结果（Top8 chips，点进详情）
+          // 语义找菜即时结果（列表行样式，对齐菜谱列表）
           if (_semanticLoading)
             const Padding(padding: EdgeInsets.all(12), child: Center(child: SizedBox(
                 width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))),
           if (_semanticHits != null && _semanticHits!.isNotEmpty) ...[
-            const SizedBox(height: AppTokens.sp8),
-            Wrap(
-              spacing: AppTokens.sp6, runSpacing: AppTokens.sp4,
-              children: _semanticHits!.map((h) {
-                final dishId = h['dishId'] as int?;
-                final name = h['name'] as String? ?? '';
-                final score = ((h['score'] as num?) ?? 0).toDouble();
-                return InkWell(
-                  onTap: () { if (dishId != null) context.push('/dish/$dishId'); },
-                  borderRadius: BorderRadius.circular(AppTokens.rMd),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: t.primary.withAlpha(15), borderRadius: BorderRadius.circular(AppTokens.rMd),
-                    ),
-                    child: Text('$name ${(score * 100).toStringAsFixed(0)}%',
-                        style: t.textStyles.xs.copyWith(color: t.primary)),
+            const SizedBox(height: AppTokens.sp12),
+            Text('找菜结果', style: t.textStyles.sectionLabel.copyWith(color: t.caption)),
+            const SizedBox(height: AppTokens.sp6),
+            ..._semanticHits!.map((h) {
+              final dishId = h['dishId'] as int?;
+              final name = h['name'] as String? ?? '';
+              final score = ((h['score'] as num?) ?? 0).toDouble();
+              final cookTime = h['cookTime'] as int?;
+              return InkWell(
+                onTap: () { if (dishId != null) context.push('/dish/$dishId'); },
+                borderRadius: BorderRadius.circular(AppTokens.rMd),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 7),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(AppTokens.rMd),
+                    border: Border.all(color: t.border),
                   ),
-                );
-              }).toList(),
-            ),
+                  child: Row(children: [
+                    Expanded(child: Text(name, style: t.textStyles.cardTitle)),
+                    if (cookTime != null)
+                      Text('$cookTime 分钟', style: t.textStyles.caption),
+                    const SizedBox(width: 8),
+                    Text('相似 ${(score * 100).toStringAsFixed(0)}%',
+                        style: t.textStyles.xs.copyWith(color: t.primary)),
+                    const SizedBox(width: 2),
+                    Icon(Icons.chevron_right, size: 16, color: t.caption),
+                  ]),
+                ),
+              );
+            }),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: AppTokens.sp8),
 
           // 范围（可选）
           Container(
@@ -238,7 +241,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                   onPressed: _loading ? null : _recommend,
                   icon: _loading
                       ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.card))
-                      : const Icon(Icons.auto_awesome, size: 18),
+                      : null,
                   label: const Text('推荐菜单'),
                 ),
               ),
@@ -319,11 +322,8 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            CircleAvatar(
-              radius: 12, backgroundColor: t.primary,
-              child: Text('$index', style: t.textStyles.sm.copyWith(fontWeight: FontWeight.bold, color: t.card)),
-            ),
-            const SizedBox(width: 8),
+            Text('$index', style: t.textStyles.lg.copyWith(color: t.primary, fontWeight: FontWeight.w800)),
+            const SizedBox(width: AppTokens.sp8),
             Text('推荐组合', style: t.textStyles.cardTitle.copyWith(color: t.title)),
           ]),
           const SizedBox(height: 12),
