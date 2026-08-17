@@ -180,7 +180,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 height: 44,
                 child: OutlinedButton(
                   onPressed: _semanticLoading ? null : _semanticSearch,
-                  child: const Text('找菜'),
+                  child: const Text('相似菜'),
                 ),
               ),
             ),
@@ -194,7 +194,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                   icon: _loading
                       ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.card))
                       : null,
-                  label: const Text('推荐菜单'),
+                  label: const Text('组合推荐'),
                 ),
               ),
             ),
