@@ -77,12 +77,16 @@ public class DishVectorService {
         }
     }
 
-    /** 存量全量重建（分批，每批 50 道；返回成功写入数）。 */
-    public int rebuildAll() {
+    /** 重建结果：成功数 + 首个失败原因（诊断用，正常时 error 为空）。 */
+    public record RebuildResult(int total, int ok, String error) {}
+
+    /** 存量全量重建（分批，每批 50 道）。 */
+    public RebuildResult rebuildAll() {
         List<Long> ids = dishMapper.selectList(new QueryWrapper<Dish>()
                         .select("id").orderByAsc("id")).stream()
                 .map(Dish::getId).toList();
         int ok = 0;
+        String firstError = null;
         final int batch = 50;
         for (int i = 0; i < ids.size(); i += batch) {
             List<Long> part = ids.subList(i, Math.min(ids.size(), i + batch));
@@ -95,11 +99,15 @@ public class DishVectorService {
                     ok++;
                 } catch (Exception e) {
                     log.warn("重建向量失败 dishId={} err={}", id, e.toString());
+                    if (firstError == null) {
+                        String m = e.toString();
+                        firstError = m.length() > 200 ? m.substring(0, 200) : m;
+                    }
                 }
             }
         }
         log.info("菜谱向量重建完成 total={} ok={}", ids.size(), ok);
-        return ok;
+        return new RebuildResult(ids.size(), ok, firstError);
     }
 
     /**

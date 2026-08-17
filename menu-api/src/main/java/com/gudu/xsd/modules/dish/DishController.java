@@ -61,9 +61,9 @@ public class DishController {
         return R.ok(hits);
     }
 
-    /** 存量菜谱向量重建（部署后建库 / 数据修复用，分批 embedding）。 */
+    /** 存量菜谱向量重建（部署后建库 / 数据修复用，分批 embedding；返回成功数+首个错误）。 */
     @PostMapping("/vector/rebuild")
-    public R<Integer> rebuildVectors() {
+    public R<DishVectorService.RebuildResult> rebuildVectors() {
         return R.ok(vectorSvc.rebuildAll());
     }
 
