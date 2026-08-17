@@ -19,6 +19,20 @@ spring:
     scheduling:
       pool:
         size: 1
+  # E2E 向量库直连预发 pgvector + Ollama（staging 部署，pgvector 宿主机 15432）
+  # 同样走 SSH 隧道：本机隧道打通后 PGVECTOR_HOST=localhost OLLAMA_BASE_URL=http://localhost:11434
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://49.232.3.201:11434}
+      embedding:
+        model: bge-m3
+    vectorstore:
+      pgvector:
+        host: ${PGVECTOR_HOST:49.232.3.201}
+        port: ${PGVECTOR_PORT:15432}
+        database: gudu
+        username: gudu
+        password: ${PGVECTOR_PASSWORD:gudu_vec_2026}
 
 gudu:
   upload-dir: /tmp/gudu-test-uploads
