@@ -1,8 +1,7 @@
-// API 基址（双环境 HTTPS，2026-08-15 起）：
-//   预发 staging（feat/mvp 分支自动部署）: https://staging.imxf.cloud/gudu
-//   生产 prod（main 分支）:                 https://imxf.cloud/gudu
+// API 基址：统一从 config/env.ts 取（环境切换唯一入口，改那里的 ENV 即可全站生效）。
 // 本地 H5 调试可临时改 '/gudu' 走 vite proxy。
-export const BASE = 'https://staging.imxf.cloud/gudu'
+export { BASE } from '@/config/env'
+import { BASE as BASE_URL } from '@/config/env'
 
 export function getToken(): string {
   return uni.getStorageSync('token') || ''
@@ -22,7 +21,7 @@ async function trySilentRelogin(): Promise<boolean> {
           uni.login({ success: (r: any) => resolve(r.code), fail: (e: any) => reject(e) }),
         )
         const res: any = await uni.request({
-          url: BASE + '/auth/wx-login',
+          url: BASE_URL + '/auth/wx-login',
           method: 'POST',
           data: { code },
           header: { Authorization: '' },
@@ -48,7 +47,7 @@ export async function request<T = any>(
 ): Promise<T> {
   const res: any = await uni.request({
     ...opt,
-    url: BASE + opt.url,
+    url: BASE_URL + opt.url,
     header: {
       Authorization: getToken(),
       // 朋友点菜免登录凭证（对应 H5 的 X-Guest-Key）
