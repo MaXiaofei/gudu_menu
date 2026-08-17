@@ -139,8 +139,7 @@ public class AiService {
             String pref = (req.preference() == null || req.preference().isBlank())
                     ? "家常菜" : req.preference().trim();
             String query = profile.isEmpty() ? pref : pref + "，口味类似：" + profile;
-            Set<Long> exclude = new java.util.HashSet<>(
-                    tasteProfileService.recentDishIds(req.memberId(), 30));
+            // 2026-08-17 定稿：不排除做过的菜——完全按口味来，真爱菜会反复出现（画像本就来自做菜历史）
 
             // 3. 菜谱向量库召回（带难度/时长过滤）
             List<Document> hits = dishVectorService.semanticSearch(
@@ -159,7 +158,7 @@ public class AiService {
                 Object dishIdObj = d.getMetadata().get("dishId");
                 if (!(dishIdObj instanceof Number n)) continue;
                 Long dishId = n.longValue();
-                if (dishId == null || exclude.contains(dishId)) continue;
+                if (dishId == null) continue;
                 if (simByDish.containsKey(dishId)) continue;
                 Dish dish = dishService.getById(dishId);
                 if (dish == null) continue;
