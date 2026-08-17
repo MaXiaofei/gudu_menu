@@ -1,6 +1,5 @@
 import 'package:go_router/go_router.dart';
 
-import '../pages/mealplan/mealplan_page.dart';
 import '../pages/pantry/list_page.dart';
 import '../pages/pantry/detail_page.dart';
 import '../pages/pantry/manual_add_page.dart';
@@ -187,9 +186,6 @@ GoRouter createRouter(AuthStore auth) {
       GoRoute(
           path: '/ai-estimate',
           builder: (_, __) => const AiEstimatePage()),
-      GoRoute(
-          path: '/mealplan',
-          builder: (_, __) => const MealPlanPage()),
       GoRoute(
           path: '/shopping',
           builder: (_, state) => ShoppingPage(

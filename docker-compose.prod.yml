@@ -62,6 +62,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./certbot/www:/var/www/certbot:ro
       - ./certbot/conf:/etc/letsencrypt:ro
+      - ./staging-images:/var/www/images:ro
     # 接入 staging 网络，使反代可解析 menu-admin-staging（staging.imxf.cloud）
     networks:
       - default

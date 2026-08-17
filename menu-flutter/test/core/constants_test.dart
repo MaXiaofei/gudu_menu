@@ -30,10 +30,6 @@ void main() {
   });
 
   group('AppConstants 常量', () {
-    test('mealSlots 含 4 餐次', () {
-      expect(AppConstants.mealSlots, ['早餐', '午餐', '晚餐', '加餐']);
-    });
-
     test('tokenKey 已定义', () {
       expect(AppConstants.tokenKey, 'token');
     });

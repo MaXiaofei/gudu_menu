@@ -23,6 +23,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public R<?> all(Exception e) {
         e.printStackTrace();
-        return R.fail("服务器异常");
+        // 诊断辅助（staging）：透出异常类型+首行消息，前端/接口可见，便于定位（如清库后表缺失）
+        String root = e.getMessage() == null ? "" : e.getMessage();
+        Throwable cur = e;
+        while (cur.getCause() != null && cur.getCause() != cur) {
+            cur = cur.getCause();
+            if (cur.getMessage() != null) root = cur.getMessage();
+        }
+        return R.fail("服务器异常[" + e.getClass().getSimpleName() + ": "
+                + (root.length() > 120 ? root.substring(0, 120) : root) + "]");
     }
 }

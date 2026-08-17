@@ -37,7 +37,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>种子同 GuduE2EFlowTest：每 @Test 前 e2e-seed.sql 重置动态表。
  * 不测（另行说明）：POST /dish/import-url（依赖下厨房外网，有 RecipeImporterTest 单测）、
- * POST /mealplan apply-template（模板 snapshot 结构复杂，GET templates 已覆盖）。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -768,46 +767,6 @@ class GuduE2ECoverageTest {
         }
 
         delete(token, "/menu/" + menuId);
-    }
-
-    // ===================== P. 排菜扩展：模板/复制/删项 =====================
-
-    @Test
-    void P_排菜_模板查询_计划复制_删排菜项() {
-        String token = loginAdmin();
-        post(token, "/member/current?memberId=" + MEMBER_CHEF, null);
-
-        // 模板列表
-        JsonNode templates = get(token, "/mealplan/templates");
-        assertThat(templates.get("code").asInt()).isEqualTo(0);
-
-        // 建两个计划（源+目标）
-        String nextMon = LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(2).toString();
-        JsonNode srcCreated = post(token, "/mealplan", Map.of("weekStart", nextMon, "name", "E2E源计划"));
-        assertThat(srcCreated.get("code").asInt()).as("建计划 msg=" + text(srcCreated, "msg")).isEqualTo(0);
-        long srcId = srcCreated.get("data").asLong();
-
-        // 挂一项
-        JsonNode itemCreated = post(token, "/mealplan/" + srcId + "/item",
-                Map.of("date", nextMon, "meal", "午餐", "dishId", DISH_FANQIE, "servingFactor", 1));
-        assertThat(itemCreated.get("code").asInt()).isEqualTo(0);
-        long itemId = itemCreated.get("data").get("itemId").asLong();
-
-        // 复制到新计划（偏移 7 天）
-        JsonNode dstCreated = post(token, "/mealplan",
-                Map.of("weekStart", LocalDate.parse(nextMon).plusDays(7).toString(), "name", "E2E目标计划"));
-        long dstId = dstCreated.get("data").asLong();
-        JsonNode copied = post(token, "/mealplan/" + dstId + "/copy-from/" + srcId, null);
-        assertThat(copied.get("code").asInt()).as("复制计划 msg=" + text(copied, "msg")).isEqualTo(0);
-        assertThat(copied.get("data").asInt()).isEqualTo(1);
-
-        // 目标计划详情含复制项
-        JsonNode dstDetail = get(token, "/mealplan/" + dstId);
-        assertThat(dstDetail.get("data").get("items").size()).isEqualTo(1);
-
-        // 删项 → 详情空
-        assertThat(delete(token, "/mealplan/item/" + itemId).get("code").asInt()).isEqualTo(0);
-        assertThat(get(token, "/mealplan/" + srcId).get("data").get("items").size()).isEqualTo(0);
     }
 
     // ===================== Q. 文件上传（multipart） =====================

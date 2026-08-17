@@ -13,10 +13,10 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 采购清单接口（redesign）。范式照 pantry/mealplan：返回 R<T>，@Tag 分组。
+ * 采购清单接口（redesign）。范式照 pantry：返回 R<T>，@Tag 分组。
  * 不做估价。generate 走 @MpPerm(shopping.generate) 功能权限。
  *
- * <p>三数据源：menu（从 menu_dish）/ dish（多选）/ plan（从 meal_plan_item）。
+ * <p>数据源：menu（从 menu_dish）/ dish（多选）。
  * 采购量+采购单位由用户填（PUT /item/{id}），referenceGrams 仅提示。
  */
 @RestController
@@ -27,12 +27,12 @@ public class ShoppingController {
 
     private final ShoppingService svc;
 
-    /** 生成请求体：sourceType + sourceId(menu/plan) 或 sourceIds(dish 多选)。 */
+    /** 生成请求体：sourceType + sourceId(menu) 或 sourceIds(dish 多选)。 */
     @Data
     public static class GenerateReq {
-        /** 数据源：menu / dish / plan / custom。 */
+        /** 数据源：menu / dish / custom。 */
         private String sourceType;
-        /** menu 或 plan 的 id（sourceType=menu/plan 时用）。 */
+        /** menu 的 id（sourceType=menu 时用）。 */
         private Long sourceId;
         /** dish 多选 id 列表（sourceType=dish 时用）。 */
         private List<Long> sourceIds;
@@ -41,13 +41,13 @@ public class ShoppingController {
     }
 
     /**
-     * 从菜单/菜品/周计划/自定义文本生成采购草稿。
+     * 从菜单/菜品/自定义文本生成采购草稿。
      * 返回新生成的 shopping_list.id。
      */
     @PostMapping("/generate")
     @MpPerm("shopping.generate")
     public R<Long> generate(@RequestBody GenerateReq req) {
-        String type = req.getSourceType() == null ? "plan" : req.getSourceType();
+        String type = req.getSourceType() == null ? "dish" : req.getSourceType();
         if ("custom".equals(type)) {
             return R.ok(svc.generateFromText(req.getCustomText()));
         }

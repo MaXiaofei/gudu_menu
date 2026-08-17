@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
 import '../../services/dailylog_service.dart';
-import '../../services/mealplan_service.dart';
 import '../../stores/member_store.dart';
 import '../../widgets/action_bar.dart';
 
@@ -185,44 +184,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
     );
   }
 
-  /// 把推荐组合排入周计划：选日期 → 挂到当前 plan
-  Future<void> _addToPlan(List<Map<String, dynamic>> dishes) async {
-    final plans = await MealPlanService.list();
-    if (plans.isEmpty) {
-      _snack('请先创建周计划');
-      return;
-    }
-    final planId = plans.first.id;
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 30)),
-    );
-    if (picked == null) return;
-    final dateStr = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-
-    int added = 0;
-    for (final d in dishes) {
-      final dishId = d['dishId'] as int?;
-      if (dishId == null) continue;
-      try {
-        await MealPlanService.addItem(planId, MealPlanItem(
-          date: dateStr, meal: '午餐', dishId: dishId, servingFactor: 1,
-        ));
-        added++;
-      } catch (_) {}
-    }
-    _snack('已排入 $added 道到 $dateStr 午餐');
-  }
-
-  void _snack(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
-  }
-
   Widget _scopeChip(String label, String value) {
     final t = AppTokens.of(context);
     final active = _scope == value;
@@ -294,15 +255,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
               ]),
             )),
           ],
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _addToPlan(dishes),
-              icon: const Icon(Icons.calendar_today, size: 14),
-              label: Text('排入计划', style: t.textStyles.sm),
-            ),
-          ),
         ]),
       ),
     );

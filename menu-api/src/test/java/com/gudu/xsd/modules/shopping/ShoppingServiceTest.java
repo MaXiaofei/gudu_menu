@@ -4,8 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
-import com.gudu.xsd.modules.mealplan.mapper.MealPlanItemMapper;
-import com.gudu.xsd.modules.mealplan.mapper.MealPlanMapper;
 import com.gudu.xsd.modules.menu.MenuDish;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
@@ -49,8 +47,6 @@ import static org.mockito.Mockito.verify;
 class ShoppingServiceTest {
 
     @Mock ShoppingItemMapper itemMapper;
-    @Mock MealPlanItemMapper mealPlanItemMapper;
-    @Mock MealPlanMapper mealPlanMapper;
     @Mock DishIngredientMapper dishIngredientMapper;
     @Mock IngredientMapper ingredientMapper;
     @Mock DictMapper dictMapper;

@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 /**
- * 每日饮食记录接口。范式照 mealplan/dish：返回 R<T>，@Tag 分组。
+ * 每日饮食记录接口。范式照 dish：返回 R<T>，@Tag 分组。
  * - POST / 提交当天日志（session memberId）
  * - GET /?date= 查当天日志(含 items)
  * - GET /{logId}/nutrition 总营养(metricId → value)

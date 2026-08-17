@@ -10,10 +10,6 @@ import com.gudu.xsd.modules.dict.SysDict;
 import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
-import com.gudu.xsd.modules.mealplan.MealPlan;
-import com.gudu.xsd.modules.mealplan.MealPlanItem;
-import com.gudu.xsd.modules.mealplan.mapper.MealPlanItemMapper;
-import com.gudu.xsd.modules.mealplan.mapper.MealPlanMapper;
 import com.gudu.xsd.modules.menu.MenuDish;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
@@ -49,8 +45,7 @@ import java.util.stream.Collectors;
  * <p>核心流程 generate(sourceType, sourceId/sourceIds)：
  * <ul>
  *   <li>menu  → 查 menu_dish 拿 dish_id 列表；</li>
- *   <li>dish  → 直接用传入的 dish_ids；</li>
- *   <li>plan  → 查 meal_plan_item 拿 dish_id 列表。</li>
+ *   <li>dish  → 直接用传入的 dish_ids。</li>
  * </ul>
  * 然后查各 dish 的 dish_ingredient(ingredient_id + amount × servingFactor)
  * → join ingredient 拿 purchaseCategoryId → 组装 Usage →
@@ -61,14 +56,12 @@ import java.util.stream.Collectors;
  *
  * <p>不做估价。VO 带中文（食材名/采购单位名 斤把个，枚举铁律）。
  *
- * <p>参照 MealPlanService / PantryService 范式：ServiceImpl 主表 + 显式多 Mapper 构造。
+ * <p>参照 PantryService 范式：ServiceImpl 主表 + 显式多 Mapper 构造。
  */
 @Service
 public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingList> {
 
     private final ShoppingItemMapper itemMapper;
-    private final MealPlanItemMapper mealPlanItemMapper;
-    private final MealPlanMapper mealPlanMapper;
     private final DishIngredientMapper dishIngredientMapper;
     private final IngredientMapper ingredientMapper;
     private final DictMapper dictMapper;
@@ -80,8 +73,6 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
 
     @Autowired
     public ShoppingService(ShoppingItemMapper itemMapper,
-                           MealPlanItemMapper mealPlanItemMapper,
-                           MealPlanMapper mealPlanMapper,
                            DishIngredientMapper dishIngredientMapper,
                            IngredientMapper ingredientMapper,
                            DictMapper dictMapper,
@@ -91,8 +82,6 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                            PantryService pantryService,
                            StockLogMapper stockLogMapper) {
         this.itemMapper = itemMapper;
-        this.mealPlanItemMapper = mealPlanItemMapper;
-        this.mealPlanMapper = mealPlanMapper;
         this.dishIngredientMapper = dishIngredientMapper;
         this.ingredientMapper = ingredientMapper;
         this.dictMapper = dictMapper;
@@ -108,8 +97,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     /**
      * 通用生成：根据数据源类型解析涉及的 dish_id 列表，聚合食材用量，落库采购草稿。
      *
-     * @param sourceType 数据源：menu / dish / plan
-     * @param sourceId   menu 或 plan 的 id（dish 时可空，用 sourceIds）
+     * @param sourceType 数据源：menu / dish
+     * @param sourceId   menu 的 id（dish 时可空，用 sourceIds）
      * @param sourceIds  dish 数据源时的多选 dish_id 列表
      * @return 新生成的 shopping_list.id
      */
@@ -166,12 +155,12 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         return list.getId();
     }
 
-    /** 一笔 dish 用量：dish_id + 份数系数（plan 取排菜项份数；menu/dish 默认 1）。 */
+    /** 一笔 dish 用量：dish_id + 份数系数（menu/dish 默认 1）。 */
     private record DishUsage(Long dishId, BigDecimal servingFactor) {}
 
     /** 根据数据源类型解析涉及的 dish_id 列表（含份数系数）。 */
     private List<DishUsage> resolveDishes(String sourceType, Long sourceId, List<Long> sourceIds) {
-        if (sourceType == null) sourceType = "plan";
+        if (sourceType == null) sourceType = "dish";
         switch (sourceType) {
             case "menu": {
                 if (sourceId == null) return List.of();
@@ -192,18 +181,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                 }
                 return out;
             }
-            case "plan":
-            default: {
-                if (sourceId == null) return List.of();
-                List<MealPlanItem> planItems = mealPlanItemMapper.selectList(
-                        new QueryWrapper<MealPlanItem>().eq("plan_id", sourceId));
-                List<DishUsage> out = new ArrayList<>();
-                for (MealPlanItem pi : planItems) {
-                    BigDecimal f = pi.getServingFactor() == null ? BigDecimal.ONE : pi.getServingFactor();
-                    out.add(new DishUsage(pi.getDishId(), f));
-                }
-                return out;
-            }
+            default:
+                return List.of();
         }
     }
 
@@ -216,8 +195,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             return;
         }
         if (memberId == null) return;
-        String src = sourceType == null ? "周计划" :
-                ("menu".equals(sourceType) ? "菜单" : "dish".equals(sourceType) ? "菜品" : "周计划");
+        String src = "menu".equals(sourceType) ? "菜单" : "菜品";
         notificationService.send(
                 new NotificationPayload(memberId, "shopping",
                         "采购清单已生成",
@@ -227,18 +205,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
 
     private ShoppingList newList(String sourceType, Long sourceId) {
         ShoppingList list = new ShoppingList();
-        list.setSourcePlanId("plan".equals(sourceType) ? sourceId : null);
         list.setSourceMenuId("menu".equals(sourceType) ? sourceId : null);  // Plan E: 食集溯源
         list.setTimeRange(sourceType);
-        // menu/dish 来源没有固定周区间，用当天；plan 来源取该计划的周区间
-        if ("plan".equals(sourceType) && sourceId != null) {
-            MealPlan plan = mealPlanMapper.selectById(sourceId);
-            if (plan != null && plan.getWeekStart() != null) {
-                list.setStartDate(plan.getWeekStart());
-                list.setEndDate(plan.getWeekStart().plusDays(6));
-                return list;
-            }
-        }
         list.setStartDate(LocalDate.now());
         list.setEndDate(LocalDate.now());
         return list;

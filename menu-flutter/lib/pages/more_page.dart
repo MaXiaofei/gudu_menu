@@ -69,10 +69,6 @@ class MorePage extends StatelessWidget {
                 sub: '饮食日记，记一笔安心',
                 onTap: () => context.push('/dailylog')),
             _ToolCard(
-                name: '本周排菜',
-                sub: '一周菜单排起来',
-                onTap: () => context.push('/mealplan')),
-            _ToolCard(
                 name: '推荐菜',
                 sub: '换菜单、算热量',
                 onTap: () => context.push('/ai-recommend')),

@@ -10,7 +10,7 @@ import java.util.List;
 import lombok.Data;
 
 /**
- * 食材库存接口（V42 手动 3 档版）。范式照 mealplan/ingredient：返回 R<T>，@Tag 分组。
+ * 食材库存接口（V42 手动 3 档版）。范式照 ingredient：返回 R<T>，@Tag 分组。
  *
  * <p>APP 核心：grouped（三色列表）/ item（详情）/ PUT level（设档位）/ manual（入库设档位）。
  * 管理后台共用：grouped（列表）+ PUT level（改档位）+ DELETE level（删档位）。

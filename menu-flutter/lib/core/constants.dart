@@ -30,7 +30,4 @@ class AppConstants {
 
   /// 把英文指标名转中文，无映射时原样返回。
   static String metricNameCn(String name) => metricCn[name] ?? name;
-
-  /// 餐次（周计划用，小程序 mealplan/Calendar）。
-  static const List<String> mealSlots = ['早餐', '午餐', '晚餐', '加餐'];
 }

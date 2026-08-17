@@ -9,8 +9,6 @@ DELETE FROM daily_log;
 DELETE FROM notification;
 DELETE FROM pantry_change_log;
 DELETE FROM pantry;
-DELETE FROM meal_plan_item;
-DELETE FROM meal_plan;
 DELETE FROM review;
 DELETE FROM review_score;
 DELETE FROM cooking_record;

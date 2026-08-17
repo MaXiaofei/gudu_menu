@@ -101,51 +101,6 @@ class GuduE2EFlowTest {
                 .isEqualTo(MEMBER_CHEF);
     }
 
-    /** 场景1：登录 + 设就餐成员 + 建周计划 + 挂菜 + 重复挂菜去重。 */
-    @Test
-    void 排菜_登录设成员建计划挂菜_重复挂菜返回去重() {
-        String token = loginAdmin();
-
-        // 设当前就餐成员（掌勺）
-        JsonNode r1 = post(token, "/member/current?memberId=" + MEMBER_CHEF, null);
-        assertThat(r1.get("code").asInt()).isEqualTo(0);
-
-        // 建本周计划
-        LocalDate monday = LocalDate.now().with(java.time.DayOfWeek.MONDAY);
-        Map<String, Object> planReq = new HashMap<>();
-        planReq.put("weekStart", monday.toString());
-        planReq.put("name", "E2E测试周计划");
-        JsonNode r2 = post(token, "/mealplan", planReq);
-        assertThat(r2.get("code").asInt()).isEqualTo(0);
-        long planId = r2.get("data").asLong();
-        assertThat(planId).isPositive();
-
-        // 挂番茄炒蛋（周一午餐）
-        Map<String, Object> itemReq = new HashMap<>();
-        itemReq.put("date", monday.toString());
-        itemReq.put("meal", "午餐");
-        itemReq.put("dishId", DISH_FANQIE_CHAODAN);
-        itemReq.put("servingFactor", 1);
-        JsonNode r3 = post(token, "/mealplan/" + planId + "/item", itemReq);
-        assertThat(r3.get("code").asInt()).isEqualTo(0);
-        long itemId = r3.get("data").get("itemId").asLong();
-        assertThat(itemId).isPositive();
-        // 首次挂菜，duplicates 应为空
-        assertThat(r3.get("data").get("duplicates").isArray()).isTrue();
-        assertThat(r3.get("data").get("duplicates").size()).isZero();
-
-        // 再挂同菜同日同餐 → uk_plan_date_meal_dish 唯一约束触发 + service catch DuplicateKey 软提示
-        // （去重生效但不硬拦：code=0 + 返回非空 duplicates 提示同日同餐已存在）
-        JsonNode r4 = post(token, "/mealplan/" + planId + "/item", itemReq);
-        assertThat(r4.get("code").asInt())
-                .as("重复挂菜走软提示应 code=0，实际=" + r4.get("code").asInt() + " msg=" + text(r4, "msg"))
-                .isZero();
-        JsonNode dups4 = r4.get("data").get("duplicates");
-        assertThat(dups4.isArray()).isTrue();
-        assertThat(dups4.size())
-                .as("重复挂菜应返回非空 duplicates 提示").isGreaterThan(0);
-    }
-
     /** 场景2（redesign）：从菜品生成采购草稿 → 验证参考克数 → 用户填采购量+采购单位 → 验证保存。 */
     @Test
     void 采购_从菜品生成清单_用户填采购量保存() {

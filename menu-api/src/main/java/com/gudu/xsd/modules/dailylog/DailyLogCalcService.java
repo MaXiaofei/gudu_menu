@@ -15,7 +15,7 @@ import java.util.Map;
  *  - ingredient 项：valuePerUnit 是该指标 per100g，qty 是克 → value × qty / 100
  *  - dish 项：valuePerUnit 是该菜 per份营养(已聚合)，qty 是份数 → value × qty
  *
- * 这是整个 dailylog 模块的算法地基，不依赖任何外部状态(参照 NutritionCalcService / MealPlanService.detectDuplicates)。
+ * 这是整个 dailylog 模块的算法地基，不依赖任何外部状态(参照 NutritionCalcService)。
  */
 @Service
 public class DailyLogCalcService {

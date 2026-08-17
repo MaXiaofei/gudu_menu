@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * MockMvc 接口测试：mock AiService，验证 AI 两个端点的 R 结构 + source。
- * 范式照 PantryControllerTest / MealPlanControllerTest：@WebMvcTest + 排除 SaTokenConfig + mock SqlSessionFactory。
+ * 范式照 PantryControllerTest：@WebMvcTest + 排除 SaTokenConfig + mock SqlSessionFactory。
  */
 @WebMvcTest(
         value = AiController.class,
