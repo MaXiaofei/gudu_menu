@@ -46,7 +46,8 @@ public class DishController {
             throw new BizException("请输入想吃的描述");
         }
         List<SemanticHit> hits = vectorSvc.semanticSearch(
-                        req.getQuery().trim(), req.getTopK(),
+                        req.getQuery().trim(),
+                        req.getTopK() == null ? 10 : req.getTopK(),
                         req.getMaxDifficulty(), req.getMaxMinutes())
                 .stream()
                 .map(d -> new SemanticHit(

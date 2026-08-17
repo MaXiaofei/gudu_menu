@@ -57,6 +57,24 @@ export interface DishSearchParams {
   pageSize?: number
 }
 
+/** 语义找菜结果项（向量相似召回）。 */
+export interface SemanticHit {
+  dishId: number
+  name: string
+  score?: number
+  difficulty?: number | null
+  cookTime?: number | null
+}
+
+/** 语义找菜：自然语言（「清淡下饭」「酸甜口」）→ 向量相似召回 TopK 菜谱。 */
+export function semanticSearch(query: string, topK = 8): Promise<SemanticHit[]> {
+  return request<SemanticHit[]>({
+    url: '/dish/semantic-search',
+    method: 'POST',
+    data: { query, topK },
+  })
+}
+
 /** 搜索菜谱：GET /dish/search（sort=cooked 做过最多，缺省最新）。 */
 export function searchDishes(p: DishSearchParams): Promise<Page<Dish>> {
   return request<Page<Dish>>({
@@ -107,7 +125,7 @@ export function saveDish(p: DishSavePayload): Promise<number> {
 
 /** 导入链接：POST /dish/import-url?url= → 新菜 id。 */
 export function importDishByUrl(url: string): Promise<number> {
-  return request<number>({ url: '/dish/import-url', method: 'POST', data: { url } })
+  return request<number>({ url: `/dish/import-url?url=${encodeURIComponent(url)}`, method: 'POST' })
 }
 
 export interface DishDraftItem {

@@ -26,8 +26,7 @@ export function getPrep(menuId: number): Promise<MenuPrep> {
 /** 更新备料状态（upsert）：PUT /menu/{id}/prep/{ingredientId}?status=READY。 */
 export function updatePrepStatus(menuId: number, ingredientId: number, status: string): Promise<void> {
   return request({
-    url: `/menu/${menuId}/prep/${ingredientId}`,
+    url: `/menu/${menuId}/prep/${ingredientId}?status=${status}`,
     method: 'PUT',
-    data: { status },
   })
 }
