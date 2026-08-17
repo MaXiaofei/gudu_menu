@@ -9,6 +9,7 @@ import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/select_chip.dart';
 import '../../widgets/search_box.dart';
 import '../../widgets/status_chip.dart';
 
@@ -367,27 +368,15 @@ class _PantryListPageState extends State<PantryListPage> {
     );
   }
 
-  /// 单个筛选 chip：选中实心（全部=深棕底，缺/低/够=各自三色底）白字；
-  /// 未选白底 + 描边，文字用三色（全部用正文色）。
+  /// 单个筛选 chip（SelectChip 统一样式）：选中深棕实底白字，未选白底描边、
+  /// 文字保留三色语义（缺=红/低=黄/够=绿），2026-08-17 由胶囊三色选中改为统一筛选样式。
   Widget _chip(AppTokens t, String key, String label, int count, Color? color) {
     final selected = _activeFilter == key;
-    return GestureDetector(
+    return SelectChip(
+      label: '$label $count',
+      selected: selected,
+      semanticColor: color,
       onTap: () => setState(() => _filter = key),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? (color ?? t.title) : t.card,
-          border: selected ? null : Border.all(color: t.border),
-          borderRadius: BorderRadius.circular(AppTokens.rPill),
-        ),
-        child: Text(
-          '$label $count',
-          style: t.textStyles.tiny.copyWith(
-            color: selected ? Colors.white : (color ?? t.body),
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
     );
   }
 

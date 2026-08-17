@@ -9,6 +9,7 @@ import '../../services/ingredient_service.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/select_chip.dart';
 import '../../widgets/search_box.dart';
 
 /// 排序：cooked=做过最多；latest=最新。
@@ -365,23 +366,7 @@ class _DishListPageState extends State<DishListPage> {
   }
 
   Widget _dictChip(AppTokens t, int? id, String name, bool selected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? t.title : t.card,
-          borderRadius: BorderRadius.circular(AppTokens.rSm),
-          border: selected ? null : Border.all(color: t.border),
-        ),
-        child: Text(
-          name,
-          style: t.textStyles.sectionLabel.copyWith(
-            color: selected ? Colors.white : t.body,
-          ),
-        ),
-      ),
-    );
+    return SelectChip(label: name, selected: selected, onTap: onTap);
   }
 
   Widget _buildSortBar(AppTokens t) {
@@ -408,27 +393,14 @@ class _DishListPageState extends State<DishListPage> {
 
   Widget _sortChip(AppTokens t, String label, _SortMode mode) {
     final selected = _sort == mode;
-    return InkWell(
+    return SelectChip(
+      label: label,
+      selected: selected,
       onTap: () {
         if (selected) return;
         setState(() => _sort = mode);
         _reload();
       },
-      borderRadius: BorderRadius.circular(AppTokens.rPill),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: selected ? t.title : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTokens.rPill),
-        ),
-        child: Text(
-          label,
-          style: t.textStyles.xs.copyWith(
-            color: selected ? t.card : t.caption,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
     );
   }
 }

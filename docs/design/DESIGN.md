@@ -233,6 +233,25 @@ t.elevationSm / t.elevationMd / t.elevationLg / t.elevationFab
 | `Counter` | 2 | 加减盘（± 圆形按钮 + `ts.display` 大数字 + 下方差值文字） |
 | `SearchInput` | 3 | 搜索框（白底 + 1.5px 主色描边 + `rMd` 圆角 + 搜索图标 + ✕ 清除） |
 
+### 11.6 筛选/选择 chip 统一约束 ⭐（新增 2026-08-17，样式源自菜谱页菜系筛选）
+
+**所有条件筛选/选择 chip 一律用共享组件 `lib/widgets/select_chip.dart` → `SelectChip`，禁止页面自画。**
+
+| 状态 | 样式 |
+|---|---|
+| 未选中 | 白底（`t.card`）+ 1px 细边框（`t.border`）+ 8px 圆角（`rSm`）+ 文字 11px/w700（`ts.sectionLabel`，`t.body` 色） |
+| 选中 | **深棕实底（`t.title` = #4A382A）+ 白字**，无边框 |
+
+统一参数：`SelectChip(label, selected, onTap, semanticColor?)`。
+- `semanticColor`：未选态文字语义色（如库存档位 缺=红/低=黄/够=绿），选中后统一白字——语义信息不丢。
+- 容器：横向可滚动（菜系/标签多时）或 Row/Wrap，由调用方提供；chip 间距 ≥6px。
+- 带计数的筛选（如库存「缺 3」）直接拼进 label。
+
+**已接入（2026-08-17）**：菜谱页分类/菜系/标签/排序、库存页档位筛选（全部/缺/低/够）、入库页来源备注。**禁止**：
+- ❌ 选中态用主色 `t.primary` 底（旧样式，与全局选中语言不一致）
+- ❌ 胶囊圆角（`rPill`）筛选 chip（改为 `rSm` 8px）
+- ❌ 手写 Container+GestureDetector 筛选 chip（用组件）
+
 ---
 
 ## §12 列表分页约定（跨端）

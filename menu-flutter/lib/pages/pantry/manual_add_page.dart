@@ -6,6 +6,7 @@ import '../../services/pantry_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/select_chip.dart';
 import '../../widgets/search_box.dart';
 
 /// 入库页（V42 档位版，对齐 44829 批次 pantry-manual-add-v2 定稿）。
@@ -382,21 +383,10 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
                 runSpacing: 7,
                 children: _sourceOptions.map((s) {
                   final selected = _sourceNote == s;
-                  return GestureDetector(
+                  return SelectChip(
+                    label: s,
+                    selected: selected,
                     onTap: () => setState(() => _sourceNote = s),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: selected ? t.primary : t.card,
-                        border: Border.all(color: selected ? t.primary : t.border),
-                        borderRadius: BorderRadius.circular(AppTokens.rSm),
-                      ),
-                      child: Text(s,
-                          style: t.textStyles.sectionLabel.copyWith(
-                            color: selected ? Colors.white : t.body,
-                            fontWeight: FontWeight.w800,
-                          )),
-                    ),
                   );
                 }).toList(),
               ),
