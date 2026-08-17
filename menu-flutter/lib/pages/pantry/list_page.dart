@@ -302,7 +302,7 @@ class _PantryListPageState extends State<PantryListPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
       children: [
-        // 筛选条（全部/缺/低/够，替代三色汇总条，原型 pantry-page 定稿）
+        // 筛选条（全部 + 用完/不足/充足 三档，替代三色汇总条，原型 pantry-page 定稿）
         _buildFilterChips(t, g),
         const SizedBox(height: 4),
         // 分组列表：标题计数用汇总总数（不随加载变化），组尾「加载更多」
