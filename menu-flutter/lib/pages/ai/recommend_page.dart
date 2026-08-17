@@ -66,6 +66,28 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // 进页面即展示默认推荐（冷启动热门兜底 / 有历史口味画像召回）
+    _loadDefault();
+  }
+
+  /// 默认推荐：GET /ai/menu/recommend/default（memberId 空走热门兜底）。
+  Future<void> _loadDefault() async {
+    setState(() => _loading = true);
+    try {
+      final memberId = context.read<MemberStore>().currentId;
+      final data = await ApiClient.instance.get('/ai/menu/recommend/default',
+          query: {'memberId': memberId ?? '', 'topN': 3});
+      if (mounted) setState(() => _groups = (data as List?) ?? []);
+    } catch (_) {
+      // 默认推荐失败静默（用户可手动触发）
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
   void dispose() {
     _prefCtrl.dispose();
     super.dispose();
@@ -164,10 +186,13 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           ],
           const SizedBox(height: AppTokens.sp8),
 
-          // 组合推荐结果（展示在按钮上方）
+          // 推荐结果（默认进页即展示；展示在按钮上方）
+          if (_loading && _groups == null)
+            const Padding(padding: EdgeInsets.all(12), child: Center(child: SizedBox(
+                width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))),
           if (_groups != null && _groups!.isNotEmpty) ...[
             const SizedBox(height: AppTokens.sp12),
-            Text('推荐组合', style: t.textStyles.sectionLabel.copyWith(color: t.caption)),
+            Text('为你推荐', style: t.textStyles.sectionLabel.copyWith(color: t.caption)),
             const SizedBox(height: AppTokens.sp6),
             ..._groups!.asMap().entries.map((e) => _buildGroupCard(e.key + 1, e.value as Map<String, dynamic>)),
           ],
