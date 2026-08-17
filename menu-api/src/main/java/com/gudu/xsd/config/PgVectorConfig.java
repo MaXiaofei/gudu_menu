@@ -37,9 +37,10 @@ public class PgVectorConfig {
      */
     @Bean
     @Primary
-    @org.springframework.boot.context.properties.ConfigurationProperties("spring.datasource")
-    public DataSource dataSource() {
-        return new HikariDataSource();
+    public DataSource dataSource(
+            org.springframework.boot.autoconfigure.jdbc.DataSourceProperties props) {
+        // DataSourceProperties 桥接 spring.datasource.* → Hikari（url→jdbcUrl 等属性名映射）
+        return props.initializeDataSourceBuilder().build();
     }
 
     @Bean
