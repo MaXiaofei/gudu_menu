@@ -76,21 +76,12 @@ export function searchDishes(params: DishSearchParams) {
   return request<Page<DishSearchRow>>({ url: '/dish/search', method: 'get', params })
 }
 
-export function createDish(data: DishSaveDTO) {
-  return request<number>({ url: '/dish', method: 'post', data })
-}
-
 export function updateDish(data: DishSaveDTO & { dish: { id: number } & DishSaveDTO['dish'] }) {
   return request<void>({ url: '/dish', method: 'put', data })
 }
 
 export function deleteDish(id: number) {
   return request<void>({ url: `/dish/${id}`, method: 'delete' })
-}
-
-/** URL 导入菜谱：POST /dish/import-url?url=xxx 抓网页解析落库，返回新菜品 id */
-export function importDishByUrl(url: string) {
-  return request<number>({ url: '/dish/import-url', method: 'post', params: { url } })
 }
 
 export function getDishNutrition(id: number, serving = 1) {

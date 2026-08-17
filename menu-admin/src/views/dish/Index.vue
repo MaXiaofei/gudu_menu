@@ -5,10 +5,8 @@ import type { UploadRequestOptions } from 'element-plus'
 import {
   searchDishes,
   getDishDetail,
-  createDish,
   updateDish,
   deleteDish,
-  importDishByUrl,
   getDishNutrition,
   getDishHistory,
   type Dish,
@@ -55,34 +53,6 @@ const query = reactive({
   pageSize: 15,
 })
 
-// ===== URL 导入 =====
-const importDialogVisible = ref(false)
-const importUrl = ref('')
-const importing = ref(false)
-
-function openImport() {
-  importUrl.value = ''
-  importDialogVisible.value = true
-}
-
-async function doImport() {
-  if (!importUrl.value.trim()) {
-    ElMessage.warning('请粘贴菜谱链接')
-    return
-  }
-  importing.value = true
-  try {
-    const id = await importDishByUrl(importUrl.value.trim())
-    ElMessage.success(`导入成功，新菜品 ID: ${id}`)
-    importDialogVisible.value = false
-    await load()
-  } catch {
-    // request 拦截器已弹错误
-  } finally {
-    importing.value = false
-  }
-}
-
 async function load() {
   loading.value = true
   try {
@@ -108,7 +78,7 @@ onMounted(() => {
   load()
 })
 
-// ===== 新增/编辑对话框 =====
+// ===== 编辑对话框 =====
 const dialogVisible = ref(false)
 const editing = ref<Dish | null>(null)
 
@@ -146,11 +116,6 @@ function resetForm() {
   tagIds.value = []
   categoryIds.value = []
   dishIngredients.value = [{ ingredientId: undefined as unknown as number, amount: 1 }]
-}
-
-function openCreate() {
-  resetForm()
-  dialogVisible.value = true
 }
 
 async function openEdit(row: DishSearchRow) {
@@ -233,9 +198,6 @@ async function onSubmit() {
   if (editing.value && baseForm.id) {
     await updateDish({ dish: { id: baseForm.id, ...dish }, ...common })
     ElMessage.success('已更新')
-  } else {
-    await createDish({ dish, ...common })
-    ElMessage.success('已新增')
   }
   dialogVisible.value = false
   await load()
@@ -336,8 +298,6 @@ async function showHistory(row: DishSearchRow) {
       />
       <el-button type="primary" @click="onSearch">搜索</el-button>
       <div class="spacer" />
-      <el-button type="primary" @click="openCreate">新增菜品</el-button>
-      <el-button @click="openImport">URL 导入</el-button>
     </div>
 
     <el-table v-loading="loading" :data="list" border>
@@ -362,8 +322,8 @@ async function showHistory(row: DishSearchRow) {
       @current-change="(p: number) => { query.pageNum = p; load() }"
     />
 
-    <!-- 新增/编辑大表单 -->
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑菜品' : '新增菜品'" width="820px" top="5vh">
+    <!-- 编辑大表单 -->
+    <el-dialog v-model="dialogVisible" title="编辑菜品" width="820px" top="5vh">
       <el-form label-width="100px">
         <el-divider content-position="left">基础信息</el-divider>
         <el-form-item label="菜品名称">
@@ -484,21 +444,6 @@ async function showHistory(row: DishSearchRow) {
       </el-table>
       <div v-if="!historyList.length" class="empty">暂无历史版本</div>
     </el-drawer>
-
-    <!-- URL 导入 -->
-    <el-dialog v-model="importDialogVisible" title="URL 导入菜谱" width="520px">
-      <el-alert
-        type="info"
-        :closable="false"
-        title="支持 下厨房 / 美食杰 / 豆果美食；其他站点尽力提取。"
-        style="margin-bottom: 12px"
-      />
-      <el-input v-model="importUrl" placeholder="粘贴菜谱网页链接" clearable />
-      <template #footer>
-        <el-button @click="importDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="importing" @click="doImport">导入</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 

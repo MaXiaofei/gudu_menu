@@ -392,25 +392,6 @@ class GuduE2EFlowTest {
         }
     }
 
-    /** 场景11：backup 全量导出，返回 15 张表的结构。 */
-    @Test
-    void 备份_全量导出_返回15张表结构() {
-        String token = loginAdmin();
-
-        JsonNode r = get(token, "/backup/export");
-        assertThat(r.get("code").asInt())
-                .as("备份导出应成功 msg=" + text(r, "msg")).isEqualTo(0);
-        JsonNode data = r.get("data");
-        assertThat(data.get("tableCount").asInt()).isEqualTo(15);
-        assertThat(data.get("tables").isObject()).isTrue();
-        // 关键业务表都应存在
-        for (String t : java.util.List.of(
-                "sys_dict", "user", "member", "ingredient", "dish", "menu")) {
-            assertThat(data.get("tables").has(t))
-                    .as("导出应含表 " + t).isTrue();
-        }
-    }
-
     /** 场景12（V36 Plan A）：建菜单 → 整集做菜 → 每菜写 cooking_record。 */
     @Test
     void 做菜_整集做菜扣库存_写record() {

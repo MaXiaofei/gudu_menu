@@ -27,7 +27,6 @@ const iconByPath: Record<string, string> = {
   '/mealplan': 'Calendar',
   '/pantry': 'Box',
   '/shopping': 'ShoppingCart',
-  '/backup': 'FolderOpened',
 }
 
 // 菜单由路由表驱动：取 layout 子路由，跳过 meta.hidden（日常操作页入口隐藏），home 不进菜单

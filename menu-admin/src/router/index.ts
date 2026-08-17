@@ -68,12 +68,6 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '采购清单', hidden: true },
       },
       {
-        path: 'backup',
-        name: 'Backup',
-        component: () => import('@/views/backup/Index.vue'),
-        meta: { title: '数据备份' },
-      },
-      {
         path: 'ai-log',
         name: 'AiLog',
         component: () => import('@/views/ai-log/Index.vue'),

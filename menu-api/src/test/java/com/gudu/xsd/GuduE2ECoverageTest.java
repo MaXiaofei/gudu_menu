@@ -649,25 +649,6 @@ class GuduE2ECoverageTest {
         assertThat(get(token, "/auth/me").get("code").asInt()).as("登出后旧 token 应失效").isNotEqualTo(0);
     }
 
-    // ===================== M. 备份导出导入 =====================
-
-    @Test
-    void M_备份_导出再导入回灌() {
-        String token = loginAdmin();
-
-        // 全库导出（结构：{tables: {ingredient: [...], ...}, tableCount: N}）
-        JsonNode exp = get(token, "/backup/export");
-        assertThat(exp.get("code").asInt()).isEqualTo(0);
-        assertThat(exp.get("data").get("tables").has("ingredient")).as("导出应含 ingredient 表").isTrue();
-
-        // 导入（回灌导出的数据，幂等 upsert）
-        JsonNode imp = post(token, "/backup/import", exp.get("data"));
-        assertThat(imp.get("code").asInt()).as("导入回灌 msg=" + text(imp, "msg")).isEqualTo(0);
-
-        // 回灌后食材详情仍正常
-        assertThat(get(token, "/ingredient/" + ING_TOMATO).get("code").asInt()).isEqualTo(0);
-    }
-
     // ===================== N. 字典 + 营养指标 CRUD =====================
 
     @Test
