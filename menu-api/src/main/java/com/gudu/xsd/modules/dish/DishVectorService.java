@@ -48,8 +48,12 @@ public class DishVectorService {
     private final IngredientMapper ingredientMapper;
     private final DictMapper dictMapper;
 
+    /**
+     * 向量文档 id：PGVector 的 vector_store.id 列是 UUID 类型（非 UUID 字符串会被拒）。
+     * 用确定性 UUID：高位固定 0、低位 = dishId（唯一且可重复生成，upsert 幂等）。
+     */
     private static String docId(Long dishId) {
-        return "dish-" + dishId;
+        return new java.util.UUID(0, dishId).toString();
     }
 
     /** 菜谱保存/更新后同步向量（先删后写实现 upsert；失败不阻断主流程）。 */
