@@ -81,6 +81,9 @@ services:
       GUDU_AI_PROVIDER: ${STAGING_AI_PROVIDER:-mock}   # 测试默认 mock，不烧 key
       MYSQL_ROOT_PASSWORD: ${STAGING_MYSQL_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD}}
       # 向量库 + 本地 embedding 连接（容器内 service name）
+      # 微信小程序静默登录（V50）：从服务器 .env 注入
+      WX_APPID: ${WX_APPID:-}
+      WX_APPSECRET: ${WX_APPSECRET:-}
       PGVECTOR_HOST: gudu-pgvector
       PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-gudu_vec_2026}
       OLLAMA_BASE_URL: http://gudu-ollama:11434
