@@ -73,6 +73,20 @@ if echo "$SERVICES" | grep -qw menu-api; then
     || echo "  （pgvector 容器未就绪，跳过——若启动失败请检查 gudu-pgvector 服务）"
 fi
 
+# 2.6 Ollama embedding 模型确保（幂等）：bge-m3 缺失时语义找菜/推荐 404。
+#     首次拉取 ~1.2GB（网络慢时几分钟），之后 ollama list 命中即跳过。
+if echo "$SERVICES" | grep -qw menu-api; then
+  echo "→ 确保 Ollama bge-m3 模型..."
+  if docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-ollama \
+      ollama list 2>/dev/null | grep -q "bge-m3"; then
+    echo "  bge-m3 已存在，跳过"
+  else
+    echo "  拉取 bge-m3（首次 ~1.2GB）..."
+    docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-ollama ollama pull bge-m3 \
+      || echo "  （拉取失败——语义检索将 404，请检查 gudu-ollama 服务/网络）"
+  fi
+fi
+
 # 2.6 基础服务确保在位（幂等）：pgvector/ollama 等新依赖服务可能从未在服务器创建过
 if echo "$SERVICES" | grep -qw menu-api; then
   echo "→ 确保基础服务在位（mysql/redis/pgvector/ollama）..."
