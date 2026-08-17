@@ -237,12 +237,18 @@ class _PantryListPageState extends State<PantryListPage> {
                           child: _searching
                               ? _buildSearchBody(t)
                               : _totalCount == 0
-                                  ? ListView(
-                                      children: const [
-                                        SizedBox(height: 200),
-                                        Center(child: EmptyView(text: '暂无库存')),
-                                      ],
-                                    )
+                                  ? Column(children: [
+                                      // 空数据也展示档位筛选条（计数 0，结构可见）
+                                      if (_grouped != null) _buildFilterChips(t, _grouped!),
+                                      Expanded(
+                                        child: ListView(
+                                          children: const [
+                                            SizedBox(height: 120),
+                                            Center(child: EmptyView(text: '暂无库存')),
+                                          ],
+                                        ),
+                                      ),
+                                    ])
                                   : _buildBody(t),
                         ),
             ),
@@ -252,7 +258,8 @@ class _PantryListPageState extends State<PantryListPage> {
     );
   }
 
-  /// 顶栏胶囊按钮：`filled` 实心主按钮（去采购，原型 #E89150）/ 空心次按钮（添加）。
+  /// 顶栏按钮（2026-08-17 与筛选 chip 同款语言）：次按钮白底细边框深棕字、
+  /// 主按钮深棕实底白字，8px 圆角，11px/w700。
   Widget _topButton({
     required String label,
     required bool filled,
@@ -264,15 +271,14 @@ class _PantryListPageState extends State<PantryListPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
         decoration: BoxDecoration(
-          color: filled ? t.primary : null,
-          border: filled ? null : Border.all(color: t.primary),
-          borderRadius: BorderRadius.circular(AppTokens.rPill),
+          color: filled ? t.title : t.card,
+          border: filled ? null : Border.all(color: t.border),
+          borderRadius: BorderRadius.circular(AppTokens.rSm),
         ),
         child: Text(
           label,
-          style: t.textStyles.tiny.copyWith(
-            color: filled ? Colors.white : t.primary,
-            fontWeight: FontWeight.w800,
+          style: t.textStyles.sectionLabel.copyWith(
+            color: filled ? Colors.white : t.body,
           ),
         ),
       ),
