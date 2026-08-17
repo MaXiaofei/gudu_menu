@@ -7,6 +7,7 @@ import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -26,6 +27,20 @@ import javax.sql.DataSource;
  */
 @Configuration
 public class PgVectorConfig {
+
+    /**
+     * 显式声明 MySQL 主数据源（@Primary）：本类同时定义了 PG 向量库数据源，
+     * 一旦容器出现第二个 DataSource，Spring Boot 的 DataSourceAutoConfiguration
+     * 会因 @ConditionalOnMissingBean 整体退让——不显式建主库，业务 SQL 全打到 PG
+     * （2026-08-17 staging 登录 500 根因：relation "member" does not exist）。
+     * 属性沿用 spring.datasource.*（各 profile 的 MySQL 连接）。
+     */
+    @Bean
+    @Primary
+    @org.springframework.boot.context.properties.ConfigurationProperties("spring.datasource")
+    public DataSource dataSource() {
+        return new HikariDataSource();
+    }
 
     @Bean
     public DataSource pgVectorDataSource(
