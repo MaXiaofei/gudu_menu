@@ -5,6 +5,7 @@ import '../../core/app_theme.dart';
 import '../../core/image_helper.dart';
 import '../../models/menu.dart';
 import '../../services/menu_service.dart';
+import '../../widgets/action_bar.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/select_chip.dart';
 
@@ -235,12 +236,18 @@ class _MenuListPageState extends State<MenuListPage> {
     final t = AppTokens.of(context);
     return Scaffold(
       backgroundColor: t.bg,
-      // DESIGN.md §13：Tab 主页无标题（不放「食集」）。
-      // 「新建食集」按钮与状态筛选同一行，放最右侧。
+      // DESIGN.md §13：Tab 主页无标题，顶部 ActionBar 放「新建食集」（右对齐，库存页同款样式）。
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
+            ActionBar(
+              action: _topButton(
+                label: '新建食集',
+                filled: true,
+                onTap: _createMenu,
+              ),
+            ),
             _buildStatusBar(t),
             Expanded(
               child: _firstLoading
@@ -293,8 +300,33 @@ class _MenuListPageState extends State<MenuListPage> {
     );
   }
 
-  /// 筛选 + 新建一行：全部/进行中/已完成 筛选条（SelectChip 与库存页同款）
-  /// + 最右侧「新建食集」（深棕实底 rSm，同库存页去采购主按钮样式）。
+  /// 右上角主按钮（库存页同款：深棕实底白字、8px 圆角、11/w700）。
+  Widget _topButton({
+    required String label,
+    required bool filled,
+    required VoidCallback onTap,
+  }) {
+    final t = AppTokens.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
+        decoration: BoxDecoration(
+          color: filled ? t.title : t.card,
+          border: filled ? null : Border.all(color: t.border),
+          borderRadius: BorderRadius.circular(AppTokens.rSm),
+        ),
+        child: Text(
+          label,
+          style: t.textStyles.sectionLabel.copyWith(
+            color: filled ? Colors.white : t.body,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 筛选行：全部/进行中/已完成（SelectChip 与库存页同款）。
   Widget _buildStatusBar(AppTokens t) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -315,23 +347,6 @@ class _MenuListPageState extends State<MenuListPage> {
               label: '已完成 $_doneCount',
               selected: _status == 'DONE',
               onTap: () => _switchStatus('DONE')),
-          const Spacer(),
-          // 新建食集（最右侧主按钮：深棕实底白字，8px 圆角，同库存页去采购）
-          GestureDetector(
-            onTap: _createMenu,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
-              decoration: BoxDecoration(
-                color: t.title,
-                borderRadius: BorderRadius.circular(AppTokens.rSm),
-              ),
-              child: Text(
-                '新建食集',
-                style: t.textStyles.sectionLabel.copyWith(color: Colors.white),
-              ),
-            ),
-          ),
         ],
       ),
     );
