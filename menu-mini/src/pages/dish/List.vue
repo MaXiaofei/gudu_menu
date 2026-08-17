@@ -383,7 +383,7 @@ function onTe(_e: TouchEvent, id: number) {
 .chip {
   flex-shrink: 0;
   padding: 5px 12px;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-sm);
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--body);
@@ -411,7 +411,7 @@ function onTe(_e: TouchEvent, id: number) {
 }
 .schip {
   padding: 4px 12px;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-sm);
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--body);

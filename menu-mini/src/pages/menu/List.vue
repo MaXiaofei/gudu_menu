@@ -1,12 +1,15 @@
 <template>
   <view class="page">
     <ui-action-bar>
-      <!-- 筛选条 + 最右侧「新建食集」（APP 定稿布局） -->
-      <view class="filter-row">
-        <view class="fchip" :class="{ on: status === '' }" @click="switchStatus('')">全部 {{ loadedCount }}</view>
-        <view class="fchip" :class="{ on: status === 'ACTIVE' }" @click="switchStatus('ACTIVE')">进行中 {{ activeCount }}</view>
-        <view class="fchip" :class="{ on: status === 'DONE' }" @click="switchStatus('DONE')">已完成 {{ doneCount }}</view>
+      <!-- 新建食集（筛选条上方独立一行，右侧对齐） -->
+      <view class="bar-col">
         <view class="new-btn" @click="openCreate">新建食集</view>
+        <!-- 筛选条（全部/进行中/已完成） -->
+        <view class="filter-row">
+          <view class="fchip" :class="{ on: status === '' }" @click="switchStatus('')">全部 {{ loadedCount }}</view>
+          <view class="fchip" :class="{ on: status === 'ACTIVE' }" @click="switchStatus('ACTIVE')">进行中 {{ activeCount }}</view>
+          <view class="fchip" :class="{ on: status === 'DONE' }" @click="switchStatus('DONE')">已完成 {{ doneCount }}</view>
+        </view>
       </view>
     </ui-action-bar>
 
@@ -208,8 +211,15 @@ function onTe(_e: TouchEvent, id: number) {
   min-height: 100vh;
   background: var(--bg);
 }
+.bar-col {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
 .filter-row {
-  flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -228,7 +238,6 @@ function onTe(_e: TouchEvent, id: number) {
   color: #FFFFFF;
 }
 .new-btn {
-  margin-left: auto;
   padding: 5px 12px;
   border-radius: var(--r-pill);
   background: var(--primary);

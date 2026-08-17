@@ -200,6 +200,7 @@ async function onLogin() {
   height: 96rpx;
   line-height: 96rpx;
   font-size: 32rpx;
+  padding: 0;
 }
 
 

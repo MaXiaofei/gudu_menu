@@ -4,10 +4,8 @@
     <ui-action-bar />
 
     <!-- 用户头部卡（点 → 成员管理，阶段 7 落地） -->
-    <view class="user-card" @click="todo">
-      <view class="user-avatar">
-        <text class="user-avatar-txt">人</text>
-      </view>
+    <view class="user-card" @click="() => todo()">
+      <ui-avatar :name="auth.nickname || '掌勺人'" :size="56" :fallback="'掌'" />
       <view class="user-info">
         <text class="user-name">{{ auth.nickname || '掌勺人' }}</text>
         <text class="user-sub">当前就餐：{{ currentMemberName || '选择就餐成员 ›' }}</text>
@@ -93,20 +91,6 @@ function onLogout() {
   border-radius: var(--r-lg);
   padding: 14px;
   margin: 8px 0 12px;
-}
-.user-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--primary-deep));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.user-avatar-txt {
-  color: #FFFFFF;
-  font-size: 22px;
-  font-weight: 700;
 }
 .user-info {
   flex: 1;

@@ -282,7 +282,7 @@ function goShopping() {
 }
 .chip {
   padding: 6px 12px;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-sm);
   background: var(--card);
   border: 1px solid var(--border);
   font-size: 10px;
