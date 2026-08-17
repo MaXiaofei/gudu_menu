@@ -6,6 +6,7 @@ import '../../core/image_helper.dart';
 import '../../models/menu.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/loading_empty.dart';
+import '../../widgets/select_chip.dart';
 
 /// 食集列表（对应后端 GET /menu）。
 /// 分页（pageSize=20，按创建时间倒序）+ 下拉刷新 + 上拉加载更多。
@@ -292,55 +293,42 @@ class _MenuListPageState extends State<MenuListPage> {
     );
   }
 
-  /// 筛选 + 新建一行：全部/进行中/已完成 筛选条 + 最右侧「新建食集」按钮。
+  /// 筛选 + 新建一行：全部/进行中/已完成 筛选条（SelectChip 与库存页同款）
+  /// + 最右侧「新建食集」（深棕实底 rSm，同库存页去采购主按钮样式）。
   Widget _buildStatusBar(AppTokens t) {
-    Widget chip(String? status, String label, int count) {
-      final selected = _status == status;
-      final text = '$label $count';
-      return Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: GestureDetector(
-          onTap: () => _switchStatus(status),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: selected ? t.title : t.card,
-              borderRadius: BorderRadius.circular(AppTokens.rSm),
-              border: selected ? null : Border.all(color: t.border),
-            ),
-            child: Text(
-              text,
-              style: t.textStyles.tiny.copyWith(
-                color: selected ? Colors.white : t.body,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp8),
       child: Row(
         children: [
-          chip(null, '全部', _menus.length),
-          chip('ACTIVE', '进行中', _activeCount),
-          chip('DONE', '已完成', _doneCount),
+          SelectChip(
+              label: '全部 ${_menus.length}',
+              selected: _status == null,
+              onTap: () => _switchStatus(null)),
+          const SizedBox(width: 6),
+          SelectChip(
+              label: '进行中 $_activeCount',
+              selected: _status == 'ACTIVE',
+              onTap: () => _switchStatus('ACTIVE')),
+          const SizedBox(width: 6),
+          SelectChip(
+              label: '已完成 $_doneCount',
+              selected: _status == 'DONE',
+              onTap: () => _switchStatus('DONE')),
           const Spacer(),
-          // 新建食集（最右侧，实心胶囊主按钮）
+          // 新建食集（最右侧主按钮：深棕实底白字，8px 圆角，同库存页去采购）
           GestureDetector(
             onTap: _createMenu,
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
               decoration: BoxDecoration(
-                color: t.primary,
-                borderRadius: BorderRadius.circular(AppTokens.rPill),
+                color: t.title,
+                borderRadius: BorderRadius.circular(AppTokens.rSm),
               ),
               child: Text(
                 '新建食集',
-                style: t.textStyles.tiny.copyWith(color: Colors.white),
+                style: t.textStyles.sectionLabel.copyWith(color: Colors.white),
               ),
             ),
           ),
