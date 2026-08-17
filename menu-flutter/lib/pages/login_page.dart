@@ -69,16 +69,23 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: AppTokens.sp24),
                 Consumer<AuthStore>(
-                  builder: (_, auth, __) => ElevatedButton(
-                    onPressed: auth.loading ? null : _login,
-                    child: auth.loading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('登录'),
+                  builder: (_, auth, __) => SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: auth.loading ? null : _login,
+                      // 文案居中（Center 兜底：任何主题/布局下均居中）
+                      child: Center(
+                        child: auth.loading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Text('登录'),
+                      ),
+                    ),
                   ),
                 ),
               ],
