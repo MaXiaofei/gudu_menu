@@ -192,7 +192,7 @@
 页面级约定：
 - **危险操作按钮**（删除/移除/撤回/批量删除）一律 `ts.danger`（或弹窗内 `AppTokens.of(ctx).textStyles.danger`），禁止只写 `TextStyle(color: AppTokens.error)` 丢字号字重。
 - **底部功能栏 Tab 文字**：`ts.tiny`（10px，2026-08-14 从 micro 9px 上调），推荐位同。
-- **搜索框（2026-08-14 定稿）**：一律用共享组件 `widgets/search_box.dart` → `SearchBox`，**禁止页面自画搜索框**。统一形态：单层白底 + 细边框(1px) + rMd 圆角 + 框内前置放大镜；输入与 hint 均 14px（hint 仅靠 caption 灰色区分层次）；有文字时尾部 ✕ 清除。菜谱页原型特色的自定义闪烁光标由 `customCursor: true` 开启。已接入：菜谱页/库存页/入库页/写菜谱·搜食材库/餐单·搜菜/食记·快速记录搜菜。
+- **搜索框（2026-08-17 定稿，与推荐页输入框统一）**：一律用共享组件 `widgets/search_box.dart` → `SearchBox`，**禁止页面自画搜索框**。统一形态：**奶油底填充（t.bg）+ 1.5px 细边框 + rMd 圆角**（继承全局 inputDecorationTheme，与推荐页「想吃什么」输入框完全同款）+ 框内前置放大镜；输入 14px、hint 12px 灰；有文字时尾部 ✕ 清除。菜谱页原型特色的自定义闪烁光标由 `customCursor: true` 开启。已接入：菜谱页/库存页/入库页/写菜谱·搜食材库/餐单·搜菜/食记·快速记录搜菜/推荐页输入框（原生 TextField 同款全局主题）。
 - **图形符号豁免**：返回箭头 `‹`、`✕` 等符号可写死 fontSize（图形性质，非文案）。
 
 ### 11.2 颜色：必须用 AppTokens，禁止裸色值
