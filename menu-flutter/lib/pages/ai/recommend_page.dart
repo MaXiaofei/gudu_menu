@@ -78,7 +78,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
     try {
       final memberId = context.read<MemberStore>().currentId;
       final data = await ApiClient.instance.get('/ai/menu/recommend/default',
-          query: {'memberId': memberId ?? '', 'topN': 3});
+          query: {'memberId': memberId, 'topN': 3});
       if (mounted) setState(() => _groups = (data as List?) ?? []);
     } catch (_) {
       // 默认推荐失败静默（用户可手动触发）
