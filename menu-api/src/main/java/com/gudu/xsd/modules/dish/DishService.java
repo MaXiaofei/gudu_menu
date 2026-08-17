@@ -92,6 +92,20 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         }
     }
 
+    /** 冷启动热门菜：按做过次数倒序取前 N；不足 N 时用最新录入的新菜补位（保证曝光量）。 */
+    public List<Dish> hotDishes(int limit) {
+        List<Dish> hot = list(new QueryWrapper<Dish>()
+                .orderByDesc("cooked_count").last("LIMIT " + limit));
+        if (hot.size() >= limit) return hot;
+        List<Long> hotIds = hot.stream().map(Dish::getId).toList();
+        List<Dish> fresh = list(new QueryWrapper<Dish>()
+                .notIn(hotIds.isEmpty(), "id", hotIds)
+                .orderByDesc("create_time")
+                .last("LIMIT " + (limit - hot.size())));
+        hot.addAll(fresh);
+        return hot;
+    }
+
     /**
      * 删除菜谱（错误数据清理，列表左滑删除）：连带物理清步骤/菜系标签分类关联/用料/编辑历史，
      * 主表软删（deleted=1）。做菜记录（cooking_record）保留——是历史行为记录，不随菜谱删除抹掉。

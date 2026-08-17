@@ -43,6 +43,14 @@ public class AiController {
     }
 
     /** 菜单推荐：基于成员健康约束 + 预算，输出若干组候选菜单。 */
+    /** 进页面默认推荐：memberId 可空（无历史走热门兜底），topN 默认 3。 */
+    @GetMapping("/menu/recommend/default")
+    public R<List<MenuCandidate>> defaultRecommend(
+            @RequestParam(required = false) Long memberId,
+            @RequestParam(defaultValue = "3") int topN) {
+        return R.ok(svc.defaultRecommend(memberId, topN));
+    }
+
     @PostMapping("/menu/recommend")
     @MpPerm("ai.use")
     public R<List<MenuCandidate>> recommendMenu(@RequestBody MenuRecommendRequest req) {

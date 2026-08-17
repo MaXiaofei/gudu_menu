@@ -213,6 +213,49 @@ public class AiService {
         return reasons;
     }
 
+    /**
+     * 进页面默认推荐（2026-08-17，冷启动兜底策略）：
+     * L2 有做菜历史 → 口味画像向量召回 TopN 单菜（理由=口味相近）；
+     * L1 无历史/冷启动 → 热门兜底（做过次数 TopN，不足补最新录入），理由=大家的选择。
+     */
+    public List<MenuCandidate> defaultRecommend(Long memberId, int topN) {
+        int n = topN <= 0 ? 3 : topN;
+        String profile = tasteProfileService.profileText(memberId);
+        if (!profile.isEmpty()) {
+            // L2：画像向量召回（无偏好文本时 query 即画像）
+            List<Document> hits = dishVectorService.semanticSearch(profile, n * 3, null, null);
+            List<MenuCandidate> out = new ArrayList<>();
+            Map<Long, String> ingNameCache = new HashMap<>();
+            for (Document d : hits) {
+                if (out.size() >= n) break;
+                Object idObj = d.getMetadata().get("dishId");
+                if (!(idObj instanceof Number num)) continue;
+                Dish dish = dishService.getById(num.longValue());
+                if (dish == null) continue;
+                Map<Long, BigDecimal> nut = dishQueryService.nutrition(dish.getId(), BigDecimal.ONE);
+                if (nut == null) nut = Map.of();
+                List<String> ingNames = ingredientNamesOf(dish.getId(), ingNameCache);
+                out.add(new MenuCandidate(
+                        List.of(new MenuCandidate.DishItem(dish.getId(), dish.getName(), BigDecimal.ONE)),
+                        nut, d.getScore() == null ? 0 : d.getScore(),
+                        List.of("与你近期常做的口味相近"), "default"));
+            }
+            if (!out.isEmpty()) return out;
+        }
+        // L1：热门兜底（做过次数 TopN，不足补最新）
+        List<Dish> hot = dishService.hotDishes(n);
+        return hot.stream().map(d -> {
+            Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.getId(), BigDecimal.ONE);
+            if (nut == null) nut = Map.of();
+            return new MenuCandidate(
+                    List.of(new MenuCandidate.DishItem(d.getId(), d.getName(), BigDecimal.ONE)),
+                    nut, 0,
+                    List.of(d.getCookedCount() != null && d.getCookedCount() > 0
+                            ? "大家做过最多的菜" : "新录入的菜，尝尝鲜"),
+                    "default");
+        }).toList();
+    }
+
     // ---------------- 菜品/一餐营养估算 ----------------
 
     public DishEstimateResponse estimateDish(DishEstimateRequest req) {
