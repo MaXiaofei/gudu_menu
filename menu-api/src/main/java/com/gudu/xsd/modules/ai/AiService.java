@@ -123,16 +123,17 @@ public class AiService {
         // 额度护栏：有 member 维度时，校验今日调用次数（scene 无关，全 AI 接口共用额度）。
         checkDailyLimit(req.memberId());
         try {
-            // 1. 取成员健康档案（constraints / allergies）
+            // 1. 健康约束（2026-08-17 屏蔽：健康档案功能未启用，恒为空约束/无过敏）
+            //    启用时恢复：读 member.healthProfile → parseConstraints/parseAllergies 传参即可。
+            // if (req.memberId() != null) {
+            //     Member m = memberMapper.selectById(req.memberId());
+            //     if (m != null && m.getHealthProfile() != null) {
+            //         cons = parseConstraints(m.getHealthProfile());
+            //         allergies = parseAllergies(m.getHealthProfile());
+            //     }
+            // }
             Constraints cons = new Constraints(null, null);
             List<String> allergies = List.of();
-            if (req.memberId() != null) {
-                Member m = memberMapper.selectById(req.memberId());
-                if (m != null && m.getHealthProfile() != null) {
-                    cons = parseConstraints(m.getHealthProfile());
-                    allergies = parseAllergies(m.getHealthProfile());
-                }
-            }
 
             // 2. 口味画像 + 偏好文本 → 向量召回查询
             String profile = tasteProfileService.profileText(req.memberId());
@@ -207,12 +208,7 @@ public class AiService {
         if (!topFavorite.isEmpty()) {
             reasons.add("与你近期常做的「" + topFavorite + "」口味相近");
         }
-        if (cons.calMax() != null) {
-            reasons.add("符合热量上限约束");
-        }
-        if (cons.sugarMax() != null) {
-            reasons.add("符合低糖约束");
-        }
+        // 健康约束理由（2026-08-17 屏蔽：约束未启用，cons 恒为 null）
         reasons.addAll(mc.reasons());
         return reasons;
     }

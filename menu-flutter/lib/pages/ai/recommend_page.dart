@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
-import '../../services/dailylog_service.dart';
 import '../../stores/member_store.dart';
 import '../../widgets/action_bar.dart';
 
@@ -22,19 +21,11 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
   bool _loading = false;
   List<dynamic>? _groups;
   String? _error;
-  bool _hasHealthProfile = true; // 当前成员是否有健康档案
 
   Future<void> _recommend() async {
     setState(() { _loading = true; _error = null; _groups = null; });
     try {
       final memberId = context.read<MemberStore>().currentId;
-      // 检查是否有健康档案（营养目标接口返回 null 表示没填身高体重/goal）
-      try {
-        final target = await DailyLogService.nutritionTarget(memberId);
-        _hasHealthProfile = target != null;
-      } catch (_) {
-        _hasHealthProfile = false;
-      }
 
       final body = <String, dynamic>{
         'memberId': memberId,
@@ -113,6 +104,12 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
             ),
             onSubmitted: (_) => _semanticSearch(),
+            // 输入变化即清空旧结果（相似菜/组合均随新输入失效）
+            onChanged: (_) {
+              if (_semanticHits != null || _groups != null || _error != null) {
+                setState(() { _semanticHits = null; _groups = null; _error = null; });
+              }
+            },
           ),
           const SizedBox(height: AppTokens.sp8),
           Wrap(
@@ -143,7 +140,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             ..._semanticHits!.map((h) {
               final dishId = h['dishId'] as int?;
               final name = h['name'] as String? ?? '';
-              final score = ((h['score'] as num?) ?? 0).toDouble();
               final cookTime = h['cookTime'] as int?;
               return InkWell(
                 onTap: () { if (dishId != null) context.push('/dish/$dishId'); },
@@ -160,10 +156,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                     Expanded(child: Text(name, style: t.textStyles.cardTitle)),
                     if (cookTime != null)
                       Text('$cookTime 分钟', style: t.textStyles.caption),
-                    const SizedBox(width: 8),
-                    Text('相似 ${(score * 100).toStringAsFixed(0)}%',
-                        style: t.textStyles.xs.copyWith(color: t.primary)),
-                    const SizedBox(width: 2),
                     Icon(Icons.chevron_right, size: 16, color: t.caption),
                   ]),
                 ),
@@ -172,6 +164,13 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           ],
           const SizedBox(height: AppTokens.sp8),
 
+          // 组合推荐结果（展示在按钮上方）
+          if (_groups != null && _groups!.isNotEmpty) ...[
+            const SizedBox(height: AppTokens.sp12),
+            Text('推荐组合', style: t.textStyles.sectionLabel.copyWith(color: t.caption)),
+            const SizedBox(height: AppTokens.sp6),
+            ..._groups!.asMap().entries.map((e) => _buildGroupCard(e.key + 1, e.value as Map<String, dynamic>)),
+          ],
           const SizedBox(height: 12),
 
           Row(children: [
@@ -213,28 +212,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
               ),
             ),
 
-          // 结果
-          if (_groups != null && _groups!.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            ..._groups!.asMap().entries.map((e) => _buildGroupCard(e.key + 1, e.value as Map<String, dynamic>)),
-            if (!_hasHealthProfile) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBF0),
-                  borderRadius: BorderRadius.circular(AppTokens.rMd),
-                  border: Border.all(color: const Color(0xFFE8D8B8)),
-                ),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(child: Text(
-                    '当前成员未设置健康约束（糖上限/热量上限/过敏原），推荐未做健康过滤。建议在成员档案中完善。',
-                    style: t.textStyles.sm.copyWith(color: const Color(0xFF9B8060)),
-                  )),
-                ]),
-              ),
-            ],
-          ],
         ]),
               ),
             ), // Expanded → SingleChildScrollView

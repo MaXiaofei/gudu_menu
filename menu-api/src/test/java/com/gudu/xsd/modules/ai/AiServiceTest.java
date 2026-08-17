@@ -113,7 +113,8 @@ class AiServiceTest {
     }
 
     @Test
-    void 菜单推荐_召回排除近期做过() {
+    void 菜单推荐_不排除做过的菜_全部进候选() {
+        // 2026-08-17 定稿：不排除做过的菜（真爱菜反复出现），召回的所有菜都进候选
         org.springframework.ai.document.Document d1 =
                 new org.springframework.ai.document.Document("a", java.util.Map.of("dishId", 10, "name", "A"));
         org.springframework.ai.document.Document d2 =
@@ -121,8 +122,7 @@ class AiServiceTest {
         when(dishVectorService.semanticSearch(any(), anyInt(), any(), any()))
                 .thenReturn(List.of(d1, d2));
         when(tasteProfileService.profileText(any())).thenReturn("");
-        // dishId=10 近期做过 → 排除，只剩 11
-        when(tasteProfileService.recentDishIds(any(), anyInt())).thenReturn(List.of(10L));
+        when(dishService.getById(10L)).thenReturn(dish(10L, "A"));
         when(dishService.getById(11L)).thenReturn(dish(11L, "B"));
         when(dishQueryService.nutrition(anyLong(), any())).thenReturn(java.util.Map.of());
         when(dishIngredientMapper.selectList(any())).thenReturn(List.of());
@@ -132,7 +132,8 @@ class AiServiceTest {
         var req = new MenuRecommendRequest(1L, "DAY", null, null, null, null, null, null);
         svc.recommendMenu(req);
 
-        verify(dishService, never()).getById(10L);
+        // 两道召回菜都被查询进候选（无排除）
+        verify(dishService).getById(10L);
         verify(dishService).getById(11L);
     }
 
