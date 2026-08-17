@@ -16,9 +16,6 @@ class AiRecommendPage extends StatefulWidget {
 }
 
 class _AiRecommendPageState extends State<AiRecommendPage> {
-  String _scope = 'DAY';
-  String _maxMinutes = '';
-  String _maxDifficulty = '';
   final _prefCtrl = TextEditingController();
   List<dynamic>? _semanticHits; // 语义找菜即时结果
   bool _semanticLoading = false;
@@ -41,12 +38,9 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
 
       final body = <String, dynamic>{
         'memberId': memberId,
-        'scope': _scope,
-        // 语义偏好（可空）：参与向量召回查询，如「清淡下饭」「酸甜开胃」
+        // 语义偏好：参与向量召回查询，如「清淡下饭」「酸甜开胃」
         if (_prefCtrl.text.trim().isNotEmpty) 'preference': _prefCtrl.text.trim(),
       };
-      if (_maxMinutes.isNotEmpty) body['maxMinutes'] = int.tryParse(_maxMinutes);
-      if (_maxDifficulty.isNotEmpty) body['maxDifficulty'] = int.tryParse(_maxDifficulty);
 
       final data = await ApiClient.instance.post('/ai/menu/recommend', body: body);
       final groups = (data as List?) ?? [];
@@ -71,8 +65,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
     try {
       final data = await ApiClient.instance.post('/dish/semantic-search', body: {
         'query': q, 'topK': 8,
-        if (_maxMinutes.isNotEmpty) 'maxMinutes': int.tryParse(_maxMinutes),
-        if (_maxDifficulty.isNotEmpty) 'maxDifficulty': int.tryParse(_maxDifficulty),
       });
       if (mounted) setState(() => _semanticHits = (data as List?) ?? []);
     } catch (_) {
@@ -180,47 +172,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           ],
           const SizedBox(height: AppTokens.sp8),
 
-          // 范围（可选）
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: t.bg, borderRadius: BorderRadius.circular(AppTokens.rSm),
-            ),
-            child: Row(children: [
-              _scopeChip('一天', 'DAY'), _scopeChip('一周', 'WEEK'),
-            ]),
-          ),
           const SizedBox(height: 12),
-
-          // 筛选条件
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: TextEditingController(text: _maxMinutes),
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: '最长烹饪(分)', isDense: true,
-                  filled: true, fillColor: t.bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
-                ),
-                onChanged: (v) => _maxMinutes = v,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: TextEditingController(text: _maxDifficulty),
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: '难度上限(1-5)', isDense: true,
-                  filled: true, fillColor: t.bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rSm)),
-                ),
-                onChanged: (v) => _maxDifficulty = v,
-              ),
-            ),
-          ]),
-          const SizedBox(height: 16),
 
           Row(children: [
             Expanded(
@@ -288,23 +240,6 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             ), // Expanded → SingleChildScrollView
           ], // Column
         ),
-      ),
-    );
-  }
-
-  Widget _scopeChip(String label, String value) {
-    final t = AppTokens.of(context);
-    final active = _scope == value;
-    return InkWell(
-      onTap: () => setState(() => _scope = value),
-      borderRadius: BorderRadius.circular(AppTokens.rSm),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? t.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTokens.rSm),
-        ),
-        child: Text(label, style: t.textStyles.sm.copyWith(color: active ? t.card : t.caption)),
       ),
     );
   }
