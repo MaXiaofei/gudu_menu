@@ -222,29 +222,32 @@ public class AiService {
         int n = topN <= 0 ? 3 : topN;
         String profile = tasteProfileService.profileText(memberId);
         long total = dishService.count();
-        // L1 冷启动细化（2026-08-18 定稿）：
-        //   菜谱 <10 且无做菜历史 → 按最新录入；
-        //   菜谱 <10 但有做菜历史 → 按做过次数（hotDishes 聚合，不足补最新）；
-        //   菜谱 ≥10 → 有历史走 L2 画像召回，无历史走热门兜底。
+        // L1 无做菜历史：一律按最新录入（2026-08-18 定稿，不论菜谱数量）
+        if (profile.isEmpty()) {
+            return dishService.latestDishes(n).stream().map(d -> {
+                Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.getId(), BigDecimal.ONE);
+                if (nut == null) nut = Map.of();
+                return new MenuCandidate(
+                        List.of(new MenuCandidate.DishItem(d.getId(), d.getName(), BigDecimal.ONE)),
+                        nut, 0, List.of("新录入的菜，尝尝鲜"), "default");
+            }).toList();
+        }
+        // 有做菜历史：
+        //   菜谱 <10 → 按做过次数（hotDishes 聚合，不足补最新）；
+        //   菜谱 ≥10 → L2 画像向量召回。
         if (total < 10) {
-            List<Dish> list = profile.isEmpty()
-                    ? dishService.latestDishes(n)
-                    : dishService.hotDishes(n);
-            return list.stream().map(d -> {
+            return dishService.hotDishes(n).stream().map(d -> {
                 Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.getId(), BigDecimal.ONE);
                 if (nut == null) nut = Map.of();
                 return new MenuCandidate(
                         List.of(new MenuCandidate.DishItem(d.getId(), d.getName(), BigDecimal.ONE)),
                         nut, 0,
-                        List.of(profile.isEmpty()
-                                ? "新录入的菜，尝尝鲜"
-                                : (d.getCookedCount() != null && d.getCookedCount() > 0
-                                        ? "你常做的菜" : "新录入的菜，尝尝鲜")),
+                        List.of(d.getCookedCount() != null && d.getCookedCount() > 0
+                                ? "你常做的菜" : "新录入的菜，尝尝鲜"),
                         "default");
             }).toList();
         }
-        if (!profile.isEmpty()) {
-            // L2：画像向量召回（无偏好文本时 query 即画像）
+        // 菜谱 ≥10 且有历史：L2 画像向量召回（无偏好文本时 query 即画像）
             List<Document> hits = dishVectorService.semanticSearch(profile, n * 3, null, null);
             List<MenuCandidate> out = new ArrayList<>();
             Map<Long, String> ingNameCache = new HashMap<>();
@@ -263,19 +266,7 @@ public class AiService {
                         List.of("与你近期常做的口味相近"), "default"));
             }
             if (!out.isEmpty()) return out;
-        }
-        // L1 菜谱 ≥10 无历史：热门兜底（做过次数 TopN，不足补最新）
-        List<Dish> hot = dishService.hotDishes(n);
-        return hot.stream().map(d -> {
-            Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.getId(), BigDecimal.ONE);
-            if (nut == null) nut = Map.of();
-            return new MenuCandidate(
-                    List.of(new MenuCandidate.DishItem(d.getId(), d.getName(), BigDecimal.ONE)),
-                    nut, 0,
-                    List.of(d.getCookedCount() != null && d.getCookedCount() > 0
-                            ? "大家做过最多的菜" : "新录入的菜，尝尝鲜"),
-                    "default");
-        }).toList();
+        return List.of();
     }
 
     // ---------------- 菜品/一餐营养估算 ----------------
