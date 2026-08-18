@@ -16,6 +16,15 @@ export interface RecommendGroup {
   source?: string
 }
 
+/** 进页面默认推荐：GET /ai/menu/recommend/default（无做菜历史→最新录入；有历史→<10 道按做过次数 / ≥10 道画像召回）。 */
+export function recommendDefault(memberId: number | null, topN = 3): Promise<RecommendGroup[]> {
+  return request<RecommendGroup[]>({
+    url: '/ai/menu/recommend/default',
+    method: 'GET',
+    data: { memberId: memberId ?? '', topN },
+  })
+}
+
 /** 组合推荐：POST /ai/menu/recommend（成员口味画像 + 偏好文本 → 向量召回 → 打分组合）。 */
 export function recommendMenu(memberId: number, preference?: string): Promise<RecommendGroup[]> {
   return request<RecommendGroup[]>({

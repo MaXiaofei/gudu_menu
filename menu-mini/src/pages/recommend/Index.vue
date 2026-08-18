@@ -47,7 +47,7 @@
 
       <!-- 组合推荐结果（展示在按钮上方） -->
       <template v-if="groups && groups.length">
-        <text class="section-label">推荐组合</text>
+        <text class="section-label">{{ isDefault ? '为你推荐' : '推荐组合' }}</text>
         <view v-for="(g, i) in groups" :key="i" class="group-card">
           <view class="group-head">
             <text class="group-no">{{ i + 1 }}</text>
@@ -81,7 +81,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { semanticSearch, type SemanticHit } from '@/api/dish'
-import { recommendMenu, type RecommendGroup } from '@/api/ai'
+import { recommendDefault, recommendMenu, type RecommendGroup } from '@/api/ai'
+import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/store/member'
 
 const memberStore = useMemberStore()
@@ -94,6 +95,19 @@ const groups = ref<RecommendGroup[] | null>(null)
 const error = ref('')
 
 const quickChips = ['清淡下饭', '酸甜开胃', '快手菜', '来点硬菜', '暖暖的汤']
+const isDefault = ref(false) // 当前的 groups 是否为进页默认推荐（标题区分）
+
+/** 进页面默认出菜（对齐 APP）：无历史→最新录入；有历史→做过次数/画像召回。失败静默。 */
+async function loadDefault() {
+  try {
+    const list = await recommendDefault(memberStore.currentId, 3)
+    groups.value = list
+    isDefault.value = true
+  } catch (_) {
+    // 默认推荐失败静默（用户可手动触发）
+  }
+}
+onShow(() => { loadDefault() })
 
 /** 输入变化即清空旧结果（相似菜/组合均随新输入失效，对齐 APP）。 */
 function onInput() {
@@ -137,6 +151,7 @@ async function onRecommend() {
   try {
     const list = await recommendMenu(memberStore.currentId, pref.value)
     groups.value = list
+    isDefault.value = false
     if (!list.length) {
       error.value = '暂无推荐，菜库菜品较少时建议先录入更多菜品'
     }

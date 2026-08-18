@@ -292,10 +292,8 @@ function goShopping() {
 .chip.none { color: var(--error); }
 .chip.low { color: var(--warning-text); }
 .chip.enough { color: var(--success); }
-.chip.all.on { background: var(--title); border-color: var(--title); color: #FFFFFF; }
-.chip.none.on { background: var(--error); border-color: var(--error); color: #FFFFFF; }
-.chip.low.on { background: var(--warning); border-color: var(--warning); color: #FFFFFF; }
-.chip.enough.on { background: var(--success); border-color: var(--success); color: #FFFFFF; }
+/* 2026-08-18 与 APP SelectChip 统一：选中一律深棕实底白字；三色语义保留在未选文字 */
+.chip.on { background: var(--title); border-color: var(--title); color: #FFFFFF; }
 .body {
   flex: 1;
   min-height: 0;
