@@ -221,6 +221,28 @@ public class AiService {
     public List<MenuCandidate> defaultRecommend(Long memberId, int topN) {
         int n = topN <= 0 ? 3 : topN;
         String profile = tasteProfileService.profileText(memberId);
+        long total = dishService.count();
+        // L1 冷启动细化（2026-08-18 定稿）：
+        //   菜谱 <10 且无做菜历史 → 按最新录入；
+        //   菜谱 <10 但有做菜历史 → 按做过次数（hotDishes 聚合，不足补最新）；
+        //   菜谱 ≥10 → 有历史走 L2 画像召回，无历史走热门兜底。
+        if (total < 10) {
+            List<Dish> list = profile.isEmpty()
+                    ? dishService.latestDishes(n)
+                    : dishService.hotDishes(n);
+            return list.stream().map(d -> {
+                Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.getId(), BigDecimal.ONE);
+                if (nut == null) nut = Map.of();
+                return new MenuCandidate(
+                        List.of(new MenuCandidate.DishItem(d.getId(), d.getName(), BigDecimal.ONE)),
+                        nut, 0,
+                        List.of(profile.isEmpty()
+                                ? "新录入的菜，尝尝鲜"
+                                : (d.getCookedCount() != null && d.getCookedCount() > 0
+                                        ? "你常做的菜" : "新录入的菜，尝尝鲜")),
+                        "default");
+            }).toList();
+        }
         if (!profile.isEmpty()) {
             // L2：画像向量召回（无偏好文本时 query 即画像）
             List<Document> hits = dishVectorService.semanticSearch(profile, n * 3, null, null);
@@ -234,7 +256,7 @@ public class AiService {
                 if (dish == null) continue;
                 Map<Long, BigDecimal> nut = dishQueryService.nutrition(dish.getId(), BigDecimal.ONE);
                 if (nut == null) nut = Map.of();
-                List<String> ingNames = ingredientNamesOf(dish.getId(), ingNameCache);
+                ingredientNamesOf(dish.getId(), ingNameCache);
                 out.add(new MenuCandidate(
                         List.of(new MenuCandidate.DishItem(dish.getId(), dish.getName(), BigDecimal.ONE)),
                         nut, d.getScore() == null ? 0 : d.getScore(),
@@ -242,7 +264,7 @@ public class AiService {
             }
             if (!out.isEmpty()) return out;
         }
-        // L1：热门兜底（做过次数 TopN，不足补最新）
+        // L1 菜谱 ≥10 无历史：热门兜底（做过次数 TopN，不足补最新）
         List<Dish> hot = dishService.hotDishes(n);
         return hot.stream().map(d -> {
             Map<Long, BigDecimal> nut = dishQueryService.nutrition(d.getId(), BigDecimal.ONE);

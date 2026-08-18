@@ -129,6 +129,13 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         return ordered;
     }
 
+    /** 最新录入的菜（L1 冷启动：菜谱 <10 且无做菜历史时推最新）。 */
+    public List<Dish> latestDishes(int limit) {
+        return list(new QueryWrapper<Dish>()
+                .orderByDesc("create_time")
+                .last("LIMIT " + limit));
+    }
+
     /**
      * 删除菜谱（错误数据清理，列表左滑删除）：连带物理清步骤/菜系标签分类关联/用料/编辑历史，
      * 主表软删（deleted=1）。做菜记录（cooking_record）保留——是历史行为记录，不随菜谱删除抹掉。
