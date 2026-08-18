@@ -92,18 +92,41 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         }
     }
 
-    /** 冷启动热门菜：按做过次数倒序取前 N；不足 N 时用最新录入的新菜补位（保证曝光量）。 */
+    /**
+     * 冷启动热门菜：按 cooking_record 聚合做菜次数倒序取前 N（真实热度，cooked_count
+     * 非表列而是聚合展示字段），聚合次数回填 cookedCount；不足 N 时用最新录入的新菜补位。
+     */
     public List<Dish> hotDishes(int limit) {
-        List<Dish> hot = list(new QueryWrapper<Dish>()
-                .orderByDesc("cooked_count").last("LIMIT " + limit));
-        if (hot.size() >= limit) return hot;
-        List<Long> hotIds = hot.stream().map(Dish::getId).toList();
-        List<Dish> fresh = list(new QueryWrapper<Dish>()
-                .notIn(hotIds.isEmpty(), "id", hotIds)
-                .orderByDesc("create_time")
-                .last("LIMIT " + (limit - hot.size())));
-        hot.addAll(fresh);
-        return hot;
+        List<Map<String, Object>> rows = cookingRecordMapper.selectMaps(
+                new QueryWrapper<CookingRecord>()
+                        .select("dish_id, COUNT(*) AS cnt")
+                        .isNotNull("dish_id")
+                        .groupBy("dish_id")
+                        .orderByDesc("cnt")
+                        .last("LIMIT " + limit));
+        List<Long> ids = rows.stream()
+                .map(r -> ((Number) r.get("dish_id")).longValue()).toList();
+        List<Dish> hot = ids.isEmpty() ? List.of() : listByIds(ids);
+        // 保持聚合顺序 + 回填次数
+        Map<Long, Dish> byId = hot.stream()
+                .collect(Collectors.toMap(Dish::getId, d -> d, (a, b) -> a));
+        List<Dish> ordered = new ArrayList<>();
+        for (int i = 0; i < ids.size(); i++) {
+            Dish d = byId.get(ids.get(i));
+            if (d == null) continue;
+            d.setCookedCount(((Number) rows.get(i).get("cnt")).intValue());
+            ordered.add(d);
+        }
+        // 不足补最新录入（新菜曝光）
+        if (ordered.size() < limit) {
+            List<Long> hotIds = ordered.stream().map(Dish::getId).toList();
+            List<Dish> fresh = list(new QueryWrapper<Dish>()
+                    .notIn(!hotIds.isEmpty(), "id", hotIds)
+                    .orderByDesc("create_time")
+                    .last("LIMIT " + (limit - ordered.size())));
+            ordered.addAll(fresh);
+        }
+        return ordered;
     }
 
     /**
