@@ -52,7 +52,7 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 const SizedBox(height: 48),
                 Text(
-                  '小食单',
+                  '咕嘟小食单',
                   textAlign: TextAlign.center,
                   style: t.textStyles.h1.copyWith(color: t.primary),
                 ),

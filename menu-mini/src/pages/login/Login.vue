@@ -3,7 +3,7 @@
     <!-- 顶部渐变 header -->
     <view class="header">
       <view class="logo-circle"><text class="logo-text">食</text></view>
-      <text class="brand">小食单</text>
+      <text class="brand">咕嘟小食单</text>
       <text class="slogan">小火慢炖，咕嘟出家的味道</text>
     </view>
 
