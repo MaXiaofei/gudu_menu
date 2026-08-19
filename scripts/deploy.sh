@@ -96,10 +96,17 @@ if echo "$SERVICES" | grep -qw menu-api; then
   fi
 fi
 
-# 2.6 基础服务确保在位（幂等）：pgvector/ollama 等新依赖服务可能从未在服务器创建过
+# 2.6 基础服务确保在位（幂等）：pgvector/ollama 等新依赖服务可能从未在服务器创建过；
+#     按 compose 实际声明的服务动态 up（生产方案 B 已注释 ollama → 不 up，避免 no such service）
 if echo "$SERVICES" | grep -qw menu-api; then
-  echo "→ 确保基础服务在位（mysql/redis/pgvector/ollama）..."
-  docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-recreate gudu-mysql gudu-redis gudu-pgvector gudu-ollama
+  echo "→ 确保基础服务在位（按 compose 声明动态）..."
+  BASE_SERVICES=$(docker compose $PROJECT_OPT -f "$COMPOSE_FILE" config --services 2>/dev/null \
+    | grep -E 'gudu-(mysql|redis|pgvector|ollama)' | tr '\n' ' ')
+  echo "  基础服务: $BASE_SERVICES"
+  if [ -n "$BASE_SERVICES" ]; then
+    # shellcheck disable=SC2086
+    docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-recreate $BASE_SERVICES
+  fi
 fi
 
 # 2.7 nginx 实配确保（幂等）：conf 文件不在 git 中（由 template 生成），
