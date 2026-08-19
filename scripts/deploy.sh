@@ -70,7 +70,7 @@ fi
 
 # 2.5 向量库扩展确保（幂等）：pgvector 容器存在但 vector 扩展缺失时
 #     Spring AI PgVectorStore 启动 CREATE EXTENSION 会失败导致整个应用起不来。
-if echo "$SERVICES" | grep -qw menu-api && [ "$ENV" != "prod" ]; then
+if echo "$SERVICES" | grep -qw menu-api; then
   echo "→ 确保 pgvector vector 扩展..."
   docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-pgvector \
     psql -U gudu -d gudu -c 'CREATE EXTENSION IF NOT EXISTS vector;' \
@@ -79,7 +79,7 @@ fi
 
 # 2.6 Ollama embedding 模型确保（幂等）：bge-m3 缺失时语义找菜/推荐 404。
 #     首次拉取 ~1.2GB（网络慢时几分钟），之后 ollama list 命中即跳过。
-if echo "$SERVICES" | grep -qw menu-api && [ "$ENV" != "prod" ]; then
+if echo "$SERVICES" | grep -qw menu-api; then
   echo "→ 确保 Ollama bge-m3 模型..."
   if docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-ollama \
       ollama list 2>/dev/null | grep -q "bge-m3"; then
@@ -92,7 +92,7 @@ if echo "$SERVICES" | grep -qw menu-api && [ "$ENV" != "prod" ]; then
 fi
 
 # 2.6 基础服务确保在位（幂等）：pgvector/ollama 等新依赖服务可能从未在服务器创建过
-if echo "$SERVICES" | grep -qw menu-api && [ "$ENV" != "prod" ]; then
+if echo "$SERVICES" | grep -qw menu-api; then
   echo "→ 确保基础服务在位（mysql/redis/pgvector/ollama）..."
   docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-recreate gudu-mysql gudu-redis gudu-pgvector gudu-ollama
 fi
