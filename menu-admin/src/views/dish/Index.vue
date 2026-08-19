@@ -131,7 +131,7 @@ async function openEdit(row: DishSearchRow) {
     dishIngredients.value = (detail.ingredients && detail.ingredients.length
       ? detail.ingredients
       : [{ ingredientId: undefined as unknown as number, amount: 1 }]
-    ).map((d) => ({ ingredientId: d.ingredientId, amount: d.amount }))
+    ).map((d) => ({ ingredientId: d.ingredientId, amount: d.amount, unitName: d.unitName }))
   } catch {
     // 忽略
   }
@@ -330,6 +330,7 @@ function onCoverSuccess(resp: { url: string }) {
             <el-option v-for="ing in ingredients" :key="ing.id" :label="ing.name" :value="ing.id" />
           </el-select>
           <el-input-number v-model="d.amount" :min="0" :precision="2" style="margin-left: 8px" />
+          <span class="unit-name">{{ d.unitName || '适量' }}</span>
           <el-button link type="danger" style="margin-left: 8px" @click="removeIngredient(i)">删除</el-button>
         </div>
         <el-button text type="primary" @click="addIngredient">+ 添加食材</el-button>
@@ -400,6 +401,12 @@ function onCoverSuccess(resp: { url: string }) {
 }
 .spacer {
   flex: 1;
+}
+.unit-name {
+  margin-left: 8px;
+  min-width: 36px;
+  color: #606266;
+  font-size: 13px;
 }
 .inline-row {
   margin-bottom: 8px;

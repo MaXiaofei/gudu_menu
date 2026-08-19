@@ -30,6 +30,8 @@ export interface DishStepWire {
 export interface DishIngredient {
   ingredientId: number
   amount: number
+  /** 用量单位名（食材档案带出；展示「2 个」，无数字无单位=适量）。 */
+  unitName?: string | null
 }
 
 export interface DishDetail {
