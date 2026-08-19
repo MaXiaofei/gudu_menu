@@ -78,35 +78,6 @@ menu-new/
 └── docker-compose*.yml  各环境编排（test / staging / prod）
 ```
 
-## 本地开发
-
-先起依赖服务：
-
-```bash
-docker compose up -d
-```
-
-数据源和 Redis 地址在 `menu-api/src/main/resources/application-dev.yml`，按自己的环境改一下（仓库里这份连的是开发服务器的地址）。
-
-后端：
-
-```bash
-cd menu-api
-./mvnw spring-boot:run
-```
-
-接口文档：http://localhost:8080/gudu/swagger-ui/index.html
-
-前端：
-
-```bash
-cd menu-admin
-npm install
-npm run dev
-```
-
-跑在 http://localhost:5173 ，`/api` 请求会代理到后端 8080。
-
 ## 文档
 
 - 设计文档：`docs/superpowers/specs/2026-06-16-yanhuo-xiaoshidan-design.md`
