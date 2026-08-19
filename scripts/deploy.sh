@@ -97,6 +97,20 @@ if echo "$SERVICES" | grep -qw menu-api; then
   docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-recreate gudu-mysql gudu-redis gudu-pgvector gudu-ollama
 fi
 
+# 2.7 nginx 实配确保（幂等）：conf 文件不在 git 中（由 template 生成），
+#    服务器 git 重置/清理后需重建，否则 gudu-nginx 重启即丢失反代配置。
+if echo "$SERVICES" | grep -qw menu-api || echo "$SERVICES" | grep -qw menu-admin; then
+  echo "→ 确保 nginx 实配（template → conf，缺则生成）..."
+  CONF_DIR="nginx/conf.d"
+  [ -f "$CONF_DIR/app.conf" ] || cp "$CONF_DIR/app-https.conf.template" "$CONF_DIR/app.conf"
+  [ -f "$CONF_DIR/staging.conf" ] || cp "$CONF_DIR/staging-https.conf.template" "$CONF_DIR/staging.conf"
+  if docker exec gudu-nginx nginx -t 2>/dev/null; then
+    docker exec gudu-nginx nginx -s reload && echo "  nginx reloaded"
+  else
+    echo "  （gudu-nginx 不可达或配置未就绪，跳过 reload——请检查 front-nginx 容器）"
+  fi
+fi
+
 # 3. 重启容器（加载新镜像，--no-deps 不动 mysql/redis）
 for s in $SERVICES; do
   echo "→ 重启 $s..."
@@ -108,7 +122,7 @@ if echo "$SERVICES" | grep -qw menu-api; then
   echo "→ 等待应用启动（健康检查）..."
   MAX_WAIT=24  # 24 × 5s = 120s
   for i in $(seq 1 $MAX_WAIT); do
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 5 "$HEALTH_URL" 2>/dev/null || echo "000")
+    HTTP_CODE=$(curl -sL -o /dev/null -w "%{http_code}" -m 5 "$HEALTH_URL" 2>/dev/null || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
       echo "✅ 应用已启动 (HTTP $HTTP_CODE, 等待 $((i*5))s)"
       echo "✅ 部署完成: $ENV（服务: $SERVICES）@ $(date '+%Y-%m-%d %H:%M:%S')"
