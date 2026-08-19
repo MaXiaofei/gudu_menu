@@ -27,11 +27,11 @@ SERVICES="${SERVICES:-menu-api}"
 if [ "$ENV" = "prod" ]; then
   COMPOSE_FILE="docker-compose.prod.yml"
   PROJECT_OPT=""
-  HEALTH_URL="http://localhost:80/gudu/doc.html"
+  HEALTH_CMD="docker exec gudu-nginx sh -c 'curl -s -o /dev/null -w \"%{http_code}\" -m 5 http://menu-api:8080/gudu/doc.html'"
 else
   COMPOSE_FILE="docker-compose.staging.yml"
   PROJECT_OPT="-p gudu-staging"
-  HEALTH_URL="http://localhost:9090/gudu/doc.html"
+  HEALTH_CMD="docker exec gudu-nginx sh -c 'curl -s -o /dev/null -w \"%{http_code}\" -m 5 http://menu-api-staging:8080/gudu/doc.html'"
 fi
 
 echo "============================================================"
@@ -122,7 +122,7 @@ if echo "$SERVICES" | grep -qw menu-api; then
   echo "→ 等待应用启动（健康检查）..."
   MAX_WAIT=24  # 24 × 5s = 120s
   for i in $(seq 1 $MAX_WAIT); do
-    HTTP_CODE=$(curl -sL -o /dev/null -w "%{http_code}" -m 5 "$HEALTH_URL" 2>/dev/null || echo "000")
+    HTTP_CODE=$(eval "$HEALTH_CMD" 2>/dev/null || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
       echo "✅ 应用已启动 (HTTP $HTTP_CODE, 等待 $((i*5))s)"
       echo "✅ 部署完成: $ENV（服务: $SERVICES）@ $(date '+%Y-%m-%d %H:%M:%S')"
