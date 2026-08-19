@@ -42,6 +42,10 @@ echo "  时间:     $(date '+%Y-%m-%d %H:%M:%S')"
 echo "============================================================"
 
 # 1. 构建新镜像（多阶段构建：容器内 maven 打包，复用 layer 缓存）
+#    注意：小程序 H5（menu-mini）只在 staging 暴露（prod compose 无该 service），prod 环境跳过
+if [ "$ENV" = "prod" ]; then
+  SERVICES=$(echo "$SERVICES" | tr ' ' '\n' | grep -v '^menu-mini$' | tr '\n' ' ')
+fi
 for s in $SERVICES; do
   echo "→ docker compose build $s..."
   docker compose $PROJECT_OPT -f "$COMPOSE_FILE" build "$s"
@@ -66,7 +70,7 @@ fi
 
 # 2.5 向量库扩展确保（幂等）：pgvector 容器存在但 vector 扩展缺失时
 #     Spring AI PgVectorStore 启动 CREATE EXTENSION 会失败导致整个应用起不来。
-if echo "$SERVICES" | grep -qw menu-api; then
+if echo "$SERVICES" | grep -qw menu-api && [ "$ENV" != "prod" ]; then
   echo "→ 确保 pgvector vector 扩展..."
   docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-pgvector \
     psql -U gudu -d gudu -c 'CREATE EXTENSION IF NOT EXISTS vector;' \
@@ -75,7 +79,7 @@ fi
 
 # 2.6 Ollama embedding 模型确保（幂等）：bge-m3 缺失时语义找菜/推荐 404。
 #     首次拉取 ~1.2GB（网络慢时几分钟），之后 ollama list 命中即跳过。
-if echo "$SERVICES" | grep -qw menu-api; then
+if echo "$SERVICES" | grep -qw menu-api && [ "$ENV" != "prod" ]; then
   echo "→ 确保 Ollama bge-m3 模型..."
   if docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-ollama \
       ollama list 2>/dev/null | grep -q "bge-m3"; then
@@ -88,7 +92,7 @@ if echo "$SERVICES" | grep -qw menu-api; then
 fi
 
 # 2.6 基础服务确保在位（幂等）：pgvector/ollama 等新依赖服务可能从未在服务器创建过
-if echo "$SERVICES" | grep -qw menu-api; then
+if echo "$SERVICES" | grep -qw menu-api && [ "$ENV" != "prod" ]; then
   echo "→ 确保基础服务在位（mysql/redis/pgvector/ollama）..."
   docker compose $PROJECT_OPT -f "$COMPOSE_FILE" up -d --no-recreate gudu-mysql gudu-redis gudu-pgvector gudu-ollama
 fi
