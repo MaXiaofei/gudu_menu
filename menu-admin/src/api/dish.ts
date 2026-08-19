@@ -37,7 +37,6 @@ export interface DishDetail {
   steps: DishStepResp[]
   cuisineIds: number[]
   tagIds: number[]
-  categoryIds: number[]
   ingredients: DishIngredient[]
 }
 
@@ -46,7 +45,6 @@ export interface DishSaveDTO {
   steps: DishStepWire[]
   cuisineIds: number[]
   tagIds: number[]
-  categoryIds: number[]
   ingredients: DishIngredient[]
 }
 

@@ -194,7 +194,6 @@ async function onSubmit() {
     steps: payloadSteps,
     cuisineIds: cuisineIds.value,
     tagIds: tagIds.value,
-    categoryIds: [],
     ingredients: payloadIngredients,
   }
   if (editing.value && baseForm.id) {
@@ -313,7 +312,7 @@ function onCoverSuccess(resp: { url: string }) {
           />
         </el-form-item>
 
-        <el-divider content-position="left">分类（菜系/标签）</el-divider>
+        <el-divider content-position="left">菜系与标签</el-divider>
         <el-form-item label="菜系">
           <el-select v-model="cuisineIds" multiple placeholder="选择菜系" style="width: 100%">
             <el-option v-for="c in cuisineOptions" :key="c.id" :label="c.name" :value="c.id" />

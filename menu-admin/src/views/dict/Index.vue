@@ -16,7 +16,6 @@ import Pagination from '@/components/Pagination.vue'
 type GroupKey =
   | 'cuisine'
   | 'tag'
-  | 'category'
   | 'menu_type'
   | 'audience'
   | 'unit'
@@ -31,7 +30,6 @@ interface GroupTab {
 const groupTabs: GroupTab[] = [
   { key: 'cuisine', title: '菜系' },
   { key: 'tag', title: '标签' },
-  { key: 'category', title: '菜品分类' },
   { key: 'menu_type', title: '菜单类型' },
   { key: 'audience', title: '适用人群' },
   { key: 'unit', title: '计量单位' },
