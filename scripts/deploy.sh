@@ -44,7 +44,12 @@ echo "============================================================"
 # 1. 构建新镜像（多阶段构建：容器内 maven 打包，复用 layer 缓存）
 #    注意：小程序 H5（menu-mini）只在 staging 暴露（prod compose 无该 service），prod 环境跳过
 if [ "$ENV" = "prod" ]; then
-  SERVICES=$(echo "$SERVICES" | tr ' ' '\n' | grep -v '^menu-mini$' | tr '\n' ' ')
+  # pipefail 下 grep 无匹配退出 1 会触发 set -e，加 || true 容忍
+  SERVICES=$(echo "$SERVICES" | tr ' ' '\n' | grep -v '^menu-mini$' | tr '\n' ' ' || true)
+fi
+if [ -z "${SERVICES// /}" ]; then
+  echo "✅ 无服务需要部署（prod 跳过 menu-mini）"
+  exit 0
 fi
 for s in $SERVICES; do
   echo "→ docker compose build $s..."
