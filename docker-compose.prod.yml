@@ -74,7 +74,7 @@ services:
     build: ./menu-admin
     container_name: menu-admin-prod
     restart: unless-stopped
-    depends_on: [menu-api-prod]
+    depends_on: [menu-api]
     # 不暴露端口到宿主机，由 front-nginx 统一代理
 
   front-nginx:
