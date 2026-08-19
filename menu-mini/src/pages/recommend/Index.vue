@@ -38,7 +38,7 @@
       </view>
       <template v-if="hits && hits.length">
         <text class="section-label">找菜结果</text>
-        <view v-for="h in hits" :key="h.dishId" class="hit-row" @click="goDish(h.dishId)">
+        <view v-for="h in hits || []" :key="h.dishId" class="hit-row" @click="goDish(h.dishId)">
           <text class="hit-name">{{ h.name }}</text>
           <text v-if="h.cookTime != null" class="hit-time">{{ h.cookTime }} 分钟</text>
           <text class="arrow">›</text>
@@ -54,9 +54,9 @@
             <text class="group-title">推荐组合</text>
           </view>
           <view class="group-chips">
-            <view v-for="d in g.dishes" :key="d.dishId" class="dish-chip" @click="goDish(d.dishId)">{{ d.name }}</view>
+            <view v-for="d in g.dishes || []" :key="d.dishId" class="dish-chip" @click="goDish(d.dishId)">{{ d.name }}</view>
           </view>
-          <view v-for="(r, ri) in g.reasons" :key="ri" class="reason">
+          <view v-for="(r, ri) in g.reasons || []" :key="ri" class="reason">
             <text class="dot">·</text>
             <text class="reason-txt">{{ r }}</text>
           </view>
