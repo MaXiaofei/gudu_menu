@@ -40,14 +40,14 @@ const routes: RouteRecordRaw[] = [
         path: 'dish',
         name: 'Dish',
         component: () => import('@/views/dish/Index.vue'),
-        meta: { title: '菜品' },
+        meta: { title: '菜谱' },
       },
       {
         path: 'menu',
         name: 'Menu',
         component: () => import('@/views/menu/Index.vue'),
         // 后台定位为管理辅助，菜单/采购/周计划等日常操作入口隐藏（路由保留，直接访问 URL 仍可达）
-        meta: { title: '菜单', hidden: true },
+        meta: { title: '食集', hidden: true },
       },
       {
         path: 'mealplan',
@@ -59,7 +59,7 @@ const routes: RouteRecordRaw[] = [
         path: 'pantry',
         name: 'Pantry',
         component: () => import('@/views/pantry/Index.vue'),
-        meta: { title: '食材库存' },
+        meta: { title: '库存' },
       },
       {
         path: 'shopping',
