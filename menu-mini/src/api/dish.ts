@@ -52,6 +52,7 @@ export interface DishSearchParams {
   keyword?: string
   tagIds?: string // 逗号分隔多选
   cuisineIds?: string
+  categoryIds?: string // 逗号分隔多选（2026-08-19 新标签体系：分类替代 tag+cuisine）
   sort?: 'cooked' | 'latest'
   pageNum: number
   pageSize?: number
@@ -84,6 +85,7 @@ export function searchDishes(p: DishSearchParams): Promise<Page<Dish>> {
       keyword: p.keyword || undefined,
       tagIds: p.tagIds || undefined,
       cuisineIds: p.cuisineIds || undefined,
+      categoryIds: p.categoryIds || undefined,
       sort: p.sort === 'cooked' ? 'cooked' : undefined,
       pageNum: p.pageNum,
       pageSize: p.pageSize ?? 10,

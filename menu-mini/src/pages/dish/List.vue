@@ -27,28 +27,15 @@
       </view>
     </view>
 
-    <!-- 分类标签条（tag 字典，单选） -->
-    <scroll-view v-if="tags.length" scroll-x class="chip-bar" :show-scrollbar="false">
+    <!-- 分类筛选条（category 字典，单选；新标签体系 2026-08-19 重构后替代 tag+cuisine） -->
+    <scroll-view v-if="categories.length" scroll-x class="chip-bar" :show-scrollbar="false">
       <view class="chip-row">
         <view
-          v-for="c in [{ id: 0, name: '全部' }, ...tags]"
+          v-for="c in [{ id: 0, name: '全部' }, ...categories]"
           :key="c.id"
           class="chip"
-          :class="{ on: selectedTagId === c.id }"
-          @click="onTag(c.id)"
-        >{{ c.name }}</view>
-      </view>
-    </scroll-view>
-
-    <!-- 菜系筛选条（cuisine 字典，可与分类叠加） -->
-    <scroll-view v-if="cuisines.length" scroll-x class="chip-bar" :show-scrollbar="false">
-      <view class="chip-row">
-        <view
-          v-for="c in [{ id: 0, name: '全部菜系' }, ...cuisines]"
-          :key="c.id"
-          class="chip"
-          :class="{ on: selectedCuisineId === c.id }"
-          @click="onCuisine(c.id)"
+          :class="{ on: selectedCategoryId === c.id }"
+          @click="onCategory(c.id)"
         >{{ c.name }}</view>
       </view>
     </scroll-view>
@@ -121,10 +108,8 @@ const selectForMenuId = ref<number | null>(null)
 // ---- 搜索 / 筛选 / 排序 ----
 const kwInput = ref('')
 const keyword = ref('')
-const tags = ref<DictItem[]>([])
-const cuisines = ref<DictItem[]>([])
-const selectedTagId = ref(0)
-const selectedCuisineId = ref(0)
+const categories = ref<DictItem[]>([])
+const selectedCategoryId = ref(0)
 const sort = ref<'latest' | 'cooked'>('latest')
 
 // ---- 列表分页（DESIGN.md §12.2 每页 10 条） ----
@@ -160,10 +145,7 @@ onShow(() => {
 
 async function loadDicts() {
   try {
-    tags.value = await listDict('tag')
-  } catch {}
-  try {
-    cuisines.value = await listDict('cuisine')
+    categories.value = await listDict('category')
   } catch {}
 }
 
@@ -171,8 +153,7 @@ async function fetch(p: number): Promise<Dish[]> {
   try {
     const r = await searchDishes({
       keyword: keyword.value || undefined,
-      tagIds: selectedTagId.value ? String(selectedTagId.value) : undefined,
-      cuisineIds: selectedCuisineId.value ? String(selectedCuisineId.value) : undefined,
+      categoryIds: selectedCategoryId.value ? String(selectedCategoryId.value) : undefined,
       sort: sort.value,
       pageNum: p,
     })
@@ -220,14 +201,9 @@ function onClearKw() {
   keyword.value = ''
   reload()
 }
-function onTag(id: number) {
-  if (selectedTagId.value === id) return
-  selectedTagId.value = id
-  reload()
-}
-function onCuisine(id: number) {
-  if (selectedCuisineId.value === id) return
-  selectedCuisineId.value = id
+function onCategory(id: number) {
+  if (selectedCategoryId.value === id) return
+  selectedCategoryId.value = id
   reload()
 }
 function onSort(s: 'latest' | 'cooked') {
