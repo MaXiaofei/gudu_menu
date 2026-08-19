@@ -311,7 +311,6 @@ function onCoverSuccess(resp: { url: string }) {
           >
             <el-button>上传图片</el-button>
           </el-upload>
-          <el-input v-model="baseForm.coverUrl" placeholder="或直接填写图片URL" style="margin-top: 6px" />
           <el-image
             v-if="baseForm.coverUrl"
             :src="baseForm.coverUrl"
