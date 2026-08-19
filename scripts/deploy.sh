@@ -102,8 +102,8 @@ fi
 if echo "$SERVICES" | grep -qw menu-api || echo "$SERVICES" | grep -qw menu-admin; then
   echo "→ 确保 nginx 实配（template → conf，缺则生成）..."
   CONF_DIR="nginx/conf.d"
-  [ -f "$CONF_DIR/app.conf" ] || cp "$CONF_DIR/app-https.conf.template" "$CONF_DIR/app.conf"
-  [ -f "$CONF_DIR/staging.conf" ] || cp "$CONF_DIR/staging-https.conf.template" "$CONF_DIR/staging.conf"
+  cp -f "$CONF_DIR/app-https.conf.template" "$CONF_DIR/app.conf"
+  cp -f "$CONF_DIR/staging-https.conf.template" "$CONF_DIR/staging.conf"
   if docker exec gudu-nginx nginx -t 2>/dev/null; then
     docker exec gudu-nginx nginx -s reload && echo "  nginx reloaded"
   else
