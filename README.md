@@ -9,7 +9,7 @@
 ## 在线体验
 
 - 管理后台：https://imxf.cloud
-- 接口文档：https://imxf.cloud/gudu/doc.html
+- 接口文档：https://imxf.cloud/gudu/swagger-ui/index.html
 
 ## 这一版（MVP）能做什么
 
@@ -95,7 +95,7 @@ cd menu-api
 ./mvnw spring-boot:run
 ```
 
-接口文档：http://localhost:8080/gudu/doc.html
+接口文档：http://localhost:8080/gudu/swagger-ui/index.html
 
 前端：
 

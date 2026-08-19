@@ -27,11 +27,11 @@ SERVICES="${SERVICES:-menu-api}"
 if [ "$ENV" = "prod" ]; then
   COMPOSE_FILE="docker-compose.prod.yml"
   PROJECT_OPT=""
-  HEALTH_CMD="docker exec gudu-nginx sh -c 'curl -s -o /dev/null -w \"%{http_code}\" -m 5 http://menu-api-prod:8080/gudu/doc.html'"
+  HEALTH_CMD="docker exec gudu-nginx sh -c 'curl -s -o /dev/null -w \"%{http_code}\" -m 5 http://menu-api-prod:8080/gudu/swagger-ui/index.html'"
 else
   COMPOSE_FILE="docker-compose.staging.yml"
   PROJECT_OPT="-p gudu-staging"
-  HEALTH_CMD="docker exec gudu-nginx sh -c 'curl -s -o /dev/null -w \"%{http_code}\" -m 5 http://menu-api-staging:8080/gudu/doc.html'"
+  HEALTH_CMD="docker exec gudu-nginx sh -c 'curl -s -o /dev/null -w \"%{http_code}\" -m 5 http://menu-api-staging:8080/gudu/swagger-ui/index.html'"
 fi
 
 echo "============================================================"

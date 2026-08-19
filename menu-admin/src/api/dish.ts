@@ -15,6 +15,18 @@ export interface DishStep {
   images?: string[]
 }
 
+/** 后端 detail 返回的步骤（images 为字符串：单 URL 或逗号分隔；历史版本类型） */
+export interface DishStepResp {
+  text: string
+  images?: string | string[]
+}
+
+/** 提交给后端的步骤（后端 images 为字符串：单 URL 或逗号分隔） */
+export interface DishStepWire {
+  text: string
+  images: string
+}
+
 export interface DishIngredient {
   ingredientId: number
   amount: number
@@ -22,7 +34,7 @@ export interface DishIngredient {
 
 export interface DishDetail {
   dish: Dish
-  steps: DishStep[]
+  steps: DishStepResp[]
   cuisineIds: number[]
   tagIds: number[]
   categoryIds: number[]
@@ -31,7 +43,7 @@ export interface DishDetail {
 
 export interface DishSaveDTO {
   dish: Partial<Dish> & { name: string }
-  steps: DishStep[]
+  steps: DishStepWire[]
   cuisineIds: number[]
   tagIds: number[]
   categoryIds: number[]

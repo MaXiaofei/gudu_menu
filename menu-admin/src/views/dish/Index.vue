@@ -11,6 +11,7 @@ import {
   getDishHistory,
   type Dish,
   type DishStep,
+  type DishStepWire,
   type DishIngredient,
   type DishHistory,
   type DishSearchRow,
@@ -131,7 +132,10 @@ async function openEdit(row: DishSearchRow) {
     baseForm.coverUrl = detail.dish.coverUrl as string | undefined
     steps.value = (detail.steps && detail.steps.length ? detail.steps : [{ text: '', images: [] }]).map((s) => ({
       text: s.text,
-      images: s.images ? [...s.images] : [],
+      // 后端 images 是字符串（单 URL 或逗号分隔），需按逗号拆成数组；直接展开字符串会拆成单字符
+      images: typeof s.images === 'string'
+        ? s.images.split(',').map((u) => u.trim()).filter(Boolean)
+        : s.images ? [...s.images] : [],
     }))
     cuisineIds.value = [...(detail.cuisineIds || [])]
     tagIds.value = [...(detail.tagIds || [])]
@@ -153,9 +157,19 @@ function removeStep(i: number) {
   if (steps.value.length <= 1) return
   steps.value.splice(i, 1)
 }
-function addStepImage(s: DishStep) {
+async function addStepImage(s: DishStep) {
   if (!s.images) s.images = []
-  s.images.push('')
+  // 弹窗填写 URL（图片以缩略图展示，不再用输入框行）
+  try {
+    const { value } = await ElMessageBox.prompt('请输入图片 URL', '添加步骤图', {
+      inputPattern: /^https?:\/\//,
+      inputErrorMessage: 'URL 需以 http(s):// 开头',
+    })
+    const url = value.trim()
+    if (url) s.images.push(url)
+  } catch {
+    // 取消
+  }
 }
 function removeStepImage(s: DishStep, i: number) {
   s.images?.splice(i, 1)
@@ -174,9 +188,9 @@ async function onSubmit() {
     ElMessage.warning('请填写菜品名称')
     return
   }
-  const payloadSteps = steps.value
+  const payloadSteps: DishStepWire[] = steps.value
     .filter((s) => (s.text && s.text.trim()) || (s.images && s.images.length))
-    .map((s) => ({ text: s.text || '', images: (s.images || []).filter(Boolean) }))
+    .map((s) => ({ text: s.text || '', images: (s.images || []).filter(Boolean).join(',') }))
   const payloadIngredients = dishIngredients.value
     .filter((d) => d.ingredientId !== undefined && d.ingredientId !== null)
     .map((d) => ({ ingredientId: Number(d.ingredientId), amount: Number(d.amount) }))
@@ -391,9 +405,20 @@ async function showHistory(row: DishSearchRow) {
           </div>
           <el-input v-model="s.text" type="textarea" :rows="2" placeholder="步骤描述" />
           <div class="step-imgs">
-            <div v-for="(_img, j) in s.images || []" :key="j" class="step-img-row">
-              <el-input v-model="s.images![j]" placeholder="图片URL" style="width: 320px" />
-              <el-button link type="danger" @click="removeStepImage(s, j)">移除</el-button>
+            <div v-for="(img, j) in s.images || []" :key="j" class="step-img-item">
+              <el-image
+                :src="img"
+                :preview-src-list="s.images"
+                :initial-index="j"
+                fit="cover"
+                class="step-img-thumb"
+                preview-teleported
+              >
+                <template #error>
+                  <div class="step-img-error">加载失败</div>
+                </template>
+              </el-image>
+              <el-button link type="danger" size="small" @click="removeStepImage(s, j)">移除</el-button>
             </div>
             <div class="step-img-actions">
               <el-upload
@@ -482,12 +507,35 @@ async function showHistory(row: DishSearchRow) {
 }
 .step-imgs {
   margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
 }
-.step-img-row {
+.step-img-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.step-img-thumb {
+  width: 96px;
+  height: 72px;
+  border-radius: 4px;
+  border: 1px solid #e4e0d8;
+  cursor: pointer;
+}
+.step-img-error {
+  width: 96px;
+  height: 72px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  justify-content: center;
+  font-size: 12px;
+  color: #b0a694;
+  background: #faf8f4;
+  border-radius: 4px;
+  border: 1px dashed #e4e0d8;
 }
 .step-img-actions {
   display: flex;

@@ -21,7 +21,6 @@
         <java.version>17</java.version>
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <sa-token.version>1.37.0</sa-token.version>
-        <knife4j.version>4.5.0</knife4j.version>
     </properties>
 
     <dependencyManagement>
@@ -103,23 +102,9 @@
             <version>${sa-token.version}</version>
         </dependency>
 
-        <!-- Knife4j (OpenAPI3)：排除其内置 springdoc 2.2.0（与 Spring Boot 3.5 / Framework 6.2 不兼容，
-             ControllerAdviceBean 构造器变更致 /v3/api-docs 500），显式引入 2.8.x -->
-        <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
-            <version>${knife4j.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springdoc</groupId>
-                    <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.springdoc</groupId>
-                    <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!-- OpenAPI3 文档（springdoc 2.8.6，适配 Spring Boot 3.5 / Framework 6.2）：
+             knife4j 4.5.0 内置 springdoc 2.2.0 与 Boot 3.5 不兼容（ControllerAdviceBean 构造器变更），
+             显式升 2.8.6 后 knife4j 又依赖旧 getGroupConfigs() 签名——故弃用 knife4j，直接用 springdoc swagger-ui -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
