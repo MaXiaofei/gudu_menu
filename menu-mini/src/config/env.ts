@@ -15,7 +15,7 @@
  */
 export type EnvName = 'staging' | 'prod'
 
-export const ENV: EnvName = 'staging'
+export const ENV: EnvName = 'prod'
 
 /** 各环境 API 基址（含 /gudu context-path）。 */
 const ENDPOINTS: Record<EnvName, string> = {

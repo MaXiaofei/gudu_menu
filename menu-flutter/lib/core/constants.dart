@@ -5,12 +5,12 @@ class AppConstants {
 
   /// 后端 baseURL（**带 /gudu 前缀**，即后端 context-path）。
   /// 通过 --dart-define=API_BASE_URL=... 切换环境（HTTPS）：
-  ///   预发（默认）：https://staging.imxf.cloud/gudu
-  ///   生产：        flutter build/run --dart-define=API_BASE_URL=https://imxf.cloud/gudu
+  ///   生产（默认）：https://imxf.cloud/gudu
+  ///   预发：        flutter build/run --dart-define=API_BASE_URL=https://staging.imxf.cloud/gudu
   /// 已全站 HTTPS，iOS 无需再放开 ATS（NSAllowsArbitraryLoads）。
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://staging.imxf.cloud/gudu',
+    defaultValue: 'https://imxf.cloud/gudu',
   );
 
   /// SharedPreferences key：登录 token（对应小程序 uni.setStorageSync('token')）。
