@@ -11,7 +11,7 @@
 - 管理后台：https://imxf.cloud
 - 接口文档：https://imxf.cloud/gudu/swagger-ui/index.html
 
-## 这一版（MVP）能做什么
+## 功能特性
 
 Web 管理后台 + 小程序端（H5）+ App 端三个入口：
 
