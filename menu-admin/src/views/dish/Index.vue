@@ -22,19 +22,16 @@ import Pagination from '@/components/Pagination.vue'
 // ===== 字典/选项 =====
 const cuisineOptions = ref<DictItem[]>([])
 const tagOptions = ref<DictItem[]>([])
-const categoryOptions = ref<DictItem[]>([])
 const ingredients = ref<Ingredient[]>([])
 
 async function loadDicts() {
-  const [c, t, cat, ing] = await Promise.all([
+  const [c, t, ing] = await Promise.all([
     listByGroup('cuisine'),
     listByGroup('tag'),
-    listByGroup('category'),
     listIngredients(),
   ])
   cuisineOptions.value = c
   tagOptions.value = t
-  categoryOptions.value = cat
   ingredients.value = ing
 }
 
@@ -95,7 +92,6 @@ const baseForm = reactive<{
 const steps = ref<DishStep[]>([{ text: '', images: [] }])
 const cuisineIds = ref<number[]>([])
 const tagIds = ref<number[]>([])
-const categoryIds = ref<number[]>([])
 const dishIngredients = ref<DishIngredient[]>([{ ingredientId: undefined as unknown as number, amount: 1 }])
 
 function resetForm() {
@@ -109,7 +105,6 @@ function resetForm() {
   steps.value = [{ text: '', images: [] }]
   cuisineIds.value = []
   tagIds.value = []
-  categoryIds.value = []
   dishIngredients.value = [{ ingredientId: undefined as unknown as number, amount: 1 }]
 }
 
@@ -133,7 +128,6 @@ async function openEdit(row: DishSearchRow) {
     }))
     cuisineIds.value = [...(detail.cuisineIds || [])]
     tagIds.value = [...(detail.tagIds || [])]
-    categoryIds.value = [...(detail.categoryIds || [])]
     dishIngredients.value = (detail.ingredients && detail.ingredients.length
       ? detail.ingredients
       : [{ ingredientId: undefined as unknown as number, amount: 1 }]
@@ -200,7 +194,7 @@ async function onSubmit() {
     steps: payloadSteps,
     cuisineIds: cuisineIds.value,
     tagIds: tagIds.value,
-    categoryIds: categoryIds.value,
+    categoryIds: [],
     ingredients: payloadIngredients,
   }
   if (editing.value && baseForm.id) {
@@ -319,7 +313,7 @@ function onCoverSuccess(resp: { url: string }) {
           />
         </el-form-item>
 
-        <el-divider content-position="left">分类（菜系/标签/分类）</el-divider>
+        <el-divider content-position="left">分类（菜系/标签）</el-divider>
         <el-form-item label="菜系">
           <el-select v-model="cuisineIds" multiple placeholder="选择菜系" style="width: 100%">
             <el-option v-for="c in cuisineOptions" :key="c.id" :label="c.name" :value="c.id" />
@@ -328,11 +322,6 @@ function onCoverSuccess(resp: { url: string }) {
         <el-form-item label="标签">
           <el-select v-model="tagIds" multiple placeholder="选择标签" style="width: 100%">
             <el-option v-for="t in tagOptions" :key="t.id" :label="t.name" :value="t.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="菜品分类">
-          <el-select v-model="categoryIds" multiple placeholder="选择分类" style="width: 100%">
-            <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
 
