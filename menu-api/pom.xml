@@ -103,11 +103,32 @@
             <version>${sa-token.version}</version>
         </dependency>
 
-        <!-- Knife4j (OpenAPI3) -->
+        <!-- Knife4j (OpenAPI3)：排除其内置 springdoc 2.2.0（与 Spring Boot 3.5 / Framework 6.2 不兼容，
+             ControllerAdviceBean 构造器变更致 /v3/api-docs 500），显式引入 2.8.x -->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
             <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
             <version>${knife4j.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springdoc</groupId>
+                    <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.springdoc</groupId>
+                    <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+            <version>2.8.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.8.6</version>
         </dependency>
 
         <!-- BCrypt (Task 3+ will use this) -->
