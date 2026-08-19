@@ -52,7 +52,7 @@ services:
 
   menu-api:
     build: ./menu-api
-    container_name: menu-api
+    container_name: menu-api-prod
     restart: unless-stopped
     depends_on: [gudu-mysql, gudu-redis, gudu-pgvector, gudu-ollama]
     environment:
@@ -72,9 +72,9 @@ services:
 
   menu-admin:
     build: ./menu-admin
-    container_name: menu-admin
+    container_name: menu-admin-prod
     restart: unless-stopped
-    depends_on: [menu-api]
+    depends_on: [menu-api-prod]
     # 不暴露端口到宿主机，由 front-nginx 统一代理
 
   front-nginx:
