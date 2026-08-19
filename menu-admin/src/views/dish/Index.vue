@@ -7,16 +7,13 @@ import {
   getDishDetail,
   updateDish,
   deleteDish,
-  getDishNutrition,
-  getDishHistory,
   type Dish,
   type DishStep,
   type DishStepWire,
   type DishIngredient,
-  type DishHistory,
   type DishSearchRow,
 } from '@/api/dish'
-import { listByGroup, listNutritionMetrics, type DictItem, type NutritionMetric } from '@/api/dict'
+import { listByGroup, type DictItem } from '@/api/dict'
 import { listIngredients, type Ingredient } from '@/api/ingredient'
 import { upload } from '@/api/upload'
 import type { UploadAjaxError } from 'element-plus/es/components/upload/src/ajax'
@@ -26,21 +23,18 @@ import Pagination from '@/components/Pagination.vue'
 const cuisineOptions = ref<DictItem[]>([])
 const tagOptions = ref<DictItem[]>([])
 const categoryOptions = ref<DictItem[]>([])
-const metrics = ref<NutritionMetric[]>([])
 const ingredients = ref<Ingredient[]>([])
 
 async function loadDicts() {
-  const [c, t, cat, m, ing] = await Promise.all([
+  const [c, t, cat, ing] = await Promise.all([
     listByGroup('cuisine'),
     listByGroup('tag'),
     listByGroup('category'),
-    listNutritionMetrics(),
     listIngredients(),
   ])
   cuisineOptions.value = c
   tagOptions.value = t
   categoryOptions.value = cat
-  metrics.value = m
   ingredients.value = ing
 }
 
@@ -256,48 +250,6 @@ function onCoverSuccess(resp: { url: string }) {
   baseForm.coverUrl = resp.url
 }
 
-// ===== 查看营养（列表）=====
-const nutritionDialogVisible = ref(false)
-const nutritionTitle = ref('')
-const nutritionData = ref<{ name: string; value: number; unit: string }[]>([])
-
-// 后端 nutrition_metric 字典 name 为英文，转中文便于家庭阅读
-const METRIC_CN: Record<string, string> = {
-  calorie: '热量',
-  protein: '蛋白质',
-  fat: '脂肪',
-  carb: '碳水',
-  sugar: '糖',
-  gi: '升糖指数',
-}
-
-async function showNutrition(row: DishSearchRow) {
-  nutritionTitle.value = `「${row.name}」营养成分`
-  nutritionDialogVisible.value = true
-  try {
-    const raw = await getDishNutrition(row.id, 1)
-    nutritionData.value = metrics.value
-      .filter((m) => raw[String(m.id)] !== undefined && raw[String(m.id)] !== null)
-      .map((m) => ({ name: METRIC_CN[m.name] || m.name, value: Number(raw[String(m.id)]), unit: m.unit }))
-  } catch {
-    nutritionData.value = []
-  }
-}
-
-// ===== 历史抽屉 =====
-const historyVisible = ref(false)
-const historyList = ref<DishHistory[]>([])
-const historyTitle = ref('')
-
-async function showHistory(row: DishSearchRow) {
-  historyTitle.value = `「${row.name}」历史版本`
-  historyVisible.value = true
-  try {
-    historyList.value = await getDishHistory(row.id)
-  } catch {
-    historyList.value = []
-  }
-}
 </script>
 
 <template>
@@ -319,11 +271,9 @@ async function showHistory(row: DishSearchRow) {
       <el-table-column label="准备(分)" prop="prepTime" width="100" />
       <el-table-column label="烹饪(分)" prop="cookTime" width="100" />
       <el-table-column label="难度" prop="difficulty" width="80" />
-      <el-table-column label="操作" width="320" fixed="right">
+      <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-          <el-button link type="success" @click="showNutrition(row)">营养</el-button>
-          <el-button link type="info" @click="showHistory(row)">历史</el-button>
           <el-button link type="danger" @click="onDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -442,33 +392,7 @@ async function showHistory(row: DishSearchRow) {
       </template>
     </el-dialog>
 
-    <!-- 营养成分列表 -->
-    <el-dialog v-model="nutritionDialogVisible" :title="nutritionTitle" width="480px">
-      <el-table :data="nutritionData" border v-if="nutritionData.length">
-        <el-table-column label="指标" prop="name" min-width="120" />
-        <el-table-column label="数值" prop="value" width="140" align="right">
-          <template #default="{ row }">
-            <span class="nut-value">{{ row.value }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="单位" prop="unit" width="100" align="left" />
-      </el-table>
-      <div v-if="!nutritionData.length" class="empty">暂无营养数据</div>
-    </el-dialog>
 
-    <!-- 历史 -->
-    <el-drawer v-model="historyVisible" :title="historyTitle" size="40%">
-      <el-table :data="historyList" border>
-        <el-table-column label="时间" prop="createTime" width="180" />
-        <el-table-column label="版本ID" prop="id" width="100" />
-        <el-table-column label="快照">
-          <template #default="{ row }">
-            <pre class="snap">{{ JSON.stringify(row.snapshot, null, 2) }}</pre>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div v-if="!historyList.length" class="empty">暂无历史版本</div>
-    </el-drawer>
   </div>
 </template>
 
@@ -545,16 +469,5 @@ async function showHistory(row: DishSearchRow) {
   text-align: center;
   color: #9a8f80;
   padding: 24px;
-}
-.nut-value {
-  font-weight: bold;
-  color: #E89150;
-}
-.snap {
-  max-height: 200px;
-  overflow: auto;
-  font-size: 11px;
-  margin: 0;
-  white-space: pre-wrap;
 }
 </style>
