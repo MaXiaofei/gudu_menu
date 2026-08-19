@@ -42,19 +42,20 @@ services:
     volumes:
       - pgvector-data:/var/lib/postgresql/data
 
-  # Ollama：本地 embedding（bge-m3，免费无 quota；首次部署需 ollama pull bge-m3）
-  gudu-ollama:
-    image: ollama/ollama
-    container_name: gudu-ollama-prod
-    restart: unless-stopped
-    volumes:
-      - ollama-data:/root/.ollama
+  # Ollama：生产不部署（方案 B 2026-08-19：复用预发 embedding，省 1.5-2GB 内存）
+  # 如需本地部署：取消注释 + menu-api 的 OLLAMA_BASE_URL 改回 http://gudu-ollama:11434
+  # gudu-ollama:
+  #   image: ollama/ollama
+  #   container_name: gudu-ollama-prod
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ollama-data:/root/.ollama
 
   menu-api:
     build: ./menu-api
     container_name: menu-api-prod
     restart: unless-stopped
-    depends_on: [gudu-mysql, gudu-redis, gudu-pgvector, gudu-ollama]
+    depends_on: [gudu-mysql, gudu-redis, gudu-pgvector]
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: Asia/Shanghai
@@ -65,7 +66,8 @@ services:
       PGVECTOR_HOST: gudu-pgvector
       PGVECTOR_PORT: "5432"
       PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-gudu_vec_2026}
-      OLLAMA_BASE_URL: http://gudu-ollama:11434
+      # 方案 B：embedding 复用预发 ollama（无状态共享；端口 11434 已暴露）
+      OLLAMA_BASE_URL: http://49.232.3.201:11434
     volumes:
       - uploads:/app/uploads
       - ./logs:/app/logs

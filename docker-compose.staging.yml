@@ -59,11 +59,14 @@ services:
       - pgvector-data:/var/lib/postgresql/data
 
   # Ollama：本地 embedding（bge-m3，免费无 quota；首次部署需 ollama pull bge-m3）
+  # 端口 11434 暴露给生产复用（方案 B：embedding 无状态可共享，生产省 1.5-2GB 内存）
   gudu-ollama:
     image: ollama/ollama
     container_name: gudu-ollama-staging
     restart: unless-stopped
     networks: [staging-net]
+    ports:
+      - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
 
