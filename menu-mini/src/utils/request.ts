@@ -42,11 +42,26 @@ async function trySilentRelogin(): Promise<boolean> {
   return reloginPromise
 }
 
+/**
+ * 清理请求参数：删除 undefined / null / 空字符串。
+ * 微信小程序端 uni.request 会把 undefined 序列化成字符串 "undefined" 发给后端，
+ * 导致 List<Long> 等强类型参数转换失败（如 dish/search 的 tagIds）。
+ */
+function cleanData(data: unknown): unknown {
+  if (!data || typeof data !== 'object') return data
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+    if (v !== undefined && v !== null && v !== '') out[k] = v
+  }
+  return out
+}
+
 export async function request<T = any>(
   opt: UniApp.RequestOptions & { guestKey?: string; _retried?: boolean },
 ): Promise<T> {
   const res: any = await uni.request({
     ...opt,
+    data: cleanData(opt.data) as UniApp.RequestOptions['data'],
     url: BASE_URL + opt.url,
     header: {
       Authorization: getToken(),
