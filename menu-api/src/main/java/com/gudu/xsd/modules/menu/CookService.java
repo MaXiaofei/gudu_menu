@@ -117,7 +117,7 @@ public class CookService {
      * @param usedUp        用户确认"用完了"的食材 id（→ NONE）
      * @param partiallyUsed 用户确认"用了一些"的食材 id（→ 降一档，LOW/NONE 不降）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public CookResult cookByMenu(Long menuId, Long memberId, List<Long> usedUp, List<Long> partiallyUsed) {
         Menu menu = menuMapper.selectById(menuId);
         if (menu == null) {

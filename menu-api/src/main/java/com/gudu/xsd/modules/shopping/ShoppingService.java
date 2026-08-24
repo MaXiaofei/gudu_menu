@@ -102,7 +102,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
      * @param sourceIds  dish 数据源时的多选 dish_id 列表
      * @return 新生成的 shopping_list.id
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long generate(String sourceType, Long sourceId, List<Long> sourceIds) {
         List<DishUsage> dishUsages = resolveDishes(sourceType, sourceId, sourceIds);
 
@@ -218,7 +218,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
      *
      * @return 新生成的 shopping_list.id
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long createEmpty() {
         ShoppingList sl = new ShoppingList();
         sl.setTimeRange("custom");
@@ -276,7 +276,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
      *
      * @return 采购清单 id
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long fromPrep(Long menuId, List<Long> ingredientIds) {
         if (menuId == null) throw new BizException("食集 id 不能为空");
         List<Long> valid = ingredientIds == null ? List.of()
@@ -327,7 +327,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
      *
      * @return restocked=成功入库数（关联食材的项）；markedOnly=只标已买数（手动项/无食材项）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public RestockResult restock(List<Long> itemIds) {
         if (itemIds == null || itemIds.isEmpty()) {
             throw new BizException("请选择要入库的采购项");
@@ -364,7 +364,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
      * 撤回入库（B3）：按 stock_log.ref_id 溯源该采购项最近一次入库流水，恢复 before_level
      * （入库时新建档 before=null → 删除档位回到没建档），然后删除该采购项。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void undoRestock(Long itemId) {
         if (itemId == null) throw new BizException("采购项 id 不能为空");
         ShoppingItem it = itemMapper.selectById(itemId);
@@ -389,7 +389,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     /**
      * 清单改名（B4，自定义采购 ✎）：name trim 后非空。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void renameList(Long listId, String name) {
         if (listId == null) throw new BizException("采购清单 id 不能为空");
         if (name == null || name.isBlank()) throw new BizException("清单名不能为空");
@@ -426,7 +426,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
      * @param purchaseCategoryId 采购品类 sys_dict(group=purchase_category) id（可空，命中 ingredient 时被食材自身品类覆盖）
      * @return 新增的 shopping_item.id
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long addItemCustom(Long listId, String name, BigDecimal amount, Long unitId, Long purchaseCategoryId) {
         if (listId == null) throw new IllegalArgumentException("listId 不能为空");
         if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("食材名不能为空");
@@ -466,7 +466,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
      *
      * @param level 入库档位（可空，默认 ENOUGH；买得少可选 LOW）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void togglePurchased(Long itemId, String level) {
         ShoppingItem it = itemMapper.selectById(itemId);
         if (it == null) return;
@@ -551,7 +551,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
      * <p>流程：文本解析 → 匹配食材库 → 按品类分区 → 落库。
      * 文本中未能匹配食材库的项 → 存为 customName。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long generateFromText(String text) {
         if (text == null || text.isBlank()) {
             throw new BizException("请输入采购内容");

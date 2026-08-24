@@ -54,7 +54,7 @@ public class ReviewService {
     }
 
     /** 提交点评（菜品或食集）：当前就餐成员 + 级联维度分。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long submit(ReviewSaveDTO dto) {
         if ((dto.getDishId() == null) == (dto.getMenuId() == null)) {
             throw new BizException("菜品和食集评价二选一");

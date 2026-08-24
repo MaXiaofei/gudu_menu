@@ -82,7 +82,7 @@ public class TogetherService {
      * 生成/刷新邀请（登录用户，一食集一邀请）：返回 code + token（url 由前端拼，
      * 格式 {base}/together.html?token=，二维码内容=url）。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public InviteVO invite(Long menuId, Long memberId) {
         if (menuId == null) throw new BizException("食集 id 不能为空");
         if (memberId == null) throw new BizException("请先登录");
@@ -136,7 +136,7 @@ public class TogetherService {
      *
      * @return guestKey（H5 访客存 localStorage；登录用户返回 null）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public JoinVO join(String token, String nickname, Long memberId) {
         MenuInvite inv = findByToken(token);
         String name = nickname == null ? "" : nickname.trim();
@@ -177,7 +177,7 @@ public class TogetherService {
      * 聚餐清单：成员（昵称+最后活跃）+ 菜列表（含 added_by 标记）+ 活动流 + 邀请。
      * 同时更新本人 last_active_at（轮询即心跳）。登录用户（含房主）自动加入。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public TogetherVO together(Long menuId, Identity identity) {
         Menu menu = menuMapper.selectById(menuId);
         if (menu == null) throw new BizException("食集不存在");
@@ -217,7 +217,7 @@ public class TogetherService {
     // ===================== 昵称 =====================
 
     /** 修改昵称（已加入成员；H5 顶部昵称 ✎ 铅笔编辑）。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateNickname(Long menuId, Identity identity, String nickname) {
         MenuJoin me = resolveJoin(menuId, identity, false);
         String name = nickname == null ? "" : nickname.trim();
@@ -247,7 +247,7 @@ public class TogetherService {
     // ===================== 加菜 / 删菜 =====================
 
     /** 朋友加菜：dishId（菜谱）或 customName（自由输入）二选一，可带备注。写 menu_dish + 活动流。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long addItem(Long menuId, Identity identity, Long dishId, String customName, String note) {
         MenuJoin me = resolveJoin(menuId, identity, false);
         String custom = customName == null ? "" : customName.trim();
@@ -279,7 +279,7 @@ public class TogetherService {
     }
 
     /** 删菜（已加入成员可删任意菜）：删 menu_dish + 活动流记录谁删的。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void removeItem(Long menuId, Identity identity, Long menuDishId) {
         MenuJoin me = resolveJoin(menuId, identity, false);
         MenuDish md = menuDishMapper.selectById(menuDishId);

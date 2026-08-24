@@ -57,7 +57,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
      * @param note   备注（可空）
      * @param refId  溯源（采购入库/撤回 = shopping_item.id，可空）
      */
-    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void setLevel(Long ingredientId, String level, String action, String note, Long refId) {
         if (ingredientId == null) throw new BizException("食材 id 不能为空");
         if (!isValidLevel(level)) throw new BizException("库存档位不合法");
@@ -76,7 +76,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     }
 
     /** 做菜确认·用完了 → 设 NONE。 */
-    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void useUp(Long ingredientId, String action, String note) {
         setLevel(ingredientId, IngredientStock.LEVEL_NONE, action, note, null);
     }
@@ -85,7 +85,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
      * 做菜确认·用了一些 → 降一档（ENOUGH→LOW）。
      * 降级保护：LOW/NONE 不再降（不会因"用了一些"自动变成用完）；没建档的食材不动。
      */
-    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void partialUse(Long ingredientId, String action, String note) {
         if (ingredientId == null) throw new BizException("食材 id 不能为空");
         IngredientStock stock = findStock(ingredientId);
@@ -101,7 +101,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
      * 删除档位（管理后台删除 = 回到"没建档"；撤回入库新建档也用）：删 ingredient_stock + 记流水（after=null）。
      * 没建档的食材直接返回（无操作）。
      */
-    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void removeLevel(Long ingredientId, String action, String note, Long refId) {
         if (ingredientId == null) throw new BizException("食材 id 不能为空");
         IngredientStock stock = findStock(ingredientId);
@@ -112,7 +112,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     }
 
     /** 手动入库（朋友送/赠品/旧库存补登）：按名匹配/新建食材（无需单位换算）→ 设档位。 */
-    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void manualAdd(Long ingredientId, String name, String level, String sourceNote) {
         if ((ingredientId == null) && (name == null || name.isBlank())) {
             throw new BizException("食材 id 和名称至少填一项");

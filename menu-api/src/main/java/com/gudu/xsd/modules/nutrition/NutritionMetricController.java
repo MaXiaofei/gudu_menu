@@ -1,7 +1,6 @@
 package com.gudu.xsd.modules.nutrition;
 
 import com.gudu.xsd.common.R;
-import com.gudu.xsd.modules.nutrition.mapper.NutritionMetricMapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +16,7 @@ import java.util.List;
 @Tag(name = "营养指标")
 public class NutritionMetricController {
 
-    private final NutritionMetricMapper mapper;
+    private final NutritionMetricService svc;
 
     /**
      * 全量返回营养指标字典。
@@ -25,24 +24,23 @@ public class NutritionMetricController {
      */
     @GetMapping
     public R<List<NutritionMetric>> list() {
-        return R.ok(mapper.selectList(null));
+        return R.ok(svc.list());
     }
 
     @PostMapping
     public R<?> add(@RequestBody NutritionMetric m) {
-        mapper.insert(m);
-        return R.ok(m.getId());
+        return R.ok(svc.add(m));
     }
 
     @PutMapping
     public R<?> update(@RequestBody NutritionMetric m) {
-        mapper.updateById(m);
+        svc.update(m);
         return R.ok(null);
     }
 
     @DeleteMapping("/{id}")
     public R<?> del(@PathVariable Long id) {
-        mapper.deleteById(id);
+        svc.delete(id);
         return R.ok(null);
     }
 }

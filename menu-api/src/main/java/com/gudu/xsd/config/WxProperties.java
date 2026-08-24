@@ -18,4 +18,7 @@ public class WxProperties {
 
     /** 小程序 AppSecret。 */
     private String secret = "";
+
+    /** 消息推送服务器配置的 Token（公众平台「开发设置→服务器配置」里填的同一个值，环境变量 WX_TOKEN）。 */
+    private String token = "";
 }

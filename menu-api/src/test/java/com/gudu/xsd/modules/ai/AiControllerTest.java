@@ -76,6 +76,9 @@ class AiControllerTest {
     @MockBean
     private AiClientRouter router;
 
+    @MockBean
+    private AiCallLogService callLogSvc;
+
     private final ObjectMapper om = new ObjectMapper();
 
     @Test
