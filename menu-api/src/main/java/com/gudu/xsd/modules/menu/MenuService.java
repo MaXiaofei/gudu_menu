@@ -87,7 +87,7 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     }
 
     /** 保存菜单并整体替换其菜品关联。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void saveWithDishes(MenuSaveDTO dto) {
         Menu menu = dto.getMenu();
         if (menu.getServingCount() == null) {
@@ -180,7 +180,7 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
      * 新建为 ACTIVE（进行中）食集，added_by 归新 owner。返回新食集 id。
      * 食集已删（软删）时从做菜记录（cooking_record）重建菜品与份数。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long copyMenu(Long menuId, Long memberId) {
         Menu src = getById(menuId);
         MenuSaveDTO dto = new MenuSaveDTO();

@@ -46,7 +46,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     private final DishVectorService vectorService;
 
     /** 保存菜品（新增或更新），整体替换步骤 + 菜系/标签/分类关联 + 食材用量。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void saveFull(DishSaveDTO dto) {
         Dish dish = dto.getDish();
         saveOrUpdate(dish);
@@ -140,7 +140,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
      * 删除菜谱（错误数据清理，列表左滑删除）：连带物理清步骤/菜系标签分类关联/用料/编辑历史，
      * 主表软删（deleted=1）。做菜记录（cooking_record）保留——是历史行为记录，不随菜谱删除抹掉。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteFull(Long id) {
         stepMapper.delete(new QueryWrapper<DishStep>().eq("dish_id", id));
         dictRelMapper.delete(new QueryWrapper<DishDict>().eq("dish_id", id));

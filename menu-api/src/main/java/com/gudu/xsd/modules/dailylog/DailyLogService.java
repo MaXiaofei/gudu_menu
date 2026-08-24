@@ -43,7 +43,7 @@ public class DailyLogService {
     }
 
     /** 提交一天日志：存 log + 级联 items。返回 logId。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long submit(DailyLogSaveDTO dto) {
         DailyLog log = new DailyLog();
         log.setMemberId(currentMemberId());

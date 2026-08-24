@@ -1,12 +1,14 @@
 package com.gudu.xsd.common;
 
 import cn.dev33.satoken.exception.NotLoginException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
  * 全局异常处理。
  */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -22,7 +24,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public R<?> all(Exception e) {
-        e.printStackTrace();
+        log.error("全局异常兜底：", e);
         // 诊断辅助（staging）：透出异常类型+首行消息，前端/接口可见，便于定位（如清库后表缺失）
         String root = e.getMessage() == null ? "" : e.getMessage();
         Throwable cur = e;

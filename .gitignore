@@ -17,3 +17,6 @@ data/
 
 # 下厨房功能对照（本地资料，不入库）
 xiachufang/
+
+# ArchUnit 违规缓存（生成物）
+menu-api/src/test/resources/archunit_store/

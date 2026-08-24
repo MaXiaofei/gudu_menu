@@ -141,7 +141,7 @@ public class MenuPrepService {
     /** 用量原文格式化抽到 {@link UsageTextFormatter}（V55 共享，备菜/做菜确认同用）。 */
 
     /** PUT /menu/{id}/prep/{ingredientId}：upsert 备料状态（无则 insert，有则 update）。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long menuId, Long ingredientId, PrepStatus status) {
         MenuPrepStatus existing = menuPrepStatusMapper.selectOne(
                 new QueryWrapper<MenuPrepStatus>()

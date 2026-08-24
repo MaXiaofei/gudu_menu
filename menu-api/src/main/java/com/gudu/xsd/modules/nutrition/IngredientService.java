@@ -37,7 +37,7 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
     }
 
     /** 保存食材，并整体替换其营养 EAV（新增/复用同一路径）。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void saveWithNutrition(Ingredient ing, List<IngredientNutrition> nuts) {
         save(ing);
         replaceNutrition(ing.getId(), nuts);
@@ -47,7 +47,7 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
      * 仅整体替换某食材的营养 EAV（不重 save 食材本身，适用于食材已存在、仅更新营养的场景，如 AI 营养补全）。
      * 防止 saveWithNutrition 对已存在 id 的食材执行 save → 主键冲突。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void replaceNutrition(Long ingredientId, List<IngredientNutrition> nuts) {
         nutMapper.delete(new QueryWrapper<IngredientNutrition>().eq("ingredient_id", ingredientId));
         for (IngredientNutrition n : nuts) {
