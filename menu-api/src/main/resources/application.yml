@@ -84,3 +84,9 @@ gudu:
 wx:
   appid: ${WX_APPID:}
   secret: ${WX_APPSECRET:}
+  # 公众平台「服务器配置」Token：GET /auth/wx-echo 验证 signature 用，须与后台填的一致
+  token: ${WX_TOKEN:}
+
+# token 拦截总开关（false = 不拦截登录校验，小程序审核期/调试期放开；true = 强制登录）
+auth:
+  login-check: ${AUTH_LOGIN_CHECK:false}
