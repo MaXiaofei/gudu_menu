@@ -20,6 +20,14 @@ INSERT IGNORE INTO sys_dict(dict_group, name, sort) VALUES
 
 -- 2) 脏菜系关联迁移：dish_dict.rel_type cuisine→tag，dict_id 改挂同名 tag
 --    （按名字 join，不硬编码 id，各环境通用）
+-- 2.0) 预清理：同菜已挂同名 tag 时直接删脏菜系行——否则下方 UPDATE 会产生
+--      (dish_id, dict_id, rel_type) 重复三元组撞 uk_rel 唯一键（生产实况：24 行）。
+DELETE d FROM dish_dict d
+JOIN sys_dict c ON c.id = d.dict_id AND c.dict_group = 'cuisine'
+JOIN sys_dict t ON t.dict_group = 'tag' AND t.name = c.name
+JOIN dish_dict k ON k.dish_id = d.dish_id AND k.dict_id = t.id AND k.rel_type = 'tag'
+WHERE c.name IN ('家常菜', '清真', '日料', '韩餐', '西餐');
+
 UPDATE dish_dict d
 JOIN sys_dict c ON c.id = d.dict_id AND c.dict_group = 'cuisine'
 JOIN sys_dict t ON t.dict_group = 'tag' AND t.name = c.name
