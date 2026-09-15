@@ -5,7 +5,7 @@
 
     <scroll-view scroll-y class="body" @scrolltolower="loadMore">
       <view v-for="d in drafts" :key="d.id" class="swipe-wrap">
-        <view class="swipe-del" @click.stop="delDraft(d)">
+        <view class="swipe-del" :class="{ on: (offsets[d.id] || 0) < 0 }" @click.stop="delDraft(d)">
           <text class="swipe-del-txt">删除</text>
         </view>
         <view
@@ -138,6 +138,11 @@ function onTe(_e: TouchEvent, id: number) {
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+.swipe-del.on {
+  opacity: 1;
 }
 .swipe-del-txt { color: #FFFFFF; font-size: 13px; font-weight: 700; }
 .row {
