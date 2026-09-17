@@ -65,8 +65,13 @@
     <!-- 列表 -->
     <view class="list">
       <view v-for="dish in dishes" :key="dish.id" class="swipe-wrap">
-        <!-- 左滑删除底（仅浏览模式） -->
-        <view v-if="!selectForMenuId" class="swipe-del" @click.stop="confirmDelete(dish)">
+        <!-- 左滑删除底（仅浏览模式；滑动时才可见——静止时常显会因合成层缝隙露出红边） -->
+        <view
+          v-if="!selectForMenuId"
+          class="swipe-del"
+          :class="{ on: (offsets[dish.id] || 0) < 0 }"
+          @click.stop="confirmDelete(dish)"
+        >
           <text class="swipe-del-txt">删除</text>
         </view>
         <!-- 卡片（滑动位移） -->
@@ -443,6 +448,11 @@ function onTe(_e: TouchEvent, id: number) {
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+.swipe-del.on {
+  opacity: 1;
 }
 .swipe-del-txt {
   color: #FFFFFF;

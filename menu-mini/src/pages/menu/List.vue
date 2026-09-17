@@ -16,7 +16,7 @@
     <!-- 列表 -->
     <view class="list">
       <view v-for="m in menus" :key="m.id" class="swipe-wrap">
-        <view class="swipe-del" @click.stop="confirmDelete(m)">
+        <view class="swipe-del" :class="{ on: (offsets[m.id] || 0) < 0 }" @click.stop="confirmDelete(m)">
           <text class="swipe-del-txt">删除</text>
         </view>
         <view
@@ -264,6 +264,11 @@ function onTe(_e: TouchEvent, id: number) {
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+.swipe-del.on {
+  opacity: 1;
 }
 .swipe-del-txt {
   color: #FFFFFF;
