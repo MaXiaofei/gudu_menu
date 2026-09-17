@@ -55,9 +55,9 @@ import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { foodLogDetail, copyMenu, type FoodLogDetail } from '@/api/foodlog'
 import { mdHm } from '@/utils/datetime'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 const loading = ref(true)
 const detail = ref<FoodLogDetail | null>(null)
 const copying = ref(false)

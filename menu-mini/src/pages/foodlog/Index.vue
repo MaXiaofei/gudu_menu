@@ -87,9 +87,9 @@
 import { ref, computed } from 'vue'
 import { foodLogMonth, foodLogByDish, type FoodLogMeal, type FoodLogSummary, type FoodLogByDish } from '@/api/foodlog'
 import { mdHm } from '@/utils/datetime'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 
 const yearMode = ref(false)
 const current = ref(startOfMonth())

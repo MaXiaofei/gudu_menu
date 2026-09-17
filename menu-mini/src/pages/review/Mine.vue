@@ -43,9 +43,9 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { myReviews, type MyReviewsData } from '@/api/review'
 import { relativeDate } from '@/utils/datetime'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 const loading = ref(true)
 const data = ref<MyReviewsData | null>(null)
 

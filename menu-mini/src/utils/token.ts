@@ -65,3 +65,22 @@ export function statusBarHeight(): number {
     return 0
   }
 }
+
+/**
+ * 自定义导航统一顶距（状态栏 + 胶囊区，px）。
+ * 所有页面顶栏第一行统一用它做 padding-top：
+ * - 内容起始高度全站一致，切换页面不会高低不齐；
+ * - 顶栏右上按钮落到微信胶囊（关闭/…）下方，不再被遮挡。
+ * 微信端按胶囊真实位置算（胶囊底部 + 8px 呼吸距），其他端回退 状态栏 + 44。
+ */
+export function navInset(): number {
+  try {
+    // #ifdef MP-WEIXIN
+    const cap = (uni as any).getMenuButtonBoundingClientRect?.()
+    if (cap && cap.bottom > 0) return cap.bottom + 8
+    // #endif
+    return statusBarHeight() + 44
+  } catch {
+    return statusBarHeight() + 44
+  }
+}

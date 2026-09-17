@@ -60,9 +60,9 @@ import { ref } from 'vue'
 import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
 import { getTogether, addTogetherItem, removeTogetherItem, type TogetherVO, type TogetherDish } from '@/api/together'
 import { searchDishes, type Dish } from '@/api/dish'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 
 const menuId = ref(0)
 const guestKey = ref('')

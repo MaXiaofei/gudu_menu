@@ -61,9 +61,9 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { menuReviewOverview, type MenuReviewOverview } from '@/api/review'
 import { thumbOf } from '@/utils/image'
 import { relativeDate } from '@/utils/datetime'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 const menuId = ref(0)
 const loading = ref(true)
 const data = ref<MenuReviewOverview | null>(null)

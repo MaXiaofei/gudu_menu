@@ -40,9 +40,9 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { listDict, type DictItem } from '@/api/common'
 import { createIngredient, upsertDict } from '@/api/ingredient'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 const name = ref('')
 const categories = ref<DictItem[]>([])
 const categoryId = ref(0)
