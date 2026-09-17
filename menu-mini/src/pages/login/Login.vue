@@ -1,7 +1,7 @@
 <template>
   <view class="login">
-    <!-- 顶部渐变 header -->
-    <view class="header">
+    <!-- 顶部渐变 header（顶部 padding 用统一导航安全距，避开状态栏+胶囊） -->
+    <view class="header" :style="{ paddingTop: nav + 20 + 'px' }">
       <view class="logo-circle"><text class="logo-text">食</text></view>
       <text class="brand">咕嘟小食单</text>
       <text class="slogan">小火慢炖，咕嘟出家的味道</text>
@@ -53,10 +53,12 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { navInset } from '@/utils/token'
 import { useAuthStore } from '@/store/auth'
 import { silentLogin } from '@/api/auth'
 
 const auth = useAuthStore()
+const nav = navInset()
 const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 const showPwd = ref(false)

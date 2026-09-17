@@ -17,14 +17,14 @@
 </template>
 
 <script setup lang="ts">
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
 defineProps<{
   title?: string
   subtitle?: string
 }>()
 
-const sb = statusBarHeight()
+const sb = navInset()
 
 function goBack() {
   const pages = getCurrentPages()

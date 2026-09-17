@@ -116,9 +116,9 @@ import { searchDishes, deleteDish, type Dish } from '@/api/dish'
 import { listDict, type DictItem } from '@/api/common'
 import { addDishToMenu } from '@/api/menu'
 import { thumbOf } from '@/utils/image'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 
 // ---- 选菜模式（食集「+ 加菜」进入） ----
 const selectForMenuId = ref<number | null>(null)

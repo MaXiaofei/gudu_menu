@@ -212,10 +212,10 @@ import { listAllIngredients, type IngredientItem } from '@/api/ingredient'
 import { createIngredient } from '@/api/ingredient'
 import { chooseImages, uploadImage } from '@/api/upload'
 import { thumbOf } from '@/utils/image'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 import { usePreviewStore } from '@/store/preview'
 
-const sb = statusBarHeight()
+const sb = navInset()
 const preview = usePreviewStore()
 
 let keySeq = 0

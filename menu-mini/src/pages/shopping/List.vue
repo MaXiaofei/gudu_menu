@@ -178,9 +178,9 @@ import {
   type ShoppingListSummary, type ShoppingDetail, type ShoppingItem,
 } from '@/api/shopping'
 import { mdHm } from '@/utils/datetime'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 
 // 视图切换：list → detail → share
 const view = ref<'list' | 'detail' | 'share'>('list')

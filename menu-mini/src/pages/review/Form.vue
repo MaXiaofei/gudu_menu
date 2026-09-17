@@ -80,9 +80,9 @@ import { ref, reactive, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { reviewDimensions, submitReview, type ReviewDimension } from '@/api/review'
 import { chooseImages, uploadImage } from '@/api/upload'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 
 const dishId = ref<number | null>(null)
 const menuId = ref<number | null>(null)

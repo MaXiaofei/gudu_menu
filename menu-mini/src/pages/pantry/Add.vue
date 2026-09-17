@@ -108,9 +108,9 @@ import { ref, computed, nextTick } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { listAllIngredients, type IngredientItem } from '@/api/ingredient'
 import { listGroupedAll, pantryManualAdd, type PantryGrouped } from '@/api/pantry'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 const autoFocus = ref(false)
 
 const step = ref(0)

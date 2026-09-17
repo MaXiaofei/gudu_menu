@@ -59,9 +59,9 @@
 import { ref, computed } from 'vue'
 import { usePreviewStore } from '@/store/preview'
 import { thumbOf } from '@/utils/image'
-import { statusBarHeight } from '@/utils/token'
+import { navInset } from '@/utils/token'
 
-const sb = statusBarHeight()
+const sb = navInset()
 const preview = usePreviewStore()
 const d = computed(() => preview.data)
 const publishing = ref(false)
