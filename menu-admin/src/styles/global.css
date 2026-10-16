@@ -12,6 +12,17 @@
   --yh-sidebar-active-bg: #E89150;
   --yh-bg: #FDFAF4;
   --yh-panel: #ffffff;
+  --yh-border: #F0E6D6;
+  --yh-title: #4A382A;
+  --yh-body: #6E5C49;
+  --yh-caption: #9C8C7A;
+  --yh-primary-soft: #F6D9BE;
+  /* 功能色：两套主题共享（tokens.json color.semantic） */
+  --yh-success: #4FAE6E;
+  --yh-warning: #E5A938;
+  --yh-warning-deep: #B8762E;
+  --yh-error: #DB5A4E;
+  --yh-info: #4FA0D0;
   --el-border-radius-base: 10px;
   --el-font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
 }

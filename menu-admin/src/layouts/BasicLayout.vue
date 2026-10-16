@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Brush, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
+import {
+  Brush, ArrowDown, SwitchButton, Setting, User, Apple, Food, List, Calendar, Box,
+  ShoppingCart, DataLine, ChatDotRound, Menu as MenuIcon,
+} from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/auth'
 import { useThemeStore } from '@/store/theme'
 
@@ -14,19 +17,21 @@ const themeStore = useThemeStore()
 interface MenuEntry {
   path: string
   title: string
-  icon: string
+  icon: Component
 }
 
-// icon 与路由的视觉映射，路径 -> 图标组件名
-const iconByPath: Record<string, string> = {
-  '/dict': 'Setting',
-  '/member': 'User',
-  '/ingredient': 'Apple',
-  '/dish': 'Food',
-  '/menu': 'List',
-  '/mealplan': 'Calendar',
-  '/pantry': 'Box',
-  '/shopping': 'ShoppingCart',
+// icon 与路由的视觉映射，路径 -> 图标组件（按需引入，不再全局注册全部图标）
+const iconByPath: Record<string, Component> = {
+  '/dict': Setting,
+  '/member': User,
+  '/ingredient': Apple,
+  '/dish': Food,
+  '/menu': List,
+  '/mealplan': Calendar,
+  '/pantry': Box,
+  '/shopping': ShoppingCart,
+  '/ai-log': DataLine,
+  '/feedback': ChatDotRound,
 }
 
 // 菜单由路由表驱动：取 layout 子路由，跳过 meta.hidden（日常操作页入口隐藏），home 不进菜单
@@ -41,7 +46,7 @@ const menus = computed<MenuEntry[]>(() => {
     .map<MenuEntry>((c) => ({
       path: `/${c.path}`,
       title: c.meta?.title ?? c.path,
-      icon: iconByPath[`/${c.path}`] ?? 'Menu',
+      icon: iconByPath[`/${c.path}`] ?? MenuIcon,
     }))
 })
 
@@ -164,7 +169,7 @@ async function onLogout() {
 .topbar {
   height: 54px;
   background: var(--yh-panel, #fff);
-  border-bottom: 1px solid #f0e8de;
+  border-bottom: 1px solid var(--yh-border);
   display: flex;
   align-items: center;
   padding: 0 18px;
@@ -172,7 +177,7 @@ async function onLogout() {
 }
 .topbar .crumb {
   font-size: 14px;
-  color: #8c8073;
+  color: var(--yh-caption);
 }
 .topbar .spacer {
   flex: 1;

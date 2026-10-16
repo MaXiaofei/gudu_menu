@@ -155,8 +155,10 @@ const baseForm = reactive<{
 // 动态营养值，key=metricId
 const nutritionMap = reactive<Record<number, number | undefined>>({})
 
-// AI 补全营养（mock，待接 GLM）
+// AI 补全营养：调用 /ai/nutrition/fill 真实估算，结果仅预填表单、仍可编辑，保存前需人工核对
 const aiLoading = ref(false)
+/** 本次弹窗内营养值是否由 AI 预填（用于展示「AI 估算，请核对后保存」提示） */
+const aiFilled = ref(false)
 async function onAiFillNutrition() {
   if (!baseForm.name.trim()) {
     ElMessage.warning('请先填写食材名称')
@@ -169,9 +171,12 @@ async function onAiFillNutrition() {
     for (const it of r.nutrition || []) {
       nutritionMap[it.metricId] = Number(it.value)
     }
-    ElMessage.success(
-      `AI 已填${r.nutrition?.length || 0}项${r.source === 'mock' ? '（mock，待接 GLM，请核对）' : ''}`,
-    )
+    aiFilled.value = (r.nutrition?.length || 0) > 0
+    if (aiFilled.value) {
+      ElMessage.success(`AI 已估算 ${r.nutrition.length} 项，请核对后保存`)
+    } else {
+      ElMessage.warning('AI 暂未给出估算结果，请手动填写')
+    }
   } finally {
     aiLoading.value = false
   }
@@ -197,12 +202,14 @@ function resetForm() {
 }
 
 function openCreate() {
+  aiFilled.value = false
   editing.value = null
   resetForm()
   dialogVisible.value = true
 }
 
 async function openEdit(row: Ingredient) {
+  aiFilled.value = false
   editing.value = row
   resetForm()
   baseForm.id = row.id
@@ -325,8 +332,8 @@ async function onDelete(row: Ingredient) {
           <el-input v-model="baseForm.name" placeholder="食材名称" />
         </el-form-item>
         <el-form-item label=" ">
-          <el-button type="warning" :loading="aiLoading" @click="onAiFillNutrition">
-            AI 补全营养（按名称预估 6 项，mock 待接 GLM，请核对）
+          <el-button type="primary" plain :loading="aiLoading" @click="onAiFillNutrition">
+            AI 补全营养（按名称估算每 100g 营养）
           </el-button>
         </el-form-item>
         <el-form-item label="采购分类">
@@ -336,6 +343,7 @@ async function onDelete(row: Ingredient) {
         </el-form-item>
 
         <el-divider content-position="left">营养指标（每 100g 含量）</el-divider>
+        <div v-if="aiFilled" class="ai-hint" data-testid="ai-nutrition-hint">AI 估算，请核对后保存</div>
         <div class="nut-grid">
           <el-form-item
             v-for="m in metrics"
@@ -379,7 +387,16 @@ async function onDelete(row: Ingredient) {
 }
 .filter-tip {
   font-size: 12px;
-  color: var(--yh-text-secondary, #909399);
+  color: var(--yh-caption);
+}
+.ai-hint {
+  margin: -6px 0 12px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  color: var(--yh-warning-deep);
+  background: color-mix(in srgb, var(--yh-warning) 14%, transparent);
 }
 .nut-grid {
   display: grid;

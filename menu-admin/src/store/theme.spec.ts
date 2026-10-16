@@ -11,49 +11,55 @@ describe('useThemeStore', () => {
     document.documentElement.removeAttribute('data-theme')
   })
 
-  it('初始 current 默认 warm（localStorage 无值时）', () => {
+  it('初始 current 默认 cream（localStorage 无值时）', () => {
     const store = useThemeStore()
-    expect(store.current).toBe('warm')
+    expect(store.current).toBe('cream')
   })
 
   it('localStorage 有值时初始恢复', () => {
+    localStorage.setItem('gudu-theme', 'matcha')
+    const store = useThemeStore()
+    expect(store.current).toBe('matcha')
+  })
+
+  it('旧版 key（green）恢复为 matcha', () => {
     localStorage.setItem('gudu-theme', 'green')
     const store = useThemeStore()
-    expect(store.current).toBe('green')
+    expect(store.current).toBe('matcha')
   })
 
   describe('apply', () => {
-    it('切换到 green → 设置 CSS 变量 + data-theme + 持久化', () => {
+    it('切换到 matcha → 设置 CSS 变量 + data-theme + 持久化', () => {
       const store = useThemeStore()
-      store.apply('green')
+      store.apply('matcha')
 
       const el = document.documentElement
       const style = el.style
       expect(style.getPropertyValue('--el-color-primary')).toBe('#7A9A5B')
       expect(style.getPropertyValue('--yh-sidebar')).toBe('#648449')
       expect(style.getPropertyValue('--yh-bg')).toBe('#F7F5EE')
-      expect(el.getAttribute('data-theme')).toBe('green')
-      expect(store.current).toBe('green')
-      expect(localStorage.getItem('gudu-theme')).toBe('green')
+      expect(el.getAttribute('data-theme')).toBe('matcha')
+      expect(store.current).toBe('matcha')
+      expect(localStorage.getItem('gudu-theme')).toBe('matcha')
     })
 
-    it('切换到 warm → 设置对应主色', () => {
+    it('切换到 cream → 设置对应主色', () => {
       const store = useThemeStore()
-      store.apply('warm')
+      store.apply('cream')
 
       const style = document.documentElement.style
       expect(style.getPropertyValue('--el-color-primary')).toBe('#E89150')
       expect(style.getPropertyValue('--yh-sidebar')).toBe('#D17A3C')
-      expect(localStorage.getItem('gudu-theme')).toBe('warm')
+      expect(localStorage.getItem('gudu-theme')).toBe('cream')
     })
 
-    it('未知 key → fallback 到 themes[0](warm) 并应用 warm 主色', () => {
+    it('未知 key → fallback 到默认皮肤 cream', () => {
       const store = useThemeStore()
       store.apply('not-exist')
 
-      expect(store.current).toBe('warm')
+      expect(store.current).toBe('cream')
       expect(document.documentElement.style.getPropertyValue('--el-color-primary')).toBe('#E89150')
-      expect(localStorage.getItem('gudu-theme')).toBe('warm')
+      expect(localStorage.getItem('gudu-theme')).toBe('cream')
     })
   })
 
@@ -64,8 +70,8 @@ describe('useThemeStore', () => {
 
   it('currentTheme() 返回当前主题对象', () => {
     const store = useThemeStore()
-    store.apply('green')
-    expect(store.currentTheme().key).toBe('green')
+    store.apply('matcha')
+    expect(store.currentTheme().key).toBe('matcha')
     expect(store.currentTheme().primary).toBe('#7A9A5B')
   })
 })

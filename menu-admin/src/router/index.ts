@@ -74,6 +74,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/ai-log/Index.vue'),
         meta: { title: 'AI 用量' },
       },
+      {
+        path: 'feedback',
+        name: 'Feedback',
+        component: () => import('@/views/feedback/Index.vue'),
+        meta: { title: '意见反馈' },
+      },
     ],
   },
 ]

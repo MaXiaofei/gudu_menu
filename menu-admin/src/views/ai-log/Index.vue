@@ -28,7 +28,7 @@ const totalFails = computed(() => usage.value.reduce((s, r) => s + r.failCalls, 
 
 async function loadUsage() {
   try {
-    usage.value = await request({ url: '/ai/usage', method: 'GET', data: { days: usageDays.value } })
+    usage.value = await request({ url: '/ai/usage', method: 'GET', params: { days: usageDays.value } })
   } catch (e: any) {
     ElMessage.error('加载用量失败')
   }
@@ -68,7 +68,7 @@ async function loadLogs() {
     if (query.value.scene) params.scene = query.value.scene
     if (query.value.status) params.status = query.value.status
     const res = await request<{ records: CallLog[]; total: number }>({
-      url: '/ai/call-log', method: 'GET', data: params,
+      url: '/ai/call-log', method: 'GET', params,
     })
     logs.value = res.records || []
     total.value = res.total || 0
@@ -97,8 +97,8 @@ function formatJson(str: string | null) {
   }
 }
 
-function statusType(s: string) {
-  return s === 'ok' ? 'success' : 'danger'
+function statusClass(s: string) {
+  return s === 'ok' ? 'status-ok' : 'status-fail'
 }
 
 onMounted(() => {
@@ -122,7 +122,7 @@ onMounted(() => {
       <el-col :span="6">
         <el-card shadow="never">
           <div class="stat-card">
-            <div class="stat-value" style="color: #f56c6c">{{ totalFails }}</div>
+            <div class="stat-value stat-error">{{ totalFails }}</div>
             <div class="stat-label">失败次数</div>
           </div>
         </el-card>
@@ -130,7 +130,7 @@ onMounted(() => {
       <el-col :span="6">
         <el-card shadow="never">
           <div class="stat-card">
-            <div class="stat-value" style="color: #e6a23c">{{ totalTokensIn.toLocaleString() }}</div>
+            <div class="stat-value stat-warning">{{ totalTokensIn.toLocaleString() }}</div>
             <div class="stat-label">输入 Token</div>
           </div>
         </el-card>
@@ -138,7 +138,7 @@ onMounted(() => {
       <el-col :span="6">
         <el-card shadow="never">
           <div class="stat-card">
-            <div class="stat-value" style="color: #67c23a">{{ totalTokensOut.toLocaleString() }}</div>
+            <div class="stat-value stat-success">{{ totalTokensOut.toLocaleString() }}</div>
             <div class="stat-label">输出 Token</div>
           </div>
         </el-card>
@@ -164,7 +164,7 @@ onMounted(() => {
         <el-table-column prop="totalCalls" label="调用次数" width="90" />
         <el-table-column label="失败" width="70">
           <template #default="{ row }">
-            <span :style="{ color: row.failCalls > 0 ? '#f56c6c' : '' }">{{ row.failCalls }}</span>
+            <span :class="{ 'text-error': row.failCalls > 0 }">{{ row.failCalls }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="tokensIn" label="输入 Token" width="110" />
@@ -177,7 +177,7 @@ onMounted(() => {
             <el-progress
               :percentage="row.totalCalls > 0 ? Math.round((1 - row.failCalls / row.totalCalls) * 100) : 0"
               :stroke-width="8"
-              :status="row.failCalls === 0 ? 'success' : ''"
+              :color="row.failCalls === 0 ? 'var(--yh-success)' : 'var(--el-color-primary)'"
             />
           </template>
         </el-table-column>
@@ -210,7 +210,7 @@ onMounted(() => {
         <el-table-column prop="provider" label="模型" width="90" />
         <el-table-column label="状态" width="70">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)" size="small">{{ row.status === 'ok' ? '成功' : '失败' }}</el-tag>
+            <span class="status" :class="statusClass(row.status)">{{ row.status === 'ok' ? '成功' : '失败' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="tokensIn" label="入Token" width="80" />
@@ -220,7 +220,7 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="请求摘要" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
-            <span :style="{ color: row.status === 'fail' ? '#f56c6c' : '' }">
+            <span :class="{ 'text-error': row.status === 'fail' }">
               {{ row.errorMsg ? row.errorMsg : (row.request || '').substring(0, 80) }}
             </span>
           </template>
@@ -247,14 +247,14 @@ onMounted(() => {
           <el-descriptions-item label="场景">{{ sceneLabel(detailLog.scene) }}</el-descriptions-item>
           <el-descriptions-item label="模型">{{ detailLog.provider }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="statusType(detailLog.status)" size="small">{{ detailLog.status === 'ok' ? '成功' : '失败' }}</el-tag>
+            <span class="status" :class="statusClass(detailLog.status)">{{ detailLog.status === 'ok' ? '成功' : '失败' }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="输入 Token">{{ detailLog.tokensIn }}</el-descriptions-item>
           <el-descriptions-item label="输出 Token">{{ detailLog.tokensOut }}</el-descriptions-item>
           <el-descriptions-item label="延迟">{{ detailLog.latencyMs }}ms</el-descriptions-item>
           <el-descriptions-item label="成员 ID">{{ detailLog.memberId }}</el-descriptions-item>
           <el-descriptions-item v-if="detailLog.errorMsg" label="错误信息" :span="2">
-            <span style="color: #f56c6c">{{ detailLog.errorMsg }}</span>
+            <span class="text-error">{{ detailLog.errorMsg }}</span>
           </el-descriptions-item>
         </el-descriptions>
 
@@ -271,8 +271,15 @@ onMounted(() => {
 <style scoped>
 .summary-row { margin-bottom: 16px; }
 .stat-card { text-align: center; padding: 8px 0; }
-.stat-value { font-size: 28px; font-weight: bold; color: #409eff; }
-.stat-label { font-size: 13px; color: #909399; margin-top: 4px; }
+.stat-value { font-size: 28px; font-weight: bold; color: var(--el-color-primary); font-variant-numeric: tabular-nums; }
+.stat-value.stat-error { color: var(--yh-error); }
+.stat-value.stat-warning { color: var(--yh-warning-deep); }
+.stat-value.stat-success { color: var(--yh-success); }
+.stat-label { font-size: 13px; color: var(--yh-caption); margin-top: 4px; }
+.text-error { color: var(--yh-error); }
+.status { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
+.status-ok { color: var(--yh-success); background: color-mix(in srgb, var(--yh-success) 14%, transparent); }
+.status-fail { color: var(--yh-error); background: color-mix(in srgb, var(--yh-error) 14%, transparent); }
 .section { margin-bottom: 16px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .filters { display: flex; }
