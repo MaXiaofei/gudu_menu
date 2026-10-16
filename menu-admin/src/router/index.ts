@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalized, type RouteRecordRaw } from 'vue-router'
+import { clearAuth, hasAdminSession } from '@/utils/auth-storage'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -82,12 +83,14 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
-  const token = localStorage.getItem('gudu-token')
-  if (!token && !to.meta.public && to.path !== '/login') {
-    return { path: '/login' }
-  }
-  return true
-})
+/** 路由守卫：非公开页要求 token 且 isAdmin===true，否则清理残留登录态并回登录页。 */
+export function authGuard(to: Pick<RouteLocationNormalized, 'path' | 'meta'>) {
+  if (to.meta.public || to.path === '/login') return true
+  if (hasAdminSession()) return true
+  clearAuth()
+  return { path: '/login' }
+}
+
+router.beforeEach(authGuard)
 
 export default router

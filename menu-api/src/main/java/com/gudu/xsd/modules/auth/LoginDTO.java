@@ -18,4 +18,11 @@ public class LoginDTO {
 
     @NotBlank(message = "密码不能为空")
     private String password;
+
+    /** 登录场景：admin = 管理后台（仅平台超管可登录）；空 = C 端。 */
+    private String scope;
+
+    public LoginDTO(String username, String password) {
+        this(username, password, null);
+    }
 }

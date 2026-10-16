@@ -1,5 +1,6 @@
 package com.gudu.xsd.modules.dish;
 
+import com.gudu.xsd.common.security.RequireAdmin;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.R;
 import com.gudu.xsd.modules.dish.DishService.DishDetail;
@@ -64,6 +65,7 @@ public class DishController {
 
     /** 存量菜谱向量重建（部署后建库 / 数据修复用，分批 embedding；返回成功数+首个错误）。 */
     @PostMapping("/vector/rebuild")
+    @RequireAdmin
     public R<DishVectorService.RebuildResult> rebuildVectors() {
         return R.ok(vectorSvc.rebuildAll());
     }

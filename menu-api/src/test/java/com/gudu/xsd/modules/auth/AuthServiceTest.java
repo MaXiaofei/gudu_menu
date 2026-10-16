@@ -194,4 +194,34 @@ class AuthServiceTest {
                 .hasMessageContaining("40029");
         verify(mm, never()).insert(any(Member.class));
     }
+
+    @Test
+    void 后台登录_非超管_403且不签发token() {
+        MemberMapper mm = mock(MemberMapper.class);
+        when(mm.selectOne(any(Wrapper.class))).thenReturn(phoneMember());
+        AuthService svc = new AuthService(mm, mock(WxClient.class));
+
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            assertThatThrownBy(() -> svc.login(new LoginDTO("13800000001", "pw123", "admin")))
+                    .isInstanceOf(BizException.class)
+                    .hasMessageContaining("无后台权限")
+                    .extracting(e -> ((BizException) e).getCode()).isEqualTo(403);
+            stp.verify(() -> StpUtil.login(any()), never());
+        }
+    }
+
+    @Test
+    void 后台登录_超管_成功且返回isAdmin() {
+        MemberMapper mm = mock(MemberMapper.class);
+        when(mm.selectOne(any(Wrapper.class))).thenReturn(adminMember());
+        AuthService svc = new AuthService(mm, mock(WxClient.class));
+
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getSession).thenReturn(mock(SaSession.class));
+            stp.when(StpUtil::getTokenValue).thenReturn("tok-admin");
+            Map<String, Object> r = svc.login(new LoginDTO("admin", "admin123", "admin"));
+            assertThat(r.get("token")).isEqualTo("tok-admin");
+            assertThat(r.get("isAdmin")).isEqualTo(true);
+        }
+    }
 }

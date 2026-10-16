@@ -17,6 +17,10 @@ export interface MenuDish {
   servingFactor?: number | null
   note?: string | null
   coverUrl?: string | null
+  /** 朋友点菜：点菜人昵称（后端 MenuDishVO.addedByNickname） */
+  addedByNickname?: string | null
+  /** 自定义菜名（dishId 为空时） */
+  customName?: string | null
 }
 
 export interface MenuDetail {

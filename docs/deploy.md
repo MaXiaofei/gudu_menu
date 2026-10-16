@@ -328,6 +328,31 @@ key 未配时该 provider 标记为未就绪（`GET /ai/provider` 的 `ready=fal
 
 > **注意**：修改 `.env` 后需重建容器才能生效（`docker compose up -d` 即可读取新值，但 menu-api 需重新创建）。
 
+### 2.5.1 安全加固上线步骤（security-hardening，2026-10）
+
+> 仅生产；staging/test 按决定保持现状（端口开放、Redis 无密码、登录校验走 `.env`）。
+
+1. **生产 `.env` 补 `REDIS_PASSWORD`**（`openssl rand -hex 24` 生成，勿入库）。`AUTH_LOGIN_CHECK` 无需再配：`docker-compose.prod.yml` 已写死 `"true"`，同时注入 `GUDU_CORS_ALLOWED_ORIGINS=https://imxf.cloud`、`GUDU_EXPOSE_ERROR_DETAIL=false`。
+2. **Redis 密码与 menu-api 必须一起重建**（requirepass 只在容器创建时生效；只重建一边会导致 menu-api 连 Redis 报 `NOAUTH`/`WRONGPASS`，有秒级不可用窗口，安排低峰）：
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --force-recreate gudu-redis menu-api
+   docker exec gudu-redis-prod redis-cli ping                # 应返回 NOAUTH（无密码被拒）
+   ```
+   之后改密码同理：改 `.env` → 两个服务一起 `--force-recreate`。Redis 无持久化卷，重建会清空缓存/会话（用户需重新登录）。
+3. **端口改绑 127.0.0.1**（MySQL 3306 / Redis 6379 / pgvector 25432；Ollama 本就不对外）。需 `up -d` 重建 gudu-mysql/gudu-pgvector 才生效（数据在卷里不丢）。验证：
+   ```bash
+   ss -lnt | grep -E ':(3306|6379|25432)\b'   # 只应出现 127.0.0.1:xxxx，不得有 0.0.0.0 / [::]
+   ```
+   本机工具连库改走 SSH 隧道：`ssh -L 3306:127.0.0.1:3306 root@<host>`。
+4. **首次部署自动登记迁移**：`scripts/deploy.sh` 发现 `schema_migration_log` 为空时，把 `menu-api/sql/V*.sql` 全部登记（文件名 + sha256），**不执行**；日志会打印「一次性登记」。之后每次部署只执行未登记文件；已登记文件内容被改则中止部署（已执行的迁移禁止修改，请新增 V 文件）。登记以文件名为键，同号文件（V43/V45/V50 各两份）互不影响。新空库：initdb 首启已跑全部文件（含 V63 建表）→ 首次部署同样只登记。
+   ```bash
+   docker exec gudu-mysql-prod sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" gudu -e "SELECT COUNT(*) FROM schema_migration_log"'
+   ```
+5. **验证匿名访问被拒**：
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' https://imxf.cloud/gudu/menu/page   # 应为 401（或业务码 401）
+   ```
+
 ---
 
 ### 2.6 数据库
@@ -341,7 +366,7 @@ key 未配时该 provider 标记为未就绪（`GET /ai/provider` 的 `ready=fal
 | 用户名 | `root` |
 | 密码 | `<见 .env.dev / compose 配置>` |
 | 内网访问地址 | `yanhuo-mysql-prod:3306`（容器间） |
-| 公网访问 | ✅ `49.232.3.201:3306`（需安全组放行） |
+| 公网访问 | ❌ 生产仅绑 `127.0.0.1:3306`，走 SSH 隧道（见 2.5.1） |
 
 #### 6.2 表结构初始化
 
@@ -357,9 +382,9 @@ key 未配时该 provider 标记为未就绪（`GET /ai/provider` 的 `ready=fal
 | 项目 | 值 |
 |------|-----|
 | Redis 版本 | 7 |
-| 密码 | 无 |
-| 内网访问地址 | `yanhuo-redis-prod:6379`（容器间） |
-| 公网访问 | ✅ `49.232.3.201:6379`（需安全组放行） |
+| 密码 | 生产：`.env` `REDIS_PASSWORD`（requirepass）；staging：无 |
+| 内网访问地址 | `gudu-redis:6379`（容器间） |
+| 公网访问 | ❌ 生产仅绑 `127.0.0.1:6379`，走 SSH 隧道（见 2.5.1） |
 
 #### 6.4 数据持久化
 

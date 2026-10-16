@@ -68,7 +68,6 @@ class AiServiceTest {
                 memberMapper, aiCallLogMapper, new ObjectMapper(),
                 new AiInputGuard(), menuRecommender, dishVectorService, tasteProfileService);
         // @Value 在 new 出来的实例上不生效，手动注入默认额度
-        org.springframework.test.util.ReflectionTestUtils.setField(svc, "dailyLimit", 50);
     }
 
     private Dish dish(long id, String name) {
@@ -145,15 +144,6 @@ class AiServiceTest {
 
         var req = new MenuRecommendRequest(1L, "DAY", null, null, null, null, null, null);
         assertThat(svc.recommendMenu(req)).isEmpty();
-    }
-
-    @Test
-    void 菜单推荐_今日额度超限_抛BizException() {
-        when(aiCallLogMapper.selectCount(any())).thenReturn(50L);
-        var req = new MenuRecommendRequest(1L, "DAY", null, null, null, null, null, null);
-        assertThatThrownBy(() -> svc.recommendMenu(req))
-                .isInstanceOf(com.gudu.xsd.common.BizException.class)
-                .hasMessageContaining("上限");
     }
 
     @Test

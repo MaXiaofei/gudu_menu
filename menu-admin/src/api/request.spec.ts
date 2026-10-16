@@ -116,6 +116,32 @@ describe('request 拦截器', () => {
       expect(hrefSetter).not.toHaveBeenCalled()
     })
 
+    it('code==401 → 同时清 nickname / isAdmin', async () => {
+      currentPathname = '/'
+      localStorage.setItem('gudu-token', 'abc')
+      localStorage.setItem('gudu-nickname', 'n')
+      localStorage.setItem('gudu-is-admin', 'true')
+      await expect(onSuccess()({ data: { code: 401, msg: '未登录' } })).rejects.toThrow('未登录')
+      expect(localStorage.getItem('gudu-nickname')).toBeNull()
+      expect(localStorage.getItem('gudu-is-admin')).toBeNull()
+    })
+
+    it('code==403 → ElMessage 服务端 msg + reject，不清登录态不跳转', async () => {
+      const { ElMessage } = await import('element-plus')
+      const spy = vi.mocked(ElMessage.error)
+      spy.mockClear()
+      hrefSetter.mockClear()
+      localStorage.setItem('gudu-token', 'abc')
+      await expect(onSuccess()({ data: { code: 403, msg: '无后台权限' } })).rejects.toThrow('无后台权限')
+      expect(spy).toHaveBeenCalledWith('无后台权限')
+      expect(localStorage.getItem('gudu-token')).toBe('abc')
+      expect(hrefSetter).not.toHaveBeenCalled()
+    })
+
+    it('code==403 无 msg → 兜底「无权限访问」', async () => {
+      await expect(onSuccess()({ data: { code: 403 } })).rejects.toThrow('无权限访问')
+    })
+
     it('其它非 0 code → reject 且 ElMessage.error 被调用', async () => {
       const { ElMessage } = await import('element-plus')
       const spy = vi.mocked(ElMessage.error)

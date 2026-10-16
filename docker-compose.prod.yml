@@ -15,8 +15,9 @@ services:
       MYSQL_DATABASE: gudu
       TZ: Asia/Shanghai
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--character-set-client-handshake=FALSE"]
+    # 安全加固 S13：数据层端口只绑本机回环，外部访问走 SSH 隧道（ssh -L 3306:127.0.0.1:3306）
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
       - ./menu-api/sql:/docker-entrypoint-initdb.d:ro
@@ -25,8 +26,10 @@ services:
     image: redis:7
     container_name: gudu-redis-prod
     restart: unless-stopped
+    # 安全加固 S13：requirepass 从 .env 读（缺失则 compose 直接报错，拒绝无密码启动）
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD required}"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   # PGVector 向量库（菜谱向量语义检索，Spring AI 自动建 vector_store 表）
   gudu-pgvector:
@@ -38,7 +41,7 @@ services:
       POSTGRES_USER: gudu
       POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD:-gudu_vec_2026}
     ports:
-      - "25432:5432"   # 错开 staging 的 15432
+      - "127.0.0.1:25432:5432"   # 错开 staging 的 15432；S13 只绑本机回环
     volumes:
       - pgvector-data:/var/lib/postgresql/data
 
@@ -68,11 +71,15 @@ services:
       PGVECTOR_PORT: "5432"
       PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-gudu_vec_2026}
       OLLAMA_BASE_URL: http://gudu-ollama:11434
-      # 微信小程序（.env 注入；缺省不拦截 token，见 application.yml auth.login-check）
+      # 微信小程序（.env 注入）
       WX_APPID: ${WX_APPID:-}
       WX_APPSECRET: ${WX_APPSECRET:-}
       WX_TOKEN: ${WX_TOKEN:-}
-      AUTH_LOGIN_CHECK: ${AUTH_LOGIN_CHECK:-false}
+      # 安全加固（security-hardening）：生产强制开启登录校验，不从 .env 读，防误关
+      AUTH_LOGIN_CHECK: "true"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD required}
+      GUDU_CORS_ALLOWED_ORIGINS: https://imxf.cloud
+      GUDU_EXPOSE_ERROR_DETAIL: "false"
     volumes:
       - uploads:/app/uploads
       - ./logs:/app/logs

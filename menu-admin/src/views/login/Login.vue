@@ -3,7 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
-import { useAuthStore } from '@/store/auth'
+import { useAuthStore, NoAdminPermissionError } from '@/store/auth'
 import { useThemeStore } from '@/store/theme'
 
 const router = useRouter()
@@ -31,8 +31,10 @@ async function onSubmit() {
       await authStore.login({ username: form.username, password: form.password })
       ElMessage.success('登录成功')
       router.push('/')
-    } catch {
-      // 错误信息已在 request 拦截器里 ElMessage
+    } catch (e) {
+      // 接口层错误（含后端「无后台权限」）已在 request 拦截器里 ElMessage；
+      // 这里只补前端 isAdmin 校验未通过的提示
+      if (e instanceof NoAdminPermissionError) ElMessage.error(e.message)
     } finally {
       loading.value = false
     }

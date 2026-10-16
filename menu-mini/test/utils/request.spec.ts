@@ -86,3 +86,53 @@ describe('utils/request', () => {
     )
   })
 })
+
+// S14：登录校验开启后 403/429/网络异常的统一提示
+describe('utils/request 错误码提示', () => {
+  beforeEach(() => {
+    __testUni.resetStorage()
+    vi.mocked(__testUni.mocks.reLaunch).mockClear()
+    vi.mocked(__testUni.mocks.showToast).mockClear()
+    vi.mocked(__testUni.mocks.request).mockReset()
+  })
+
+  it('默认带 15s timeout，调用方可覆盖', async () => {
+    vi.mocked(__testUni.mocks.request).mockResolvedValue({ data: { code: 0, data: 1 }, statusCode: 200 } as any)
+    await request({ url: '/x', method: 'GET' })
+    expect(__testUni.mocks.request).toHaveBeenLastCalledWith(expect.objectContaining({ timeout: 15000 }))
+    await request({ url: '/x', method: 'GET', timeout: 60000 })
+    expect(__testUni.mocks.request).toHaveBeenLastCalledWith(expect.objectContaining({ timeout: 60000 }))
+  })
+
+  it('code==403 → toast 服务端 msg，不清 token、不跳登录', async () => {
+    __testUni.setStorage('token', 'abc')
+    vi.mocked(__testUni.mocks.request).mockResolvedValue({
+      data: { code: 403, msg: '无权操作该家庭数据' },
+      statusCode: 200,
+    } as any)
+    await expect(request({ url: '/x', method: 'GET' })).rejects.toThrow('无权操作该家庭数据')
+    expect(__testUni.mocks.showToast).toHaveBeenCalledWith({ title: '无权操作该家庭数据', icon: 'none' })
+    expect(__testUni.getStorage('token')).toBe('abc')
+    expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
+  })
+
+  it('code==429 → toast「操作太频繁，请稍后再试」', async () => {
+    vi.mocked(__testUni.mocks.request).mockResolvedValue({
+      data: { code: 429, msg: 'Too Many Requests' },
+      statusCode: 200,
+    } as any)
+    await expect(request({ url: '/x', method: 'POST' })).rejects.toThrow()
+    expect(__testUni.mocks.showToast).toHaveBeenCalledWith({ title: '操作太频繁，请稍后再试', icon: 'none' })
+  })
+
+  it('网关 HTTP 429 非 R 响应 → 同样提示太频繁', async () => {
+    vi.mocked(__testUni.mocks.request).mockResolvedValue({ data: '<html>429</html>', statusCode: 429 } as any)
+    await expect(request({ url: '/x', method: 'GET' })).rejects.toThrow('操作太频繁，请稍后再试')
+  })
+
+  it('网络失败（uni.request reject）→ toast「网络异常，请检查网络」', async () => {
+    vi.mocked(__testUni.mocks.request).mockRejectedValue({ errMsg: 'request:fail timeout' })
+    await expect(request({ url: '/x', method: 'GET' })).rejects.toThrow('网络异常，请检查网络')
+    expect(__testUni.mocks.showToast).toHaveBeenCalledWith({ title: '网络异常，请检查网络', icon: 'none' })
+  })
+})

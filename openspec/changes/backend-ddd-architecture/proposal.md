@@ -2,7 +2,14 @@
 
 **Change ID:** `backend-ddd-architecture`
 **Created:** 2026-08-21
-**Status:** Draft（Phase 0 已随本提案落地）
+**Status:** In Progress（Phase 0 已落地）
+**Roadmap:** #2（[ROADMAP](../../ROADMAP.md)）
+
+> **2026-10-16 调整**（产品确认对外多用户）：
+> - 本 change 原 Out of Scope「不改数据库表结构」由 [`multi-tenant-family`](../multi-tenant-family/proposal.md) 解除（全部家庭域表加 `family_id`）。
+> - Phase 1 样板调整为：**identity / family 两个新上下文原生四层**（见 multi-tenant-family design §7）+ dish 迁移；1.1 事件基建与 multi-tenant A.1 合并实施。
+> - Phase 2 的 `DishCookedEvent` 与 [`feature-gaps-closure`](../feature-gaps-closure/proposal.md) 单菜直做合并实施。
+> - 本目录已从 `menu-api/openspec/changes/` 迁至根 `openspec/changes/`，统一路线图。
 
 ---
 

@@ -6,6 +6,7 @@ test.beforeEach(async ({ page, context }) => {
   await page.addInitScript(() => {
     localStorage.setItem('gudu-token', 'e2e-token')
     localStorage.setItem('gudu-nickname', 'E2E管理员')
+    localStorage.setItem('gudu-is-admin', 'true')
   })
 })
 

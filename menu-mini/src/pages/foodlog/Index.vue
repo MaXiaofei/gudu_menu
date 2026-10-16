@@ -45,7 +45,7 @@
     <scroll-view v-if="tab === 'timeline'" scroll-y class="body" @scrolltolower="loadMore">
       <view
         v-for="r in records"
-        :key="r.menuId ?? r.cookedAt"
+        :key="r.menuId ?? r.cookedAt ?? undefined"
         class="tl-row"
         @click="goDetail(r)"
       >

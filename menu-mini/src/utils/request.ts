@@ -3,6 +3,12 @@
 export { BASE } from '@/config/env'
 import { BASE as BASE_URL } from '@/config/env'
 
+/** 默认请求超时（毫秒），调用方可通过 opt.timeout 覆盖。 */
+export const REQUEST_TIMEOUT = 15000
+export const MSG_NETWORK = '网络异常，请检查网络'
+export const MSG_TOO_FREQUENT = '操作太频繁，请稍后再试'
+
+
 export function getToken(): string {
   return uni.getStorageSync('token') || ''
 }
@@ -25,6 +31,7 @@ async function trySilentRelogin(): Promise<boolean> {
           method: 'POST',
           data: { code },
           header: { Authorization: '' },
+          timeout: REQUEST_TIMEOUT,
         })
         const body = res.data
         if (body.code !== 0 || !body.data?.token) return false
@@ -59,18 +66,32 @@ function cleanData(data: unknown): unknown {
 export async function request<T = any>(
   opt: UniApp.RequestOptions & { guestKey?: string; _retried?: boolean },
 ): Promise<T> {
-  const res: any = await uni.request({
-    ...opt,
-    data: cleanData(opt.data) as UniApp.RequestOptions['data'],
-    url: BASE_URL + opt.url,
-    header: {
-      Authorization: getToken(),
-      // 朋友点菜免登录凭证（对应 H5 的 X-Guest-Key）
-      ...(opt.guestKey ? { 'X-Guest-Key': opt.guestKey } : {}),
-      ...opt.header,
-    },
-  })
-  const body = res.data // 后端统一 R{code,msg,data}
+  let res: any
+  try {
+    res = await uni.request({
+      timeout: REQUEST_TIMEOUT,
+      ...opt,
+      data: cleanData(opt.data) as UniApp.RequestOptions['data'],
+      url: BASE_URL + opt.url,
+      header: {
+        Authorization: getToken(),
+        // 朋友点菜免登录凭证（对应 H5 的 X-Guest-Key）
+        ...(opt.guestKey ? { 'X-Guest-Key': opt.guestKey } : {}),
+        ...opt.header,
+      },
+    })
+  } catch {
+    // 断网 / 超时 / DNS 失败：uni.request 直接 reject
+    uni.showToast({ title: MSG_NETWORK, icon: 'none' })
+    throw new Error(MSG_NETWORK)
+  }
+  const body = res?.data // 后端统一 R{code,msg,data}（限流/权限也走 HTTP 200 + R.code）
+  if (!body || typeof body !== 'object') {
+    // 网关层返回的非 R 响应（如 nginx 429/502 HTML 页）
+    const msg = res?.statusCode === 429 ? MSG_TOO_FREQUENT : MSG_NETWORK
+    uni.showToast({ title: msg, icon: 'none' })
+    throw new Error(msg)
+  }
   if (body.code === 401) {
     if (opt.guestKey) {
       // 访客凭证失效：不跳登录，直接抛错由页面提示重新打开邀请
@@ -86,6 +107,16 @@ export async function request<T = any>(
     uni.removeStorageSync('token')
     uni.reLaunch({ url: '/pages/login/Login' })
     throw new Error('未登录')
+  }
+  if (body.code === 429) {
+    uni.showToast({ title: MSG_TOO_FREQUENT, icon: 'none' })
+    throw new Error(body.msg || MSG_TOO_FREQUENT)
+  }
+  if (body.code === 403) {
+    // 无权限：展示服务端原因（如「无权操作该家庭数据」），不清 token
+    const msg = body.msg || '无权限访问'
+    uni.showToast({ title: msg, icon: 'none' })
+    throw new Error(msg)
   }
   if (body.code !== 0) {
     uni.showToast({ title: body.msg || '请求失败', icon: 'none' })

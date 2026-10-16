@@ -1,7 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
-
-const TOKEN_KEY = 'gudu-token'
+import { TOKEN_KEY, clearAuth } from '@/utils/auth-storage'
 
 const instance = axios.create({
   baseURL: '/gudu',
@@ -30,12 +29,18 @@ instance.interceptors.response.use(
         return body.data
       }
       if (body.code === 401) {
-        localStorage.removeItem(TOKEN_KEY)
+        clearAuth()
         // 避免在登录页循环
         if (!location.pathname.startsWith('/login')) {
           location.href = '/login'
         }
         return Promise.reject(new Error(body.msg || '未登录'))
+      }
+      if (body.code === 403) {
+        // 无权限（如非超管访问后台接口 / 登录 scope=admin 被拒）：提示服务端原因，不清登录态
+        const msg = body.msg || '无权限访问'
+        ElMessage.error(msg)
+        return Promise.reject(new Error(msg))
       }
       ElMessage.error(body.msg || '请求失败')
       return Promise.reject(new Error(body.msg || '请求失败'))

@@ -15,23 +15,52 @@ test.describe('登录流程', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ code: 0, msg: 'ok', data: { token: 'e2e-token', nickname: 'E2E管理员' } }),
+        body: JSON.stringify({ code: 0, msg: 'ok', data: { token: 'e2e-token', nickname: 'E2E管理员', isAdmin: true } }),
       })
     })
     // 其它 /gudu 请求兜底（首页等）
     await page.route(/\/gudu\//, async (route: Route) => {
       if (route.request().url().includes('/auth/login')) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: '{"code":0,"msg":"ok","data":{"token":"e2e-token","nickname":"E2E管理员"}}' })
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '{"code":0,"msg":"ok","data":{"token":"e2e-token","nickname":"E2E管理员","isAdmin":true}}' })
         return
       }
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"code":0,"msg":"ok","data":{}}' })
     })
 
     await page.goto('/login')
-    // 用户名/密码默认已填 admin/admin123，直接点登录
+    await page.getByPlaceholder('请输入用户名').fill('admin')
+    await page.getByPlaceholder('请输入密码').fill('admin123')
     await page.getByRole('button', { name: /登.*录/ }).click()
 
     await expect(page).toHaveURL(/\/home$/, { timeout: 10000 })
+  })
+
+  test('登录请求带 scope=admin；非超管 → 提示「无后台权限」并停留登录页', async ({ page }) => {
+    let sentBody: any = null
+    await page.route(/\/auth\/login$/, async (route) => {
+      sentBody = route.request().postDataJSON()
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 403, msg: '无后台权限', data: null }),
+      })
+    })
+
+    await page.goto('/login')
+    await page.getByPlaceholder('请输入用户名').fill('admin')
+    await page.getByPlaceholder('请输入密码').fill('admin123')
+    await page.getByRole('button', { name: /登.*录/ }).click()
+
+    await expect(page.getByText('无后台权限')).toBeVisible()
+    await expect(page).toHaveURL(/\/login$/)
+    expect(sentBody?.scope).toBe('admin')
+    expect(await page.evaluate(() => localStorage.getItem('gudu-token'))).toBeNull()
+  })
+
+  test('残留 token 但无 isAdmin → 访问首页被踢回登录页', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('gudu-token', 'stale-token'))
+    await page.goto('/home')
+    await expect(page).toHaveURL(/\/login$/)
   })
 
   test('错误密码 → 提示错误且停留在登录页', async ({ page }) => {
@@ -44,6 +73,8 @@ test.describe('登录流程', () => {
     })
 
     await page.goto('/login')
+    await page.getByPlaceholder('请输入用户名').fill('admin')
+    await page.getByPlaceholder('请输入密码').fill('admin123')
     await page.getByRole('button', { name: /登.*录/ }).click()
 
     // 留在登录页

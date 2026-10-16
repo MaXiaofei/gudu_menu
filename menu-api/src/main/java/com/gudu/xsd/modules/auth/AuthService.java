@@ -26,6 +26,9 @@ public class AuthService {
     private final WxClient wxClient;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    /** 管理后台登录场景。 */
+    static final String SCOPE_ADMIN = "admin";
+
     public Map<String, Object> login(LoginDTO dto) {
         Member m = memberMapper.selectOne(
                 new QueryWrapper<Member>().eq("phone", dto.getUsername()));
@@ -33,10 +36,14 @@ public class AuthService {
                 || !passwordEncoder.matches(dto.getPassword(), m.getPasswordHash())) {
             throw new BizException("用户名或密码错误");
         }
+        boolean admin = Integer.valueOf(1).equals(m.getIsAdmin());
+        if (SCOPE_ADMIN.equals(dto.getScope()) && !admin) {
+            throw BizException.forbidden("无后台权限");
+        }
         StpUtil.login(m.getId());
         // 合并:登录即定就餐成员,免切换。兼容现有读 session.currentMemberId 的代码。
         StpUtil.getSession().set("currentMemberId", m.getId());
-        return Map.of("token", StpUtil.getTokenValue(), "nickname", m.getName());
+        return Map.of("token", StpUtil.getTokenValue(), "nickname", m.getName(), "isAdmin", admin);
     }
 
     /**
@@ -57,6 +64,7 @@ public class AuthService {
         }
         StpUtil.login(m.getId());
         StpUtil.getSession().set("currentMemberId", m.getId());
-        return Map.of("token", StpUtil.getTokenValue(), "nickname", m.getName());
+        return Map.of("token", StpUtil.getTokenValue(), "nickname", m.getName(),
+                "isAdmin", Integer.valueOf(1).equals(m.getIsAdmin()));
     }
 }

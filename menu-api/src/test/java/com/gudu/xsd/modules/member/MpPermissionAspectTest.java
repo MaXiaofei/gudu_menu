@@ -1,6 +1,6 @@
 package com.gudu.xsd.modules.member;
 
-import cn.dev33.satoken.session.SaSession;
+import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.BizException;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -25,40 +25,72 @@ class MpPermissionAspectTest {
 
     /** 真实 permSvc(纯函数);memberMapper=null,走 resolvePermissions 不触 DB。 */
     private final MpPermissionService permSvc = new MpPermissionService(null);
-    private final MpPermissionAspect aspect = new MpPermissionAspect(permSvc);
+    private final MpPermissionAspect aspect = new MpPermissionAspect(permSvc, true);
 
     @Test
-    void 未选就餐成员_放行() throws Throwable {
-        // session 不存在 → currentMemberId 返回 null → 应放行
+    void 未登录_生产强制登录_抛401且不执行() throws Throwable {
         ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-        when(pjp.proceed()).thenReturn("OK");
-
-        MpPerm anno = permAnnotation("dish.create");
-
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(() -> StpUtil.getSession(false)).thenReturn(null);
-            Object result = aspect.check(pjp, anno);
-            assertThat(result).isEqualTo("OK");
-            verify(pjp).proceed();
+            stp.when(StpUtil::isLogin).thenReturn(false);
+            stp.when(StpUtil::checkLogin).thenThrow(NotLoginException.newInstance("login", "-1", "未登录", null));
+            assertThatThrownBy(() -> aspect.check(pjp, permAnnotation("dish.create")))
+                    .isInstanceOf(NotLoginException.class);
+            verify(pjp, never()).proceed();
         }
     }
 
     @Test
-    void 已选成员_无对应权限_切面抛BizException拒绝() throws Throwable {
-        // session.currentMemberId = 1L;但 memberMapper=null → resolveByMemberId 返回空集 → 拒绝
-        // 此测试验证「拒绝」分支:切面真拦截并抛 BizException("无此功能权限"),不 proceed
+    void 未登录_测试环境放开登录_放行() throws Throwable {
+        MpPermissionAspect open = new MpPermissionAspect(permSvc, false);
         ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-        when(pjp.proceed()).thenReturn("DONE");
-
-        SaSession session = mock(SaSession.class);
-        when(session.get("currentMemberId")).thenReturn(1L);
-
+        when(pjp.proceed()).thenReturn("OK");
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(() -> StpUtil.getSession(false)).thenReturn(session);
+            stp.when(StpUtil::isLogin).thenReturn(false);
+            assertThat(open.check(pjp, permAnnotation("dish.create"))).isEqualTo("OK");
+        }
+    }
+
+    @Test
+    void 已登录_账号无对应权限_403拒绝() throws Throwable {
+        // loginId=1;memberMapper=null → resolveByMemberId 返回空集 → 拒绝,不 proceed
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::isLogin).thenReturn(true);
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(1L);
             assertThatThrownBy(() -> aspect.check(pjp, permAnnotation("dish.create")))
                     .isInstanceOf(BizException.class)
-                    .hasMessageContaining("无此功能权限");
+                    .hasMessageContaining("无此功能权限")
+                    .extracting(e -> ((BizException) e).getCode()).isEqualTo(403);
             verify(pjp, never()).proceed();
+        }
+    }
+
+    @Test
+    void 权限按登录账号判定_不读当前就餐成员() throws Throwable {
+        // 账号 2 是超管;即使 session.currentMemberId 被切成别人,判定仍用 loginId
+        MemberMapperStub mapper = new MemberMapperStub();
+        MpPermissionService svc = new MpPermissionService(mapper.proxy());
+        MpPermissionAspect a = new MpPermissionAspect(svc, true);
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        when(pjp.proceed()).thenReturn("OK");
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::isLogin).thenReturn(true);
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(2L);
+            assertThat(a.check(pjp, permAnnotation("ai.use"))).isEqualTo("OK");
+            stp.verify(() -> StpUtil.getSession(false), never());
+        }
+    }
+
+    /** 最小 MemberMapper 桩:id=2 为超管。 */
+    static class MemberMapperStub {
+        com.gudu.xsd.modules.member.mapper.MemberMapper proxy() {
+            com.gudu.xsd.modules.member.mapper.MemberMapper m =
+                    mock(com.gudu.xsd.modules.member.mapper.MemberMapper.class);
+            Member admin = new Member();
+            admin.setId(2L);
+            admin.setIsAdmin(1);
+            when(m.selectById(2L)).thenReturn(admin);
+            return m;
         }
     }
 

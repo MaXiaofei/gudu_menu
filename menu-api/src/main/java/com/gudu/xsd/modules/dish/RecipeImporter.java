@@ -9,7 +9,7 @@ import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
+import com.gudu.xsd.common.net.SafeUrlFetcher;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -45,7 +45,8 @@ public class RecipeImporter {
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
                     + "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-    private static final int TIMEOUT_MS = 10_000;
+    /** 防 SSRF 抓取器：只抓公网 http(s)，重定向逐跳复检。 */
+    private final SafeUrlFetcher fetcher = new SafeUrlFetcher(UA);
 
     /** 抓网页 → 解析 → 装配 DTO（不落库，落库交给 DishService.saveFull）。 */
     public DishSaveDTO importFromUrl(String url) {
@@ -90,12 +91,9 @@ public class RecipeImporter {
 
     private Document fetch(String url) {
         try {
-            return Jsoup.connect(url)
-                    .userAgent(UA)
-                    .timeout(TIMEOUT_MS)
-                    .followRedirects(true)
-                    .header("Accept-Language", "zh-CN,zh;q=0.9")
-                    .get();
+            return fetcher.fetch(url);
+        } catch (BizException e) {
+            throw e;
         } catch (java.net.SocketTimeoutException e) {
             throw new BizException("抓取超时，请稍后重试");
         } catch (org.jsoup.HttpStatusException e) {

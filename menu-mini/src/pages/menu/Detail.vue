@@ -30,7 +30,7 @@
               <view class="dish-info">
                 <view class="dish-name-row">
                   <text class="dish-name">{{ d.dishName || (d.dishId ? `菜 #${d.dishId}` : '自定义菜') }}</text>
-                  <text v-if="d.addedBy" class="dish-added">{{ d.addedBy }} 点的</text>
+                  <text v-if="d.addedByNickname" class="dish-added">{{ d.addedByNickname }} 点的</text>
                 </view>
                 <text class="dish-factor">× {{ fmtFactor(d.servingFactor) }} 份</text>
               </view>

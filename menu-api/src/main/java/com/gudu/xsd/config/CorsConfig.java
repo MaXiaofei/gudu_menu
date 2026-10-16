@@ -10,6 +10,9 @@ import java.io.File;
 
 /**
  * CORS + 静态资源映射（上传的图片 /uploads/**，映射到 gudu.upload-dir）。
+ *
+ * <p>允许源由 {@code gudu.cors.allowed-origins}（逗号分隔，支持通配模式）配置：
+ * 生产只放行正式域名；本地/测试默认 {@code *}。微信小程序原生请求不带 Origin，不受影响。
  */
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
@@ -17,12 +20,16 @@ public class CorsConfig implements WebMvcConfigurer {
     @Value("${gudu.upload-dir:uploads}")
     private String uploadDir;
 
+    @Value("${gudu.cors.allowed-origins:*}")
+    private String[] allowedOrigins;
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("*") // 允许所有源（dev localhost:5173 + prod 部署源；内网自用）
+                .allowedOriginPatterns(allowedOrigins)
                 .allowedHeaders("*")
-                .allowedMethods("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .exposedHeaders(TraceIdFilter.HEADER)
                 .allowCredentials(true);
     }
 

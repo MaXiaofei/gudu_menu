@@ -10,6 +10,7 @@ spring:
     redis:
       host: gudu-redis
       port: 6379
+      password: ${REDIS_PASSWORD:}   # 与 compose 中 gudu-redis --requirepass 同源（.env REDIS_PASSWORD）
 
 gudu:
   upload-dir: /app/uploads/prod

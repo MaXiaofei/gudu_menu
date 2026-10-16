@@ -206,7 +206,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { saveDish, saveDraft, draftDetail, importDishByUrl } from '@/api/dish'
+import { saveDish, saveDraft, draftDetail, deleteDraft, importDishByUrl } from '@/api/dish'
 import { listDict, type DictItem } from '@/api/common'
 import { listAllIngredients, type IngredientItem } from '@/api/ingredient'
 import { createIngredient } from '@/api/ingredient'
@@ -440,7 +440,7 @@ async function doSaveDraft(): Promise<boolean> {
         note: note.value || undefined,
         prepTime: prepTime.value ? Number(prepTime.value) : undefined,
         cookTime: cookTime.value ? Number(cookTime.value) : undefined,
-        difficulty,
+        difficulty: difficulty.value,
       },
       steps: validSteps(),
       // 草稿：用料按自由文本原文存
@@ -504,7 +504,7 @@ async function onPublish() {
         note: note.value || undefined,
         prepTime: prepTime.value ? Number(prepTime.value) : undefined,
         cookTime: cookTime.value ? Number(cookTime.value) : undefined,
-        difficulty,
+        difficulty: difficulty.value,
       },
       steps: validSteps(),
       ingredients: ingredients.map((i) => ({
