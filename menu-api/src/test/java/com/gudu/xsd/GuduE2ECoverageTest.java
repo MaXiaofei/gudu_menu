@@ -770,4 +770,237 @@ class GuduE2ECoverageTest {
         assertThat(data.get("url").asText()).contains("/uploads/");
         assertThat(data.has("thumbnailUrl")).isTrue();
     }
+
+    // ===================== P. 余量保质期（feature-gaps-closure G2/G6） =====================
+
+    @Test
+    void P_保质期_设档带保质期_临期查询_清除_保质天数建议_入库带保质期() {
+        String token = loginAdmin();
+        LocalDate in2 = LocalDate.now().plusDays(2);
+
+        // 设档 + 保质期 → 临期（3 天内）能查到，daysLeft=2
+        JsonNode set = put(token, "/pantry/" + ING_TOMATO + "/level",
+                Map.of("level", "ENOUGH", "bestBefore", in2.toString(), "note", "E2E保质期"));
+        assertThat(set.get("code").asInt()).as("设档 msg=" + text(set, "msg")).isEqualTo(0);
+        JsonNode exp = get(token, "/pantry/expiring?days=3");
+        assertThat(exp.get("code").asInt()).isEqualTo(0);
+        JsonNode tomato = null;
+        for (JsonNode it : exp.get("data")) {
+            if (it.get("ingredientId").asLong() == ING_TOMATO) tomato = it;
+        }
+        assertThat(tomato).as("临期应含番茄").isNotNull();
+        assertThat(tomato.get("daysLeft").asInt()).isEqualTo(2);
+        assertThat(tomato.get("bestBefore").asText()).isEqualTo(in2.toString());
+        assertThat(tomato.get("level").asText()).isEqualTo("ENOUGH");
+        assertThat(tomato.get("ingredientName").asText()).isEqualTo("番茄");
+
+        // grouped / item 带 bestBefore + daysLeft
+        JsonNode grouped = get(token, "/pantry/grouped");
+        boolean found = false;
+        for (JsonNode it : grouped.get("data").get("items")) {
+            if (it.get("ingredientId").asLong() == ING_TOMATO) {
+                found = true;
+                assertThat(it.get("daysLeft").asInt()).isEqualTo(2);
+            }
+        }
+        assertThat(found).isTrue();
+        assertThat(get(token, "/pantry/item?ingredientId=" + ING_TOMATO).get("data").get("bestBefore").asText())
+                .isEqualTo(in2.toString());
+
+        // 传 null = 清除；不传 = 不改
+        Map<String, Object> clear = new HashMap<>();
+        clear.put("level", "ENOUGH");
+        clear.put("bestBefore", null);
+        assertThat(put(token, "/pantry/" + ING_TOMATO + "/level", clear).get("code").asInt()).isEqualTo(0);
+        JsonNode item = get(token, "/pantry/item?ingredientId=" + ING_TOMATO).get("data");
+        assertThat(item.get("bestBefore").isNull()).as("bestBefore 传 null 应清除").isTrue();
+        assertThat(item.get("daysLeft").isNull()).isTrue();
+
+        // 保质天数建议：番茄=蔬菜（V64 默认 5 天）
+        JsonNode sl = get(token, "/pantry/shelf-life?ingredientId=" + ING_TOMATO);
+        assertThat(sl.get("code").asInt()).isEqualTo(0);
+        assertThat(sl.get("data").get("suggestedDays").asInt()).isPositive();
+
+        // 手动入库带 bestBefore（鸡蛋 id=2）
+        LocalDate in5 = LocalDate.now().plusDays(5);
+        JsonNode manual = post(token, "/pantry/manual",
+                Map.of("ingredientId", 2L, "level", "ENOUGH", "bestBefore", in5.toString(), "sourceNote", "E2E入库"));
+        assertThat(manual.get("code").asInt()).as("入库 msg=" + text(manual, "msg")).isEqualTo(0);
+        assertThat(get(token, "/pantry/item?ingredientId=2").get("data").get("bestBefore").asText())
+                .isEqualTo(in5.toString());
+    }
+
+    // ===================== Q. 菜谱覆盖率（G3） =====================
+
+    @Test
+    void Q_菜谱搜索_登录带覆盖率_sort_coverage家里够的优先() {
+        String token = loginAdmin();
+        // 种子：番茄/鸡蛋都 ENOUGH → 番茄炒蛋 2/2
+        JsonNode r = get(token, "/dish/search?keyword=番茄炒蛋&pageNum=1&pageSize=10");
+        assertThat(r.get("code").asInt()).as("search msg=" + text(r, "msg")).isEqualTo(0);
+        JsonNode rec = null;
+        for (JsonNode d : r.get("data").get("records")) {
+            if (d.get("id").asLong() == DISH_FANQIE) rec = d;
+        }
+        assertThat(rec).as("应搜到番茄炒蛋").isNotNull();
+        JsonNode cov = rec.get("coverage");
+        assertThat(cov.isNull()).as("登录应带 coverage").isFalse();
+        assertThat(cov.get("total").asInt()).isEqualTo(2);
+        assertThat(cov.get("enough").asInt()).isEqualTo(2);
+        assertThat(cov.get("missing").isArray()).isTrue();
+
+        // 番茄用完 → 1/2，missing 含番茄
+        put(token, "/pantry/" + ING_TOMATO + "/level", Map.of("level", "NONE"));
+        JsonNode r2 = get(token, "/dish/search?keyword=番茄炒蛋&pageNum=1&pageSize=10");
+        JsonNode cov2 = null;
+        for (JsonNode d : r2.get("data").get("records")) {
+            if (d.get("id").asLong() == DISH_FANQIE) cov2 = d.get("coverage");
+        }
+        assertThat(cov2.get("enough").asInt()).isEqualTo(1);
+        assertThat(cov2.get("missing").get(0).get("name").asText()).isEqualTo("番茄");
+
+        // sort=coverage：按 enough/total 降序
+        JsonNode sorted = get(token, "/dish/search?sort=coverage&pageNum=1&pageSize=20");
+        assertThat(sorted.get("code").asInt()).isEqualTo(0);
+        double prev = 2;
+        for (JsonNode d : sorted.get("data").get("records")) {
+            JsonNode c = d.get("coverage");
+            double ratio = c == null || c.isNull() || c.get("total").asInt() == 0 ? 0
+                    : c.get("enough").asDouble() / c.get("total").asDouble();
+            assertThat(ratio).as("sort=coverage 应按覆盖率降序").isLessThanOrEqualTo(prev);
+            prev = ratio;
+        }
+    }
+
+    // ===================== R. 常用食材 / 最近做过 / 单菜弹窗（G11/G4/G1） =====================
+
+    @Test
+    void R_常用食材_单菜弹窗_最近做过() {
+        String token = loginAdmin();
+        JsonNode freq = get(token, "/ingredient/frequent?limit=8");
+        assertThat(freq.get("code").asInt()).as("frequent msg=" + text(freq, "msg")).isEqualTo(0);
+        assertThat(freq.get("data").size()).isBetween(1, 8);
+        assertThat(freq.get("data").get(0).has("id")).isTrue();
+        assertThat(freq.get("data").get(0).has("name")).isTrue();
+
+        JsonNode mats = get(token, "/cook/dish/" + DISH_FANQIE + "/materials?servings=2");
+        assertThat(mats.get("code").asInt()).as("materials msg=" + text(mats, "msg")).isEqualTo(0);
+        assertThat(mats.get("data").get("menuId").isNull()).isTrue();
+        assertThat(mats.get("data").get("items").size()).isEqualTo(2);
+        assertThat(mats.get("data").get("items").get(0).get("usageTexts").get(0).asText()).contains("×2");
+
+        assertThat(get(token, "/cook/dish/999999/materials").get("code").asInt()).isNotEqualTo(0);
+
+        JsonNode cook = post(token, "/cook/dish/" + DISH_FANQIE, Map.of("servings", 1));
+        assertThat(cook.get("code").asInt()).as("cook msg=" + text(cook, "msg")).isEqualTo(0);
+        JsonNode recent = get(token, "/cookbook/recent?limit=5");
+        assertThat(recent.get("code").asInt()).isEqualTo(0);
+        assertThat(recent.get("data").get(0).get("dishId").asLong()).isEqualTo(DISH_FANQIE);
+        assertThat(recent.get("data").get(0).get("cookedCount").asInt()).isPositive();
+        assertThat(recent.get("data").get(0).get("lastCookedAt").asText()).contains("T");
+    }
+
+    // ===================== S. 首页智荐（G5） =====================
+
+    @Test
+    void S_首页智荐_临期番茄_主推番茄炒蛋() {
+        String token = loginAdmin();
+        // 种子：番茄明天到期
+        JsonNode home = get(token, "/recommend/home");
+        assertThat(home.get("code").asInt()).as("home msg=" + text(home, "msg")).isEqualTo(0);
+        JsonNode d = home.get("data");
+        for (String k : List.of("expiring", "expiringPicks", "frequent", "seasonal")) {
+            assertThat(d.get(k).isArray()).as(k + " 应为数组").isTrue();
+        }
+        boolean tomato = false;
+        for (JsonNode e : d.get("expiring")) tomato |= e.get("ingredientId").asLong() == ING_TOMATO;
+        assertThat(tomato).as("临期应含番茄").isTrue();
+        assertThat(d.get("expiring").size()).isLessThanOrEqualTo(5);
+        assertThat(d.get("expiringPicks").size()).isBetween(1, 3);
+        boolean pick = false;
+        for (JsonNode c : d.get("expiringPicks")) {
+            pick |= c.get("dishId").asLong() == DISH_FANQIE;
+            assertThat(c.has("coverage")).isTrue();
+            assertThat(c.has("cookedCount")).isTrue();
+        }
+        assertThat(pick).as("主推应含用到番茄的番茄炒蛋").isTrue();
+        assertThat(d.get("frequent").size()).isLessThanOrEqualTo(6);
+        assertThat(d.get("seasonal").size()).isLessThanOrEqualTo(6);
+    }
+
+    // ===================== T. 个人资料（G7） =====================
+
+    @Test
+    void T_个人资料_读改_头像只收本站地址() {
+        String token = loginAdmin();
+        JsonNode me = get(token, "/member/me");
+        assertThat(me.get("code").asInt()).as("me msg=" + text(me, "msg")).isEqualTo(0);
+        String oldName = me.get("data").get("name").asText();
+        assertThat(me.get("data").get("isAdmin").asBoolean()).isTrue();
+        assertThat(me.get("data").has("phone")).isTrue();
+
+        try {
+            JsonNode up = put(token, "/member/me", Map.of("name", "掌勺改名测试", "avatarUrl", "/gudu/uploads/e2e/a.jpg"));
+            assertThat(up.get("code").asInt()).as("put me msg=" + text(up, "msg")).isEqualTo(0);
+            JsonNode me2 = get(token, "/member/me").get("data");
+            assertThat(me2.get("name").asText()).isEqualTo("掌勺改名测试");
+            assertThat(me2.get("avatarUrl").asText()).isEqualTo("/gudu/uploads/e2e/a.jpg");
+
+            assertThat(put(token, "/member/me", Map.of("avatarUrl", "https://evil.com/a.jpg")).get("code").asInt())
+                    .as("外链头像应拒绝").isNotEqualTo(0);
+            assertThat(put(token, "/member/me", Map.of("name", "x".repeat(21))).get("code").asInt())
+                    .as("超长昵称应拒绝").isNotEqualTo(0);
+        } finally {
+            put(token, "/member/me", Map.of("name", oldName, "avatarUrl", ""));
+        }
+        assertThat(get(token, "/member/me").get("data").get("name").asText()).isEqualTo(oldName);
+    }
+
+    // ===================== U. 意见反馈（G14） =====================
+
+    @Test
+    void U_意见反馈_提交_超管列表_改状态() {
+        String token = loginAdmin();
+        JsonNode bad = post(token, "/feedback", Map.of("content", "短"));
+        assertThat(bad.get("code").asInt()).as("内容过短应拒绝").isNotEqualTo(0);
+
+        JsonNode created = post(token, "/feedback", Map.of("content", "E2E反馈：希望增加菜谱导出",
+                "contact", "e2e@example.com", "images", List.of("/gudu/uploads/e2e/f.jpg"), "clientInfo", "e2e"));
+        assertThat(created.get("code").asInt()).as("feedback msg=" + text(created, "msg")).isEqualTo(0);
+        long id = created.get("data").asLong();
+
+        JsonNode list = get(token, "/feedback?status=NEW&pageNum=1&pageSize=10");
+        assertThat(list.get("code").asInt()).isEqualTo(0);
+        JsonNode mine = null;
+        for (JsonNode f : list.get("data").get("records")) {
+            if (f.get("id").asLong() == id) mine = f;
+        }
+        assertThat(mine).as("NEW 列表应含刚提交的反馈").isNotNull();
+        assertThat(mine.get("images").get(0).asText()).isEqualTo("/gudu/uploads/e2e/f.jpg");
+        assertThat(mine.get("memberName").isNull()).isFalse();
+
+        assertThat(put(token, "/feedback/" + id + "/status", Map.of("status", "DONE")).get("code").asInt()).isEqualTo(0);
+        boolean done = false;
+        for (JsonNode f : get(token, "/feedback?status=DONE").get("data").get("records")) {
+            done |= f.get("id").asLong() == id;
+        }
+        assertThat(done).isTrue();
+    }
+
+    // ===================== V. 运营仪表盘（G12） =====================
+
+    @Test
+    void V_运营仪表盘_超管统计() {
+        String token = loginAdmin();
+        JsonNode r = get(token, "/ops/stats?days=7");
+        assertThat(r.get("code").asInt()).as("ops msg=" + text(r, "msg")).isEqualTo(0);
+        JsonNode d = r.get("data");
+        assertThat(d.get("totals").get("members").asLong()).isPositive();
+        assertThat(d.get("totals").get("accounts").asLong()).isPositive();
+        assertThat(d.get("totals").get("dishes").asLong()).isPositive();
+        assertThat(d.get("totals").has("feedbackOpen")).isTrue();
+        assertThat(d.get("last7d").has("aiCostYuan")).isTrue();
+        assertThat(d.get("trend").size()).isEqualTo(7);
+        assertThat(d.get("trend").get(6).get("date").asText()).hasSize(10);
+    }
 }

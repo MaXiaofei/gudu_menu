@@ -31,6 +31,10 @@ public class PantryGroupedVO {
         private String ingredientName;
         /** ENOUGH 充足 / LOW 快用完 / NONE 没有。 */
         private String level;
+        /** 保质期（V64，可空）。 */
+        private java.time.LocalDate bestBefore;
+        /** 剩余天数：今天到期=0，已过期为负；未记保质期 null。 */
+        private Integer daysLeft;
         /** 最近一次变动（用于列表行展示来源标签）。 */
         private LastChange lastChange;
     }

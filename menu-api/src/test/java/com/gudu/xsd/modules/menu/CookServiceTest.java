@@ -1,69 +1,68 @@
 package com.gudu.xsd.modules.menu;
 
-import com.gudu.xsd.modules.cookbook.CookingRecord;
-import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
+import com.gudu.xsd.common.domain.DomainEvent;
+import com.gudu.xsd.common.domain.DomainEventPublisher;
+import com.gudu.xsd.modules.cookbook.application.CookingRecordAppService;
+import com.gudu.xsd.modules.dict.DictService;
 import com.gudu.xsd.modules.dict.SysDict;
-import com.gudu.xsd.modules.dict.mapper.DictMapper;
+import com.gudu.xsd.modules.dish.Dish;
 import com.gudu.xsd.modules.dish.DishIngredient;
-import com.gudu.xsd.modules.dish.mapper.DishIngredientMapper;
+import com.gudu.xsd.modules.dish.DishService;
+import com.gudu.xsd.modules.menu.domain.event.DishCookedEvent;
+import com.gudu.xsd.modules.menu.domain.model.CookSource;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
 import com.gudu.xsd.modules.menu.mapper.MenuMapper;
 import com.gudu.xsd.modules.menu.prep.MenuPrepStatus;
 import com.gudu.xsd.modules.menu.prep.mapper.MenuPrepStatusMapper;
 import com.gudu.xsd.modules.nutrition.Ingredient;
-import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
-import com.gudu.xsd.modules.pantry.IngredientStock;
-import com.gudu.xsd.modules.pantry.PantryService;
-import com.gudu.xsd.modules.pantry.StockLog;
-import com.gudu.xsd.modules.pantry.mapper.IngredientStockMapper;
+import com.gudu.xsd.modules.nutrition.IngredientService;
+import com.gudu.xsd.modules.pantry.application.StockAppService;
+import com.gudu.xsd.modules.pantry.domain.model.StockLevel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 做菜确认测试（V42 手动库存版）：cookByMenu 按 usedUp/partiallyUsed 更新档位 + 写食记 + 食集完成；
- * cookMaterials 返回本次用到的食材（档位 + 是否调料）。不再有扣减/欠量/自动勾选采购。
+ * 做菜确认测试（feature-gaps-closure 事件化）：cookByMenu 发布 DishCookedEvent（pantry/cookbook 订阅），
+ * 不再直连 PantryService / CookingRecordMapper；cookMaterials 跨模块读取全部走对方 Service。
  */
 class CookServiceTest {
 
     @Mock MenuMapper menuMapper;
     @Mock MenuDishMapper menuDishMapper;
-    @Mock DishIngredientMapper dishIngredientMapper;
-    @Mock com.gudu.xsd.modules.dish.mapper.DishMapper dishMapper;
-    @Mock CookingRecordMapper cookingRecordMapper;
-    @Mock PantryService pantryService;
-    @Mock IngredientMapper ingredientMapper;
-    @Mock IngredientStockMapper ingredientStockMapper;
-    @Mock DictMapper dictMapper;
     @Mock MenuPrepStatusMapper menuPrepStatusMapper;
+    @Mock DishService dishService;
+    @Mock IngredientService ingredientService;
+    @Mock DictService dictService;
+    @Mock StockAppService stockAppService;
+    @Mock CookingRecordAppService cookingRecordAppService;
+    @Mock DomainEventPublisher eventPublisher;
 
     private CookService cookService;
 
     @BeforeEach
     void setup() {
         MockitoAnnotations.openMocks(this);
-        cookService = new CookService(menuMapper, menuDishMapper, dishIngredientMapper, dishMapper,
-                cookingRecordMapper, pantryService, new NeedAggregator(), ingredientMapper,
-                ingredientStockMapper, dictMapper, menuPrepStatusMapper);
-        // 模拟 MyBatis insert 回填 id
-        when(cookingRecordMapper.insert(any(CookingRecord.class))).thenAnswer(inv -> {
-            inv.getArgument(0, CookingRecord.class).setId(1L);
-            return 1;
-        });
+        cookService = new CookService(menuMapper, menuDishMapper, new NeedAggregator(), menuPrepStatusMapper,
+                dishService, ingredientService, dictService, stockAppService, cookingRecordAppService, eventPublisher);
+        when(cookingRecordAppService.recordIdsOf(anyString())).thenReturn(List.of(1L));
     }
 
     private MenuDish md(long dishId, String factor) {
@@ -73,12 +72,12 @@ class CookServiceTest {
         return m;
     }
 
-    private DishIngredient di(long dishId, long ingId, String amount, String unitName) {
+    private DishIngredient di(long dishId, long ingId, String amount, Long unitId) {
         DishIngredient d = new DishIngredient();
         d.setDishId(dishId);
         d.setIngredientId(ingId);
         d.setAmount(new BigDecimal(amount));
-        d.setUnitName(unitName);
+        d.setUnitId(unitId);
         return d;
     }
 
@@ -88,64 +87,82 @@ class CookServiceTest {
         return m;
     }
 
-    // ===================== cookByMenu（确认语义） =====================
+    private DishCookedEvent publishedEvent() {
+        ArgumentCaptor<DomainEvent> cap = ArgumentCaptor.forClass(DomainEvent.class);
+        verify(eventPublisher).publish(cap.capture());
+        assertThat(cap.getValue()).isInstanceOf(DishCookedEvent.class);
+        return (DishCookedEvent) cap.getValue();
+    }
+
+    // ===================== cookByMenu（事件化） =====================
 
     @Test
-    void cookByMenu_用完和用了一些分别更新档位() {
+    void cookByMenu_发布DishCookedEvent_携带用材确认与每道菜份数() {
         when(menuMapper.selectById(7L)).thenReturn(menu(7L));
         when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "2")));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100", "g"), di(1, 20, "50", "g")));
+        when(dishService.ingredientsOf(any())).thenReturn(List.of(di(1, 10, "100", null), di(1, 20, "50", null)));
+        // DomainEventPublisher 是接口默认方法 publishFrom → publish，mock 需走真实默认方法
+        org.mockito.Mockito.doCallRealMethod().when(eventPublisher).publishFrom(any());
+        org.mockito.Mockito.doCallRealMethod().when(eventPublisher).publishAll(any());
 
         CookResult r = cookService.cookByMenu(7L, 99L, List.of(10L), List.of(20L));
 
         assertThat(r.menuId()).isEqualTo(7L);
-        verify(pantryService).useUp(10L, StockLog.ACTION_COOK, null);
-        verify(pantryService).partialUse(20L, StockLog.ACTION_COOK_PARTIAL, null);
-        // 每菜一条 cooking_record（source=menu，memo=用材总结）
-        verify(cookingRecordMapper, times(1)).insert(argThat((CookingRecord rec) ->
-                rec.getMenuId() == 7L && "menu".equals(rec.getSource())
-                && "用完:10;用了一些:20".equals(rec.getMemo())));
-        // 食集标完成
-        verify(menuMapper).updateById(argThat((Menu m) -> "DONE".equals(((Menu) m).getStatus())
-                && ((Menu) m).getFinishedAt() != null));
-        // 备菜全 READY（聚合用料 10/20 两个食材）
+        assertThat(r.cookingRecordIds()).containsExactly(1L);
+        DishCookedEvent e = publishedEvent();
+        assertThat(e.source()).isEqualTo(CookSource.MENU);
+        assertThat(e.menuId()).isEqualTo(7L);
+        assertThat(e.memberId()).isEqualTo(99L);
+        assertThat(e.usedUp()).containsExactly(10L);
+        assertThat(e.partiallyUsed()).containsExactly(20L);
+        assertThat(e.dishes()).singleElement().satisfies(d -> {
+            assertThat(d.dishId()).isEqualTo(1L);
+            assertThat(d.servingFactor()).isEqualByComparingTo("2");
+        });
+        verify(cookingRecordAppService).recordIdsOf(e.eventId());
+        // 食集标完成 + 备菜全 READY
+        verify(menuMapper).updateById(argThat((Menu m) -> "DONE".equals(m.getStatus()) && m.getFinishedAt() != null));
         verify(menuPrepStatusMapper).insert(argThat((MenuPrepStatus mps) -> mps.getIngredientId() == 10L));
         verify(menuPrepStatusMapper).insert(argThat((MenuPrepStatus mps) -> mps.getIngredientId() == 20L));
     }
 
     @Test
-    void cookByMenu_已完成的食集_抛异常() {
+    void cookByMenu_已完成的食集_抛异常_不发事件() {
         Menu done = menu(7L);
         done.setStatus("DONE");
         when(menuMapper.selectById(7L)).thenReturn(done);
 
         assertThatThrownBy(() -> cookService.cookByMenu(7L, 99L, List.of(), List.of()))
                 .hasMessageContaining("已经做完");
-        verify(pantryService, never()).useUp(any(), any(), any());
+        verify(eventPublisher, never()).publishFrom(any());
+        verify(eventPublisher, never()).publish(any());
     }
 
     @Test
-    void cookByMenu_用户没确认任何食材_只写食记并标完成() {
+    void cookByMenu_食集不存在_抛异常() {
+        when(menuMapper.selectById(7L)).thenReturn(null);
+        assertThatThrownBy(() -> cookService.cookByMenu(7L, 99L, null, null)).hasMessageContaining("食集不存在");
+    }
+
+    @Test
+    void cookByMenu_没确认任何食材_事件用材为空_仍标完成() {
         when(menuMapper.selectById(7L)).thenReturn(menu(7L));
         when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "1")));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(di(1, 10, "100", "g")));
+        when(dishService.ingredientsOf(any())).thenReturn(List.of(di(1, 10, "100", null)));
+        org.mockito.Mockito.doCallRealMethod().when(eventPublisher).publishFrom(any());
+        org.mockito.Mockito.doCallRealMethod().when(eventPublisher).publishAll(any());
 
         cookService.cookByMenu(7L, 99L, List.of(), List.of());
 
-        verify(pantryService, never()).useUp(any(), any(), any());
-        verify(pantryService, never()).partialUse(any(), any(), any());
-        verify(cookingRecordMapper, times(1)).insert(argThat((CookingRecord rec) -> rec.getMemo() == null));
-        verify(menuMapper).updateById(argThat((Menu m) -> "DONE".equals(((Menu) m).getStatus())));
+        DishCookedEvent e = publishedEvent();
+        assertThat(e.usedUp()).isEmpty();
+        assertThat(e.partiallyUsed()).isEmpty();
+        verify(menuMapper, times(1)).updateById(argThat((Menu m) -> "DONE".equals(m.getStatus())));
     }
 
     // ===================== cookMaterials（确认弹窗数据） =====================
 
-    @Test
-    void cookMaterials_返回食材档位和调料标记() {
-        when(menuMapper.selectById(7L)).thenReturn(menu(7L));
-        when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "2"), md(2, "1")));
-        when(dishIngredientMapper.selectList(any())).thenReturn(List.of(
-                di(1, 10, "100", "g"), di(1, 20, "30", "g"), di(2, 20, "20", "g")));
+    private void stubMaterials() {
         Ingredient tomato = new Ingredient();
         tomato.setId(10L);
         tomato.setName("番茄");
@@ -154,39 +171,42 @@ class CookServiceTest {
         salt.setId(20L);
         salt.setName("盐");
         salt.setPurchaseCategoryId(30L); // 调味料
-        when(ingredientMapper.selectBatchIds(any())).thenReturn(List.of(tomato, salt));
-        when(ingredientStockMapper.selectList(any())).thenReturn(List.of(
-                stock(10L, IngredientStock.LEVEL_ENOUGH)));
-        SysDict condiment = new SysDict();
-        condiment.setId(30L);
-        condiment.setName("调味料");
-        when(dictMapper.selectList(any())).thenReturn(List.of(condiment));
-        // 菜名回填（用量原文前缀）
-        com.gudu.xsd.modules.dish.Dish dish1 = new com.gudu.xsd.modules.dish.Dish();
+        when(ingredientService.listByIds(any())).thenReturn(List.of(tomato, salt));
+        when(stockAppService.levelsOf(any())).thenReturn(Map.of(10L, StockLevel.ENOUGH));
+        when(dictService.idsByName("purchase_category", "调味料")).thenReturn(Set.of(30L));
+        Dish dish1 = new Dish();
         dish1.setId(1L);
         dish1.setName("番茄炒蛋");
-        com.gudu.xsd.modules.dish.Dish dish2 = new com.gudu.xsd.modules.dish.Dish();
+        Dish dish2 = new Dish();
         dish2.setId(2L);
         dish2.setName("蛋花汤");
-        when(dishMapper.selectBatchIds(any())).thenReturn(List.of(dish1, dish2));
-        // 单位名回填（fillUnitNames 查 sys_dict unit）
+        when(dishService.listByIds(any())).thenReturn(List.of(dish1, dish2));
         SysDict unitG = new SysDict();
         unitG.setId(20L);
         unitG.setName("g");
-        when(dictMapper.selectBatchIds(any())).thenReturn(List.of(unitG));
+        when(dictService.listByIds(any())).thenReturn(List.of(unitG));
+    }
+
+    @Test
+    void cookMaterials_返回食材档位和调料标记() {
+        when(menuMapper.selectById(7L)).thenReturn(menu(7L));
+        when(menuDishMapper.selectList(any())).thenReturn(List.of(md(1, "2"), md(2, "1")));
+        when(dishService.ingredientsOf(any())).thenReturn(List.of(
+                di(1, 10, "100", 20L), di(1, 20, "30", 20L), di(2, 20, "20", 20L)));
+        stubMaterials();
 
         CookMaterialsVO vo = cookService.cookMaterials(7L);
 
+        assertThat(vo.menuId()).isEqualTo(7L);
         assertThat(vo.items()).hasSize(2);
         CookMaterialsVO.Item tomatoItem = vo.items().get(0);
         assertThat(tomatoItem.ingredientName()).isEqualTo("番茄");
-        // V55：用量原文（菜名 + amount + 单位），不按克合并
         assertThat(tomatoItem.usageTexts()).containsExactly("番茄炒蛋 100g ×2");
-        assertThat(tomatoItem.level()).isEqualTo(IngredientStock.LEVEL_ENOUGH);
+        assertThat(tomatoItem.level()).isEqualTo("ENOUGH");
         assertThat(tomatoItem.isCondiment()).isFalse();
         CookMaterialsVO.Item saltItem = vo.items().get(1);
         assertThat(saltItem.usageTexts()).containsExactlyInAnyOrder("番茄炒蛋 30g ×2", "蛋花汤 20g");
-        assertThat(saltItem.level()).isEqualTo(IngredientStock.LEVEL_NONE); // 没建档默认没有
+        assertThat(saltItem.level()).isEqualTo("NONE"); // 没建档默认没有
         assertThat(saltItem.isCondiment()).isTrue();
     }
 
@@ -198,11 +218,49 @@ class CookServiceTest {
                 .hasMessageContaining("食集不存在");
     }
 
-    private IngredientStock stock(long id, String level) {
-        IngredientStock s = new IngredientStock();
-        s.setId(id);
-        s.setIngredientId(id);
-        s.setLevel(level);
-        return s;
+    // ===================== dishMaterials（单菜直做弹窗） =====================
+
+    @Test
+    void dishMaterials_menuId为空_用量按份数缩放() {
+        Dish d = new Dish();
+        d.setId(1L);
+        when(dishService.getById(1L)).thenReturn(d);
+        when(dishService.ingredientsOf(any())).thenReturn(List.of(di(1, 10, "100", 20L), di(1, 20, "30", 20L)));
+        stubMaterials();
+
+        CookMaterialsVO vo = cookService.dishMaterials(1L, new BigDecimal("2"));
+
+        assertThat(vo.menuId()).isNull();
+        assertThat(vo.items()).extracting(CookMaterialsVO.Item::ingredientName).containsExactly("番茄", "盐");
+        assertThat(vo.items().get(0).usageTexts()).containsExactly("番茄炒蛋 100g ×2");
+    }
+
+    @Test
+    void dishMaterials_份数缺省为1() {
+        Dish d = new Dish();
+        d.setId(1L);
+        when(dishService.getById(1L)).thenReturn(d);
+        when(dishService.ingredientsOf(any())).thenReturn(List.of(di(1, 10, "100", 20L)));
+        stubMaterials();
+
+        CookMaterialsVO vo = cookService.dishMaterials(1L, null);
+
+        assertThat(vo.items().get(0).usageTexts()).containsExactly("番茄炒蛋 100g");
+    }
+
+    @Test
+    void dishMaterials_菜谱不存在_抛异常() {
+        when(dishService.getById(5L)).thenReturn(null);
+        assertThatThrownBy(() -> cookService.dishMaterials(5L, null)).hasMessageContaining("菜谱不存在");
+    }
+
+    @Test
+    void dishMaterials_无用料_返回空列表() {
+        Dish d = new Dish();
+        d.setId(1L);
+        when(dishService.getById(1L)).thenReturn(d);
+        when(dishService.ingredientsOf(any())).thenReturn(List.of());
+
+        assertThat(cookService.dishMaterials(1L, BigDecimal.ONE).items()).isEmpty();
     }
 }

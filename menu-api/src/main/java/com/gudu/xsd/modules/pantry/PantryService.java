@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  * 食材库存服务（V42 手动 3 档语义）。
  *
  * <p>用户手动维护档位（做菜确认用完 / 采购入库 / 手动修正），系统不再自动扣减、不做克数。
- * 真相来源 = ingredient_stock + stock_log；pantry 批次表仅保留给临期通知（listExpiring）。
+ * 真相来源 = ingredient_stock + stock_log（V64 起含 best_before 保质期）；pantry 批次表已迁移冻结、不再读写。
  *
  * <p>注意：测试 new PantryService(null)，故显式单参构造（@Autowired 主构造）；
  * stockMapper/logMapper 走字段注入，测试中保持 null（新逻辑不触达）。
@@ -31,6 +31,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     private final IngredientMapper ingredientMapper;
     private IngredientStockMapper stockMapper;
     private StockLogMapper stockLogMapper;
+    private com.gudu.xsd.modules.pantry.application.StockAppService stockAppService;
 
     @Autowired
     public PantryService(IngredientMapper ingredientMapper) {
@@ -45,6 +46,12 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
     @Autowired
     public void setStockLogMapper(StockLogMapper stockLogMapper) {
         this.stockLogMapper = stockLogMapper;
+    }
+
+    /** 三档库存应用服务（V64 起临期读三档模型）；测试中可为 null。 */
+    @Autowired
+    public void setStockAppService(com.gudu.xsd.modules.pantry.application.StockAppService stockAppService) {
+        this.stockAppService = stockAppService;
     }
 
     // ===================== 档位操作（APP + 管理后台共用） =====================
@@ -111,9 +118,9 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         logAction(ingredientId, action, note, before, null, refId);
     }
 
-    /** 手动入库（朋友送/赠品/旧库存补登）：按名匹配/新建食材（无需单位换算）→ 设档位。 */
+    /** 手动入库（朋友送/赠品/旧库存补登）：按名匹配/新建食材（无需单位换算）→ 设档位。返回食材 id。 */
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
-    public void manualAdd(Long ingredientId, String name, String level, String sourceNote) {
+    public Long manualAdd(Long ingredientId, String name, String level, String sourceNote) {
         if ((ingredientId == null) && (name == null || name.isBlank())) {
             throw new BizException("食材 id 和名称至少填一项");
         }
@@ -135,6 +142,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         }
         setLevel(ingredientId, level == null ? IngredientStock.LEVEL_ENOUGH : level,
                 StockLog.ACTION_MANUAL, sourceNote, null);
+        return ingredientId;
     }
 
     /** 批量读档位（采购清单 badge / 备菜徽标用）：ingredientId → level（没建档的食材不包含）。 */
@@ -182,6 +190,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
                 .stream().collect(Collectors.toMap(Ingredient::getId, i -> i, (a, b) -> a));
 
         String kw = keyword == null ? null : keyword.trim().toLowerCase();
+        LocalDate today = LocalDate.now();
         List<PantryGroupedVO.Item> items = new java.util.ArrayList<>();
         int enough = 0, low = 0, none = 0;
         for (IngredientStock s : stocks) {
@@ -199,6 +208,8 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             item.setIngredientId(s.getIngredientId());
             item.setIngredientName(ing.getName());
             item.setLevel(lvl);
+            item.setBestBefore(s.getBestBefore());
+            item.setDaysLeft(com.gudu.xsd.modules.pantry.domain.model.StockItem.daysLeft(s.getBestBefore(), today));
             item.setLastChange(lastChangeVo(s.getIngredientId()));
             items.add(item);
         }
@@ -231,31 +242,30 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         vo.setIngredientId(ingredientId);
         vo.setIngredientName(ing.getName());
         vo.setLevel(stock == null ? IngredientStock.LEVEL_NONE : stock.getLevel());
+        vo.setBestBefore(stock == null ? null : stock.getBestBefore());
+        vo.setDaysLeft(stock == null ? null
+                : com.gudu.xsd.modules.pantry.domain.model.StockItem.daysLeft(stock.getBestBefore(), LocalDate.now()));
         vo.setChanges(logList(ingredientId, 6));
         return vo;
     }
 
-    // ===================== 临期通知（pantry 批次表遗留，通知调度用） =====================
+    // ===================== 临期通知（V64 起读三档库存 best_before） =====================
 
-    /** 临期查询：过期日在 [today, today+days] 的库存（通知调度用，读 pantry 批次表）。 */
+    /**
+     * 临期查询（通知调度用）：保质期在 [today, today+days] 的三档库存（不含已过期——通知文案是「将在 N 天内过期」）。
+     * V64 起数据源为 ingredient_stock.best_before（旧 pantry 批次表已迁移冻结，不再读）。
+     */
     public List<PantryVO> listExpiring(int days) {
-        LocalDate today = LocalDate.now();
-        List<Pantry> rows = list(new QueryWrapper<Pantry>()
-                .isNotNull("expire_date")
-                .ge("expire_date", today)
-                .le("expire_date", today.plusDays(days))
-                .orderByAsc("expire_date"));
-        return rows.stream().map(p -> {
-            PantryVO vo = new PantryVO();
-            vo.setId(p.getId());
-            vo.setIngredientId(p.getIngredientId());
-            vo.setAmount(p.getAmount());
-            // V55：unitId 随食材去单位停用回填（pantry 批次表 legacy，通知不再展示单位）
-            vo.setExpireDate(p.getExpireDate());
-            vo.setStorage(p.getStorage());
-            vo.setUpdateTime(p.getUpdateTime());
-            return vo;
-        }).collect(Collectors.toList());
+        if (stockAppService == null) return List.of();
+        return stockAppService.expiring(days).stream()
+                .filter(e -> e.daysLeft() != null && e.daysLeft() >= 0)
+                .map(e -> {
+                    PantryVO vo = new PantryVO();
+                    vo.setIngredientId(e.ingredientId());
+                    vo.setIngredientName(e.ingredientName());
+                    vo.setExpireDate(e.bestBefore());
+                    return vo;
+                }).collect(Collectors.toList());
     }
 
     /** 临期判定纯函数（listExpiring 用）。 */

@@ -32,6 +32,12 @@ public class GlobalExceptionHandler {
         return new R<>(e.getCode(), e.getMessage(), null);
     }
 
+    /** 领域不变量校验失败（四层新代码抛 DomainException）：业务失败 code=1，msg 可直接展示。 */
+    @ExceptionHandler(com.gudu.xsd.common.domain.DomainException.class)
+    public R<?> domain(com.gudu.xsd.common.domain.DomainException e) {
+        return R.fail(e.getMessage());
+    }
+
     @ExceptionHandler(NotLoginException.class)
     public R<?> notLogin(NotLoginException e) {
         return new R<>(401, "未登录", null);

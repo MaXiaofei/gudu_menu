@@ -17,6 +17,8 @@ DELETE FROM menu_dish;
 DELETE FROM menu;
 DELETE FROM dish_history;
 DELETE FROM ai_call_log;
+-- V67 意见反馈（每账号每日 ≤10 条限流，E2E 重复跑必须清）
+DELETE FROM feedback;
 
 -- ============================================================
 -- 静态种子自愈：把「番茄/鸡蛋」规范化到测试常量依赖的固定 id(1/2)，
@@ -40,8 +42,10 @@ DELETE FROM ingredient WHERE name = '番茄';
 DELETE FROM ingredient_nutrition WHERE ingredient_id = 1;
 DELETE FROM dish_ingredient       WHERE ingredient_id = 1;
 DELETE FROM ingredient WHERE id = 1;
+-- 品类按名取（标准库 蔬菜=24；预发库字典 id 曾重排，按名兜底，取不到回退 24）
 INSERT INTO ingredient(id, name, purchase_category_id, purchase_count, usage_count, deleted)
-  VALUES (1, '番茄', 24, 0, 0, 0);
+  VALUES (1, '番茄', COALESCE((SELECT d.id FROM sys_dict d WHERE d.dict_group = 'purchase_category'
+    AND d.name = '蔬菜' ORDER BY d.id LIMIT 1), 24), 0, 0, 0);
 INSERT INTO ingredient_nutrition(ingredient_id, metric_id, value) VALUES
   (1, 1, 19), (1, 2, 0.9), (1, 3, 0.2), (1, 4, 4.0), (1, 5, 2.6), (1, 6, 30);
 
@@ -53,9 +57,16 @@ DELETE FROM ingredient_nutrition WHERE ingredient_id = 2;
 DELETE FROM dish_ingredient       WHERE ingredient_id = 2;
 DELETE FROM ingredient WHERE id = 2;
 INSERT INTO ingredient(id, name, purchase_category_id, purchase_count, usage_count, deleted)
-  VALUES (2, '鸡蛋', 27, 0, 0, 0);
+  VALUES (2, '鸡蛋', COALESCE((SELECT d.id FROM sys_dict d WHERE d.dict_group = 'purchase_category'
+    AND d.name = '蛋类' ORDER BY d.id LIMIT 1), 27), 0, 0, 0);
 INSERT INTO ingredient_nutrition(ingredient_id, metric_id, value) VALUES
   (2, 1, 144), (2, 2, 13.3), (2, 3, 8.8), (2, 4, 2.8), (2, 5, 1.5), (2, 6, 30);
+
+-- ---- dish=1(番茄炒蛋) 自愈：预发库数据漂移曾删掉 V14 demo 菜 id=1，致依赖番茄炒蛋的用例全挂。
+--      幂等 upsert（只复位 id=1 这一行的名称/删除标记，不动其他字段）。
+INSERT INTO dish(id, name, prep_time, cook_time, difficulty, source, deleted)
+VALUES (1, '番茄炒蛋', 5, 10, 1, 'ORIGINAL', 0)
+ON DUPLICATE KEY UPDATE name = '番茄炒蛋', deleted = 0;
 
 -- ---- dish=1(番茄炒蛋) 食材挂载：清掉全部（含孤儿 16/17/18），挂 番茄(300g)+鸡蛋(180g) ----
 -- grams 列回填（V45 引入 grams 为聚合基准，NeedAggregator 跳过 grams=NULL 的行；
@@ -79,14 +90,28 @@ UPDATE member SET phone = '13800000001',
 WHERE id = 1;
 
 -- ============================================================
--- 临期库存种子（通知_录临期库存触发扫描 场景用）。
--- V42 pantry 改 3 档手动版后，原 POST /pantry（批次入库）接口已删；
--- 但临期通知扫描仍读 pantry 批次表的 expire_date。
--- 此处插一条「明天过期」的番茄批次（CURDATE 动态，永远落在 3 天临期窗口内）。
--- 第 11 行已 DELETE FROM pantry 清空，此处幂等插入。
+-- 超管账号自愈（loginAdmin 用 admin / admin123）：预发库数据漂移曾把 phone='admin' 的账号删掉，
+-- 致全部 E2E 登录失败。按 V29 兜底同款 BCrypt(admin123) 幂等补建/复位（只动 phone='admin' 这一行）。
 -- ============================================================
-INSERT INTO pantry(ingredient_id, amount, unit_id, grams, expire_date, deleted)
-VALUES (1, 500.00, 20, 500.00, CURDATE() + INTERVAL 1 DAY, 0);
+INSERT INTO member(name, phone, password_hash, is_admin, role_tags, health_profile)
+SELECT '掌勺人', 'admin', '$2a$10$UM6Ql8.rTKA1aGBSup2ACu4ol4WikGIlfyAPPSciymgdPMpWqa/Ba', 1, '32', '{}'
+WHERE NOT EXISTS (SELECT 1 FROM member m WHERE m.phone = 'admin');
+UPDATE member SET is_admin = 1, deleted = 0,
+  password_hash = '$2a$10$UM6Ql8.rTKA1aGBSup2ACu4ol4WikGIlfyAPPSciymgdPMpWqa/Ba'
+WHERE phone = 'admin';
+
+-- ============================================================
+-- 临期库存种子（通知_录临期库存触发扫描 / 临期查询 / 首页智荐 场景用）。
+-- V64 起临期数据源 = 三档库存 ingredient_stock.best_before（旧 pantry 批次表已迁移冻结，上面已清空）。
+-- 番茄（id=1）建档 ENOUGH + 明天到期（CURDATE 动态，永远落在 3 天临期窗口内）；幂等 upsert。
+-- ============================================================
+INSERT INTO ingredient_stock(ingredient_id, level, best_before, opened_at)
+VALUES (1, 'ENOUGH', CURDATE() + INTERVAL 1 DAY, NULL)
+ON DUPLICATE KEY UPDATE level = 'ENOUGH', best_before = CURDATE() + INTERVAL 1 DAY, opened_at = NULL;
+-- 鸡蛋（id=2）建档 ENOUGH、无保质期（单菜直做「用了一些」降档断言用）
+INSERT INTO ingredient_stock(ingredient_id, level, best_before, opened_at)
+VALUES (2, 'ENOUGH', NULL, NULL)
+ON DUPLICATE KEY UPDATE level = 'ENOUGH', best_before = NULL, opened_at = NULL;
 
 -- ============================================================
 -- E2E 自建数据兜底清理（GuduE2ECoverageTest 可重复跑）：

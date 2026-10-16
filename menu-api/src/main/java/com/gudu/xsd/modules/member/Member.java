@@ -26,6 +26,9 @@ public class Member {
 
     private String name;
 
+    /** 头像（V66，本站 /uploads/ 地址，可空）。 */
+    private String avatarUrl;
+
     /** 登录手机号(V29 合并 user 后,member 自带账号)。admin 用字面量 "admin"。 */
     private String phone;
 

@@ -340,4 +340,70 @@ class PantryServiceTest {
         assertThat(svc.isExpiring(today, today, 3)).isTrue();
         assertThat(svc.isExpiring(today.plusDays(3), today, 3)).isTrue();
     }
+
+    // ===================== V64 保质期 =====================
+
+    @Test
+    void grouped_回填保质期与剩余天数() {
+        IngredientStock milk = stock(10L, IngredientStock.LEVEL_ENOUGH);
+        milk.setBestBefore(LocalDate.now().plusDays(2));
+        when(stockMapper.selectList(any())).thenReturn(List.of(milk, stock(11L, IngredientStock.LEVEL_LOW)));
+        when(ingredientMapper.selectList(any())).thenReturn(List.of(ing(10L, "牛奶"), ing(11L, "葱")));
+        when(stockLogMapper.selectList(any())).thenReturn(List.of());
+
+        PantryGroupedVO vo = svc.grouped();
+
+        PantryGroupedVO.Item m = vo.getItems().stream().filter(i -> i.getIngredientId() == 10L).findFirst().orElseThrow();
+        assertThat(m.getBestBefore()).isEqualTo(LocalDate.now().plusDays(2));
+        assertThat(m.getDaysLeft()).isEqualTo(2);
+        PantryGroupedVO.Item c = vo.getItems().stream().filter(i -> i.getIngredientId() == 11L).findFirst().orElseThrow();
+        assertThat(c.getBestBefore()).isNull();
+        assertThat(c.getDaysLeft()).isNull();
+    }
+
+    @Test
+    void itemDetail_回填保质期_已过期为负() {
+        IngredientStock s = stock(10L, IngredientStock.LEVEL_LOW);
+        s.setBestBefore(LocalDate.now().minusDays(1));
+        when(ingredientMapper.selectById(10L)).thenReturn(ing(10L, "牛奶"));
+        when(stockMapper.selectOne(any())).thenReturn(s);
+        when(stockLogMapper.selectList(any())).thenReturn(List.of());
+
+        PantryItemDetailVO vo = svc.itemDetail(10L);
+
+        assertThat(vo.getBestBefore()).isEqualTo(LocalDate.now().minusDays(1));
+        assertThat(vo.getDaysLeft()).isEqualTo(-1);
+    }
+
+    @Test
+    void listExpiring_通知用_读三档模型_排除已过期() {
+        com.gudu.xsd.modules.pantry.application.StockAppService app =
+                mock(com.gudu.xsd.modules.pantry.application.StockAppService.class);
+        svc.setStockAppService(app);
+        when(app.expiring(3)).thenReturn(List.of(
+                new com.gudu.xsd.modules.pantry.application.dto.ExpiringItemView(5L, "菠菜", "LOW",
+                        LocalDate.now().minusDays(1), -1),
+                new com.gudu.xsd.modules.pantry.application.dto.ExpiringItemView(1L, "番茄", "ENOUGH",
+                        LocalDate.now().plusDays(1), 1)));
+
+        List<PantryVO> out = svc.listExpiring(3);
+
+        assertThat(out).singleElement().satisfies(v -> {
+            assertThat(v.getIngredientId()).isEqualTo(1L);
+            assertThat(v.getIngredientName()).isEqualTo("番茄");
+            assertThat(v.getExpireDate()).isEqualTo(LocalDate.now().plusDays(1));
+        });
+    }
+
+    @Test
+    void listExpiring_未注入应用服务_返回空() {
+        assertThat(svc.listExpiring(3)).isEmpty();
+    }
+
+    @Test
+    void manualAdd_返回解析出的食材id() {
+        when(ingredientMapper.selectList(any())).thenReturn(List.of(ing(10L, "鸡蛋")));
+        when(stockMapper.selectOne(any())).thenReturn(null);
+        assertThat(svc.manualAdd(null, "鸡蛋", null, null)).isEqualTo(10L);
+    }
 }

@@ -1,0 +1,36 @@
+package com.gudu.xsd.modules.member.infrastructure;
+
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.gudu.xsd.modules.member.AdminChecker;
+import com.gudu.xsd.modules.member.Member;
+import com.gudu.xsd.modules.member.domain.model.MemberProfile;
+import com.gudu.xsd.modules.member.domain.repository.MemberProfileRepository;
+import com.gudu.xsd.modules.member.mapper.MemberMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+@RequiredArgsConstructor
+public class MybatisMemberProfileRepository implements MemberProfileRepository {
+
+    private final MemberMapper mapper;
+
+    @Override
+    public Optional<MemberProfile> findById(Long memberId) {
+        if (memberId == null) return Optional.empty();
+        Member m = mapper.selectById(memberId);
+        if (m == null) return Optional.empty();
+        return Optional.of(MemberProfile.rehydrate(m.getId(), m.getName(), m.getAvatarUrl(), m.getPhone(),
+                AdminChecker.isAdmin(m)));
+    }
+
+    @Override
+    public void save(MemberProfile p) {
+        mapper.update(null, new UpdateWrapper<Member>()
+                .eq("id", p.id())
+                .set("name", p.name())
+                .set("avatar_url", p.avatarUrl()));
+    }
+}
