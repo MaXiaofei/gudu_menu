@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
+import '../models/dish.dart' show Coverage;
 
 /// 通用状态徽章：用 color.withAlpha 做半透明底 + 描边，跟随主题透明度逻辑。
 /// 范式对齐项目内联 chip 写法（pantry list_page _miniBtn / dish detail_page 标签）。
@@ -55,4 +56,18 @@ String stockLabel(String status) {
     default:
       return '够';
   }
+}
+
+/// 保质期剩余天数 → 颜色：已过期=error，3 天内（含今天）=warning，其余=caption。
+Color expiryColor(AppTokens t, int daysLeft) {
+  if (daysLeft < 0) return AppTokens.error;
+  if (daysLeft <= 3) return AppTokens.warning;
+  return t.caption;
+}
+
+/// 余量覆盖徽章色（「家里够 X/Y 样」）：全够=success，够一半以上=warning，其余=caption。
+Color coverageColor(AppTokens t, Coverage c) {
+  if (c.isFull) return AppTokens.success;
+  if (c.total > 0 && c.enough * 2 >= c.total) return AppTokens.warning;
+  return t.caption;
 }

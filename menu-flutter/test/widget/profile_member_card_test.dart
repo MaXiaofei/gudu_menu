@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:menu_flutter/core/app_theme.dart';
+import 'package:menu_flutter/core/theme_controller.dart';
 import 'package:menu_flutter/models/member.dart';
 import 'package:menu_flutter/pages/member/member_list_page.dart';
 import 'package:menu_flutter/pages/profile_page.dart';
@@ -54,6 +55,7 @@ void main() {
       providers: [
         ChangeNotifierProvider.value(value: authStore),
         ChangeNotifierProvider.value(value: memberStore),
+        ChangeNotifierProvider(create: (_) => ThemeController()),
       ],
       child: MaterialApp.router(
         routerConfig: router,

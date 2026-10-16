@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-/// 咕嘟小食单 · 双主题设计系统（颜色 token 权威定义在本文件；
-/// 设计约定见 docs/design/DESIGN.md §4 圆角 / §5 阴影 / §6 间距 / §7 交互）。
-///
-/// 定稿：原始深色中性色版。
-///   · 奶油轻食（暖橙，默认）：primary #E89150 / title #4A382A / body #6E5C49
-///   · 抹茶禅意（草绿）   ：primary #7A9A5B / title #2E3520 / body #6B7660
-/// 功能色两套共享：success #4FAE6E / warning #E5A938 / error #DB5A4E / info #4FA0D0。
+import 'tokens.g.dart';
+
+/// 咕嘟小食单 · 多皮肤设计系统。
+/// 皮肤色值的唯一来源是 docs/design/tokens.json `color.theme`，经
+/// `node scripts/design/gen-tokens.mjs` 生成到 tokens.g.dart（[kBrandSkins]）；
+/// 本文件只定义 token 结构与 ThemeData 构造，不再手写皮肤色值。
+/// 设计约定见 docs/design/DESIGN.md §4 圆角 / §5 阴影 / §6 间距 / §7 交互。
+/// 功能色各皮肤共享：success #4FAE6E / warning #E5A938 / error #DB5A4E / info #4FA0D0。
 ///
 /// 新组件取 token：`final t = AppTokens.of(context);` 后用 `t.primary` 等，
 /// 切主题时自动跟随。
@@ -41,7 +43,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Color highlight; // 高亮底（warning callout 等）
   final Color shadowBase; // 阴影基色（对应 CSS 的 --sh RGB）
 
-  // —— 功能色（两套共享，与主题无关）——
+  // —— 功能色（各皮肤共享，与主题无关）——
   static const Color success = Color(0xFF4FAE6E);
   static const Color warning = Color(0xFFE5A938);
   static const Color error = Color(0xFFDB5A4E);
@@ -101,39 +103,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
         end: Alignment.bottomRight,
       );
 
-  /// 奶油轻食（暖橙，默认）。
-  static const cream = AppTokens(
-    primary: Color(0xFFE89150),
-    primaryDeep: Color(0xFFD17A3C),
-    primarySoft: Color(0xFFF6D9BE),
-    secondary: Color(0xFFFBF0DD),
-    accent: Color(0xFFB8762E),
-    bg: Color(0xFFFDFAF4),
-    card: Color(0xFFFFFFFF),
-    border: Color(0xFFF0E6D6),
-    title: Color(0xFF4A382A),
-    body: Color(0xFF6E5C49),
-    caption: Color(0xFF9C8C7A),
-    highlight: Color(0xFFFFF7EC),
-    shadowBase: Color(0xFFA9651E), // 169,101,30
-  );
+  /// 奶油轻食（暖橙，默认）。色值由 tokens.json 生成，见 tokens.g.dart。
+  static const cream = kSkin_cream;
 
   /// 抹茶禅意（草绿）。
-  static const matcha = AppTokens(
-    primary: Color(0xFF7A9A5B),
-    primaryDeep: Color(0xFF648449),
-    primarySoft: Color(0xFFD8E2C8),
-    secondary: Color(0xFFE8E4D5),
-    accent: Color(0xFF6B8A4D),
-    bg: Color(0xFFF7F5EE),
-    card: Color(0xFFFFFFFF),
-    border: Color(0xFFE5E2D5),
-    title: Color(0xFF2E3520),
-    body: Color(0xFF6B7660),
-    caption: Color(0xFF9CA58F),
-    highlight: Color(0xFFFBF9EC),
-    shadowBase: Color(0xFF7A9A5B), // 122,154,91
-  );
+  static const matcha = kSkin_matcha;
 
   /// 从 BuildContext 取当前主题 token。
   static AppTokens of(BuildContext context) =>
@@ -346,9 +320,18 @@ ThemeData buildBrandTheme(AppTokens t) {
   );
 }
 
+/// 状态栏/系统导航栏样式：底色跟随当前主题 bg + 深色字（DESIGN.md §13.4）。
+/// 两套主题都是浅底，图标统一深色。main 启动兜底、App 根随主题切换、
+/// ActionBar/BackHeader 精确控制共用此函数，切主题时状态栏不再残留奶油色。
+SystemUiOverlayStyle brandOverlayStyle(AppTokens t) => SystemUiOverlayStyle(
+      statusBarColor: t.bg,
+      statusBarIconBrightness: Brightness.dark, // Android 深色字/图标
+      statusBarBrightness: Brightness.light, // iOS：light 表示状态栏内容为深色
+      systemNavigationBarColor: t.bg,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    );
+
 /// 双主题预设入口。
-ThemeData get creamTheme => buildBrandTheme(AppTokens.cream);
-ThemeData get matchaTheme => buildBrandTheme(AppTokens.matcha);
 
 /// 语义化文字样式（11 档，对齐 tokens.json typography.scale + 便捷别名）。
 ///

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/image_helper.dart';
 import '../../core/app_theme.dart';
+import '../../core/error_text.dart';
 import '../../models/dish.dart';
 import '../../models/menu.dart';
 import '../../services/dish_service.dart';
@@ -10,6 +11,7 @@ import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/image_viewer.dart';
 import '../../widgets/loading_empty.dart';
+import '../menu/cook_confirm_sheet.dart';
 
 /// 菜品详情。
 /// 封面 + 营养区 + 用料 + 做法步骤 + 加到食集/去点评。
@@ -48,10 +50,60 @@ class _DishDetailPageState extends State<DishDetailPage> {
   }
 
   Future<void> _load() async {
+    if (!_loading) setState(() => _loading = true);
     try {
       _detail = await DishService.detail(widget.id);
-    } catch (_) {}
+    } catch (_) {
+      // 失败 → _detail 为 null，下方渲染 ErrorView（含重试），非静默
+      _detail = null;
+    }
     if (mounted) setState(() => _loading = false);
+  }
+
+  /// 现在就做（单菜直做，G1）：拉本菜用料 → 「这顿饭用了什么」确认弹窗
+  /// （默认 食材=用完了 / 调料=用了一些）→ POST /cook/dish/{id} → 结果弹窗。
+  /// 「跳过，不更新库存」= 只写食记（usedUp/partiallyUsed 为空）。
+  bool _cooking = false;
+  Future<void> _cookNow() async {
+    if (_cooking) return;
+    setState(() => _cooking = true);
+    try {
+      final materials =
+          await DishService.dishCookMaterials(widget.id, servings: _serving);
+      if (!mounted) return;
+      final result = await showModalBottomSheet<CookConfirmResult>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => CookConfirmSheet(materials: materials),
+      );
+      if (!mounted || result == null) return; // 关弹窗 = 取消
+      await DishService.cookDish(
+        widget.id,
+        servings: _serving,
+        usedUp: result.usedUp,
+        partiallyUsed: result.partiallyUsed,
+      );
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => CookResultSheet(
+          dishId: widget.id,
+          items: materials.items,
+          usedUp: result.usedUp,
+          partiallyUsed: result.partiallyUsed,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('做菜记录失败：${errorText(e)}')));
+      }
+    } finally {
+      if (mounted) setState(() => _cooking = false);
+    }
   }
 
   /// 打开全屏图片查看器（加载原图）。
@@ -478,16 +530,21 @@ class _DishDetailPageState extends State<DishDetailPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              // 单菜直做：不必先建食集（G1）
                               ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTokens.success),
+                                key: const Key('dish-cook-now'),
+                                onPressed: _cooking ? null : _cookNow,
+                                child: Text(_cooking ? '准备中…' : '现在就做'),
+                              ),
+                              const SizedBox(height: AppTokens.sp8),
+                              OutlinedButton(
                                 onPressed: _adding ? null : _addToMenu,
                                 child: _adding
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 18,
                                         height: 18,
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: Colors.white))
+                                            strokeWidth: 2, color: t.primary))
                                     : const Text('加到食集'),
                               ),
                             ],

@@ -1,7 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_theme.dart';
+import 'settings/legal_page.dart';
 import '../stores/auth_store.dart';
 import '../stores/member_store.dart';
 
@@ -16,11 +19,19 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _username = TextEditingController();
   final _password = TextEditingController();
+  /// 已阅读并同意《用户协议》《隐私政策》（G14：必须勾选才能登录，默认不勾）。
+  bool _agreed = false;
+  late final TapGestureRecognizer _termsTap = TapGestureRecognizer()
+    ..onTap = () => context.push(LegalKind.terms.path);
+  late final TapGestureRecognizer _privacyTap = TapGestureRecognizer()
+    ..onTap = () => context.push(LegalKind.privacy.path);
 
   @override
   void dispose() {
     _username.dispose();
     _password.dispose();
+    _termsTap.dispose();
+    _privacyTap.dispose();
     super.dispose();
   }
 
@@ -30,6 +41,11 @@ class _LoginPageState extends State<LoginPage> {
     if (u.isEmpty || p.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('请输入用户名和密码')));
+      return;
+    }
+    if (!_agreed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先阅读并同意《用户协议》和《隐私政策》')));
       return;
     }
     // await 前先取 store 引用，避免跨异步 gap 用 context（analyze 规则）
@@ -67,7 +83,9 @@ class _LoginPageState extends State<LoginPage> {
                   obscureText: true,
                   decoration: const InputDecoration(labelText: '密码'),
                 ),
-                const SizedBox(height: AppTokens.sp24),
+                const SizedBox(height: AppTokens.sp12),
+                _agreement(t),
+                const SizedBox(height: AppTokens.sp12),
                 Consumer<AuthStore>(
                   builder: (_, auth, __) => SizedBox(
                     width: double.infinity,
@@ -77,11 +95,11 @@ class _LoginPageState extends State<LoginPage> {
                       // 文案居中（Center 兜底：任何主题/布局下均居中）
                       child: Center(
                         child: auth.loading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
+                                    strokeWidth: 2, color: t.card),
                               )
                             : const Text('登录'),
                       ),
@@ -93,5 +111,43 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       );
+  }
+
+  /// 协议勾选行：☐ 我已阅读并同意《用户协议》和《隐私政策》（书名号可点开全文）。
+  Widget _agreement(AppTokens t) {
+    final ts = t.textStyles;
+    final link = ts.caption.copyWith(color: t.primary, fontWeight: FontWeight.w700);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: Checkbox(
+            key: const Key('login-agree'),
+            value: _agreed,
+            activeColor: t.primary,
+            side: BorderSide(color: t.caption, width: 1.5),
+            onChanged: (v) => setState(() => _agreed = v ?? false),
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => _agreed = !_agreed),
+            child: Text.rich(
+              TextSpan(
+                style: ts.caption.copyWith(color: t.caption),
+                children: [
+                  const TextSpan(text: '我已阅读并同意'),
+                  TextSpan(text: '《用户协议》', style: link, recognizer: _termsTap),
+                  const TextSpan(text: '和'),
+                  TextSpan(text: '《隐私政策》', style: link, recognizer: _privacyTap),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

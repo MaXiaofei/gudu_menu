@@ -8,12 +8,14 @@ import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/action_bar.dart';
+import '../../widgets/error_view.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/select_chip.dart';
+import '../../widgets/status_chip.dart';
 import '../../widgets/search_box.dart';
 
-/// 排序：cooked=做过最多；latest=最新。
-enum _SortMode { cooked, latest }
+/// 排序：cooked=做过最多；latest=最新；coverage=家里够的优先（G3）。
+enum _SortMode { cooked, latest, coverage }
 
 /// 菜库列表（按原型 cookbook-search.html 左屏）。
 /// 浅色顶栏 + 纯搜索框 + 分类标签条 + 排序 + 卡片式列表。
@@ -44,6 +46,8 @@ class _DishListPageState extends State<DishListPage> {
   bool _loading = false;
   bool _hasMore = true;
   bool _firstLoading = true;
+  /// 首屏加载失败（显示错误态 + 重试，不再静默成「暂无菜品」）。
+  bool _loadFailed = false;
 
   _SortMode _sort = _SortMode.latest;
 
@@ -102,13 +106,17 @@ class _DishListPageState extends State<DishListPage> {
     } catch (_) {}
   }
 
-  Future<List<Dish>> _fetch(int pageNum) async {
+  Future<List<Dish>?> _fetch(int pageNum) async {
     try {
       final r = await DishService.search(
         keyword: _keywordCtrl.text.trim().isEmpty ? null : _keywordCtrl.text.trim(),
         tagIds: _selectedTagId == null ? null : [_selectedTagId!],
         cuisineIds: _selectedCuisineId == null ? null : [_selectedCuisineId!],
-        sort: _sort == _SortMode.cooked ? 'cooked' : null,
+        sort: switch (_sort) {
+          _SortMode.cooked => 'cooked',
+          _SortMode.coverage => 'coverage',
+          _SortMode.latest => null,
+        },
         pageNum: pageNum,
         pageSize: _pageSize,
       );
@@ -117,24 +125,40 @@ class _DishListPageState extends State<DishListPage> {
       return r.records;
     } catch (_) {
       _hasMore = false;
-      return [];
+      return null; // 调用方区分失败（null）与空页（[]）
     }
   }
 
   Future<void> _reload() async {
     _page = 1;
     _hasMore = true;
-    setState(() => _firstLoading = true);
+    setState(() {
+      _firstLoading = true;
+      _loadFailed = false;
+    });
     final list = await _fetch(_page);
-    _dishes = list;
-    if (mounted) setState(() => _firstLoading = false);
+    _dishes = list ?? [];
+    if (mounted) {
+      setState(() {
+        _firstLoading = false;
+        _loadFailed = list == null;
+      });
+    }
   }
 
   Future<void> _loadMore() async {
     if (_loading) return;
     setState(() => _loading = true);
     final list = await _fetch(_page);
-    _dishes.addAll(list);
+    if (list == null) {
+      _page--; // 回退页码，下次上拉重试
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('加载更多失败，下拉刷新重试')));
+      }
+    } else {
+      _dishes.addAll(list);
+    }
     if (mounted) setState(() => _loading = false);
   }
 
@@ -178,6 +202,8 @@ class _DishListPageState extends State<DishListPage> {
             Expanded(
               child: _firstLoading
                   ? const LoadingView()
+                  : _loadFailed
+                  ? ErrorView(text: '菜谱加载失败', onRetry: _reload)
                   : RefreshIndicator(
                       color: t.primary,
                       onRefresh: _reload,
@@ -384,6 +410,8 @@ class _DishListPageState extends State<DishListPage> {
               _sortChip(t, '最新', _SortMode.latest),
               const SizedBox(width: 6),
               _sortChip(t, '做过最多', _SortMode.cooked),
+              const SizedBox(width: 6),
+              _sortChip(t, '家里够的优先', _SortMode.coverage),
             ],
           ),
         ],
@@ -467,6 +495,12 @@ class _DishCard extends StatelessWidget {
               ],
             ),
           ),
+          // 家里够 X/Y 样（本家余量覆盖，G3；未登录/无可计用料不显示）
+          if (dish.coverage != null && dish.coverage!.label.isNotEmpty)
+            StatusChip(
+              label: dish.coverage!.label,
+              color: coverageColor(t, dish.coverage!),
+            ),
         ],
       ),
       ),

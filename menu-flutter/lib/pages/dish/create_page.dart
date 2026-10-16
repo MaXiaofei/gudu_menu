@@ -188,30 +188,43 @@ class _CreateDishPageState extends State<CreateDishPage>
   }
 
   /// 预载单位字典（用量解析）+ 常用食材（加用料弹层 chips）+ 标签字典（§16.2）。
+  /// 各项独立加载、互不阻塞；任一失败汇总提示一次（不静默吞错）。
   Future<void> _loadIngredientBase() async {
-    try {
-      final units = await IngredientService.listDictByGroup('unit');
-      if (mounted) setState(() => _unitDict = units);
-    } catch (_) {}
-    try {
-      final all = await IngredientService.listAll();
-      if (mounted) {
-        setState(() =>
-            _commonIngredients = all.take(8).toList()); // 常用 = 食材库前 8，TODO 按使用频率
+    final failed = <String>[];
+    Future<void> load(String what, Future<void> Function() f) async {
+      try {
+        await f();
+      } catch (_) {
+        failed.add(what);
       }
-    } catch (_) {}
-    try {
-      final tags = await IngredientService.listDictByGroup('tag');
-      if (mounted) setState(() => _tagDict = tags);
-    } catch (_) {}
-    try {
-      final cats = await IngredientService.listDictByGroup('purchase_category');
-      if (mounted) setState(() => _catDict = cats);
-    } catch (_) {}
-    try {
-      final cuisines = await IngredientService.listDictByGroup('cuisine');
-      if (mounted) setState(() => _cuisineDict = cuisines);
-    } catch (_) {}
+    }
+
+    await Future.wait([
+      load('单位', () async {
+        final units = await IngredientService.listDictByGroup('unit');
+        if (mounted) setState(() => _unitDict = units);
+      }),
+      // 常用食材：按本账号做过的菜 + 录入菜谱用料频次（GET /ingredient/frequent，G11）
+      load('常用食材', () async {
+        final frequent = await IngredientService.frequent(limit: 8);
+        if (mounted) setState(() => _commonIngredients = frequent);
+      }),
+      load('标签', () async {
+        final tags = await IngredientService.listDictByGroup('tag');
+        if (mounted) setState(() => _tagDict = tags);
+      }),
+      load('采购品类', () async {
+        final cats = await IngredientService.listDictByGroup('purchase_category');
+        if (mounted) setState(() => _catDict = cats);
+      }),
+      load('菜系', () async {
+        final cuisines = await IngredientService.listDictByGroup('cuisine');
+        if (mounted) setState(() => _cuisineDict = cuisines);
+      }),
+    ]);
+    if (failed.isNotEmpty && mounted) {
+      _showSnack('${failed.join('、')}加载失败，可稍后重进本页');
+    }
   }
 
   @override

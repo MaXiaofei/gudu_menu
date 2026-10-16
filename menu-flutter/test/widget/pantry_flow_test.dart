@@ -63,8 +63,10 @@ void main() {
       scaffoldKey: GlobalKey<ScaffoldMessengerState>(),
     ));
     await tester.pumpAndSettle();
-    // 登录
+    // 登录（登录页无预填用户名，需两项都输入）
+    await tester.enterText(find.byType(TextField).at(0), 'admin');
     await tester.enterText(find.byType(TextField).at(1), '123456');
+    await tester.tap(find.byKey(const Key('login-agree')));
     await tester.tap(find.text('登录'));
     await tester.pumpAndSettle();
   }
@@ -72,8 +74,8 @@ void main() {
   testWidgets('库存行点击 → 详情页渲染（真实路由，防 infinite-width 崩溃）', (tester) async {
     await pumpApp(tester);
 
-    // 切库存 tab
-    await tester.tap(find.text('库存').last);
+    // 切「我家余量」tab
+    await tester.tap(find.text('我家余量').last);
     await tester.pumpAndSettle();
     expect(find.byType(PantryListPage), findsOneWidget);
 
@@ -90,7 +92,7 @@ void main() {
   testWidgets('添加 → 手动添加两屏按钮渲染（真实主题）', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('库存').last);
+    await tester.tap(find.text('我家余量').last);
     await tester.pumpAndSettle();
 
     // 右上角「入库」→ 选食材页（下一步按钮不崩）

@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/app_theme.dart';
 
-/// 底部 5-Tab 主外壳（菜谱 / 食集 / [凸起推荐FAB] / 库存 / 我的）。
+/// 底部 5-Tab 主外壳（菜谱 / 食集 / 智荐 / 我家余量 / 我的，定稿命名）。
 ///
 /// 由 go_router 的 StatefulShellRoute.indexedStack 注入 [navigationShell]，
 /// 各 tab 状态独立保持（IndexedStack），切 tab 不重建。
@@ -53,8 +53,8 @@ class MainShell extends StatelessWidget {
                   children: [
                     _navItem(t, 0, Icons.menu_book_outlined, Icons.menu_book, '菜谱'),
                     _navItem(t, 1, Icons.restaurant_menu_outlined, Icons.restaurant_menu, '食集'),
-                    _navItem(t, 2, Icons.auto_awesome_outlined, Icons.auto_awesome, '推荐'),
-                    _navItem(t, 3, Icons.kitchen_outlined, Icons.kitchen, '库存'),
+                    _navItem(t, 2, Icons.auto_awesome_outlined, Icons.auto_awesome, '智荐'),
+                    _navItem(t, 3, Icons.kitchen_outlined, Icons.kitchen, '我家余量'),
                     _navItem(t, 4, Icons.person_outline, Icons.person, '我的'),
                   ],
                 ),

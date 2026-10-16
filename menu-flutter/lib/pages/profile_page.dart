@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_theme.dart';
+import '../core/constants.dart';
+import '../core/theme_controller.dart';
 import '../models/page.dart';
 import '../services/dish_service.dart';
 import '../stores/auth_store.dart';
@@ -78,6 +80,12 @@ class ProfilePage extends StatelessWidget {
               child: Column(
                 children: [
                   _SettingTile(
+                    icon: Icons.account_circle_outlined,
+                    label: '个人资料',
+                    onTap: () => context.push('/profile/edit'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  _SettingTile(
                     icon: Icons.people_outline,
                     label: '家庭成员',
                     // 尾部显示当前就餐成员名（进列表页可切换）
@@ -135,14 +143,21 @@ class ProfilePage extends StatelessWidget {
                   _SettingTile(
                     icon: Icons.palette_outlined,
                     label: '主题外观',
-                    onTap: () {},
+                    value: context.watch<ThemeController>().label,
+                    onTap: () => context.push('/settings/theme'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  _SettingTile(
+                    icon: Icons.chat_bubble_outline,
+                    label: '意见反馈',
+                    onTap: () => context.push('/feedback'),
                   ),
                   const Divider(height: 1, indent: 56),
                   _SettingTile(
                     icon: Icons.info_outline,
                     label: '关于小食单',
-                    value: 'v1.0.0',
-                    onTap: () {},
+                    value: 'v${AppConstants.appVersion}',
+                    onTap: () => context.push('/about'),
                   ),
                 ],
               ),
@@ -154,8 +169,8 @@ class ProfilePage extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.logout,
                     color: AppTokens.error),
-                title: const Text('退出登录',
-                    style: TextStyle(color: AppTokens.error)),
+                title: Text('退出登录',
+                    style: t.textStyles.body.copyWith(color: AppTokens.error)),
                 trailing: Icon(Icons.chevron_right,
                     color: t.caption),
                 onTap: () => auth.logout(),

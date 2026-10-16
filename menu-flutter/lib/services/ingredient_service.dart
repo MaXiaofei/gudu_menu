@@ -65,6 +65,19 @@ class IngredientService {
     return [];
   }
 
+  /// 常用食材：GET /ingredient/frequent?limit=（按当前账号做过的菜 + 录入菜谱的用料频次；
+  /// 无数据时后端回退食材库前 N）。写菜谱「加用料」弹层 chips 用（G11）。
+  static Future<List<IngredientItem>> frequent({int limit = 8}) async {
+    final data = await ApiClient.instance
+        .get('/ingredient/frequent', query: {'limit': limit});
+    if (data is List) {
+      return data
+          .map((e) => IngredientItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
   /// 按名称模糊搜索食材库（写菜谱「加用料」弹层用）：GET /ingredient?keyword=xx
   static Future<List<IngredientItem>> search(String keyword) async {
     final data = await ApiClient.instance.get('/ingredient', query: {

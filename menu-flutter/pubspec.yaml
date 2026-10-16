@@ -29,3 +29,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    # 用户协议 / 隐私政策（源：仓库根 docs/legal/，修改后需同步拷贝）
+    - assets/legal/

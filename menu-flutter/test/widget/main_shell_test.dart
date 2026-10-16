@@ -45,8 +45,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('PAGE_1'), findsOneWidget);
 
-    // 点"库存" → index 3
-    await tester.tap(find.text('库存'));
+    // 点"我家余量" → index 3
+    await tester.tap(find.text('我家余量'));
     await tester.pumpAndSettle();
     expect(find.text('PAGE_3'), findsOneWidget);
 
@@ -55,8 +55,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('PAGE_4'), findsOneWidget);
 
-    // 点凸起「推荐」胶囊按钮（2026-08-14 去图标改文案）→ index 2
-    await tester.tap(find.text('推荐'));
+    // 点「智荐」（定稿命名）→ index 2
+    await tester.tap(find.text('智荐'));
     await tester.pumpAndSettle();
     expect(find.text('PAGE_2'), findsOneWidget);
 

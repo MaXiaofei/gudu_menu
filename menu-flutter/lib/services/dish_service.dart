@@ -8,7 +8,7 @@ class DishService {
   /// 多维搜索分页：GET /dish/search。
   /// [ingredientIds] 食材筛选（交集：必须包含所有选中食材）。
   /// [tagIds] 标签筛选（分类标签条选中）。
-  /// [sort] 排序：cooked=做过最多；缺省=最新。
+  /// [sort] 排序：cooked=做过最多；coverage=家里够的优先；缺省=最新。
   static Future<PageData<Dish>> search({
     String? keyword,
     List<int>? ingredientIds,
@@ -125,6 +125,50 @@ class DishService {
     final data = await ApiClient.instance.get('/menu/$menuId/cook-materials');
     return CookMaterials.fromJson(data as Map<String, dynamic>);
   }
+
+  // ===== 单菜直做（api-contract §2，G1） =====
+
+  /// 单菜做菜确认弹窗数据：GET /cook/dish/{dishId}/materials?servings=
+  /// 结构同食集 cook-materials（menuId 为 null）。
+  static Future<CookMaterials> dishCookMaterials(int dishId,
+      {int servings = 1}) async {
+    final data = await ApiClient.instance.get(
+      '/cook/dish/$dishId/materials',
+      query: {'servings': servings},
+    );
+    return CookMaterials.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// 单菜直做：POST /cook/dish/{dishId}
+  /// → 写 cooking_record(source=DISH) + 按确认回写档位 + 食记可见。
+  static Future<DishCookResult> cookDish(
+    int dishId, {
+    int servings = 1,
+    List<int> usedUp = const [],
+    List<int> partiallyUsed = const [],
+    String? note,
+  }) async {
+    final data = await ApiClient.instance.post('/cook/dish/$dishId', body: {
+      'servings': servings,
+      'usedUp': usedUp,
+      'partiallyUsed': partiallyUsed,
+      if (note != null && note.isNotEmpty) 'note': note,
+    });
+    return DishCookResult.fromJson(data as Map<String, dynamic>);
+  }
+}
+
+/// 单菜直做结果：`{recordId, dishId}`。
+class DishCookResult {
+  final int recordId;
+  final int dishId;
+
+  const DishCookResult({required this.recordId, required this.dishId});
+
+  factory DishCookResult.fromJson(Map<String, dynamic> j) => DishCookResult(
+        recordId: (j['recordId'] as num?)?.toInt() ?? 0,
+        dishId: (j['dishId'] as num?)?.toInt() ?? 0,
+      );
 }
 
 /// 草稿箱列表项（后端 DishDraftDTO.ListItem，§16.4）。
@@ -254,13 +298,14 @@ class DraftStepItem {
 ///
 /// - `items`：本次用到的食材（聚合用量 + 当前档位 + 是否调料，调料默认"用了一些"）。
 class CookMaterials {
-  final int menuId;
+  /// 食集 id；单菜直做（/cook/dish/{id}/materials）为 null。
+  final int? menuId;
   final List<CookMaterialItem> items;
 
   const CookMaterials({required this.menuId, required this.items});
 
   factory CookMaterials.fromJson(Map<String, dynamic> j) => CookMaterials(
-        menuId: (j['menuId'] as num).toInt(),
+        menuId: (j['menuId'] as num?)?.toInt(),
         items: ((j['items'] ?? const []) as List)
             .map((e) => CookMaterialItem.fromJson(e as Map<String, dynamic>))
             .toList(),

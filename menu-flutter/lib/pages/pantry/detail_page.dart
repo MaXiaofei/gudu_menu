@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../services/pantry_service.dart';
 import '../../widgets/action_bar.dart';
+import '../../widgets/error_view.dart';
+import '../../widgets/best_before_field.dart';
 import '../../widgets/initial_avatar.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/status_chip.dart';
@@ -31,6 +33,10 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
   String _selectedLevel = StockLevel.none;
   bool _saving = false;
 
+  /// 保质期（G2）：初值取详情 bestBefore；[_bestBeforeDirty] 才随保存提交。
+  DateTime? _bestBefore;
+  bool _bestBeforeDirty = false;
+
   /// 3 档选项：值 → (标题, 副文案, 颜色)。
   static const _options = [
     (StockLevel.enough, '充足', '还有不少', AppTokens.success),
@@ -55,6 +61,8 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
       setState(() {
         _detail = d;
         _selectedLevel = d.level;
+        _bestBefore = DateTime.tryParse(d.bestBefore ?? '');
+        _bestBeforeDirty = false;
         _loading = false;
       });
     } catch (e) {
@@ -88,7 +96,7 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
               child: _loading
                   ? const LoadingView()
                   : _error != null
-                      ? EmptyView(text: '加载失败：$_error')
+                      ? ErrorView(text: '加载失败：$_error', onRetry: _load)
                       : d == null
                           ? const EmptyView(text: '食材不存在')
                           : _buildBody(t),
@@ -141,6 +149,18 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
         Text('现在家里是什么情况？', style: t.textStyles.caption),
         const SizedBox(height: 10),
         ..._options.map((o) => _levelCard(t, o.$1, o.$2, o.$3, o.$4)),
+        const SizedBox(height: 4),
+
+        // 保质期（选填，可清除）
+        Text('保质期', style: t.textStyles.caption),
+        const SizedBox(height: 8),
+        BestBeforeField(
+          value: _bestBefore,
+          onChanged: (v) => setState(() {
+            _bestBefore = v;
+            _bestBeforeDirty = true;
+          }),
+        ),
         const SizedBox(height: 12),
 
         // 说明条
@@ -253,7 +273,12 @@ class _PantryDetailPageState extends State<PantryDetailPage> {
     if (d == null) return;
     setState(() => _saving = true);
     try {
-      await PantryService.setLevel(widget.ingredientId, _selectedLevel);
+      await PantryService.setLevel(
+        widget.ingredientId,
+        _selectedLevel,
+        // 未改保质期 → 不传（不改）；改为空 → 传 null 清除
+        bestBefore: _bestBeforeDirty ? _bestBefore : PantryService.keepBestBefore,
+      );
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {

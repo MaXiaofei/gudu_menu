@@ -47,16 +47,33 @@ void main() {
   });
 
   group('PantryService.listExpiring', () {
-    test('GET /pantry/expiring?days=3', () async {
+    test('GET /pantry/expiring?days= → ExpiringItem（三档库存新结构）', () async {
       final captor = installMock((_) => okResponse([
-            {'id': 1, 'ingredientId': 1, 'amount': 1},
+            {
+              'ingredientId': 1,
+              'ingredientName': '牛奶',
+              'level': 'ENOUGH',
+              'bestBefore': '2026-10-15',
+              'daysLeft': -1,
+            },
+            {
+              'ingredientId': 2,
+              'ingredientName': '豆腐',
+              'level': 'LOW',
+              'bestBefore': '2026-10-16',
+              'daysLeft': 0,
+            },
           ]));
 
       final list = await PantryService.listExpiring(days: 5);
 
       expect(captor.last!.path, '/pantry/expiring');
       expect(captor.last!.queryParameters['days'], 5);
-      expect(list.length, 1);
+      expect(list.length, 2);
+      expect(list.first.ingredientName, '牛奶');
+      expect(list.first.daysText, '已过期 1 天');
+      expect(list[1].daysText, '今天到期');
+      expect(list[1].level, 'LOW');
     });
 
     test('非 List → 空', () async {

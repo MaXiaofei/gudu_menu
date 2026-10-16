@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
+import '../../core/error_text.dart';
 import '../../stores/member_store.dart';
 import '../../widgets/action_bar.dart';
+import 'smart_home_sections.dart';
 
-/// 推荐：想吃什么（自然语言）→ 菜谱向量库语义召回 → 组合推荐（2026-08 向量化版）。
+/// 智荐 tab：顶部「临期主推 / 你常做 / 季节鲜 / 最近做过」分区（G4/G5，/recommend/home），
+/// 下方 想吃什么（自然语言）→ 菜谱向量库语义召回 → 组合推荐（2026-08 向量化版）。
 class AiRecommendPage extends StatefulWidget {
   const AiRecommendPage({super.key});
   @override
@@ -21,6 +24,9 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
   bool _loading = false;
   List<dynamic>? _groups;
   String? _error;
+  /// 语义找菜失败文案（与组合推荐错误分开展示）。
+  String? _semanticError;
+  final _homeKey = GlobalKey<SmartHomeSectionsState>();
 
   Future<void> _recommend() async {
     setState(() { _loading = true; _error = null; _groups = null; });
@@ -42,7 +48,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
         }
       });
     } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = errorText(e, '推荐失败，请稍后重试'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -52,14 +58,19 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
   Future<void> _semanticSearch() async {
     final q = _prefCtrl.text.trim();
     if (q.isEmpty) return;
-    setState(() { _semanticLoading = true; });
+    setState(() { _semanticLoading = true; _semanticError = null; });
     try {
       final data = await ApiClient.instance.post('/dish/semantic-search', body: {
         'query': q, 'topK': 8,
       });
       if (mounted) setState(() => _semanticHits = (data as List?) ?? []);
-    } catch (_) {
-      if (mounted) setState(() => _semanticHits = []);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _semanticHits = null;
+          _semanticError = errorText(e, '找菜失败，请稍后重试');
+        });
+      }
     } finally {
       if (mounted) setState(() => _semanticLoading = false);
     }
@@ -80,8 +91,9 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
       final data = await ApiClient.instance.get('/ai/menu/recommend/default',
           query: {'memberId': memberId, 'topN': 3});
       if (mounted) setState(() => _groups = (data as List?) ?? []);
-    } catch (_) {
-      // 默认推荐失败静默（用户可手动触发）
+    } catch (e) {
+      // 默认推荐失败：给出提示（可点「组合推荐」重试），不静默
+      if (mounted) setState(() => _error = errorText(e, '默认推荐加载失败，可点「组合推荐」重试'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -105,15 +117,21 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           children: [
             const ActionBar(),
             Expanded(
-              child: SingleChildScrollView(
+              child: RefreshIndicator(
+                color: t.primary,
+                onRefresh: () async => _homeKey.currentState?.reload(),
+                child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // 页面标题（无花哨头部卡：Tab 主页 ActionBar 下直接内容，§13）
-          Text('推荐', style: t.textStyles.subtitle),
-          const SizedBox(height: AppTokens.sp4),
-          Text('说说想吃的口味，从菜谱语义库找菜、组合推荐',
+          Text('智荐', style: t.textStyles.subtitle),
+          const SizedBox(height: AppTokens.sp12),
+          // 智荐分区：临期主推 / 你常做 / 季节鲜 / 最近做过（空分区隐藏）
+          SmartHomeSections(key: _homeKey),
+          Text('想吃点别的？说说口味，从菜谱语义库找菜、组合推荐',
               style: t.textStyles.caption.copyWith(color: t.caption)),
-          const SizedBox(height: AppTokens.sp16),
+          const SizedBox(height: AppTokens.sp8),
 
           // 想吃什么（语义主入口）：自然语言 + 快捷口味 chips
           TextField(
@@ -128,8 +146,8 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             onSubmitted: (_) => _semanticSearch(),
             // 输入变化即清空旧结果（相似菜/组合均随新输入失效）
             onChanged: (_) {
-              if (_semanticHits != null || _groups != null || _error != null) {
-                setState(() { _semanticHits = null; _groups = null; _error = null; });
+              if (_semanticHits != null || _groups != null || _error != null || _semanticError != null) {
+                setState(() { _semanticHits = null; _groups = null; _error = null; _semanticError = null; });
               }
             },
           ),
@@ -155,6 +173,18 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           if (_semanticLoading)
             const Padding(padding: EdgeInsets.all(12), child: Center(child: SizedBox(
                 width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))),
+          if (_semanticError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppTokens.sp8),
+              child: Text(_semanticError!,
+                  style: t.textStyles.sm.copyWith(color: AppTokens.error)),
+            ),
+          if (_semanticHits != null && _semanticHits!.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AppTokens.sp8),
+              child: Text('没找到相似的菜，换个说法试试',
+                  style: t.textStyles.caption.copyWith(color: t.caption)),
+            ),
           if (_semanticHits != null && _semanticHits!.isNotEmpty) ...[
             const SizedBox(height: AppTokens.sp12),
             Text('找菜结果', style: t.textStyles.sectionLabel.copyWith(color: t.caption)),
@@ -231,7 +261,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3F0), borderRadius: BorderRadius.circular(AppTokens.rMd),
+                  color: AppTokens.error.withAlpha(15), borderRadius: BorderRadius.circular(AppTokens.rMd),
                 ),
                 child: Text(_error!, style: t.textStyles.sm.copyWith(color: AppTokens.error)),
               ),
@@ -239,6 +269,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
 
         ]),
               ),
+              ), // RefreshIndicator
             ), // Expanded → SingleChildScrollView
           ], // Column
         ),

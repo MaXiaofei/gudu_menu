@@ -132,10 +132,4 @@ class BackHeader extends StatelessWidget {
 }
 
 /// 状态栏样式：奶油底 + 深色字（§13.4 铁律：状态栏背景 = 顶栏背景）。
-SystemUiOverlayStyle _statusBarStyle(AppTokens t) => SystemUiOverlayStyle(
-      statusBarColor: t.bg,
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: t.bg,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    );
+SystemUiOverlayStyle _statusBarStyle(AppTokens t) => brandOverlayStyle(t);

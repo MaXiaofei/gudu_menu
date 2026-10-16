@@ -26,12 +26,17 @@ import '../pages/ingredient/list_page.dart';
 import '../pages/member/member_list_page.dart';
 import '../pages/login_page.dart';
 import '../pages/profile_page.dart';
+import '../pages/settings/about_page.dart';
+import '../pages/settings/feedback_page.dart';
+import '../pages/settings/legal_page.dart';
+import '../pages/settings/profile_edit_page.dart';
+import '../pages/settings/theme_page.dart';
 import '../stores/auth_store.dart';
 import '../widgets/main_shell.dart';
 
 /// 路由表 + 登录拦截（对应小程序 401/未登录 reLaunch 到登录页）。
 ///
-/// 结构：5 个 tab（菜谱/食集/[推荐]/库存/我的）包在 StatefulShellRoute 里，
+/// 结构：5 个 tab（菜谱/食集/智荐/我家余量/我的）包在 StatefulShellRoute 里，
 /// 由 [MainShell] 注入底部 Tab Bar；非 tab 页（详情/录入/点评等）为顶层 GoRoute，
 /// 由 tab 页 push 进入，不显示底部 bar。
 ///
@@ -43,12 +48,21 @@ GoRouter createRouter(AuthStore auth) {
     redirect: (context, state) {
       final loggedIn = auth.isLoggedIn;
       final atLogin = state.matchedLocation == '/login';
+      // 用户协议 / 隐私政策：登录页勾选前需可阅读，未登录放行
+      if (state.matchedLocation.startsWith('/legal/')) return null;
       if (!loggedIn && !atLogin) return '/login';
       if (loggedIn && atLogin) return '/dish';
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
+      // 合规静态页（G14，登录前可访问）
+      GoRoute(
+          path: '/legal/terms',
+          builder: (_, __) => const LegalPage(kind: LegalKind.terms)),
+      GoRoute(
+          path: '/legal/privacy',
+          builder: (_, __) => const LegalPage(kind: LegalKind.privacy)),
 
       // ===== 5-Tab 主壳：菜谱 / 食集 / 推荐 / 库存 / 我的 =====
       StatefulShellRoute.indexedStack(
@@ -70,11 +84,11 @@ GoRouter createRouter(AuthStore auth) {
           StatefulShellBranch(routes: [
             GoRoute(path: '/menu', builder: (_, __) => const MenuListPage()),
           ]),
-          // 2. 推荐（凸起 FAB）
+          // 2. 智荐
           StatefulShellBranch(routes: [
             GoRoute(path: '/ai-recommend', builder: (_, __) => const AiRecommendPage()),
           ]),
-          // 3. 库存
+          // 3. 我家余量
           StatefulShellBranch(routes: [
             GoRoute(path: '/pantry', builder: (_, __) => const PantryListPage()),
           ]),
@@ -178,6 +192,19 @@ GoRouter createRouter(AuthStore auth) {
       GoRoute(
           path: '/create-ingredient',
           builder: (_, __) => const CreateIngredientPage()),
+      // 我的 tab 设置项：个人资料 / 主题外观 / 意见反馈 / 关于（G7/G10/G14）
+      GoRoute(
+          path: '/profile/edit',
+          builder: (_, __) => const ProfileEditPage()),
+      GoRoute(
+          path: '/settings/theme',
+          builder: (_, __) => const ThemePage()),
+      GoRoute(
+          path: '/feedback',
+          builder: (_, __) => const FeedbackPage()),
+      GoRoute(
+          path: '/about',
+          builder: (_, __) => const AboutPage()),
       // 家庭成员（我的 tab 进入）
       GoRoute(
           path: '/members',

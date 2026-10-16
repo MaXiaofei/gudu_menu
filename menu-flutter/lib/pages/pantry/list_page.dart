@@ -165,7 +165,10 @@ class _PantryListPageState extends State<PantryListPage> {
         _loadingMore[level] = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loadingMore[level] = false);
+      if (!mounted) return;
+      setState(() => _loadingMore[level] = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('加载更多失败，请重试')));
     }
   }
 
@@ -186,7 +189,10 @@ class _PantryListPageState extends State<PantryListPage> {
         _searchLoading = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _searchLoading = false);
+      if (!mounted) return;
+      setState(() => _searchLoading = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('加载更多失败，请重试')));
     }
   }
 
@@ -503,6 +509,15 @@ class _PantryListPageState extends State<PantryListPage> {
                   ],
                 ),
               ),
+              // 保质期剩余天数徽章（已用完的不提示）
+              if (item.daysLeft != null && item.level != StockLevel.none) ...[
+                StatusChip(
+                  key: ValueKey('days-left-${item.ingredientId}'),
+                  label: daysLeftLabel(item.daysLeft!),
+                  color: expiryColor(t, item.daysLeft!),
+                ),
+                const SizedBox(width: AppTokens.sp6),
+              ],
               Text(item.levelLabel,
                   style: t.textStyles.sm.copyWith(color: color, fontWeight: FontWeight.w800)),
               const SizedBox(width: 6),
