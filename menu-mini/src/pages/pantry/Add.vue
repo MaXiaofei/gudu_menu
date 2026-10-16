@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 录入页：只有返回箭头（§13.1） -->
     <view class="top" :style="{ paddingTop: sb + 'px' }">
@@ -79,6 +80,19 @@
           </view>
         </view>
 
+        <text class="sec-label">保质期（选填）</text>
+        <view class="bb-row">
+          <picker mode="date" :value="bestBefore || today" :start="today" class="bb-picker" @change="onBestBefore">
+            <view class="bb-field" data-testid="best-before">
+              <text v-if="bestBefore" class="bb-val">{{ mdLabel(bestBefore) }} 前吃完</text>
+              <text v-else class="bb-ph">不记保质期</text>
+              <text class="bb-arrow">›</text>
+            </view>
+          </picker>
+          <text v-if="bestBefore" class="bb-clear" @click="bestBefore = ''">清除</text>
+        </view>
+        <text v-if="suggestedDays" class="bb-hint">按品类建议 {{ suggestedDays }} 天，已帮你预填</text>
+
         <text class="sec-label">来源备注</text>
         <view class="src-chips">
           <view
@@ -107,7 +121,8 @@
 import { ref, computed, nextTick } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { listAllIngredients, type IngredientItem } from '@/api/ingredient'
-import { listGroupedAll, pantryManualAdd, type PantryGrouped } from '@/api/pantry'
+import { listGroupedAll, pantryManualAdd, shelfLifeDays } from '@/api/pantry'
+import { addDays, mdLabel, ymd } from '@/utils/freshness'
 import { navInset } from '@/utils/token'
 
 const sb = navInset()
@@ -127,6 +142,15 @@ const level = ref('ENOUGH')
 const sourceNote = ref('朋友送')
 const sourceOptions = ['朋友送', '赠品', '旧库存补登', '其他']
 const saving = ref(false)
+
+// 保质期：选中已有食材后按品类建议预填（今天 + suggestedDays）
+const today = ymd(new Date())
+const bestBefore = ref('')
+const suggestedDays = ref<number | null>(null)
+
+function onBestBefore(e: any) {
+  bestBefore.value = e?.detail?.value || ''
+}
 
 onLoad(async () => {
   autoFocus.value = true
@@ -191,8 +215,18 @@ function onNewTile() {
   newName.value = q.value
 }
 
-function next() {
+async function next() {
   step.value = 1
+  bestBefore.value = ''
+  suggestedDays.value = null
+  const id = selected.value?.id
+  if (id) {
+    const d = await shelfLifeDays(id)
+    if (d && selected.value?.id === id) {
+      suggestedDays.value = d
+      bestBefore.value = addDays(d)
+    }
+  }
 }
 
 function goBack() {
@@ -215,6 +249,7 @@ async function submit() {
       name: selected.value ? undefined : name.value,
       level: level.value,
       sourceNote: sourceNote.value,
+      bestBefore: bestBefore.value || undefined,
     })
     uni.showToast({ title: '已入库', icon: 'none' })
     setTimeout(() => uni.navigateBack(), 400)
@@ -451,6 +486,49 @@ async function submit() {
   background: var(--primary);
   border-color: var(--primary);
   color: #FFFFFF;
+}
+/* 保质期 */
+.bb-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+}
+.bb-picker {
+  flex: 1;
+}
+.bb-field {
+  display: flex;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-10) var(--sp-12);
+}
+.bb-val {
+  flex: 1;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--title);
+}
+.bb-ph {
+  flex: 1;
+  font-size: var(--fs-md);
+  color: var(--caption);
+}
+.bb-arrow {
+  color: var(--caption);
+  font-size: var(--fs-lg);
+}
+.bb-clear {
+  font-size: var(--fs-sm);
+  color: var(--caption);
+  padding: var(--sp-4);
+}
+.bb-hint {
+  display: block;
+  margin-top: var(--sp-6);
+  font-size: var(--fs-xs);
+  color: var(--caption);
 }
 /* 底部 */
 .bottom {

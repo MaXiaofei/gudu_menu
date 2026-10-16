@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 顶栏：返回 + 时间胶囊（含步进）+ 月|年切换 -->
     <view class="top" :style="{ paddingTop: sb + 'px' }">

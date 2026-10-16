@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 写菜谱预览页（数据来自 preview store，无接口；发布回调写菜谱页） -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">

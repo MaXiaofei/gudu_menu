@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 录入页：只有返回箭头（§13.1）；dirty 拦截 -->
     <view class="top" :style="{ paddingTop: sb + 'px' }">

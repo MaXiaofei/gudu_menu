@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="login">
     <!-- 顶部渐变 header（顶部 padding 用统一导航安全距，避开状态栏+胶囊） -->
     <view class="header" :style="{ paddingTop: nav + 20 + 'px' }">
@@ -47,6 +48,17 @@
       <button class="wx-btn" :disabled="wxLoading" @click="onWxLogin">
         {{ wxLoading ? '微信登录中…' : '微信一键登录' }}
       </button>
+
+      <!-- 协议勾选（微信审核要求：未勾选不可登录） -->
+      <view class="agree" data-testid="agree-row">
+        <view class="agree-box" :class="{ on: agreed }" data-testid="agree-box" @click="agreed = !agreed">
+          <text v-if="agreed" class="agree-tick">✓</text>
+        </view>
+        <text class="agree-txt" @click="agreed = !agreed">我已阅读并同意</text>
+        <text class="agree-link" @click="openLegal('terms')">《用户协议》</text>
+        <text class="agree-txt">和</text>
+        <text class="agree-link" @click="openLegal('privacy')">《隐私政策》</text>
+      </view>
     </view>
   </view>
 </template>
@@ -56,6 +68,7 @@ import { reactive, ref } from 'vue'
 import { navInset } from '@/utils/token'
 import { useAuthStore } from '@/store/auth'
 import { silentLogin } from '@/api/auth'
+import { agreementError } from '@/utils/validate'
 
 const auth = useAuthStore()
 const nav = navInset()
@@ -63,9 +76,25 @@ const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 const showPwd = ref(false)
 const wxLoading = ref(false)
+const agreed = ref(false)
+
+/** 未勾选协议：提示并拦截（返回 false）。 */
+function checkAgreed(): boolean {
+  const err = agreementError(agreed.value)
+  if (err) {
+    uni.showToast({ title: err, icon: 'none' })
+    return false
+  }
+  return true
+}
+
+function openLegal(type: 'terms' | 'privacy') {
+  uni.navigateTo({ url: `/pages/profile/Legal?type=${type}` })
+}
 
 /** 微信一键登录：静默 wx.login → wx-login → 进首页（新用户自动建号）。 */
 async function onWxLogin() {
+  if (!checkAgreed()) return
   wxLoading.value = true
   try {
     const r = await silentLogin()
@@ -80,6 +109,7 @@ async function onWxLogin() {
 }
 
 async function onLogin() {
+  if (!checkAgreed()) return
   if (!form.username || !form.password) {
     uni.showToast({ title: '请输入账号和密码', icon: 'none' })
     return
@@ -235,6 +265,43 @@ async function onLogin() {
   line-height: 1.4;
 }
 .wx-btn::after { border: none; }
+
+/* 协议勾选 */
+.agree {
+  margin-top: var(--sp-16);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.agree-box {
+  width: 14px;
+  height: 14px;
+  margin-right: var(--sp-4);
+  border-radius: 50%;
+  border: 1px solid var(--caption);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.agree-box.on {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.agree-tick {
+  color: var(--on-primary);
+  font-size: var(--fs-micro);
+  font-weight: 800;
+}
+.agree-txt {
+  font-size: var(--fs-xs);
+  color: var(--caption);
+}
+.agree-link {
+  font-size: var(--fs-xs);
+  color: var(--primary);
+}
 .wx-btn[disabled] {
   background: rgba(7, 193, 96, 0.5);
   color: rgba(255, 255, 255, 0.9);

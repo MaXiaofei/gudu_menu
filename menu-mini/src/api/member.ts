@@ -25,3 +25,24 @@ export function setCurrentMember(memberId: number): Promise<void> {
     method: 'POST',
   })
 }
+
+/** 当前登录成员资料（GET/PUT /member/me）。phone 已脱敏。 */
+export interface MemberMe {
+  id: number
+  name: string
+  avatarUrl?: string | null
+  phone?: string | null
+  isAdmin?: boolean
+}
+
+export function getMe(): Promise<MemberMe> {
+  return request<MemberMe>({ url: '/member/me', method: 'GET' })
+}
+
+/** 改昵称 / 头像（只传改动字段；avatarUrl 必须是本站 /uploads/ 地址）。 */
+export function updateMe(p: { name?: string; avatarUrl?: string }): Promise<void> {
+  const data: Record<string, string> = {}
+  if (p.name !== undefined) data.name = p.name.trim()
+  if (p.avatarUrl) data.avatarUrl = p.avatarUrl
+  return request({ url: '/member/me', method: 'PUT', data })
+}

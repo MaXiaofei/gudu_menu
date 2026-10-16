@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { onLaunch } from "@dcloudio/uni-app";
+import { onLaunch, onShow } from "@dcloudio/uni-app";
 import { silentLogin } from "@/api/auth";
+import { initTheme, applyTabBar } from "@/utils/theme";
+onShow(() => applyTabBar());
 onLaunch(async () => {
+  initTheme();
   const token = uni.getStorageSync("token");
   const loggedOut = uni.getStorageSync("logged_out");
   if (!token) {
@@ -21,28 +24,15 @@ onLaunch(async () => {
 
 <style lang="scss">
 /* ============================================================
- * 设计 token（对齐 menu-flutter AppTokens.cream，DESIGN.md 权威）
- * 页面统一奶油底 #FDFAF4；组件一律用 var(--xx) 取值
+ * 设计 token：皮肤色板 / 功能色 / 动效来自 tokens.generated.css
+ * （由 docs/design/tokens.json 经 scripts/design/gen-tokens.mjs 生成，勿手改），
+ * 默认皮肤为注册表第一项，运行时换肤由 utils/theme.ts 覆盖。
+ * 组件一律用 var(--xx) 取值。
  * ============================================================ */
+@import './styles/tokens.generated';
+
 page {
-  /* 色板 */
-  --primary: #E89150;
-  --primary-deep: #D17A3C;
-  --primary-soft: #F6D9BE;
-  --secondary: #FBF0DD;
-  --accent: #B8762E;
-  --bg: #FDFAF4;
-  --card: #FFFFFF;
-  --border: #F0E6D6;
-  --title: #4A382A;
-  --body: #6E5C49;
-  --caption: #9C8C7A;
-  --highlight: #FFF7EC;
-  --success: #4FAE6E;
-  --warning: #E5A938;
   --warning-text: #B8860B; /* 黄底上的可读文字档（chips/警示文案用） */
-  --error: #DB5A4E;
-  --info: #4FA0D0;
 
   /* 圆角（AppTokens rSm/rMd/rLg/rXl/rPill） */
   --r-sm: 8px;
@@ -60,6 +50,22 @@ page {
   --sp-16: 16px;
   --sp-20: 20px;
   --sp-24: 24px;
+
+  /* 字号阶梯（tokens.json typography.scale；新代码禁止裸 px 字号） */
+  --fs-display: 40px;
+  --fs-h1: 32px;
+  --fs-h2: 24px;
+  --fs-h3: 20px;
+  --fs-subtitle: 18px;
+  --fs-lg: 16px;
+  --fs-md: 14px;
+  --fs-sm: 12px;
+  --fs-xs: 11px;
+  --fs-tiny: 10px;
+  --fs-micro: 9px;
+
+  /* 叠加色（--on-primary 随皮肤，见 tokens.generated.css） */
+  --mask: rgba(0, 0, 0, 0.4);  /* 弹层遮罩 */
 
   background: var(--bg);
   color: var(--title);
@@ -122,27 +128,27 @@ input { font-size: 14px; color: var(--title); }
   margin-bottom: 12px;
 }
 .yh-btn-gradient {
-  background: linear-gradient(135deg, #E89150, #D17A3C);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+  color: var(--on-primary);
   border: none;
   border-radius: 14px;
   padding: 14px 0;
   text-align: center;
   font-size: 16px;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(232, 145, 80, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--sh), 0.3);
   line-height: 1.4;
 }
 .yh-btn-gradient::after { border: none; }
 .yh-btn-gradient[disabled] {
-  background: linear-gradient(135deg, #F6D9BE, #F6D9BE);
+  background: var(--primary-soft);
   color: rgba(255, 255, 255, 0.85);
   box-shadow: none;
 }
 .yh-btn-ghost {
-  background: #FFFFFF;
-  color: #E89150;
-  border: 1px solid #E89150;
+  background: var(--card);
+  color: var(--primary);
+  border: 1px solid var(--primary);
   border-radius: 14px;
   padding: 13px 0;
   font-size: 16px;

@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 选菜模式顶栏（食集「+ 加菜」进入） -->
     <template v-if="selectForMenuId">
@@ -59,6 +60,7 @@
       <view class="sort-chips">
         <view class="schip" :class="{ on: sort === 'latest' }" @click="onSort('latest')">最新</view>
         <view class="schip" :class="{ on: sort === 'cooked' }" @click="onSort('cooked')">做过最多</view>
+        <view class="schip" :class="{ on: sort === 'coverage' }" data-testid="sort-coverage" @click="onSort('coverage')">家里够的优先</view>
       </view>
     </view>
 
@@ -93,7 +95,14 @@
           <ui-avatar v-else :name="dish.name" :size="44" />
           <view class="info">
             <text class="name">{{ dish.name }}</text>
-            <text class="sub">{{ subText(dish) }}</text>
+            <view class="sub-row">
+              <text class="sub">{{ subText(dish) }}</text>
+              <text
+                v-if="coverageText(dish.coverage)"
+                class="cov"
+                :class="'cov-' + coverageLevel(dish.coverage)"
+              >{{ coverageText(dish.coverage) }}</text>
+            </view>
           </view>
           <text class="arrow">›</text>
         </view>
@@ -112,7 +121,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { onLoad, onShow, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
-import { searchDishes, deleteDish, type Dish } from '@/api/dish'
+import { searchDishes, deleteDish, coverageText, coverageLevel, type Dish, type DishSort } from '@/api/dish'
 import { listDict, type DictItem } from '@/api/common'
 import { addDishToMenu } from '@/api/menu'
 import { thumbOf } from '@/utils/image'
@@ -130,7 +139,7 @@ const tags = ref<DictItem[]>([])
 const cuisines = ref<DictItem[]>([])
 const selectedTagId = ref(0)
 const selectedCuisineId = ref(0)
-const sort = ref<'latest' | 'cooked'>('latest')
+const sort = ref<DishSort>('latest')
 
 // ---- 列表分页（DESIGN.md §12.2 每页 10 条） ----
 const dishes = ref<Dish[]>([])
@@ -235,7 +244,7 @@ function onCuisine(id: number) {
   selectedCuisineId.value = id
   reload()
 }
-function onSort(s: 'latest' | 'cooked') {
+function onSort(s: DishSort) {
   if (sort.value === s) return
   sort.value = s
   reload()
@@ -492,8 +501,33 @@ function onTe(_e: TouchEvent, id: number) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  min-width: 0;
+}
 .sub {
   font-size: 10px;
+  color: var(--caption);
+}
+/* 家里够 X/Y 样（全够绿 / 部分黄 / 一样没有灰） */
+.cov {
+  flex-shrink: 0;
+  padding: 0 var(--sp-6);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  line-height: 1.6;
+  border: 1px solid currentColor;
+}
+.cov-full {
+  color: var(--success);
+}
+.cov-partial {
+  color: var(--warning-text);
+}
+.cov-none {
   color: var(--caption);
 }
 .arrow {

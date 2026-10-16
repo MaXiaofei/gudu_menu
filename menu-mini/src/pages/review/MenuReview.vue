@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 食集统一评价页：整体评价 + 逐道评价 -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">

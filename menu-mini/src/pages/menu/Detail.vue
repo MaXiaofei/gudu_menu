@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 顶栏：食集名 + 状态胶囊 + 副信息（§13.2） -->
     <ui-back-header :title="detail?.menu.name" :subtitle="headSub">

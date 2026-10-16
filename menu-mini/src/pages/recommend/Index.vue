@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 推荐：想吃什么（自然语言）→ 菜谱向量库语义召回 → 组合推荐
        （2026-08 向量化版，对齐 APP AiRecommendPage：menu-flutter/lib/pages/ai/recommend_page.dart） -->
   <view class="page">
@@ -6,7 +7,66 @@
 
     <view class="body">
       <!-- 页面标题（Tab 主页 ActionBar 下直接内容，DESIGN.md §13，无花哨头部卡） -->
-      <text class="title">推荐</text>
+      <text class="title">智荐</text>
+
+      <!-- ===== 首页聚合（/recommend/home + /cookbook/recent）：空分区隐藏 ===== -->
+      <view v-if="homeLoading" class="home-sk" data-testid="home-skeleton">
+        <view class="sk-block sk-tall" />
+        <view class="sk-row">
+          <view v-for="i in 3" :key="i" class="sk-block sk-mini" />
+        </view>
+      </view>
+      <ui-state v-else-if="homeError" mode="error" text="推荐加载失败" :retry="true" @retry="loadHome" />
+      <template v-else>
+        <!-- 临期主推 -->
+        <view v-if="home.expiring.length" class="exp-card" data-testid="sec-expiring">
+          <view class="exp-head">
+            <text class="exp-title">临期主推</text>
+            <text class="exp-more" @click="goPantry">我家余量 ›</text>
+          </view>
+          <view class="exp-items">
+            <view v-for="e in home.expiring" :key="e.ingredientId" class="exp-item">
+              <text class="exp-name">{{ e.ingredientName }}</text>
+              <ui-expiry-badge :days-left="e.daysLeft" />
+            </view>
+          </view>
+          <template v-if="home.expiringPicks.length">
+            <text class="exp-sub">先把它们用掉</text>
+            <view v-for="d in home.expiringPicks" :key="d.dishId" class="pick-row" @click="goDish(d.dishId)">
+              <image v-if="d.coverImage" class="pick-cover" :src="thumbOf(d.coverImage)" mode="aspectFill" lazy-load />
+              <ui-avatar v-else :name="d.name" :size="40" />
+              <view class="pick-main">
+                <text class="pick-name">{{ d.name }}</text>
+                <text class="pick-meta">{{ cardMeta(d) }}</text>
+              </view>
+              <text v-if="coverageText(d.coverage)" class="pick-cov">{{ coverageText(d.coverage) }}</text>
+              <text class="arrow">›</text>
+            </view>
+          </template>
+        </view>
+
+        <!-- 横滑分区：最近做过 / 你常做 / 季节鲜 -->
+        <template v-for="sec in hSections" :key="sec.key">
+          <view v-if="sec.items.length" class="hsec" :data-testid="`sec-${sec.key}`">
+            <text class="section-label">{{ sec.label }}</text>
+            <scroll-view scroll-x class="hscroll" :show-scrollbar="false">
+              <view class="hrow">
+                <ui-dish-mini
+                  v-for="it in sec.items"
+                  :key="it.dishId"
+                  :name="it.name"
+                  :cover="it.cover"
+                  :meta="it.meta"
+                  :coverage="it.coverage"
+                  @tap="goDish(it.dishId)"
+                />
+              </view>
+            </scroll-view>
+          </view>
+        </template>
+      </template>
+
+      <text class="section-label ask-label">想吃点别的</text>
       <text class="desc">说说想吃的口味，帮你找菜、搭好一桌</text>
 
       <!-- 想吃什么（语义主入口）：自然语言 + 快捷口味 chips -->
@@ -79,8 +139,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { semanticSearch, type SemanticHit } from '@/api/dish'
+import { ref, reactive, computed } from 'vue'
+import { semanticSearch, coverageText, type SemanticHit, type DishCard } from '@/api/dish'
+import { recommendHome, recentCooked, type RecommendHome, type RecentCooked } from '@/api/recommend'
+import { thumbOf } from '@/utils/image'
+import { relativeDate } from '@/utils/datetime'
 import { recommendDefault, recommendMenu, type RecommendGroup } from '@/api/ai'
 import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/store/member'
@@ -107,7 +170,63 @@ async function loadDefault() {
     // 默认推荐失败静默（用户可手动触发）
   }
 }
-onShow(() => { loadDefault() })
+onShow(() => {
+  loadDefault()
+  loadHome()
+})
+
+// ---- 首页聚合 ----
+const homeLoading = ref(true)
+const homeError = ref(false)
+const homeLoaded = ref(false)
+const home = reactive<RecommendHome>({ expiring: [], expiringPicks: [], frequent: [], seasonal: [] })
+const recent = ref<RecentCooked[]>([])
+
+/** 首次骨架；再次 onShow 静默刷新。两个接口都失败才进错误态。 */
+async function loadHome() {
+  if (!homeLoaded.value) homeLoading.value = true
+  homeError.value = false
+  const [h, r] = await Promise.allSettled([recommendHome(), recentCooked(10)])
+  if (h.status === 'fulfilled') Object.assign(home, h.value)
+  if (r.status === 'fulfilled') recent.value = r.value
+  if (h.status === 'rejected' && r.status === 'rejected') {
+    homeError.value = !homeLoaded.value
+  } else {
+    homeLoaded.value = true
+  }
+  homeLoading.value = false
+}
+
+interface MiniItem { dishId: number; name: string; cover: string; meta: string; coverage: string }
+function toMini(d: DishCard): MiniItem {
+  return { dishId: d.dishId, name: d.name, cover: d.coverImage ? thumbOf(d.coverImage) : '', meta: cardMeta(d), coverage: coverageText(d.coverage) }
+}
+const hSections = computed(() => [
+  {
+    key: 'recent',
+    label: '最近做过',
+    items: recent.value.map((r) => ({
+      dishId: r.dishId,
+      name: r.name,
+      cover: r.coverImage ? thumbOf(r.coverImage) : '',
+      meta: `${relativeDate(r.lastCookedAt)} · 做过 ${r.cookedCount} 次`,
+      coverage: '',
+    })),
+  },
+  { key: 'frequent', label: '你常做', items: home.frequent.map(toMini) },
+  { key: 'seasonal', label: '季节鲜', items: home.seasonal.map(toMini) },
+])
+
+function cardMeta(d: DishCard): string {
+  const parts: string[] = []
+  if (d.cookMinutes) parts.push(`${d.cookMinutes} 分钟`)
+  parts.push(d.cookedCount > 0 ? `做过 ${d.cookedCount} 次` : '没做过')
+  return parts.join(' · ')
+}
+
+function goPantry() {
+  uni.switchTab({ url: '/pages/pantry/List' })
+}
 
 /** 输入变化即清空旧结果（相似菜/组合均随新输入失效，对齐 APP）。 */
 function onInput() {
@@ -187,6 +306,137 @@ function goDish(id: number) {
   margin-top: 2px;
   font-size: 12px;
   color: var(--caption);
+}
+/* 首页聚合 */
+.home-sk {
+  margin-top: var(--sp-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+}
+.sk-row {
+  display: flex;
+  gap: var(--sp-10);
+}
+.sk-block {
+  border-radius: var(--r-md);
+  background: linear-gradient(90deg, var(--card) 25%, var(--secondary) 45%, var(--card) 65%);
+  background-size: 400% 100%;
+  animation: sk-shimmer 1.4s ease infinite;
+}
+.sk-tall {
+  height: 132px;
+}
+.sk-mini {
+  width: 112px;
+  height: 120px;
+}
+@keyframes sk-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+.exp-card {
+  margin-top: var(--sp-12);
+  background: var(--highlight);
+  border: 1px solid var(--primary-soft);
+  border-radius: var(--r-lg);
+  padding: var(--sp-12);
+}
+.exp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.exp-title {
+  font-size: var(--fs-md);
+  font-weight: 800;
+  color: var(--title);
+}
+.exp-more {
+  font-size: var(--fs-xs);
+  color: var(--primary);
+  font-weight: 700;
+}
+.exp-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-6);
+  margin-top: var(--sp-8);
+}
+.exp-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  background: var(--card);
+  border-radius: var(--r-pill);
+  padding: 3px var(--sp-6) 3px var(--sp-10);
+}
+.exp-name {
+  font-size: var(--fs-sm);
+  color: var(--title);
+  font-weight: 700;
+}
+.exp-sub {
+  display: block;
+  margin: var(--sp-12) 0 var(--sp-6);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--caption);
+}
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+  background: var(--card);
+  border-radius: var(--r-md);
+  padding: var(--sp-8) var(--sp-10);
+  margin-bottom: var(--sp-6);
+}
+.pick-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  flex-shrink: 0;
+  background: var(--secondary);
+}
+.pick-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pick-name {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--title);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-meta {
+  font-size: var(--fs-tiny);
+  color: var(--caption);
+}
+.pick-cov {
+  flex-shrink: 0;
+  font-size: var(--fs-tiny);
+  font-weight: 700;
+  color: var(--success);
+}
+.hsec {
+  margin-top: var(--sp-4);
+}
+.hscroll {
+  white-space: nowrap;
+}
+.hrow {
+  display: inline-flex;
+  gap: var(--sp-10);
+  padding-bottom: var(--sp-4);
+}
+.ask-label {
+  margin-top: var(--sp-20);
 }
 /* 搜索（DESIGN.md §SearchInput：白底 + 主色描边 + rMd + ✕ 清除） */
 .search-row {

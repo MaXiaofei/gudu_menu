@@ -146,6 +146,36 @@
       "style": {
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/profile/Edit",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/Theme",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/About",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/Feedback",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/Legal",
+      "style": {
+        "navigationStyle": "custom"
+      }
     }
   ],
   "tabBar": {
@@ -156,23 +186,33 @@
     "list": [
       {
         "pagePath": "pages/dish/List",
-        "text": "菜谱"
+        "text": "菜谱",
+        "iconPath": "static/tabbar/dish-cream.png",
+        "selectedIconPath": "static/tabbar/dish-cream-on.png"
       },
       {
         "pagePath": "pages/menu/List",
-        "text": "食集"
+        "text": "食集",
+        "iconPath": "static/tabbar/menu-cream.png",
+        "selectedIconPath": "static/tabbar/menu-cream-on.png"
       },
       {
         "pagePath": "pages/recommend/Index",
-        "text": "推荐"
+        "text": "智荐",
+        "iconPath": "static/tabbar/recommend-cream.png",
+        "selectedIconPath": "static/tabbar/recommend-cream-on.png"
       },
       {
         "pagePath": "pages/pantry/List",
-        "text": "库存"
+        "text": "我家余量",
+        "iconPath": "static/tabbar/pantry-cream.png",
+        "selectedIconPath": "static/tabbar/pantry-cream-on.png"
       },
       {
         "pagePath": "pages/profile/Profile",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "static/tabbar/profile-cream.png",
+        "selectedIconPath": "static/tabbar/profile-cream-on.png"
       }
     ]
   },

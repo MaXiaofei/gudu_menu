@@ -1,13 +1,14 @@
 <template>
-  <!-- 我的 Tab（阶段 1 骨架：用户头卡 + 功能列表；各入口页面随阶段落地） -->
+  <page-meta :page-style="gdThemeStyle" />
+  <!-- 我的 Tab：用户头卡（→ 个人资料）+ 功能列表 -->
   <view class="page">
     <ui-action-bar />
 
-    <!-- 用户头部卡（点 → 成员管理，阶段 7 落地） -->
-    <view class="user-card" @click="() => todo()">
-      <ui-avatar :name="auth.nickname || '掌勺人'" :size="56" :fallback="'掌'" />
+    <!-- 用户头部卡（点 → 个人资料编辑） -->
+    <view class="user-card" data-testid="user-card" @click="go('/pages/profile/Edit')">
+      <ui-avatar :name="displayName" :src="avatarSrc" :size="56" :fallback="'掌'" />
       <view class="user-info">
-        <text class="user-name">{{ auth.nickname || '掌勺人' }}</text>
+        <text class="user-name">{{ displayName }}</text>
         <text class="user-sub">当前就餐：{{ currentMemberName || '选择就餐成员 ›' }}</text>
       </view>
       <text class="user-arrow">›</text>
@@ -15,7 +16,7 @@
 
     <!-- 功能卡 -->
     <view class="card">
-      <view v-for="item in items" :key="item.label" class="row" @click="todo(item)">
+      <view v-for="item in items" :key="item.label" class="row" @click="go(item.url)">
         <text class="row-label">{{ item.label }}</text>
         <text v-if="item.value" class="row-value">{{ item.value }}</text>
         <text class="row-arrow">›</text>
@@ -35,18 +36,31 @@
 import { useAuthStore } from '@/store/auth'
 import { useMemberStore } from '@/store/member'
 import { onShow } from '@dcloudio/uni-app'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { getMe, type MemberMe } from '@/api/member'
+import { thumbOf } from '@/utils/image'
+import { THEME_OPTIONS, themeState, applyTabBar } from '@/utils/theme'
+import { APP_VERSION } from '@/config/app'
 
 const auth = useAuthStore()
 const memberStore = useMemberStore()
+const me = ref<MemberMe | null>(null)
 
-onShow(() => memberStore.load().catch(() => {}))
+onShow(() => {
+  applyTabBar()
+  memberStore.load().catch(() => {})
+  getMe()
+    .then((m) => (me.value = m))
+    .catch(() => {})
+})
 const currentMemberName = computed(() =>
   memberStore.members.find((m) => m.id === memberStore.currentId)?.name || '',
 )
+const displayName = computed(() => me.value?.name || auth.nickname || uni.getStorageSync('nickname') || '掌勺人')
+const avatarSrc = computed(() => (me.value?.avatarUrl ? thumbOf(me.value.avatarUrl) : ''))
+const themeLabel = computed(() => THEME_OPTIONS.find((t) => t.name === themeState.name)?.label || '')
 
-// 功能入口：url 为空的展示 toast「建设中」（页面随阶段落地后补 url）
-const items = [
+const items = computed(() => [
   { label: '家庭成员', url: '/pages/member/Index' },
   { label: '食材库', url: '/pages/ingredient/List' },
   { label: '采购清单', url: '/pages/shopping/List' },
@@ -54,16 +68,13 @@ const items = [
   { label: '写菜谱', url: '/pages/dish/Create' },
   { label: '草稿箱', url: '/pages/dish/Drafts' },
   { label: '我的评价', url: '/pages/review/Mine' },
-  { label: '主题外观' },
-  { label: '关于小食单', value: 'v1.0.0' },
-]
+  { label: '主题外观', url: '/pages/profile/Theme', value: themeLabel.value },
+  { label: '意见反馈', url: '/pages/profile/Feedback' },
+  { label: '关于小食单', url: '/pages/profile/About', value: `v${APP_VERSION}` },
+])
 
-function todo(item?: { url?: string }) {
-  if (item?.url) {
-    uni.navigateTo({ url: item.url })
-    return
-  }
-  uni.showToast({ title: '建设中', icon: 'none' })
+function go(url: string) {
+  uni.navigateTo({ url })
 }
 
 function onLogout() {
@@ -100,17 +111,17 @@ function onLogout() {
   gap: 3px;
 }
 .user-name {
-  font-size: 16px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
 }
 .user-sub {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--caption);
 }
 .user-arrow {
   color: var(--caption);
-  font-size: 18px;
+  font-size: var(--fs-subtitle);
   font-weight: 700;
 }
 .card {
@@ -130,16 +141,16 @@ function onLogout() {
 }
 .row-label {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--fs-md);
   color: var(--title);
 }
 .row-value {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--caption);
 }
 .row-arrow {
   color: var(--caption);
-  font-size: 16px;
+  font-size: var(--fs-lg);
 }
 .logout {
   color: var(--error);

@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <ui-action-bar>
       <!-- 新建食集（筛选条上方独立一行，右侧对齐） -->

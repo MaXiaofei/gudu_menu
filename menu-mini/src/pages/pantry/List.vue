@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <ui-action-bar>
       <view class="top-btn ghost" @click="goAdd">入库</view>
@@ -38,7 +39,10 @@
         <ui-avatar :name="it.ingredientName" :size="40" />
         <view class="info">
           <text class="name">{{ it.ingredientName || `#${it.ingredientId}` }}</text>
-          <text class="sub">{{ subText(it) }}</text>
+          <view class="sub-row">
+            <text class="sub">{{ subText(it) }}</text>
+            <ui-expiry-badge v-if="showExpiryBadge(it.daysLeft)" :days-left="it.daysLeft" />
+          </view>
         </view>
         <text class="lvl" :style="{ color: stockColor(it.level) }">{{ stockLabel(it.level) }}</text>
         <text class="arrow">›</text>
@@ -65,7 +69,10 @@
           <ui-avatar :name="it.ingredientName" :size="40" />
           <view class="info">
             <text class="name">{{ it.ingredientName || `#${it.ingredientId}` }}</text>
-            <text class="sub">{{ subText(it) }}</text>
+            <view class="sub-row">
+              <text class="sub">{{ subText(it) }}</text>
+              <ui-expiry-badge v-if="showExpiryBadge(it.daysLeft)" :days-left="it.daysLeft" />
+            </view>
           </view>
           <text class="lvl" :style="{ color: stockColor(it.level) }">{{ stockLabel(it.level) }}</text>
           <text class="arrow">›</text>
@@ -89,6 +96,7 @@ import { ref, reactive, computed } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { listGroupedPage, sourceLabel, sourceSub, type PantryGroupedItem } from '@/api/pantry'
 import { stockColor, stockLabel } from '@/utils/token'
+import { showExpiryBadge } from '@/utils/freshness'
 
 const kwInput = ref('')
 const searchingKw = ref('')
@@ -227,6 +235,12 @@ function goShopping() {
 </script>
 
 <style scoped>
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  min-width: 0;
+}
 .page {
   height: 100vh;
   display: flex;

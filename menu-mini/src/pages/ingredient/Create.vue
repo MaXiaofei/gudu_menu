@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 录入食材：名称 + 采购分类（AI 补全属 AI 估营养范畴，暂不做） -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">

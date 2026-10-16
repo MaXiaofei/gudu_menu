@@ -24,6 +24,6 @@ test.describe('H5 登录页', () => {
     await expect(page.locator('input[type="password"]')).toHaveCount(1)
 
     // 登录按钮（uni-button 自定义元素，文本在子节点）
-    await expect(page.locator('uni-button')).toContainText('登 录')
+    await expect(page.locator('.login-btn')).toContainText('登 录')
   })
 })

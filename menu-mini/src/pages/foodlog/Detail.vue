@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">
       <text class="back" @click="goBack">‹</text>

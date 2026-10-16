@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 我的评价：待评价区 + 历史评价 -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">

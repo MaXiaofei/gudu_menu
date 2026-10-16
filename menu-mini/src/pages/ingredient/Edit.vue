@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 编辑食材：食用属性三选 + 删除 -->
   <view class="page">
     <ui-back-header :title="ing?.name" :subtitle="ing?.categoryName || '未分类'">

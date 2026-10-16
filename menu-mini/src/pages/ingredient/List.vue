@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 食材库列表：搜索（回车）+ 分类筛选 + 分页 -->
   <view class="page">
     <ui-back-header>

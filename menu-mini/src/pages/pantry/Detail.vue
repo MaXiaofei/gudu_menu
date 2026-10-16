@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 顶栏：食材名 + 当前档位副文案 -->
     <ui-back-header :title="detail?.ingredientName" :subtitle="detail ? `当前：${stockLabel(detail.level)}` : undefined" />
@@ -31,6 +32,18 @@
           <text class="lcard-title">{{ opt.label }}</text>
           <text class="lcard-desc">{{ opt.desc }}</text>
         </view>
+
+        <!-- 保质期 -->
+        <text class="q-line">什么时候前要吃完？</text>
+        <picker mode="date" :value="bestBefore || today" class="bb-picker" @change="onBestBefore">
+          <view class="bb-field" data-testid="best-before">
+            <text v-if="bestBefore" class="bb-val">{{ mdLabel(bestBefore) }} 前吃完</text>
+            <text v-else class="bb-ph">不记保质期</text>
+            <ui-expiry-badge v-if="bestBefore" :days-left="previewDaysLeft" />
+            <text class="bb-arrow">›</text>
+          </view>
+        </picker>
+        <text v-if="suggestedDays && bestBefore === suggestedDate" class="bb-hint">按品类建议 {{ suggestedDays }} 天，已帮你预填</text>
 
         <!-- 说明条 -->
         <view class="callout">
@@ -65,15 +78,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { pantryItemDetail, setPantryLevel, type StockLogEntry, type PantryItemDetail } from '@/api/pantry'
+import { pantryItemDetail, setPantryLevel, shelfLifeDays, type StockLogEntry, type PantryItemDetail } from '@/api/pantry'
+import { addDays, mdLabel, ymd } from '@/utils/freshness'
 import { stockColor, stockLabel, T } from '@/utils/token'
 
 const loading = ref(true)
 const detail = ref<PantryItemDetail | null>(null)
 const selected = ref('NONE')
 const saving = ref(false)
+
+// 保质期：已有则回显；没有则按品类建议预填（保存时才写入）
+const today = ymd(new Date())
+const bestBefore = ref('')
+const suggestedDays = ref<number | null>(null)
+const suggestedDate = ref('')
+const previewDaysLeft = computed(() => {
+  if (!bestBefore.value) return null
+  const [y, m, d] = bestBefore.value.split('-').map(Number)
+  const t = new Date()
+  const base = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime()
+  return Math.round((new Date(y, m - 1, d).getTime() - base) / 86400000)
+})
+function onBestBefore(e: any) {
+  bestBefore.value = e?.detail?.value || ''
+}
 
 const options = [
   { value: 'ENOUGH', label: '充足', desc: '还有不少' },
@@ -86,6 +116,15 @@ onLoad(async (options) => {
   try {
     detail.value = await pantryItemDetail(id)
     selected.value = detail.value.level
+    bestBefore.value = detail.value.bestBefore || ''
+    if (!bestBefore.value) {
+      const d = await shelfLifeDays(id)
+      if (d) {
+        suggestedDays.value = d
+        suggestedDate.value = addDays(d)
+        bestBefore.value = suggestedDate.value
+      }
+    }
   } catch {
     detail.value = null
   }
@@ -130,7 +169,7 @@ async function save() {
   if (!detail.value) return
   saving.value = true
   try {
-    await setPantryLevel(detail.value.ingredientId, selected.value)
+    await setPantryLevel(detail.value.ingredientId, selected.value, bestBefore.value || undefined)
     uni.showToast({ title: '已保存', icon: 'none' })
     setTimeout(() => uni.navigateBack(), 400)
   } catch (e) {
@@ -171,6 +210,40 @@ async function save() {
   font-size: 12px;
   color: var(--body);
   margin: 20px 0 10px;
+}
+/* 保质期 */
+.bb-picker {
+  display: block;
+}
+.bb-field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-10) var(--sp-12);
+}
+.bb-val {
+  flex: 1;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--title);
+}
+.bb-ph {
+  flex: 1;
+  font-size: var(--fs-md);
+  color: var(--caption);
+}
+.bb-arrow {
+  color: var(--caption);
+  font-size: var(--fs-lg);
+}
+.bb-hint {
+  display: block;
+  margin-top: var(--sp-6);
+  font-size: var(--fs-xs);
+  color: var(--caption);
 }
 .lcard {
   display: flex;

@@ -11,6 +11,8 @@ export interface PantryGroupedItem {
   ingredientName?: string | null
   level: string // ENOUGH / LOW / NONE
   lastChange?: LastChange | null
+  bestBefore?: string | null // YYYY-MM-DD
+  daysLeft?: number | null // 今天到期=0，已过期为负
 }
 
 export interface PantryGrouped {
@@ -81,6 +83,8 @@ export interface PantryItemDetail {
   ingredientName?: string | null
   level: string
   changes: StockLogEntry[]
+  bestBefore?: string | null
+  daysLeft?: number | null
 }
 
 /** 食材详情：GET /pantry/item（档位 + 最近流水）。 */
@@ -92,12 +96,12 @@ export function pantryItemDetail(ingredientId: number): Promise<PantryItemDetail
   })
 }
 
-/** 设档位（手动修正）：PUT /pantry/{ingredientId}/level。 */
-export function setPantryLevel(ingredientId: number, level: string): Promise<void> {
+/** 设档位（手动修正）：PUT /pantry/{ingredientId}/level；bestBefore 不传=不改。 */
+export function setPantryLevel(ingredientId: number, level: string, bestBefore?: string): Promise<void> {
   return request({
     url: `/pantry/${ingredientId}/level`,
     method: 'PUT',
-    data: { level },
+    data: bestBefore ? { level, bestBefore } : { level },
   })
 }
 
@@ -107,6 +111,7 @@ export function pantryManualAdd(p: {
   name?: string
   level?: string
   sourceNote?: string
+  bestBefore?: string
 }): Promise<void> {
   return request({
     url: '/pantry/manual',
@@ -116,6 +121,36 @@ export function pantryManualAdd(p: {
       name: p.name,
       level: p.level,
       sourceNote: p.sourceNote,
+      bestBefore: p.bestBefore || undefined,
     },
   })
+}
+
+/** 临期项（三档库存 + 保质期）。 */
+export interface ExpiringItem {
+  ingredientId: number
+  ingredientName: string
+  level: string
+  bestBefore: string
+  daysLeft: number
+}
+
+/** 临期列表：GET /pantry/expiring?days=3（daysLeft 升序，含已过期）。 */
+export function listExpiring(days = 3): Promise<ExpiringItem[]> {
+  return request<ExpiringItem[]>({ url: '/pantry/expiring', method: 'GET', data: { days } })
+}
+
+/** 默认保质天数建议：GET /pantry/shelf-life?ingredientId=（无建议为 null；失败也按 null 处理）。 */
+export async function shelfLifeDays(ingredientId: number): Promise<number | null> {
+  try {
+    const r = await request<{ suggestedDays: number | null }>({
+      url: '/pantry/shelf-life',
+      method: 'GET',
+      data: { ingredientId },
+    })
+    const d = r?.suggestedDays
+    return typeof d === 'number' && d > 0 ? d : null
+  } catch {
+    return null
+  }
 }

@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 成员管理：只读展示 + 切换当前就餐成员（档案编辑在后台） -->
   <view class="page">
     <ui-back-header />

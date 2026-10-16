@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- ===== 列表视图 ===== -->
     <template v-if="view === 'list'">
@@ -147,10 +148,38 @@
         </view>
         <view class="share-actions">
           <view class="share-btn" @click="copyText"><text class="share-btn-txt">复制文字</text></view>
-          <view class="share-btn" @click="saveImage"><text class="share-btn-txt">转图片分享</text></view>
+          <view class="share-btn" :class="{ disabled: imgGenerating }" @click="saveImage">
+            <text class="share-btn-txt">{{ imgGenerating ? '生成中…' : '转图片分享' }}</text>
+          </view>
         </view>
         <view style="height: 40px" />
       </scroll-view>
+      <!-- 离屏画布（小程序 canvas 2d；H5 用 document canvas，不渲染此节点） -->
+      <!-- #ifndef H5 -->
+      <canvas type="2d" id="shareCanvas" class="share-canvas" />
+      <!-- #endif -->
+
+      <!-- 分享图预览 -->
+      <view v-if="shareImg" class="mask mask-center" @click="shareImg = ''">
+        <view class="img-dialog" @click.stop>
+          <scroll-view scroll-y class="img-scroll">
+            <image class="img-preview" :src="shareImg" mode="widthFix" :show-menu-by-longpress="true" @click="previewShareImg" />
+          </scroll-view>
+          <!-- #ifdef H5 -->
+          <text class="img-tip">长按图片保存，或点「下载图片」</text>
+          <view class="img-actions">
+            <view class="img-btn ghost" @click="shareImg = ''">关闭</view>
+            <view class="img-btn fill" @click="downloadH5">下载图片</view>
+          </view>
+          <!-- #endif -->
+          <!-- #ifndef H5 -->
+          <view class="img-actions">
+            <view class="img-btn ghost" @click="saveShareImg">保存到相册</view>
+            <view class="img-btn fill" @click="shareToFriend">发给好友</view>
+          </view>
+          <!-- #endif -->
+        </view>
+      </view>
     </template>
 
     <!-- 改名弹窗 -->
@@ -169,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, getCurrentInstance } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import {
   listShopping, shoppingDetail, createEmptyList, restockItems, undoRestock,
@@ -179,8 +208,12 @@ import {
 } from '@/api/shopping'
 import { mdHm } from '@/utils/datetime'
 import { navInset } from '@/utils/token'
+import { palette } from '@/utils/theme'
+import { drawShareImage, shareLayout, type ShareContent } from '@/utils/shareImage'
+import { saveToAlbum } from '@/utils/album'
 
 const sb = navInset()
+const instance = getCurrentInstance()
 
 // 视图切换：list → detail → share
 const view = ref<'list' | 'detail' | 'share'>('list')
@@ -475,10 +508,117 @@ function copyText() {
   })
 }
 
-function saveImage() {
-  // 阶段 4 简化：canvas 转图后续迭代；先用系统截屏分享文案替代
-  copyText()
-  uni.showToast({ title: '已复制文字，可直接粘贴分享', icon: 'none' })
+// ---- 转图片分享（canvas 绘制 → 预览 → 保存相册 / 发给好友；H5 下载/长按） ----
+const imgGenerating = ref(false)
+const shareImg = ref('') // 小程序 tempFilePath / H5 dataURL
+
+function shareContent(): ShareContent {
+  const d = detail.value
+  const now = new Date()
+  return {
+    title: d?.name || `采购单 #${d?.id ?? ''}`,
+    subtitle: `${now.getMonth() + 1}月${now.getDate()}日 · 待买 ${unPurchasedItems.value.length} 项`,
+    rows: unPurchasedItems.value.map((it) => ({ name: itemName(it), qty: amountText(it) })),
+  }
+}
+
+async function saveImage() {
+  if (imgGenerating.value) return
+  if (!unPurchasedItems.value.length) {
+    uni.showToast({ title: '没有要分享的采购项', icon: 'none' })
+    return
+  }
+  imgGenerating.value = true
+  try {
+    shareImg.value = await renderShareImage(shareContent())
+  } catch {
+    uni.showToast({ title: '生成图片失败，可先复制文字', icon: 'none' })
+  } finally {
+    imgGenerating.value = false
+  }
+}
+
+function renderShareImage(c: ShareContent): Promise<string> {
+  const L = shareLayout(c.rows.length)
+  // #ifdef H5
+  return new Promise((resolve, reject) => {
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = L.width
+      canvas.height = L.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('no ctx')
+      drawShareImage(ctx as any, c, palette())
+      resolve(canvas.toDataURL('image/png'))
+    } catch (e) {
+      reject(e)
+    }
+  })
+  // #endif
+  // #ifndef H5
+  return new Promise((resolve, reject) => {
+    uni
+      .createSelectorQuery()
+      .in(instance?.proxy)
+      .select('#shareCanvas')
+      .fields({ node: true, size: true } as any, () => {})
+      .exec((res: any[]) => {
+        const canvas = res?.[0]?.node
+        if (!canvas) {
+          reject(new Error('canvas not ready'))
+          return
+        }
+        canvas.width = L.width
+        canvas.height = L.height
+        const ctx = canvas.getContext('2d')
+        drawShareImage(ctx, c, palette())
+        uni.canvasToTempFilePath({
+          canvas,
+          fileType: 'png',
+          success: (r: any) => resolve(r.tempFilePath),
+          fail: (e: any) => reject(e),
+        } as any)
+      })
+  })
+  // #endif
+}
+
+function previewShareImg() {
+  if (shareImg.value) uni.previewImage({ urls: [shareImg.value] })
+}
+
+async function saveShareImg() {
+  if (shareImg.value) await saveToAlbum(shareImg.value)
+}
+
+/** 小程序：调起微信图片分享菜单（发给朋友 / 保存 / 收藏）。 */
+function shareToFriend() {
+  if (!shareImg.value) return
+  const api = (uni as any).showShareImageMenu
+  if (typeof api !== 'function') {
+    uni.showToast({ title: '当前微信版本不支持，请先保存到相册', icon: 'none' })
+    return
+  }
+  api({
+    path: shareImg.value,
+    fail: (e: any) => {
+      if (!/cancel/i.test(e?.errMsg || '')) {
+        uni.showToast({ title: '分享失败，请先保存到相册', icon: 'none' })
+      }
+    },
+  })
+}
+
+/** H5：触发浏览器下载。 */
+function downloadH5() {
+  // #ifdef H5
+  const a = document.createElement('a')
+  a.href = shareImg.value
+  a.download = `${shareContent().title}.png`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  // #endif
 }
 </script>
 
@@ -879,6 +1019,63 @@ function saveImage() {
   border-radius: var(--r-md);
   padding: 11px 0;
   text-align: center;
+}
+.share-btn.disabled {
+  opacity: 0.6;
+}
+.share-canvas {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 375px;
+  height: 375px;
+}
+.mask-center {
+  align-items: center;
+  justify-content: center;
+}
+.img-dialog {
+  width: 86vw;
+  max-height: 86vh;
+  background: var(--card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-10);
+}
+.img-scroll {
+  max-height: 64vh;
+}
+.img-preview {
+  width: 100%;
+  border-radius: var(--r-md);
+  display: block;
+}
+.img-tip {
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--caption);
+}
+.img-actions {
+  display: flex;
+  gap: var(--sp-10);
+}
+.img-btn {
+  flex: 1;
+  padding: 11px 0;
+  text-align: center;
+  border-radius: var(--r-md);
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+.img-btn.ghost {
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+.img-btn.fill {
+  background: var(--primary);
+  color: var(--on-primary);
 }
 .share-btn-txt {
   color: var(--primary);

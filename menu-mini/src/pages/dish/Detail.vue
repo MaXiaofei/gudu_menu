@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 顶栏：箭头 + 菜名 + 副信息（§13.2） -->
     <ui-back-header>
@@ -11,7 +12,7 @@
     </ui-back-header>
 
     <ui-state v-if="loading" mode="loading" />
-    <ui-state v-else-if="!detail" mode="error" text="加载详情失败" :retry="true" @retry="load" />
+    <ui-state v-else-if="!detail" mode="error" text="加载详情失败" :retry="true" @retry="load(dishId)" />
     <template v-else>
       <scroll-view scroll-y class="body">
         <!-- 封面（220px；点击全屏；无图首字占位，§10.5） -->
@@ -77,10 +78,25 @@
 
       <!-- 底部：加到食集（食集内查看 showActions=0 时隐藏） -->
       <view v-if="showActions" class="bottom">
+        <button class="btn-ghost btn-cook" :disabled="cookLoading" data-testid="cook-now" @click="onCookNow">
+          {{ cookLoading ? '加载中…' : '现在就做' }}
+        </button>
         <button class="btn-add" :disabled="adding" @click="onAddToMenu">
           {{ adding ? '处理中…' : '加到食集' }}
         </button>
       </view>
+
+      <!-- 单菜直做确认（GET /cook/dish/{id}/materials → POST /cook/dish/{id}） -->
+      <ui-cook-sheet
+        v-if="cookVisible"
+        :items="cookItems"
+        :submitting="cookSubmitting"
+        :done="cookDone"
+        :result-sub="detail.dish.name"
+        @submit="onCookSubmit"
+        @close="closeCook"
+        @foodlog="goFoodlog"
+      />
 
       <!-- 加到食集：选择近期食集（半屏弹层） -->
       <view v-if="sheetVisible" class="mask" @click="sheetVisible = false">
@@ -132,6 +148,8 @@ import { dishDetail, amountText, type DishDetail } from '@/api/dish'
 import { listMenus, createMenu, addDishToMenu, type Menu } from '@/api/menu'
 import { thumbOf, toAbsolute, thumbList, originalList } from '@/utils/image'
 import { isFromToday, mdHm } from '@/utils/datetime'
+import { dishCookMaterials, cookDish } from '@/api/cook'
+import type { CookMaterial } from '@/api/menu'
 
 const loading = ref(true)
 const detail = ref<DishDetail | null>(null)
@@ -145,8 +163,18 @@ const recentMenus = ref<Menu[]>([])
 const dialogVisible = ref(false)
 const newMenuName = ref('')
 
+const dishId = ref(0)
+
+// 单菜直做
+const cookVisible = ref(false)
+const cookLoading = ref(false)
+const cookSubmitting = ref(false)
+const cookDone = ref(false)
+const cookItems = ref<CookMaterial[]>([])
+
 onLoad((options) => {
   const id = Number(options?.id || 0)
+  dishId.value = id
   if (options?.showActions === '0') showActions.value = false
   load(id)
 })
@@ -196,6 +224,41 @@ function previewCover() {
 function previewStep(s: { images?: string | null }, index: number) {
   const urls = originalList(s.images)
   if (urls.length) uni.previewImage({ urls, current: urls[index] })
+}
+
+// ---- 现在就做（单菜直做：确认用料 → 写食记 + 回写我家余量） ----
+async function onCookNow() {
+  if (cookLoading.value || !dishId.value) return
+  cookLoading.value = true
+  try {
+    cookItems.value = await dishCookMaterials(dishId.value, 1)
+    cookDone.value = false
+    cookVisible.value = true
+  } catch {
+    uni.showToast({ title: '用料加载失败，请稍后重试', icon: 'none' })
+  } finally {
+    cookLoading.value = false
+  }
+}
+async function onCookSubmit(p: { usedUp: number[]; partiallyUsed: number[] }) {
+  cookSubmitting.value = true
+  try {
+    await cookDish(dishId.value, { servings: 1, usedUp: p.usedUp, partiallyUsed: p.partiallyUsed })
+    cookDone.value = true
+    uni.showToast({ title: '已记到食记', icon: 'none' })
+  } catch {
+    // request.ts 已提示
+  } finally {
+    cookSubmitting.value = false
+  }
+}
+function closeCook() {
+  cookVisible.value = false
+  cookDone.value = false
+}
+function goFoodlog() {
+  closeCook()
+  uni.navigateTo({ url: '/pages/foodlog/Index' })
 }
 
 // ---- 加到食集（对齐 APP：只列今天 0 点及以后创建的食集） ----
@@ -444,8 +507,14 @@ async function confirmCreateMenu() {
   padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
   background: var(--card);
   border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--sp-10);
+}
+.btn-cook {
+  flex: 1;
 }
 .btn-add {
+  flex: 2;
   background: var(--success);
   color: #FFFFFF;
   border-radius: var(--r-md);

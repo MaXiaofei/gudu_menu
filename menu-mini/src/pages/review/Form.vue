@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 评价表单页（单菜/食集通用）：query: dishId|menuId, name, title -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">

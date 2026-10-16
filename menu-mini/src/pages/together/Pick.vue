@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 朋友点菜落地页：分享卡片/小程序码进入，免登录（token 凭证） -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">

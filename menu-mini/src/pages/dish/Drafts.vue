@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 草稿箱（左滑删除无确认，滑走即删） -->
   <view class="page">
     <ui-back-header />

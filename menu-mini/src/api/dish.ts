@@ -15,6 +15,39 @@ export interface Dish {
   categoryNames?: string[]
   tagNames?: string[]
   cookedCount?: number
+  /** 本家余量对用料的覆盖（未登录 null；旧后端缺省 undefined）。 */
+  coverage?: Coverage | null
+}
+
+/** 本家余量覆盖（调料不计入）：enough = 档位 ENOUGH/LOW 的用料数，total = 非调料用料总数。 */
+export interface Coverage {
+  enough: number
+  total: number
+  missing: { ingredientId: number; name: string }[]
+}
+
+/** 首页智荐等聚合接口的菜卡片。 */
+export interface DishCard {
+  dishId: number
+  name: string
+  coverImage: string | null
+  cookMinutes: number | null
+  difficulty: number | null
+  cookedCount: number
+  coverage: Coverage | null
+}
+
+/** 「家里够 X/Y 样」；coverage 为空或无非调料用料时返回空串（前端隐藏）。 */
+export function coverageText(c?: Coverage | null): string {
+  if (!c || !c.total) return ''
+  return `家里够 ${c.enough}/${c.total} 样`
+}
+
+/** 覆盖程度：全够 full / 部分 partial / 一样没有 none / 无数据 ''。 */
+export function coverageLevel(c?: Coverage | null): 'full' | 'partial' | 'none' | '' {
+  if (!c || !c.total) return ''
+  if (c.enough >= c.total) return 'full'
+  return c.enough > 0 ? 'partial' : 'none'
 }
 
 /** 步骤（images 为逗号分隔的相对路径串）。 */
@@ -48,12 +81,15 @@ export function amountText(ing: DishIngredient): string {
   return unit ? `${num} ${unit}` : num
 }
 
+/** 排序：latest 最新（缺省）/ cooked 做过最多 / coverage 家里够的优先。 */
+export type DishSort = 'latest' | 'cooked' | 'coverage'
+
 export interface DishSearchParams {
   keyword?: string
   tagIds?: string // 逗号分隔多选
   cuisineIds?: string
   categoryIds?: string // 逗号分隔多选（2026-08-19 新标签体系：分类替代 tag+cuisine）
-  sort?: 'cooked' | 'latest'
+  sort?: DishSort
   pageNum: number
   pageSize?: number
 }
@@ -76,7 +112,7 @@ export function semanticSearch(query: string, topK = 8): Promise<SemanticHit[]> 
   })
 }
 
-/** 搜索菜谱：GET /dish/search（sort=cooked 做过最多，缺省最新）。 */
+/** 搜索菜谱：GET /dish/search（sort=cooked 做过最多 / coverage 家里够的优先，缺省最新）。 */
 export function searchDishes(p: DishSearchParams): Promise<Page<Dish>> {
   return request<Page<Dish>>({
     url: '/dish/search',
@@ -86,7 +122,7 @@ export function searchDishes(p: DishSearchParams): Promise<Page<Dish>> {
       tagIds: p.tagIds || undefined,
       cuisineIds: p.cuisineIds || undefined,
       categoryIds: p.categoryIds || undefined,
-      sort: p.sort === 'cooked' ? 'cooked' : undefined,
+      sort: p.sort === 'cooked' || p.sort === 'coverage' ? p.sort : undefined,
       pageNum: p.pageNum,
       pageSize: p.pageSize ?? 10,
     },
