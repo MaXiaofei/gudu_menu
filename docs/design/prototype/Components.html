@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件 · 咕嘟小食单原型</title>
+<link rel="stylesheet" href="admin.css">
+<style>
+.wrap{max-width:1280px;margin:0 auto;padding:40px 32px 64px;display:flex;flex-direction:column;gap:24px}
+h1{margin:0;font-size:32px;font-weight:900}
+h2{margin:0 0 6px;font-size:18px;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:20px}
+.demo{display:flex;flex-direction:column;gap:12px}
+.note{font-size:12px;color:var(--body);line-height:1.6}
+.cta{height:52px;border:none;border-radius:14px;background:var(--primary-deep);color:#fff;font-size:16px;font-weight:700;box-shadow:0 4px 12px rgba(169,101,30,.3)}
+.ghost{height:52px;border-radius:14px;border:1px solid #E8DCCB;background:#fff;color:var(--title);font-size:15px;font-weight:700}
+.chip{padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--border);font-size:12px;color:var(--body)}
+.chip.on{background:var(--title);color:#fff;border-color:var(--title);font-weight:700}
+.seg3{display:flex;border-radius:8px;border:1px solid var(--border);overflow:hidden;font-size:12px;width:max-content}
+.seg3 span{padding:7px 10px;color:var(--body)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>组件</h1>
+    <div class="sub" style="margin-top: 8px">三端同名同义：Flutter 组件 / 小程序 ui-* 组件 / 后台 Element Plus 主题映射。新页面先用这些，不自造样式。</div>
+  </div>
+
+  <div class="grid">
+    <section class="card demo">
+      <h2>按钮</h2>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap">
+        <button class="cta" style="padding: 0 22px">现在就做</button>
+        <button class="ghost" style="padding: 0 18px">加入食集</button>
+        <button class="ghost" style="padding: 0 18px; color: #B8382B; border-color: #FBD9D5">退出这个家庭</button>
+      </div>
+      <div style="display: flex; gap: 10px">
+        <button style="height: 52px; padding: 0 22px; border: none; border-radius: 14px; background: var(--primary-soft); color: rgba(255,255,255,.95); font-size: 16px; font-weight: 700">提交中…</button>
+        <button style="height: 52px; padding: 0 22px; border: none; border-radius: 14px; background: #07A35A; color: #fff; font-size: 16px; font-weight: 700">微信一键登录</button>
+      </div>
+      <div class="note">主按钮底色用 primaryDeep（白字 3.9:1）。primary #E89150 上白字只有 2.4:1，仅用于装饰和大号图标，不承载文字。最小点击高度 44。</div>
+    </section>
+
+    <section class="card demo">
+      <h2>余量三档 · StockLevel</h2>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap">
+        <span class="tag ok">充足</span><span class="tag warn">不足</span><span class="tag err">用完</span>
+        <span class="tag" style="background: #DB5A4E; color: #fff">明天到期</span><span class="tag warn">剩 2 天</span>
+      </div>
+      <div class="seg3" role="group" aria-label="余量"><span style="background: #4FAE6E; color: #fff; font-weight: 700">充足</span><span>不足</span><span>用完</span></div>
+      <div class="note">同一组件用于余量列表、做完确认和盘点。到期徽章：今天/明天为实心红，3 天内为浅黄描边。</div>
+    </section>
+
+    <section class="card demo">
+      <h2>覆盖率徽章 · Coverage</h2>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap">
+        <span class="tag ok">家里够 3/3 样</span><span class="tag warn">家里够 4/5 样 · 缺葱</span><span class="tag err">家里够 1/5 样</span>
+      </div>
+      <div class="note">全够为绿；缺 1–2 样为黄并点名缺的那样；更少为红。total 为 0 时不显示。</div>
+    </section>
+
+    <section class="card demo">
+      <h2>筛选芯片 / 分段</h2>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="chip on">家里够的优先</span><span class="chip">最近做过</span><span class="chip">做得最多</span></div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 4px; border-radius: 12px; background: var(--secondary); max-width: 360px">
+        <span style="height: 36px; border-radius: 9px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">菜 4</span>
+        <span style="height: 36px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--body)">备菜</span>
+        <span style="height: 36px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--body)">采购</span>
+        <span style="height: 36px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--body)">一起吃</span>
+      </div>
+    </section>
+
+    <section class="card demo">
+      <h2>卡片与列表行 · AppCard</h2>
+      <div style="display: flex; gap: 12px; padding: 12px; border-radius: 16px; background: #fff; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(169,101,30,.08)">
+        <img src="img/dish/huadan-xiaren.jpg" alt="滑蛋虾仁" style="width: 72px; height: 72px; border-radius: 12px; object-fit: cover; flex-shrink: 0">
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 6px"><b style="font-size: 15px">滑蛋虾仁</b><span><span class="tag ok">家里够 3/3 样</span></span><span class="muted">上次 3 天前 · 妈妈做的</span></span>
+      </div>
+      <div style="border-radius: 16px; overflow: hidden; background: #fff; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(169,101,30,.08); display: grid; grid-template-columns: 140px 1fr; align-items: start">
+        <img src="img/dish/qingzheng-luyu.jpg" alt="清蒸鲈鱼" style="width: 140px; height: 112px; object-fit: cover; display: block">
+        <span style="padding: 12px 14px; display: flex; flex-direction: column; gap: 6px"><span class="tag err" style="align-self: flex-start">鲈鱼明天到期</span><b style="font-size: 15px">清蒸鲈鱼</b><span class="muted">家里够 4/5 样 · 25 分钟</span></span>
+      </div>
+      <div class="note">列表行图 72×72 圆角 12；智荐 / 临期大卡用左图右文，图占 1/3。</div>
+    </section>
+
+    <section class="card demo">
+      <h2>提示条 · InfoCallout</h2>
+      <div style="padding: 12px; border-radius: 12px; background: var(--info-bg); color: var(--info); font-size: 13px; line-height: 1.6">妈妈少盐、林林少油：2 道菜已按忌口标记。</div>
+      <div style="padding: 12px; border-radius: 12px; background: var(--warn-bg); border: 1px solid var(--primary-soft); color: var(--body); font-size: 13px; line-height: 1.6">请先阅读并勾选下方协议。</div>
+      <div style="padding: 12px; border-radius: 12px; background: var(--err-bg); color: var(--err); font-size: 13px; line-height: 1.6">注销后数据不可恢复。</div>
+    </section>
+
+    <section class="card demo">
+      <h2>输入 · SearchInput / 计数器 Counter</h2>
+      <label style="height: 44px; border-radius: 12px; background: #fff; border: 1px solid var(--border); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--body)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input placeholder="搜菜名、食材" aria-label="搜索" style="flex: 1; border: none; outline: none; font-size: 14px; background: transparent">
+      </label>
+      <span style="display: flex; align-items: center; gap: 16px">
+        <button aria-label="减少" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); font-size: 18px">−</button>
+        <b style="font-size: 20px">4</b>
+        <button aria-label="增加" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); font-size: 18px">+</button>
+        <span class="muted">人份</span>
+      </span>
+    </section>
+
+    <section class="card demo">
+      <h2>底部 Tab 栏</h2>
+      <div style="height: 64px; background: #fff; border: 1px solid var(--border); border-radius: 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; text-align: center; font-size: 10px; margin-top: 18px">
+        <span style="color: #B8622A; font-weight: 700">菜谱</span><span style="color: var(--body)">食集</span>
+        <span style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--body)"><span style="width: 50px; height: 50px; margin-top: -30px; border-radius: 999px; background: var(--primary-deep); border: 3px solid #fff; box-shadow: 0 4px 12px rgba(169,101,30,.4); color: #fff; display: flex; align-items: center; justify-content: center; box-sizing: border-box"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg></span>智荐</span>
+        <span style="color: var(--body)">我家余量</span><span style="color: var(--body)">我的</span>
+      </div>
+      <div class="note">中间为凸起按钮；未选中文字用 body 色（caption 色在 10px 下对比度不足）。</div>
+    </section>
+  </div>
+
+  <section class="card" style="display: flex; flex-direction: column; gap: 18px">
+    <div><h2>图片规范</h2><div class="note">有图的地方必须有图；菜品用真实照片，食材用插画，人用头像。图片只裁切不拉伸（object-fit: cover）。</div></div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))">
+      <div class="demo">
+        <span class="label">比例与圆角</span>
+        <div style="display: flex; gap: 12px; align-items: flex-end">
+          <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><img src="img/dish/kele-jichi.jpg" alt="" style="width: 56px; height: 56px; border-radius: 10px; object-fit: cover"><span class="muted">1:1 列表</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><img src="img/dish/mapo-doufu.jpg" alt="" style="width: 96px; height: 72px; border-radius: 12px; object-fit: cover"><span class="muted">4:3 卡片</span></span>
+          <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><img src="img/dish/hongshao-rou.jpg" alt="" style="width: 128px; height: 72px; border-radius: 0; object-fit: cover"><span class="muted">16:9 详情头图（满宽，无圆角）</span></span>
+        </div>
+        <div class="note">图片圆角 = 所在卡片圆角 − 4。详情头图满宽，顶部叠返回 / 收藏按钮，底部加深色渐变保证白字可读。</div>
+      </div>
+      <div class="demo">
+        <span class="label">食集拼图 / 头像叠放</span>
+        <div style="display: flex; gap: 16px; align-items: center">
+          <span style="width: 88px; height: 88px; border-radius: 14px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: #fff">
+            <img src="img/dish/qingzheng-luyu.jpg" alt="" style="width: 100%; height: 43px; object-fit: cover"><img src="img/dish/huadan-xiaren.jpg" alt="" style="width: 100%; height: 43px; object-fit: cover"><img src="img/dish/suanrong-xilanhua.jpg" alt="" style="width: 100%; height: 43px; object-fit: cover"><img src="img/dish/xihongshi-jidan-tang.jpg" alt="" style="width: 100%; height: 43px; object-fit: cover">
+          </span>
+          <span style="display: inline-flex"><img src="img/avatar/xiaowang.svg" alt="" style="width: 36px; height: 36px; border-radius: 999px; border: 2px solid #fff"><img src="img/avatar/linlin.svg" alt="" style="width: 36px; height: 36px; border-radius: 999px; border: 2px solid #fff; margin-left: -10px"><img src="img/avatar/mama.svg" alt="" style="width: 36px; height: 36px; border-radius: 999px; border: 2px solid #fff; margin-left: -10px"><span style="width: 36px; height: 36px; border-radius: 999px; border: 2px solid #fff; margin-left: -10px; background: var(--secondary); color: var(--body); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box">+1</span></span>
+        </div>
+        <div class="note">食集封面取前 4 道菜 2×2 拼图，不足 4 道时用最多的那道铺满。头像最多叠 3 个，其余显示 +N，带 2px 白描边。</div>
+      </div>
+      <div class="demo">
+        <span class="label">食材插画</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: var(--secondary); display: flex; align-items: center; justify-content: center"><img src="img/ing/tomato.svg" alt="番茄" style="width: 32px"></span>
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: var(--secondary); display: flex; align-items: center; justify-content: center"><img src="img/ing/egg.svg" alt="鸡蛋" style="width: 32px"></span>
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: var(--secondary); display: flex; align-items: center; justify-content: center"><img src="img/ing/fish.svg" alt="鲈鱼" style="width: 32px"></span>
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: var(--secondary); display: flex; align-items: center; justify-content: center"><img src="img/ing/broccoli.svg" alt="西兰花" style="width: 32px"></span>
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: var(--secondary); display: flex; align-items: center; justify-content: center"><img src="img/ing/scallion.svg" alt="小葱" style="width: 32px"></span>
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: var(--secondary); display: flex; align-items: center; justify-content: center; opacity: .45; filter: grayscale(1)"><img src="img/ing/tofu.svg" alt="豆腐（用完）" style="width: 32px"></span>
+        </div>
+        <div class="note">放在 secondary 浅底圆角方块里，插画占 70%。「用完」的食材插画去色 + 45% 透明度。按食材品类匹配，没有对应插画时用品类通用图（蔬菜 / 肉 / 调料）。</div>
+      </div>
+      <div class="demo">
+        <span class="label">加载中 / 加载失败</span>
+        <div style="display: flex; gap: 12px">
+          <span style="width: 72px; height: 72px; border-radius: 12px; background: linear-gradient(90deg, #FBF0DD, #F6E6CC, #FBF0DD)"></span>
+          <span style="width: 72px; height: 72px; border-radius: 12px; background: var(--secondary); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: rgba(74,56,42,.45)">滑</span>
+          <span style="width: 72px; height: 72px; border-radius: 12px; background: var(--secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--body); font-size: 10px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg>点按重试</span>
+        </div>
+        <div class="note">加载中为 secondary 底呼吸骨架；失败时显示菜名首字（列表）或图片图标 + 重试（详情）。首字占位只用于失败兜底，不作为常态。</div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

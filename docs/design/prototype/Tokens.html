@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token 与皮肤 · 咕嘟小食单原型</title>
+<link rel="stylesheet" href="admin.css">
+<style>
+.wrap{max-width:1280px;margin:0 auto;padding:40px 32px 64px;display:flex;flex-direction:column;gap:28px}
+h1{margin:0;font-size:32px;font-weight:900}
+h2{margin:0 0 14px;font-size:18px;font-weight:700}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.sw{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;font-size:12px}
+.sw i{display:block;height:56px}
+.sw div{padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.sw b{font-size:13px}
+.scale{display:flex;flex-direction:column;gap:10px}
+.scale div{display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.scale code{width:140px;flex-shrink:0;font-size:12px;color:var(--body)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Token 与皮肤</h1>
+    <div class="sub" style="margin-top: 8px">唯一来源 docs/design/tokens.json → node scripts/design/gen-tokens.mjs 生成 Flutter / 小程序 / 管理后台三端代码；生成前校验字段完整和 WCAG 对比度。</div>
+  </div>
+
+  <section class="card">
+    <h2>皮肤 · 奶油轻食（默认）</h2>
+    <div class="swatches">
+      <div class="sw"><i style="background:#E89150"></i><div><b>primary</b><span class="mono">#E89150</span></div></div>
+      <div class="sw"><i style="background:#D17A3C"></i><div><b>primaryDeep</b><span class="mono">#D17A3C · 按钮底</span></div></div>
+      <div class="sw"><i style="background:#F6D9BE"></i><div><b>primarySoft</b><span class="mono">#F6D9BE</span></div></div>
+      <div class="sw"><i style="background:#FBF0DD"></i><div><b>secondary</b><span class="mono">#FBF0DD · 占位底</span></div></div>
+      <div class="sw"><i style="background:#B8762E"></i><div><b>accent</b><span class="mono">#B8762E</span></div></div>
+      <div class="sw"><i style="background:#FDFAF4"></i><div><b>bg</b><span class="mono">#FDFAF4</span></div></div>
+      <div class="sw"><i style="background:#F0E6D6"></i><div><b>border</b><span class="mono">#F0E6D6</span></div></div>
+      <div class="sw"><i style="background:#4A382A"></i><div><b>title</b><span class="mono">#4A382A · 11.6:1</span></div></div>
+      <div class="sw"><i style="background:#6E5C49"></i><div><b>body</b><span class="mono">#6E5C49 · 6.1:1</span></div></div>
+      <div class="sw"><i style="background:#9C8C7A"></i><div><b>caption</b><span class="mono">#9C8C7A · 3.1:1 仅大字</span></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>皮肤 · 抹茶禅意</h2>
+    <div class="swatches">
+      <div class="sw"><i style="background:#7A9A5B"></i><div><b>primary</b><span class="mono">#7A9A5B</span></div></div>
+      <div class="sw"><i style="background:#648449"></i><div><b>primaryDeep</b><span class="mono">#648449</span></div></div>
+      <div class="sw"><i style="background:#D8E2C8"></i><div><b>primarySoft</b><span class="mono">#D8E2C8</span></div></div>
+      <div class="sw"><i style="background:#E8E4D5"></i><div><b>secondary</b><span class="mono">#E8E4D5</span></div></div>
+      <div class="sw"><i style="background:#6B8A4D"></i><div><b>accent</b><span class="mono">#6B8A4D</span></div></div>
+      <div class="sw"><i style="background:#F7F5EE"></i><div><b>bg</b><span class="mono">#F7F5EE</span></div></div>
+      <div class="sw"><i style="background:#E5E2D5"></i><div><b>border</b><span class="mono">#E5E2D5</span></div></div>
+      <div class="sw"><i style="background:#2E3520"></i><div><b>title</b><span class="mono">#2E3520</span></div></div>
+      <div class="sw"><i style="background:#68725D"></i><div><b>body</b><span class="mono">#68725D · 4.63:1（门禁调整）</span></div></div>
+      <div class="sw"><i style="background:#9CA58F"></i><div><b>caption</b><span class="mono">#9CA58F</span></div></div>
+    </div>
+  </section>
+
+
+  <section class="card">
+    <h2>皮肤效果 · 同一张卡片</h2>
+    <div class="row">
+      <div style="flex: 1 1 420px; padding: 20px; border-radius: 18px; background: #FDFAF4; border: 1px solid #F0E6D6; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 12px; font-weight: 700; color: #6E5C49; letter-spacing: 1px">奶油轻食</span>
+        <div style="display: flex; gap: 12px; padding: 12px; border-radius: 16px; background: #FFFFFF; border: 1px solid #F0E6D6; color: #4A382A">
+          <img src="img/dish/huadan-xiaren.jpg" alt="" style="width: 72px; height: 72px; border-radius: 12px; object-fit: cover">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 6px"><b style="font-size: 15px">滑蛋虾仁</b><span style="align-self: flex-start; padding: 2px 8px; border-radius: 4px; background: #F0F8EE; color: #2F7347; font-size: 11px; font-weight: 700">家里够 3/3 样</span><span style="font-size: 12px; color: #6E5C49">上次 3 天前 · 妈妈做的</span></span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center">
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: #FBF0DD; display: flex; align-items: center; justify-content: center"><img src="img/ing/egg.svg" alt="" style="width: 30px"></span>
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: #FBF0DD; display: flex; align-items: center; justify-content: center"><img src="img/ing/shrimp.svg" alt="" style="width: 30px"></span>
+          <span style="flex: 1"></span>
+          <span style="height: 44px; padding: 0 20px; border-radius: 14px; background: #D17A3C; color: #fff; display: flex; align-items: center; font-size: 15px; font-weight: 700">现在就做</span>
+        </div>
+      </div>
+      <div style="flex: 1 1 420px; padding: 20px; border-radius: 18px; background: #F7F5EE; border: 1px solid #E5E2D5; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 12px; font-weight: 700; color: #68725D; letter-spacing: 1px">抹茶禅意</span>
+        <div style="display: flex; gap: 12px; padding: 12px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E5E2D5; color: #2E3520">
+          <img src="img/dish/huadan-xiaren.jpg" alt="" style="width: 72px; height: 72px; border-radius: 12px; object-fit: cover">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 6px"><b style="font-size: 15px">滑蛋虾仁</b><span style="align-self: flex-start; padding: 2px 8px; border-radius: 4px; background: #F0F8EE; color: #2F7347; font-size: 11px; font-weight: 700">家里够 3/3 样</span><span style="font-size: 12px; color: #68725D">上次 3 天前 · 妈妈做的</span></span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center">
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: #E8E4D5; display: flex; align-items: center; justify-content: center"><img src="img/ing/egg.svg" alt="" style="width: 30px"></span>
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: #E8E4D5; display: flex; align-items: center; justify-content: center"><img src="img/ing/shrimp.svg" alt="" style="width: 30px"></span>
+          <span style="flex: 1"></span>
+          <span style="height: 44px; padding: 0 20px; border-radius: 14px; background: #648449; color: #fff; display: flex; align-items: center; font-size: 15px; font-weight: 700">现在就做</span>
+        </div>
+      </div>
+    </div>
+    <div class="muted" style="margin-top: 12px; line-height: 1.6">照片与食材插画不随皮肤变色；变的是底色、文字、按钮和插画的衬底（secondary）。</div>
+  </section>
+  <div class="row">
+    <section class="card" style="flex: 1 1 420px">
+      <h2>功能色（各皮肤共享）</h2>
+      <div class="swatches" style="grid-template-columns: repeat(2, minmax(0, 1fr))">
+        <div class="sw"><i style="background:#4FAE6E"></i><div><b>success · 充足</b><span class="mono">#4FAE6E / 文字 #2F7347</span></div></div>
+        <div class="sw"><i style="background:#E5A938"></i><div><b>warning · 不足</b><span class="mono">#E5A938 / 文字 #8A5A22</span></div></div>
+        <div class="sw"><i style="background:#DB5A4E"></i><div><b>error · 用完 / 临期</b><span class="mono">#DB5A4E / 文字 #9A2E22</span></div></div>
+        <div class="sw"><i style="background:#4FA0D0"></i><div><b>info</b><span class="mono">#4FA0D0 / 文字 #2F6A8C</span></div></div>
+      </div>
+      <div class="muted" style="margin-top: 12px; line-height: 1.6">彩色底上的小字一律用对应的深色文字档；三档余量除颜色外还有文字标签，色弱用户也能区分。</div>
+    </section>
+
+    <section class="card" style="flex: 1 1 420px">
+      <h2>字号阶梯</h2>
+      <div class="scale">
+        <div><code>h2 · 24 / 700</code><span style="font-size: 24px; font-weight: 700">今晚吃点什么</span></div>
+        <div><code>subtitle · 18 / 700</code><span style="font-size: 18px; font-weight: 700">清蒸鲈鱼做好了</span></div>
+        <div><code>lg · 16 / 600</code><span style="font-size: 16px; font-weight: 600">页面标题 pageTitle</span></div>
+        <div><code>md · 14 / 400</code><span style="font-size: 14px">正文 body：鲈鱼洗净，两面各划三刀</span></div>
+        <div><code>sm · 12 / 400</code><span style="font-size: 12px">辅助 caption：上次 3 天前 · 妈妈做的</span></div>
+        <div><code>xs · 11 / 700</code><span style="font-size: 11px; font-weight: 700; letter-spacing: 1px">分区标签 SECTION</span></div>
+        <div><code>tiny · 10 / 800</code><span style="font-size: 10px; font-weight: 800">芯片 / Tab 文字</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="row">
+    <section class="card" style="flex: 1 1 420px">
+      <h2>圆角</h2>
+      <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end">
+        <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 56px; background: var(--secondary); border: 1px solid var(--primary-soft); border-radius: 4px"></span><span class="muted">xs 4</span></span>
+        <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 56px; background: var(--secondary); border: 1px solid var(--primary-soft); border-radius: 8px"></span><span class="muted">sm 8</span></span>
+        <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 56px; background: var(--secondary); border: 1px solid var(--primary-soft); border-radius: 12px"></span><span class="muted">md 12</span></span>
+        <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 56px; background: var(--secondary); border: 1px solid var(--primary-soft); border-radius: 16px"></span><span class="muted">lg 16</span></span>
+        <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 56px; background: var(--secondary); border: 1px solid var(--primary-soft); border-radius: 22px"></span><span class="muted">xl 22</span></span>
+        <span style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 56px; background: var(--secondary); border: 1px solid var(--primary-soft); border-radius: 999px"></span><span class="muted">pill</span></span>
+      </div>
+    </section>
+    <section class="card" style="flex: 1 1 420px">
+      <h2>间距（封闭阶梯）</h2>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="display: flex; align-items: center; gap: 12px"><code class="muted" style="width: 48px">4</code><i style="width: 4px; height: 12px; background: var(--primary); display: block; border-radius: 2px"></i></span>
+        <span style="display: flex; align-items: center; gap: 12px"><code class="muted" style="width: 48px">8</code><i style="width: 8px; height: 12px; background: var(--primary); display: block; border-radius: 2px"></i></span>
+        <span style="display: flex; align-items: center; gap: 12px"><code class="muted" style="width: 48px">12</code><i style="width: 12px; height: 12px; background: var(--primary); display: block; border-radius: 2px"></i></span>
+        <span style="display: flex; align-items: center; gap: 12px"><code class="muted" style="width: 48px">16</code><i style="width: 16px; height: 12px; background: var(--primary); display: block; border-radius: 2px"></i></span>
+        <span style="display: flex; align-items: center; gap: 12px"><code class="muted" style="width: 48px">24</code><i style="width: 24px; height: 12px; background: var(--primary); display: block; border-radius: 2px"></i></span>
+        <span style="display: flex; align-items: center; gap: 12px"><code class="muted" style="width: 48px">32</code><i style="width: 32px; height: 12px; background: var(--primary); display: block; border-radius: 2px"></i></span>
+      </div>
+    </section>
+  </div>
+</div>
+</body>
+</html>

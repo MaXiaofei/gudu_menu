@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全部画面 · 咕嘟小食单原型</title>
+<style>
+body{margin:0;background:#EDE5D8;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif}
+a{color:#B8622A;text-decoration:none}a:hover{color:#8A4519}
+header{position:sticky;top:0;z-index:2;background:rgba(253,250,244,.95);backdrop-filter:blur(8px);border-bottom:1px solid #F0E6D6;padding:14px 32px;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
+header b{font-size:16px;margin-right:12px}
+main{padding:24px 32px 64px;display:flex;flex-direction:column;gap:40px}
+h2{margin:0 0 16px;font-size:22px}
+.row{display:flex;flex-wrap:wrap;gap:28px}
+.tile{display:flex;flex-direction:column;gap:8px}
+.tile .cap{font-size:13px;font-weight:700;display:flex;justify-content:space-between;gap:12px}
+.frame{overflow:hidden;border-radius:20px;box-shadow:0 10px 30px rgba(74,56,42,.15);background:#FDFAF4}
+.frame iframe{border:0;transform-origin:0 0;display:block;pointer-events:none}
+.phone .frame{width:242px;height:523px}
+.phone iframe{width:390px;height:844px;transform:scale(.62)}
+.wide .frame{width:605px;height:420px}
+.wide iframe{width:1440px;height:1000px;transform:scale(.42)}
+.states .frame{width:794px;height:523px}
+.states iframe{width:1280px;height:844px;transform:scale(.62)}
+</style>
+</head>
+<body>
+<header>
+  <b>咕嘟小食单 · 全部画面</b>
+  <a href="index.html">导览</a><a href="#m1">账号与家庭</a><a href="#m2">五个主 Tab</a><a href="#m3">做饭主链路</a><a href="#m4">录入与分享</a><a href="#m5">生产级完善</a><a href="#admin">管理后台</a><a href="#ds">设计系统</a>
+</header>
+<main id="root"></main>
+<script>
+// 画面清单：[文件, 标题, 尺寸类型]。iframe 直接加载同目录下的各画面文件。
+var SECTIONS = [
+  ['m1', '1 · 账号与家庭（多租户新增）', [['Login','1.1 登录 · 协议前置'],['FamilyOnboard','1.2 创建 / 加入家庭'],['FamilySwitch','1.3 切换家庭'],['FamilyMembers','1.4 家庭成员与角色']]],
+  ['m2', '2 · 五个主 Tab', [['Recipes','2.1 菜谱'],['Menus','2.2 食集'],['Smart','2.3 智荐'],['Pantry','2.4 我家余量'],['Me','2.5 我的']]],
+  ['m3', '3 · 做饭主链路：菜谱 → 食集 → 做完回写', [['RecipeDetail','3.1 菜谱详情 · 现在就做'],['CookSheet','3.2 做完确认 · 回写余量'],['MenuDetail','3.3 食集 · 菜'],['MenuPrep','3.4 食集 · 备菜'],['MenuShop','3.5 食集 · 采购']]],
+  ['m4', '4 · 录入、分享与记录', [['PantryAdd','4.1 入库 · 保质期'],['ShopShare','4.2 采购清单转图片'],['CookLog','4.3 食记'],['RecipeEdit','4.4 写菜谱'],['FriendPick','4.5 一起吃（小程序）']]],
+  ['m5', '5 · 生产级完善', [['Theme','5.1 主题外观（可点）'],['Feedback','5.2 意见反馈'],['Privacy','5.3 隐私与账号'],['Notices','5.4 消息与邀请'],['States','5.5 状态规范','states']]],
+  ['admin', '管理后台', [['AdminDashboard','A1 运营仪表盘','wide'],['AdminLibrary','A2 公共菜谱库 · 审核','wide'],['AdminNutrition','A3 食材营养 · AI 补全审核','wide'],['AdminFeedback','A4 意见反馈','wide'],['AdminTenants','A5 账号与家庭','wide'],['AdminAi','A6 AI 用量与限额','wide'],['AdminOps','A7 系统健康 · 审计','wide']]],
+  ['ds', '设计系统', [['Tokens','D1 Token 与皮肤','wide'],['Components','D2 组件','wide']]]
+];
+var root = document.getElementById('root');
+SECTIONS.forEach(function (sec) {
+  var s = document.createElement('section');
+  s.id = sec[0];
+  s.innerHTML = '<h2>' + sec[1] + '</h2>';
+  var row = document.createElement('div');
+  row.className = 'row';
+  sec[2].forEach(function (it) {
+    var kind = it[2] || 'phone';
+    var t = document.createElement('div');
+    t.className = 'tile ' + kind;
+    // 手机 / 状态画面单独打开时带外边距，嵌入时用 #embed 去掉
+    var src = it[0] + '.html' + (kind === 'wide' ? '' : '#embed');
+    t.innerHTML = '<div class="cap"><span>' + it[1] + '</span><a href="' + it[0] + '.html">打开</a></div>' +
+      '<a class="frame" href="' + it[0] + '.html"><iframe loading="lazy" title="' + it[1] + '" src="' + src + '"></iframe></a>';
+    row.appendChild(t);
+  });
+  s.appendChild(row);
+  root.appendChild(s);
+});
+</script>
+</body>
+</html>
