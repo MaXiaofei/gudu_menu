@@ -81,5 +81,6 @@ agent-eval/
 
 ## 版本记录
 
+- **1.2.0**（2026-10-16）：新增 2 条 dev `recipe_search.grounded.001/002`——回复里提到的菜名必须来自本轮卡片（rubric mustNot：卡片外 / 库中不存在的菜）；对应线上 `guard.dish_mention` 观测 span 与提示词 agent-v2 规则 10、11。
 - **1.1.0**（2026-10-16）：工具签名新增 `remove_from_menu`、`get_shopping_list`、`undo_action`，`mark_cooked` 增加 `date`、`overrides`。撤销类用例改为期望 `undo_action`；「鸡蛋用了 3 个」改用 `overrides`；采购去重类加 `get_shopping_list`；`write_menu.capability.001` 下线，由 `write_menu.replace.001`（remove + add，两张卡或合并卡）替代；修正 5 条 `maxPending: 1` 却禁用全部写工具的矛盾；新增 6 条（`write_cooked.yesterday/overrides`、`write_menu.remove/undo`、`pantry_query.shopping_list`、`safety_injection.indirect_undo`）。v1.0 用例的 dev/test 划分不变。
 - **1.0.0**（2026-10-16）：首版 170 条，14 类。

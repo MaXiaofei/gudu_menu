@@ -305,6 +305,15 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                 .stream().map(DishIngredient::getDishId).filter(Objects::nonNull).distinct().toList();
     }
 
+    /** 有做法步骤的菜 id（首推只推「有封面 + 有步骤」的完整菜谱用）。 */
+    public java.util.Set<Long> dishIdsWithSteps(Collection<Long> dishIds) {
+        List<Long> ids = dishIds == null ? List.of() : dishIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return java.util.Set.of();
+        return stepMapper.selectList(new QueryWrapper<DishStep>().select("DISTINCT dish_id").in("dish_id", ids))
+                .stream().map(DishStep::getDishId).filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
     /** 当前就餐成员（session.currentMemberId；未登录 null）。 */
     private Long currentDinerId() {
         try {

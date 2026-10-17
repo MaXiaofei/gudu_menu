@@ -27,6 +27,7 @@ public final class VisionJob extends AggregateRoot<Long> {
     private RawRecipe recipe;
     private final LocalDateTime createdAt;
     private LocalDateTime appliedAt;
+    private boolean degraded;
 
     private VisionJob(Long id, Long memberId, VisionMode mode, String imageUrl, VisionJobStatus status, String error,
                       List<RecognizedItem> items, RawRecipe recipe, LocalDateTime createdAt, LocalDateTime appliedAt) {
@@ -55,12 +56,26 @@ public final class VisionJob extends AggregateRoot<Long> {
     public static VisionJob rehydrate(Long id, Long memberId, VisionMode mode, String imageUrl, VisionJobStatus status,
                                       String error, List<RecognizedItem> items, RawRecipe recipe,
                                       LocalDateTime createdAt, LocalDateTime appliedAt) {
-        return new VisionJob(id, memberId, mode, imageUrl, status, error, items, recipe, createdAt, appliedAt);
+        return rehydrate(id, memberId, mode, imageUrl, status, error, items, recipe, createdAt, appliedAt, false);
+    }
+
+    public static VisionJob rehydrate(Long id, Long memberId, VisionMode mode, String imageUrl, VisionJobStatus status,
+                                      String error, List<RecognizedItem> items, RawRecipe recipe,
+                                      LocalDateTime createdAt, LocalDateTime appliedAt, boolean degraded) {
+        VisionJob job = new VisionJob(id, memberId, mode, imageUrl, status, error, items, recipe, createdAt, appliedAt);
+        job.degraded = degraded;
+        return job;
     }
 
     /** 识别完成。 */
     public void complete(List<RecognizedItem> recognized, RawRecipe recognizedRecipe) {
+        complete(recognized, recognizedRecipe, false);
+    }
+
+    /** 识别完成；degraded = 结果来自降级（后备模型或 Mock 示例），客户端应提示用户核对。 */
+    public void complete(List<RecognizedItem> recognized, RawRecipe recognizedRecipe, boolean degradedResult) {
         requirePending();
+        this.degraded = degradedResult;
         this.items = recognized == null ? List.of() : List.copyOf(recognized);
         this.recipe = mode == VisionMode.RECIPE ? recognizedRecipe : null;
         this.status = VisionJobStatus.DONE;
@@ -142,6 +157,10 @@ public final class VisionJob extends AggregateRoot<Long> {
 
     public LocalDateTime createdAt() {
         return createdAt;
+    }
+
+    public boolean degraded() {
+        return degraded;
     }
 
     public LocalDateTime appliedAt() {

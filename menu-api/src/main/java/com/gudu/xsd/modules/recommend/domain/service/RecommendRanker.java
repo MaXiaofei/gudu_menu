@@ -10,9 +10,11 @@ import java.util.Set;
 /** 首页智荐排序（纯函数）。 */
 public final class RecommendRanker {
 
-    /** 覆盖率降序 → 缺得少优先 → 做过多优先 → id 升序（稳定）。 */
+    /** 完整菜谱（有封面 + 有步骤）优先 → 用到越快到期的食材越优先 → 覆盖率降序 → 缺得少优先 → 做过多优先 → id 升序。 */
     static final Comparator<DishScore> BY_COVERAGE = Comparator
-            .comparingDouble(DishScore::coverageRatio).reversed()
+            .comparing((DishScore s) -> !s.complete())
+            .thenComparingInt(DishScore::urgentDays)
+            .thenComparing(Comparator.comparingDouble(DishScore::coverageRatio).reversed())
             .thenComparingInt(DishScore::missingCount)
             .thenComparing(Comparator.comparingInt(DishScore::cookedCount).reversed())
             .thenComparing(DishScore::dishId);

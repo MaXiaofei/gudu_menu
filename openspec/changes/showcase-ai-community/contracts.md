@@ -27,7 +27,7 @@ type UserLite = { userId: number; nickname: string; avatarUrl: string | null }
 | POST | `/agent/sessions` | `{ title?: string }` | `{ sessionId: string }` |
 | GET | `/agent/sessions` | `cursor,size` | `Page<{ sessionId, title, lastMessage, updatedAt, coverUrl: string\|null }>` |
 | GET | `/agent/sessions/{id}/messages` | `cursor,size` | `Page<AgentMessage>`（倒序） |
-| POST | `/agent/sessions/{id}/messages` | `{ text?: string, audioFileId?: number, context?: { page: string, dishId?: number, step?: number } }` | **SSE**（`text/event-stream`） |
+| POST | `/agent/sessions/{id}/messages` | `{ text?: string, audioUrl?: string, context?: { page: string, dishId?: number, step?: number } }`（语音先 `POST /file/upload` 拿 URL；ASR 供应商未定，当前 Mock 转写） | **SSE**（`text/event-stream`） |
 | POST | `/agent/actions/{actionId}/confirm` | — | `{ status: "DONE", result: object, undoToken: string \| null }` |
 | POST | `/agent/actions/{actionId}/cancel` | — | `{ status: "CANCELLED" }` |
 | POST | `/agent/actions/undo` | `{ undoToken }` | `{ status: "UNDONE" }` |
@@ -43,8 +43,9 @@ type AgentCard =
   | { type: "menu"; menuId: number; name: string; date: string; dishCount: number; coverUrls: string[] }
   | { type: "pantry"; items: { name: string; iconKey: string|null; status: "ENOUGH"|"LOW"|"OUT"; daysLeft: number|null }[] }
   | { type: "plan"; draftId: number; range: string; days: number }
-type PendingAction = { actionId: string; tool: "add_to_menu"|"add_to_shopping"|"mark_cooked"|"add_pantry";
-  title: string; preview: object; expiresAt: string; status: "PENDING"|"DONE"|"CANCELLED"|"EXPIRED" }
+type PendingAction = { actionId: string; tool: "add_to_menu"|"remove_from_menu"|"add_to_shopping"|"mark_cooked"|"add_pantry";
+  title: string; preview: object; args: object;      // args = 规范化后的原始工具参数（revise 以它为底）
+  expiresAt: string; status: "PENDING"|"DONE"|"CANCELLED"|"EXPIRED"|"SUPERSEDED" }
 // mark_cooked.preview = { dish: DishCard, servings: number, eaters: MemberLite[],
 //   lines: { name, iconKey, delta: string, after: string, status: "USED_UP"|"LEFT"|"SKIP" }[] }
 ```
@@ -86,7 +87,7 @@ type Comment = { commentId: number; author: UserLite; text: string; isAuthor: bo
 |---|---|---|---|
 | GET | `/community/feed` | `tab=recommend\|follow\|topic&topicId?&cursor&size` | `Page<PostCard>` |
 | GET | `/community/banner` | — | `{ topic: Topic \| null, followingUpdates: UserLite[] }` |
-| POST | `/community/posts` | `{ title, text, imageUrls: string[], dishId?: number, topicIds: number[], visibility: "PUBLIC"\|"FOLLOWERS", fromCookRecordId?: number }` | `{ postId, status }` |
+| POST | `/community/posts` | `{ title, text, imageUrls: string[], dishId?: number, topicIds: number[], visibility: "PUBLIC"\|"FOLLOWERS", coverRatio?: number, fromCookRecordId?: number, fromFoodLogId?: number }` | `{ postId, status }` |
 | GET | `/community/posts/{id}` | — | `PostDetail` |
 | DELETE | `/community/posts/{id}` | — | `{}` |
 | POST | `/community/posts/{id}/reactions` | `{ type: "LIKE"\|"COLLECT", on: boolean }` | `{ likeCount, collectCount, liked, collected }` |
@@ -106,7 +107,7 @@ type Comment = { commentId: number; author: UserLite; text: string; isAuthor: bo
 
 | 方法 | 路径 | 请求 | 响应 data |
 |---|---|---|---|
-| POST | `/vision/jobs` | `{ fileId?: number, imageUrl?: string, mode: "FRIDGE"\|"RECEIPT"\|"RECIPE" }` | `{ jobId, status }` |
+| POST | `/vision/jobs` | `{ imageUrl: string, mode: "FRIDGE"\|"RECEIPT"\|"RECIPE" }`（只接受本站上传地址；`fileId` 不支持） | `{ jobId, status }` |
 | GET | `/vision/jobs/{id}` | — | `VisionJob` |
 | POST | `/vision/jobs/{id}/apply` | `{ items: { name, ingredientId?, amount, unit, bestBefore? }[] }` | `{ added: number }` |
 
@@ -130,7 +131,7 @@ type VisionJob = { jobId; mode; status: "PENDING"|"DONE"|"FAILED"; error?: strin
 | POST | `/mealplan/drafts/{id}/slots/{slotId}/alternatives` | — | `{ items: (DishCard & { sodiumMg })[] }` |
 | PUT | `/mealplan/drafts/{id}/slots/{slotId}` | `{ dishId }` | `MealPlanDraft` |
 | POST | `/mealplan/drafts/{id}/apply` | — | `{ menuIds: number[], shoppingItemCount: number }` |
-| GET | `/nutrition/report` | `memberId, range=week\|month` | `NutritionReport` |
+| GET | `/nutrition/report` | `memberId?`（缺省 = 家里有健康档案的人，高血压 → 高血脂 → 宝宝辅食优先）, `range=week\|month` | `NutritionReport` |
 
 ```ts
 type MealPlanDraft = { draftId; weekStart; weekEnd; constraints: string[];
@@ -182,3 +183,40 @@ type Route = { capability: "CHAT"|"TOOLS"|"VISION"; primary: { providerId; model
   fallbacks: { providerId; model }[]; timeoutMs: number; maxRetries: number;
   thinking: "disabled"|"low"|"high"|"max"; updatedAt: string; updatedBy: string }
 ```
+
+## 7. 实现对齐（2026-10-16 三个后端分支合并 + 集成后，以本节为准）
+
+> 前面各节是开发前约定；下面是实现与约定不同或新增的地方。客户端以本节为准。
+
+**通用**
+- `GET /member`：平台超管（后台）返回全部；App 侧普通成员只返回本家「成员档案」——本人 + 有健康档案的非超管成员，排除 `E2E` 前缀测试成员与厨房圈演示作者（`cm_` 账号）。「家里几口人」、营养报告成员列表直接用它。
+- 社区身份 `userId` = 登录的 `member.id`（多家庭未落地）。
+
+**1. 咕嘟 Agent**
+- 工具 15 个（eval.md §7）+ `cancel_action`（用户说「算了」）；口头确认（「确认 / 好的」）记为内部 `confirm_action`，不对模型暴露。
+- 新增 `POST /agent/actions/{actionId}/revise { args }` → 新 `PendingAction`（旧卡 `SUPERSEDED`）。`mark_cooked` 的 args 支持 `servings`、`eaters`（成员名）或 `eaterIds`、`overrides: {name, amount, unit?}[]` 或 `lines: {name, ingredientId?, status: USED_UP|LEFT|SKIP, amount?}[]`、`date`；未传字段沿用原 args。
+- `plan` 卡片：`{ type: "plan", draftId, range, days, weekStart, items: {id, name, coverUrl}[] }`，`draftId` 是 `/mealplan/drafts/{id}` 的真实草稿（午晚两餐）。
+- 后台：`GET /admin/agent/traces/{traceId}/messages`（完整对话）；trace 详情带 `firstTokenMs, tokens, costFen, promptVersion, model, phoneMasked, feedback`；评测 `GET /admin/agent/eval/cases` → `{ total, byIntent: {intent, count, testCount}[], items }`，runs 带 `byCategory: {category, score, baseline}[]` 与 `hardGateFailures: {gate: "confirm"|"safety", label, failed, total, caseIds}[]`，failures 项 `{ caseId, intent, input, expectedTools, actualTools, note, newSinceBaseline }`。
+- 回复菜名一致性：回复里提到的菜名不在本轮卡片 / 动作 / 工具结果 / 用户原话里时，调用链记一条 `guard.dish_mention` span（只观测、不拦截）；提示词 `agent-v2` 规则 10、11。
+- `/agent/suggestions` 的 `tonight` 与 `recommend_tonight`：有封面且有步骤的完整菜谱优先，用到越快到期食材的越靠前。
+
+**2. 厨房圈**
+- 表名统一 `community_` 前缀；帖子图片存 JSON 列（无 `post_image` 表）；新增 `community_appeal`、`community_ban`、`community_moderation_log`。
+- `PostCard` / 详情新增 `coverRatio`（宽高比 0.5–2，瀑布流用）；`Topic` 新增 `weekNo`，挑战话题的 `startDate` / `endDate` 为本周周一 / 周日。
+- 新增 `GET /community/topics?status=ACTIVE|ALL&size=`；`POST /community/posts/{id}/appeal { text }`（被隐藏帖作者，一次）。
+- 发帖 `fromFoodLogId`（= 食记列表 / 详情新增的 `foodLogId`，一顿饭的代表做菜记录 id）：带入整顿饭的菜与最多 9 张图，不带成员名。
+- 站外图片：不整帖拒绝，拦下不展示、记入 `blockedImages`，整帖判 HIGH 进人工审核；只有站外图片时拒绝发布。
+- 预审：规则先行，规则判 HIGH 直接定论；其余经网关 CHAT 判定（3 秒超时退回规则），风险取两者较高。「AI 帮写」经网关 CHAT，失败退回模板。
+- `Comment.likeCount` 恒为 0（暂无评论点赞接口）。
+- 后台：`GET /admin/community/queue?status=PENDING|DONE|APPEALED&risk=`，队列项另有 `aiScores, aiSummary, reports, moderation, appeal, authorHistory`；`GET /admin/community/stats` → `{ newPosts, fromCookLog, autoPassRate, pending, pendingHigh, pendingMedium, reports, autoHidden, avgHandleMinutes, appealed }`；`GET /admin/community/posts/{id}`（管理员视角，含 `blockedImages`、`logs`）。
+
+**3. 拍照识别**
+- 经网关 VISION（默认 deepseek-flash）；本站上传图读成 base64 发给模型。真实模型全部失败或输出无法解析时退回示例识别，`VisionJob.degraded = true`（客户端提示「示例结果，请核对」）；用了后备模型同样标记。
+- `apply`：余量是三档模型，`amount` / `unit` 不写入，入库记为「充足」，有 `bestBefore` 则登记保质期。
+
+**4. 一周餐程与营养**
+- 排布经网关 CHAT（`thinking: low`，JSON）→ 结果只接受候选池内、本周未用、时长合规的菜，某天不完整整天交启发式补；失败整体退回启发式；之后照常规则校验回环（≤2 轮）。校验新增「每餐至少一道正菜」（粥 / 馒头 / 甜品不单独成餐）。
+- `apply` 生成的每日食集用名称表示日期（如「10.19 周一 · 一周餐程」），采购清单名「一周餐程 10.19–10.25」（食集表无日期列）。
+- 「用掉快到期」只计保质期落在餐程那一周内的食材。
+- 出参多出：`DishCard.sodiumMg`、`MealPlanDraft.status`（DRAFT / APPLIED）、`radar[]` / `alerts[]` 的 `label`、`unit`。钠与膳食纤维为估算值；多家庭落地前报告按全家做饭记录计。
+

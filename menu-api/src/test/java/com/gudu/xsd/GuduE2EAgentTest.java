@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Sql(scripts = "classpath:e2e-seed.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+@Sql(scripts = "classpath:e2e-teardown.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class GuduE2EAgentTest {
 
     @Autowired
@@ -66,7 +67,8 @@ class GuduE2EAgentTest {
 
         JsonNode trace = get(admin, "/admin/agent/traces/" + traceId);
         assertThat(trace.get("code").asInt()).as(trace.toString()).isZero();
-        assertThat(trace.get("data").get("trace").get("promptVersion").asText()).isEqualTo("agent-v1");
+        assertThat(trace.get("data").get("trace").get("promptVersion").asText())
+                .isEqualTo(com.gudu.xsd.modules.agent.application.AgentPrompts.VERSION);
         List<String> spanNames = new ArrayList<>();
         trace.get("data").get("spans").forEach(s -> spanNames.add(s.get("name").asText()));
         assertThat(spanNames).contains("guard.input", "llm.plan", "tool.get_pantry", "guard.output");

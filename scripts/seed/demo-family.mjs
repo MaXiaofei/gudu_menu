@@ -51,13 +51,14 @@ const STOCK = [
 // 菜名 → 指定来源（同名多道时选封面好的那道）
 const DISH_PICK = { 清蒸鲈鱼: 'https://www.xiachufang.com/recipe/35783/' };
 
-// [名称, 菜单类型, 份数, 目标成员, 状态, 创建距今天数, [[菜名, 点菜人]]]
+// [名称, 菜单类型, 份数, 目标成员, 状态, 日期, [[菜名, 点菜人]]]
+// 日期：数字 = 距运行日往前几天（已完成的食集）；'SAT' / 'SUN' = 运行日起最近的周六 / 周日（客户端按 create_time 显示用餐日）
 const MENUS = [
   ['今晚的饭', '日常', 4, 'xiaowang', 'ACTIVE', 0,
     [['清蒸鲈鱼', 'xiaowang'], ['滑蛋虾仁', 'duoduo'], ['蒜蓉西兰花', 'linlin'], ['西红柿鸡蛋汤', 'mama']]],
-  ['周六 · 爸妈来吃饭', '家宴', 6, 'xiaowang', 'ACTIVE', 1,
+  ['周六 · 爸妈来吃饭', '家宴', 6, 'xiaowang', 'ACTIVE', 'SAT',
     [['糖醋排骨', 'linlin'], ['油焖大虾', 'mama'], ['小鸡炖蘑菇', 'xiaowang'], ['红烧肉', 'xiaowang'], ['莲藕排骨汤', 'mama'], ['蒜蓉西兰花', 'linlin']]],
-  ['朵朵一周辅食', '宝宝餐', 1, 'duoduo', 'ACTIVE', 2,
+  ['朵朵一周辅食', '宝宝餐', 1, 'duoduo', 'ACTIVE', 'SUN',
     [['牛奶南瓜羹', 'mama'], ['蒸水蛋', 'mama'], ['蓝莓山药泥', 'linlin']]],
   ['工作日两菜一汤', '工作日', 4, 'xiaowang', 'DONE', 3, [['麻婆豆腐', 'xiaowang'], ['手撕包菜', 'linlin'], ['冬瓜排骨汤', 'mama']]],
   ['周末小聚', '周末', 4, 'xiaowang', 'DONE', 6, [['可乐鸡翅', 'duoduo'], ['土豆炖牛肉', 'xiaowang'], ['凉拌黄瓜', 'linlin']]],
@@ -92,7 +93,11 @@ const day = (offset, hm = '12:00') => {
   const [h, m] = hm.split(':');
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${h}:${m}:00`;
 };
-const dateAfter = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+// 运行日起最近的周几（含当天）：返回「距今天数」的负数，供 day() 落到未来
+const untilWeekday = (dow) => -((dow - new Date().getDay() + 7) % 7);
+const offsetOf = (ago) => (ago === 'SAT' ? untilWeekday(6) : ago === 'SUN' ? untilWeekday(0) : ago);
+// 按运行机器本地日期（不用 toISOString：晚上 UTC 已跨日，会把「明天到期」写成后天）
+const dateAfter = (n) => day(-n).slice(0, 10);
 
 function uploadAvatars() {
   const src = join(ROOT, 'menu-flutter/assets/avatar');
@@ -201,7 +206,7 @@ try {
   const menuId = {};
   for (const [name, type, serving, who, status, ago, dishes] of MENUS) {
     const [res] = await conn.query(`INSERT INTO menu(name, type_id, target_member_id, serving_count, create_time, deleted, status, finished_at)
-      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`, [name, typeId.get(type) ?? null, mid[who], serving, day(ago, '09:00'), status, status === 'DONE' ? day(ago, '19:30') : null]);
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`, [name, typeId.get(type) ?? null, mid[who], serving, day(offsetOf(ago), '09:00'), status, status === 'DONE' ? day(offsetOf(ago), '19:30') : null]);
     menuId[name] = res.insertId;
     for (const [dish, by] of dishes) {
       const nick = MEMBERS.find((m) => m.key === by).name;

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gudu.xsd.modules.cookbook.application.CookingRecordAppService;
 import com.gudu.xsd.modules.cookbook.domain.model.DishCookStat;
 import com.gudu.xsd.modules.dish.Dish;
+import com.gudu.xsd.modules.dish.DishIngredient;
 import com.gudu.xsd.modules.dish.DishService;
 import com.gudu.xsd.modules.dish.application.DishCoverageAppService;
 import com.gudu.xsd.modules.nutrition.Ingredient;
@@ -61,8 +62,7 @@ public class HomeRecommendAppService {
         List<ExpiringItemView> expiringAll = stockAppService.expiring(EXPIRING_DAYS);
         List<ExpiringItemView> expiring = expiringAll.stream().limit(EXPIRING_MAX).toList();
 
-        List<Long> pickPool = cap(dishService.dishIdsUsingIngredients(
-                expiringAll.stream().map(ExpiringItemView::ingredientId).toList()));
+        List<Long> pickPool = urgentPool(expiringAll);
         List<DishCookStat> frequentStats = cookingRecordAppService.mostCooked(memberId, FREQUENT_MAX);
         List<Long> seasonalPool = cap(dishService.dishIdsUsingIngredients(seasonalIngredientIds()));
 
@@ -76,11 +76,20 @@ public class HomeRecommendAppService {
         List<Long> visible = allIds.stream().filter(dishById::containsKey).toList();
         Map<Long, CoverageView> coverage = dishCoverageAppService.coverageOf(visible);
         Map<Long, Integer> counts = cookingRecordAppService.cookedCounts(memberId, visible);
+        Set<Long> withSteps = dishService.dishIdsWithSteps(visible);
+        Set<Long> complete = visible.stream()
+                .filter(id -> withSteps.contains(id) && hasCover(dishById.get(id)))
+                .collect(Collectors.toSet());
 
-        List<Long> pickIds = ranker.topByCoverage(scores(pickPool, dishById, coverage, counts), Set.of(), PICKS_MAX);
+        Map<Long, Integer> urgent = urgentDays(pickPool, expiringAll);
+        List<Long> pickIds = ranker.topByCoverage(scores(pickPool, dishById, coverage, counts, complete, urgent),
+                Set.of(), PICKS_MAX);
+        // 常做的按真实做饭记录，不过滤；完整菜谱排前
         List<Long> frequentIds = frequentStats.stream().map(DishCookStat::dishId)
-                .filter(dishById::containsKey).limit(FREQUENT_MAX).toList();
-        List<Long> seasonalIds = ranker.topByCoverage(scores(seasonalPool, dishById, coverage, counts),
+                .filter(dishById::containsKey)
+                .sorted(java.util.Comparator.comparing((Long id) -> !complete.contains(id)))
+                .limit(FREQUENT_MAX).toList();
+        List<Long> seasonalIds = ranker.topByCoverage(scores(seasonalPool, dishById, coverage, counts, complete, Map.of()),
                 new HashSet<>(pickIds), SEASONAL_MAX);
 
         return new HomeRecommendView(expiring,
@@ -96,18 +105,56 @@ public class HomeRecommendAppService {
                 .stream().map(Ingredient::getId).toList();
     }
 
+    /** 每样快到期食材最多取多少道菜进候选（避免菠菜、豆腐这类常用食材的菜挤掉明天就到期的鲈鱼）。 */
+    static final int POOL_PER_INGREDIENT = 40;
+
+    /** 临期主推候选：按到期先后逐样取用到它的菜，越快到期的食材越先进池，总量 POOL_CAP。 */
+    private List<Long> urgentPool(List<ExpiringItemView> expiringAll) {
+        List<ExpiringItemView> byUrgency = expiringAll.stream().filter(e -> e.ingredientId() != null)
+                .sorted(java.util.Comparator.comparing((ExpiringItemView e) -> e.daysLeft() == null ? Integer.MAX_VALUE : e.daysLeft()))
+                .toList();
+        Set<Long> pool = new LinkedHashSet<>();
+        for (ExpiringItemView e : byUrgency) {
+            dishService.dishIdsUsingIngredients(List.of(e.ingredientId())).stream()
+                    .filter(Objects::nonNull).limit(POOL_PER_INGREDIENT).forEach(pool::add);
+            if (pool.size() >= POOL_CAP) break;
+        }
+        return pool.stream().limit(POOL_CAP).toList();
+    }
+
     private static List<Long> cap(List<Long> ids) {
         return ids.stream().filter(Objects::nonNull).distinct().limit(POOL_CAP).toList();
     }
 
+    /** 每道菜用到的快到期食材里最早几天到期（鲈鱼明天到期 → 用鲈鱼的菜排前）。 */
+    private Map<Long, Integer> urgentDays(List<Long> dishIds, List<ExpiringItemView> expiring) {
+        Map<Long, Integer> daysByIng = new java.util.HashMap<>();
+        for (ExpiringItemView e : expiring) {
+            if (e.ingredientId() == null || e.daysLeft() == null) continue;
+            daysByIng.merge(e.ingredientId(), e.daysLeft(), Math::min);
+        }
+        Map<Long, Integer> out = new java.util.HashMap<>();
+        if (daysByIng.isEmpty() || dishIds.isEmpty()) return out;
+        for (DishIngredient di : dishService.ingredientsOf(dishIds)) {
+            Integer d = di.getIngredientId() == null ? null : daysByIng.get(di.getIngredientId());
+            if (d != null) out.merge(di.getDishId(), d, Math::min);
+        }
+        return out;
+    }
+
+    private static boolean hasCover(Dish d) {
+        return d != null && d.getCoverUrl() != null && !d.getCoverUrl().isBlank();
+    }
+
     private static List<DishScore> scores(Collection<Long> ids, Map<Long, Dish> dishById,
-                                          Map<Long, CoverageView> coverage, Map<Long, Integer> counts) {
+                                          Map<Long, CoverageView> coverage, Map<Long, Integer> counts,
+                                          Set<Long> complete, Map<Long, Integer> urgent) {
         List<DishScore> out = new ArrayList<>();
         for (Long id : ids) {
             if (!dishById.containsKey(id)) continue;
             CoverageView c = coverage.get(id);
             out.add(new DishScore(id, c == null ? 0d : c.ratio(), c == null ? Integer.MAX_VALUE : c.missing().size(),
-                    counts.getOrDefault(id, 0)));
+                    counts.getOrDefault(id, 0), complete.contains(id), urgent.getOrDefault(id, Integer.MAX_VALUE)));
         }
         return out;
     }

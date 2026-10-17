@@ -106,6 +106,7 @@ class MealPlanAppServiceTest {
         Member duo = member(12L, "朵朵", Map.of("audiences", List.of("宝宝辅食")));
         Member me = member(10L, "小王", Map.of());
         when(memberService.list()).thenReturn(List.of(me, mama, duo));
+        when(memberService.household(any())).thenReturn(List.of(me, mama, duo));
         when(memberService.listByIds(anyCollection())).thenReturn(List.of(me, mama, duo));
         when(stock.expiring(anyInt())).thenReturn(List.of(
                 new ExpiringItemView(1004L, "鲈鱼", "ENOUGH", LocalDate.of(2026, 10, 17), 1),      // 周一前到期：不计

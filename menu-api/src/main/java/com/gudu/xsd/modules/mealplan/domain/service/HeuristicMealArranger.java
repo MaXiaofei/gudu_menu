@@ -19,7 +19,7 @@ import java.util.Set;
  *   <li>快到期优先：用到未被前面格子用掉的快到期食材 +10/样，越靠前的天权重越高；</li>
  *   <li>荤素搭配：同一天上一格是荤菜则偏好素菜/汤，反之偏好荤菜；同类连续出现扣分；</li>
  *   <li>宝宝：家里有宝宝时每天至少一格宝宝可吃（午餐优先，最后一格强制）；</li>
- *   <li>少盐：1 人份钠每 200mg 扣 1 分；预算：超出平均每格预算的部分扣分；糖水甜品大幅降权；</li>
+ *   <li>少盐：1 人份钠每 200mg 扣 1 分；预算：超出平均每格预算的部分扣分；糖水甜品、主食（粥/馒头）大幅降权；</li>
  *   <li>不重样：本周已出现、或被本轮排除的菜不再选。</li>
  * </ul>
  */
@@ -33,6 +33,7 @@ public final class HeuristicMealArranger implements MealArranger {
     static final double SODIUM_STEP_MG = 200;
     static final double BUDGET_STEP_FEN = 200;
     static final double DESSERT_PENALTY = 12;
+    static final double STAPLE_PENALTY = 12;
     static final int SIMILAR_MIN_LEN = 3;
 
     @Override
@@ -117,6 +118,7 @@ public final class HeuristicMealArranger implements MealArranger {
         }
         if (babyPending && c.babyFriendly()) s += lastOfDay ? BABY_FORCE_BONUS : (meal == Meal.LUNCH ? BABY_BONUS : 0);
         if (c.kind() == DishKind.DESSERT) s -= DESSERT_PENALTY; // 正餐不排糖水甜品，除非实在没得选
+        if (c.kind() == DishKind.STAPLE) s -= STAPLE_PENALTY;   // 一餐只排一道菜：粥 / 馒头单独成餐吃不饱
         s -= c.perServing().sodiumMg() / SODIUM_STEP_MG;
         if (avgBudget != Double.MAX_VALUE && c.costFen() > avgBudget) s -= (c.costFen() - avgBudget) / BUDGET_STEP_FEN;
         return s;

@@ -18,8 +18,15 @@ public class NutritionReportController {
     private final NutritionReportAppService appService;
 
     @GetMapping("/nutrition/report")
-    public R<NutritionReportView> report(@RequestParam Long memberId,
+    public R<NutritionReportView> report(@RequestParam(required = false) Long memberId,
                                          @RequestParam(required = false, defaultValue = "week") String range) {
-        return R.ok(appService.report(memberId, range));
+        if (memberId != null) return R.ok(appService.report(memberId, range));
+        Long me;
+        try {
+            me = cn.dev33.satoken.stp.StpUtil.isLogin() ? cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong() : null;
+        } catch (RuntimeException e) {
+            me = null;
+        }
+        return R.ok(appService.reportForDefaultMember(me, range));
     }
 }

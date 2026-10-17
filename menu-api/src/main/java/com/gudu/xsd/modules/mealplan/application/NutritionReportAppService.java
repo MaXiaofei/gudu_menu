@@ -42,6 +42,11 @@ public class NutritionReportAppService {
     private final DishCardAssembler cardAssembler;
     private final Clock clock;
 
+    /** 未指定成员：默认选家里有健康档案的人（高血压优先），见 {@link HouseholdAssembler#defaultReportMember}。 */
+    public NutritionReportView reportForDefaultMember(Long currentMemberId, String range) {
+        return report(household.defaultReportMember(currentMemberId).getId(), range);
+    }
+
     public NutritionReportView report(Long memberId, String range) {
         String r = range == null || range.isBlank() ? RANGE_WEEK : range.trim().toLowerCase();
         if (!RANGE_WEEK.equals(r) && !RANGE_MONTH.equals(r)) throw new BizException("range 只支持 week / month");

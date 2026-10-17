@@ -99,7 +99,7 @@ public class VisionJobAppService {
         VisionJob job = found.get();
         try {
             RecognitionResult r = provider.recognize(job.mode(), job.imageUrl());
-            job.complete(aligner.align(r.items()), r.recipe());
+            job.complete(aligner.align(r.items()), r.recipe(), r.degraded());
         } catch (RuntimeException e) {
             log.warn("识别失败 job={} provider={}: {}", jobId, provider.name(), e.getMessage());
             job.fail("识别失败，请换个角度再拍一张");
@@ -173,7 +173,7 @@ public class VisionJobAppService {
             recipe = new VisionJobView.RecipeView(r.title(), lines, r.steps());
         }
         return new VisionJobView(job.id(), job.mode().name(), job.status().name(), job.error(),
-                job.imageExpiresAt(), job.items(), recipe);
+                job.imageExpiresAt(), job.items(), recipe, job.degraded());
     }
 
     private static Executor defaultExecutor() {

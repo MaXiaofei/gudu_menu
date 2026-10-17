@@ -43,6 +43,7 @@ public class MybatisVisionJobRepository implements VisionJobRepository {
         po.setItemsJson(write(job.items()));
         po.setRecipeJson(job.recipe() == null ? null : write(job.recipe()));
         po.setAppliedAt(job.appliedAt());
+        po.setDegraded(job.degraded());
         if (job.id() == null) {
             po.setCreateTime(job.createdAt());
             mapper.insert(po);
@@ -78,7 +79,7 @@ public class MybatisVisionJobRepository implements VisionJobRepository {
         RawRecipe recipe = read(po.getRecipeJson(), new TypeReference<RawRecipe>() { });
         return VisionJob.rehydrate(po.getId(), po.getMemberId(), VisionMode.of(po.getMode()), po.getImageUrl(),
                 VisionJobStatus.parse(po.getStatus()), po.getError(), items == null ? List.of() : items, recipe,
-                po.getCreateTime(), po.getAppliedAt());
+                po.getCreateTime(), po.getAppliedAt(), Boolean.TRUE.equals(po.getDegraded()));
     }
 
     static String write(Object value) {

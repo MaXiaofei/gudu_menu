@@ -18,6 +18,7 @@ import com.gudu.xsd.modules.mealplan.domain.model.WeekRange;
 import com.gudu.xsd.modules.mealplan.domain.repository.MealPlanDraftRepository;
 import com.gudu.xsd.modules.mealplan.domain.service.CandidateFilter;
 import com.gudu.xsd.modules.mealplan.domain.service.DishProfiler;
+import com.gudu.xsd.modules.mealplan.domain.port.MealPlanModelPort;
 import com.gudu.xsd.modules.mealplan.domain.service.HeuristicMealArranger;
 import com.gudu.xsd.modules.mealplan.domain.service.MealPlanner;
 import com.gudu.xsd.modules.member.Member;
@@ -31,7 +32,8 @@ import com.gudu.xsd.modules.pantry.domain.model.StockLevel;
 import com.gudu.xsd.modules.shopping.ShoppingItem;
 import com.gudu.xsd.modules.shopping.ShoppingListVO;
 import com.gudu.xsd.modules.shopping.ShoppingService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,11 +54,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 一周餐程应用服务（mealplan 上下文）：生成草稿（规则过滤 → 启发式排布 → 校验回环）、换一道、
+ * 一周餐程应用服务（mealplan 上下文）：生成草稿（规则过滤 → LLM / 启发式排布 → 校验回环）、换一道、
  * 确认后按天生成食集 + 合并采购清单（扣除余量里已有的）。
  */
 @Service
-@RequiredArgsConstructor
 public class MealPlanAppService {
 
     public static final int MAX_ALTERNATIVES = 3;
@@ -73,7 +74,42 @@ public class MealPlanAppService {
     private final ShoppingService shoppingService;
     private final DictService dictService;
     private final Clock clock;
-    private final MealPlanner planner = new MealPlanner(new HeuristicMealArranger());
+    private final MealPlanner planner;
+
+    /** Spring 注入：有排餐模型端口时用 LLM 排布（失败退回启发式），否则纯启发式。 */
+    @Autowired
+    public MealPlanAppService(MealPlanDraftRepository repository, DishCatalog catalog, DishCardAssembler cardAssembler,
+                              HouseholdAssembler household, StockAppService stockAppService, MenuService menuService,
+                              ShoppingService shoppingService, DictService dictService, Clock clock,
+                              ObjectProvider<MealPlanModelPort> modelPort) {
+        this(repository, catalog, cardAssembler, household, stockAppService, menuService, shoppingService,
+                dictService, clock, modelPort.getIfAvailable());
+    }
+
+    /** 纯启发式（单测用）。 */
+    public MealPlanAppService(MealPlanDraftRepository repository, DishCatalog catalog, DishCardAssembler cardAssembler,
+                              HouseholdAssembler household, StockAppService stockAppService, MenuService menuService,
+                              ShoppingService shoppingService, DictService dictService, Clock clock) {
+        this(repository, catalog, cardAssembler, household, stockAppService, menuService, shoppingService,
+                dictService, clock, (MealPlanModelPort) null);
+    }
+
+    public MealPlanAppService(MealPlanDraftRepository repository, DishCatalog catalog, DishCardAssembler cardAssembler,
+                              HouseholdAssembler household, StockAppService stockAppService, MenuService menuService,
+                              ShoppingService shoppingService, DictService dictService, Clock clock,
+                              MealPlanModelPort modelPort) {
+        this.repository = repository;
+        this.catalog = catalog;
+        this.cardAssembler = cardAssembler;
+        this.household = household;
+        this.stockAppService = stockAppService;
+        this.menuService = menuService;
+        this.shoppingService = shoppingService;
+        this.dictService = dictService;
+        this.clock = clock;
+        HeuristicMealArranger heuristic = new HeuristicMealArranger();
+        this.planner = new MealPlanner(modelPort == null ? heuristic : new LlmMealArranger(modelPort, heuristic));
+    }
 
     @Transactional(rollbackFor = Exception.class)
     public MealPlanDraftView create(Long memberId, CreateDraftCommand cmd) {

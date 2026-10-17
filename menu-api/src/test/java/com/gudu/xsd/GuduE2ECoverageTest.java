@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Sql(scripts = "classpath:e2e-seed.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+@Sql(scripts = "classpath:e2e-teardown.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class GuduE2ECoverageTest {
 
     @Autowired
@@ -602,10 +603,34 @@ class GuduE2ECoverageTest {
         JsonNode usage = get(token, "/ai/usage?days=7");
         assertThat(usage.get("code").asInt()).isEqualTo(0);
 
-        // provider 查询 + 设回 mock（幂等，防污染）
+        // provider 查询 + 旧切换接口原值回写。旧接口现在改写的是网关库里的 CHAT/TOOLS 路由（staging 共用），
+        // 因此先快照两条路由，切换后按快照原样恢复，跑完 staging 路由不变
         JsonNode provider = get(token, "/ai/provider");
         assertThat(provider.get("code").asInt()).isEqualTo(0);
-        assertThat(put(token, "/ai/provider", Map.of("provider", "mock")).get("code").asInt()).isEqualTo(0);
+        String current = provider.get("data").get("current").asText();
+        JsonNode routesBefore = get(token, "/admin/ai/gateway").get("data").get("routes");
+        try {
+            assertThat(put(token, "/ai/provider", Map.of("provider", current)).get("code").asInt()).isEqualTo(0);
+        } finally {
+            restoreRoutes(token, routesBefore, "CHAT", "TOOLS");
+        }
+    }
+
+    /** 按快照原样写回网关路由（主目标、降级链、超时、重试、思考模式）。 */
+    private void restoreRoutes(String token, JsonNode routes, String... capabilities) {
+        for (String cap : capabilities) {
+            for (JsonNode r : routes) {
+                if (!cap.equals(r.get("capability").asText())) continue;
+                Map<String, Object> body = new HashMap<>();
+                body.put("primary", om.convertValue(r.get("primary"), Map.class));
+                body.put("fallbacks", om.convertValue(r.get("fallbacks"), java.util.List.class));
+                body.put("timeoutMs", r.get("timeoutMs").asInt());
+                body.put("maxRetries", r.get("maxRetries").asInt());
+                body.put("thinking", r.get("thinking").asText());
+                JsonNode res = put(token, "/admin/ai/gateway/routes/" + cap, body);
+                assertThat(res.get("code").asInt()).as("恢复路由 " + cap + " " + res).isZero();
+            }
+        }
     }
 
     // ===================== L. member/auth 剩余接口 =====================
@@ -917,13 +942,14 @@ class GuduE2ECoverageTest {
         assertThat(tomato).as("临期应含番茄").isTrue();
         assertThat(d.get("expiring").size()).isLessThanOrEqualTo(5);
         assertThat(d.get("expiringPicks").size()).isBetween(1, 3);
-        boolean pick = false;
+        // 主推优先「有封面 + 有步骤」的完整菜谱：staging 有大量带封面的导入菜谱，
+        // 种子里无封面、无步骤的番茄炒蛋（DISH_FANQIE）不再进首推
         for (JsonNode c : d.get("expiringPicks")) {
-            pick |= c.get("dishId").asLong() == DISH_FANQIE;
             assertThat(c.has("coverage")).isTrue();
             assertThat(c.has("cookedCount")).isTrue();
+            assertThat(c.get("dishId").asLong()).as("无封面无步骤的种子菜不进首推").isNotEqualTo(DISH_FANQIE);
+            assertThat(c.get("coverUrl").isNull()).as("首推菜应有封面 " + c).isFalse();
         }
-        assertThat(pick).as("主推应含用到番茄的番茄炒蛋").isTrue();
         assertThat(d.get("frequent").size()).isLessThanOrEqualTo(6);
         assertThat(d.get("seasonal").size()).isLessThanOrEqualTo(6);
     }

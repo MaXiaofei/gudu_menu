@@ -4,6 +4,7 @@ import com.gudu.xsd.modules.agent.domain.port.Kitchen;
 import com.gudu.xsd.modules.cookbook.application.CookingRecordAppService;
 import com.gudu.xsd.modules.dish.DishService;
 import com.gudu.xsd.modules.dish.application.DishCoverageAppService;
+import com.gudu.xsd.modules.mealplan.application.MealPlanAppService;
 import com.gudu.xsd.modules.member.MemberService;
 import com.gudu.xsd.modules.menu.CookService;
 import com.gudu.xsd.modules.menu.MenuService;
@@ -35,6 +36,7 @@ public class LiveKitchenFactory {
     final StockAppService stockAppService;
     final HomeRecommendAppService homeRecommend;
     final ShoppingService shoppingService;
+    final MealPlanAppService mealPlans;
     final Clock clock;
 
     public Kitchen forMember(Long memberId) {

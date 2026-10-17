@@ -24,7 +24,21 @@ node recipes.mjs --env=staging --dry-run            # 报告：关联率、未�
 node recipes.mjs --env=staging                      # upsert（source_url 自然键，dish.id 不变）
 node demo-family.mjs --env=staging                  # 演示家庭「小王家的厨房」，可重复执行
 node demo-family.mjs --env=staging --clean          # 只清理演示数据
+node community.mjs --env=staging                    # 厨房圈演示内容（依赖 demo-family 与 V71），可重复执行
+node community.mjs --env=staging --clean            # 只清理厨房圈演示内容
 ```
+
+### 演示数据的日期
+
+- `demo-family.mjs` 全部按**运行机器的本地日期**计算：食集「周六 · 爸妈来吃饭」「朵朵一周辅食」落在运行日起最近的周六 / 周日（客户端按 `menu.create_time` 显示用餐日），余量保质期「明天 / 2 天后」同理。日期过期时重跑即可（成员 id 不变）。
+- 不要用 `toISOString()` 取日期：晚上 UTC 已跨日，会把「明天到期」写成后天。
+
+### 厨房圈演示内容（community.mjs）
+
+- 作者 7 位：member 表里 `phone` 前缀 `cm_` 的社区账号（无密码、无健康档案），头像 PNG 在 `assets/community-avatar/`（由原型 `img/avatar/c-*.svg` 光栅化），上传到 `staging-images/avatar/`。`MemberService.household` 排除 `cm_` 账号，不会算进「家里几口人」。
+- 帖子 24 条：图片取 staging 已导入菜谱的封面与步骤图，关联对应菜谱；本周（周一起）15 条带「一周不重样」并打卡，形成进度与排行；演示账号 `demo` 有 1 条自己的帖子、关注 5 位作者，并有真实的赞 / 收藏 / 照着做 / 评论行。
+- 赞 / 收藏 / 照着做的**计数**含模拟的站外热度基数（让 Feed 像在运营），`liked` / `collected` 只看真实行。
+- 关注流是写扩散：脚本经 SSH 在 `gudu-redis-staging` 容器里重建作者与 demo 的收件箱（`gudu:community:inbox:<userId>`）。
 
 报告写在 `.cache/report-*.json`（git 忽略）。
 

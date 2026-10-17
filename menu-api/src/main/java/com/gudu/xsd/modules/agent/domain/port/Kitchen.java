@@ -28,6 +28,11 @@ public interface Kitchen {
 
     Lookup<DishInfo> findDish(String nameOrId);
 
+    /** 菜谱库全部菜名（回复菜名一致性观测用；不支持时为空）。 */
+    default Set<String> dishNames() {
+        return Set.of();
+    }
+
     /** 今晚推荐（临期优先 + 常做），已排除 excludeTags。 */
     List<DishInfo> recommendTonight(int n, Set<String> excludeTags);
 
@@ -56,6 +61,14 @@ public interface Kitchen {
     WriteResult markCooked(long dishId, int servings, List<Long> eaterIds, LocalDate date, List<ItemLine> overrides);
 
     WriteResult addPantry(List<PantryLine> items);
+
+    /**
+     * 生成一周餐程草稿（mealplan 上下文：规则过滤 → 排布 → 校验回环，可在「一周餐程」页换菜后生成食集）。
+     * 只写草稿、不动食集与余量，因此按读工具对待。评测夹具不支持时为空，工具退回轻量草稿。
+     */
+    default java.util.Optional<WeekPlan> draftWeekPlan(LocalDate weekStart, Integer servings, Integer weekdayMaxMinutes) {
+        return java.util.Optional.empty();
+    }
 
     /** 执行撤销计划（补偿操作）。 */
     void undo(String kind, Map<String, Object> plan);
@@ -180,6 +193,27 @@ public interface Kitchen {
         public WriteResult {
             result = result == null ? Map.of() : Map.copyOf(result);
             undoPlan = undoPlan == null ? Map.of() : Map.copyOf(undoPlan);
+        }
+    }
+
+    record PlanSlot(String meal, long dishId, String dishName, String coverUrl, List<String> badges) {
+        public PlanSlot {
+            badges = badges == null ? List.of() : List.copyOf(badges);
+        }
+    }
+
+    record PlanDay(LocalDate date, String weekday, List<PlanSlot> slots) {
+        public PlanDay {
+            slots = slots == null ? List.of() : List.copyOf(slots);
+        }
+    }
+
+    /** 一周餐程草稿摘要（draftId 可在 /mealplan/drafts/{id} 打开）。 */
+    record WeekPlan(long draftId, LocalDate weekStart, LocalDate weekEnd, boolean passed, List<String> notes,
+                    List<PlanDay> days) {
+        public WeekPlan {
+            notes = notes == null ? List.of() : List.copyOf(notes);
+            days = days == null ? List.of() : List.copyOf(days);
         }
     }
 }

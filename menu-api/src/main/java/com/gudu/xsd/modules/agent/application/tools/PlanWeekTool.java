@@ -20,7 +20,8 @@ import static com.gudu.xsd.modules.agent.application.tools.ToolSupport.*;
 
 /**
  * plan_week（读，产出草稿）：一周从周一开始，默认下周一至周日（今天是周一则本周）。
- * 按全家画像约束排 7 顿晚饭、不重样；正式的可编辑草稿与生成食集走 /mealplan/drafts（mealplan 上下文）。
+ * 线上：调用 mealplan 上下文生成真实草稿（午晚两餐、规则过滤 + 排布 + 校验回环），卡片带 draftId，
+ * 用户在「一周餐程」页换菜后生成食集和采购清单。评测夹具不支持时退回轻量草稿：按全家画像约束排 7 顿晚饭、不重样。
  */
 public class PlanWeekTool implements AgentTool {
 
@@ -66,11 +67,14 @@ public class PlanWeekTool implements AgentTool {
             start = start.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         }
         List<String> constraints = strings(args, "constraints");
+        Integer maxMinutes = constraints.stream().anyMatch(c -> c.contains("30")) ? 30 : null;
+        Integer servings = args.get("servings") instanceof Number n ? n.intValue() : null;
+        java.util.Optional<Kitchen.WeekPlan> real = k.draftWeekPlan(start, servings, maxMinutes);
+        if (real.isPresent()) return fromDraft(real.get());
         ProfileConstraintPolicy.Constraint family = ProfileConstraintPolicy.of(k.members());
         Set<String> exclude = new LinkedHashSet<>(family.excludeTags());
         // 宝宝单独做辅食版，不让宝宝约束卡掉全家的菜：只保留非宝宝成员的硬约束 + 用户明说的
         exclude.removeAll(List.of("辣", "生冷"));
-        Integer maxMinutes = constraints.stream().anyMatch(c -> c.contains("30")) ? 30 : null;
         List<String> tags = constraints.stream().filter(c -> c.equals("少盐") || c.equals("控脂") || c.equals("素菜")).toList();
         List<DishInfo> pool = new ArrayList<>(k.searchDishes(new DishQuery(null, List.of(), tags, exclude,
                 family.preferTags(), maxMinutes, 8)));
@@ -108,5 +112,45 @@ public class PlanWeekTool implements AgentTool {
         data.put("constraintsApplied", family.notes());
         data.put("note", "这是草稿，用户可在「一周餐程」里换菜后生成食集和采购清单");
         return ToolOutcome.ok("排好 " + range + "（周一到周日）7 顿晚饭草稿", data, List.of(card));
+    }
+
+    static ToolOutcome fromDraft(Kitchen.WeekPlan p) {
+        String range = p.weekStart().getMonthValue() + "." + p.weekStart().getDayOfMonth() + "–"
+                + p.weekEnd().getMonthValue() + "." + p.weekEnd().getDayOfMonth();
+        List<Map<String, Object>> days = new ArrayList<>();
+        List<Map<String, Object>> items = new ArrayList<>();
+        Set<Long> seen = new LinkedHashSet<>();
+        for (Kitchen.PlanDay d : p.days()) {
+            Map<String, Object> day = new LinkedHashMap<>();
+            day.put("date", d.date().toString());
+            day.put("weekday", d.weekday());
+            for (Kitchen.PlanSlot s : d.slots()) {
+                day.put("LUNCH".equals(s.meal()) ? "lunch" : "dinner", s.dishName());
+                if (seen.add(s.dishId())) {
+                    Map<String, Object> it = new LinkedHashMap<>();
+                    it.put("id", s.dishId());
+                    it.put("name", s.dishName());
+                    it.put("coverUrl", s.coverUrl());
+                    items.add(it);
+                }
+            }
+            days.add(day);
+        }
+        Map<String, Object> card = new LinkedHashMap<>();
+        card.put("type", "plan");
+        card.put("draftId", p.draftId());
+        card.put("range", range);
+        card.put("days", p.days().size());
+        card.put("weekStart", p.weekStart().toString());
+        card.put("items", items);
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("draftId", p.draftId());
+        data.put("weekStart", p.weekStart().toString());
+        data.put("weekEnd", p.weekEnd().toString());
+        data.put("days", days);
+        data.put("check", p.notes());
+        data.put("passed", p.passed());
+        data.put("note", "草稿已生成，用户可在「一周餐程」里换菜，确认后生成食集和采购清单");
+        return ToolOutcome.ok("排好 " + range + "（周一到周日）的一周餐程草稿", data, List.of(card));
     }
 }

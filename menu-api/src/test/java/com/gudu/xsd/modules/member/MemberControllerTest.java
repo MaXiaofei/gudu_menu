@@ -94,6 +94,38 @@ class MemberControllerTest {
                 .andExpect(jsonPath("$.data.records[0].name").value("张爸爸"));
     }
 
+    @Test
+    void 成员列表_App侧普通成员只看本家成员档案() throws Exception {
+        org.mockito.Mockito.doReturn(List.of(member(CALLER, "小王"), member(11L, "妈妈"))).when(svc).household(CALLER);
+        asCaller(false, () -> {
+            mvc.perform(get("/member").param("pageNum", "1").param("pageSize", "10"))
+                    .andExpect(jsonPath("$.code").value(0))
+                    .andExpect(jsonPath("$.data.total").value(2))
+                    .andExpect(jsonPath("$.data.records[1].name").value("妈妈"));
+        });
+    }
+
+    @Test
+    void 家庭成员规则_排除超管_E2E_社区作者_未建档账号() {
+        Member admin = member(1L, "管理员");
+        admin.setIsAdmin(1);
+        admin.setHealthProfile(java.util.Map.of());
+        Member e2e = member(2L, "E2E咕嘟访客");
+        e2e.setHealthProfile(java.util.Map.of());
+        Member author = member(3L, "糖糖酱");
+        author.setPhone("cm_tangtang");
+        author.setHealthProfile(java.util.Map.of());
+        Member wx = member(4L, "微信用户");
+        Member mama = member(5L, "妈妈");
+        mama.setHealthProfile(java.util.Map.of("audiences", List.of("高血压")));
+        assertThat(MemberService.isHouseholdMember(admin, 9L)).isFalse();
+        assertThat(MemberService.isHouseholdMember(e2e, 9L)).isFalse();
+        assertThat(MemberService.isHouseholdMember(author, 9L)).isFalse();
+        assertThat(MemberService.isHouseholdMember(wx, 9L)).isFalse();
+        assertThat(MemberService.isHouseholdMember(wx, 4L)).as("本人总算在内").isTrue();
+        assertThat(MemberService.isHouseholdMember(mama, 9L)).isTrue();
+    }
+
     @MockBean
     private AdminChecker adminChecker;
 
@@ -104,6 +136,7 @@ class MemberControllerTest {
         given(adminChecker.isAdmin(CALLER)).willReturn(admin);
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(CALLER);
+            stp.when(StpUtil::isLogin).thenReturn(true);
             stp.when(StpUtil::getSession).thenReturn(org.mockito.Mockito.mock(SaSession.class));
             body.run();
         }

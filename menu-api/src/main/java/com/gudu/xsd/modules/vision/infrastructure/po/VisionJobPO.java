@@ -21,6 +21,7 @@ public class VisionJobPO {
     private String error;
     private String itemsJson;
     private String recipeJson;
+    private Boolean degraded;
     private LocalDateTime appliedAt;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

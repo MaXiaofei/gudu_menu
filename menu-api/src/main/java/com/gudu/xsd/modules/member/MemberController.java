@@ -29,9 +29,29 @@ public class MemberController {
     private static final double MALE_BMR_CONST = 5;
     private static final double FEMALE_BMR_CONST = -161;
 
+    /**
+     * 成员列表：平台超管（后台）看全部；App 侧普通成员只看本家成员档案（排除超管账号、E2E 测试成员、
+     * 未建档的纯登录账号），见 {@link MemberService#household}。
+     */
     @GetMapping
     public R<IPage<Member>> list(PageQuery q) {
-        return R.ok(svc.page(q));
+        Long me = loginIdOrNull();
+        if (me == null || adminChecker.isAdmin(me)) return R.ok(svc.page(q));
+        java.util.List<Member> all = svc.household(me);
+        long size = q.getPageSize();
+        long from = Math.min(all.size(), (long) (q.getPageNum() - 1) * size);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Member> page =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(q.getPageNum(), size, all.size());
+        page.setRecords(all.subList((int) from, (int) Math.min(all.size(), from + size)));
+        return R.ok(page);
+    }
+
+    private static Long loginIdOrNull() {
+        try {
+            return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+        } catch (RuntimeException e) { // 无 Sa-Token 上下文（如非 Web 线程）按未登录处理
+            return null;
+        }
     }
 
     /**

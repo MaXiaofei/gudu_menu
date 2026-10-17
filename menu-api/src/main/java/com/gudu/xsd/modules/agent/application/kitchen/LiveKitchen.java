@@ -77,7 +77,7 @@ class LiveKitchen implements Kitchen {
     @Override
     public List<MemberInfo> members() {
         if (membersCache == null) {
-            membersCache = f.memberService.list().stream().map(this::member).toList();
+            membersCache = f.memberService.household(memberId).stream().map(this::member).toList();
         }
         return membersCache;
     }
@@ -203,8 +203,13 @@ class LiveKitchen implements Kitchen {
         List<Dish> dishes = new ArrayList<>(f.dishService.listByIds(ids));
         f.dishService.decorateCards(dishes);
         Map<Long, Dish> byId = dishes.stream().collect(Collectors.toMap(Dish::getId, Function.identity(), (a, b) -> a));
+        // 完整菜谱（有封面 + 有步骤）排前，顺序内保持「临期 → 常做 → 应季」
+        Set<Long> withSteps = f.dishService.dishIdsWithSteps(ids);
         List<Dish> ordered = ids.stream().map(byId::get).filter(Objects::nonNull)
-                .filter(d -> tagsOf(d).stream().noneMatch(excludeTags::contains)).limit(n).toList();
+                .filter(d -> tagsOf(d).stream().noneMatch(excludeTags::contains))
+                .sorted(java.util.Comparator.comparing((Dish d) -> !(withSteps.contains(d.getId())
+                        && d.getCoverUrl() != null && !d.getCoverUrl().isBlank())))
+                .limit(n).toList();
         List<Long> keep = ordered.stream().map(Dish::getId).toList();
         Map<Long, List<DishIngredient>> ing = f.dishService.ingredientsOf(keep).stream()
                 .collect(Collectors.groupingBy(DishIngredient::getDishId));
@@ -519,5 +524,23 @@ class LiveKitchen implements Kitchen {
         Set<Long> s = new LinkedHashSet<>(a);
         s.addAll(b);
         return new ArrayList<>(s);
+    }
+
+    @Override
+    public java.util.Optional<WeekPlan> draftWeekPlan(LocalDate weekStart, Integer servings, Integer weekdayMaxMinutes) {
+        com.gudu.xsd.modules.mealplan.application.dto.MealPlanDraftView v = f.mealPlans.create(memberId,
+                new com.gudu.xsd.modules.mealplan.application.dto.CreateDraftCommand(weekStart, null, servings, null,
+                        weekdayMaxMinutes, null, true));
+        List<PlanDay> days = v.days().stream().map(d -> new PlanDay(d.date(), d.weekday(), d.slots().stream()
+                .map(s -> new PlanSlot(s.meal(), s.dish().id(), s.dish().name(), s.dish().coverUrl(), s.badges()))
+                .toList())).toList();
+        return java.util.Optional.of(new WeekPlan(v.draftId(), v.weekStart(), v.weekEnd(), v.check().passed(),
+                v.check().notes(), days));
+    }
+
+    @Override
+    public Set<String> dishNames() {
+        return f.dishService.list(new QueryWrapper<Dish>().select("name")).stream().map(Dish::getName)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
     }
 }

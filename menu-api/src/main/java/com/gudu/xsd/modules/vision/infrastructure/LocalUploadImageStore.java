@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 /** 本地上传目录（gudu.upload-dir）里的识别原图删除：原图 + 同名缩略图。 */
 @Slf4j
@@ -27,6 +28,19 @@ public class LocalUploadImageStore implements ImageStore {
         String rel = uploadedUrl.replaceFirst("^(/gudu)?/uploads/", "");
         deleteQuietly(rel);
         if (rel.startsWith("original/")) deleteQuietly("thumbnail/" + rel.substring("original/".length()));
+    }
+
+    @Override
+    public Optional<byte[]> read(String uploadedUrl) {
+        if (!UploadedImageUrl.isValid(uploadedUrl)) return Optional.empty();
+        Path p = root.resolve(uploadedUrl.replaceFirst("^(/gudu)?/uploads/", "")).normalize();
+        if (!p.startsWith(root) || !Files.isRegularFile(p)) return Optional.empty();
+        try {
+            return Optional.of(Files.readAllBytes(p));
+        } catch (IOException e) {
+            log.warn("读取识别原图失败 {}: {}", p, e.getMessage());
+            return Optional.empty();
+        }
     }
 
     private void deleteQuietly(String rel) {

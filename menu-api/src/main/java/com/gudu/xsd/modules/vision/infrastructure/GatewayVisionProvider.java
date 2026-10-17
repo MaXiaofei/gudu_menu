@@ -30,8 +30,9 @@ public class GatewayVisionProvider implements VisionProvider {
     public RecognitionResult recognize(VisionMode mode, String imageUrl) {
         VisionModelPort port = modelPort.getIfAvailable();
         if (port == null) throw new IllegalStateException("模型网关未接入视觉能力");
-        String text = port.recognize(imageUrl, VisionPrompts.promptOf(mode), VisionPrompts.schemaOf(mode));
-        return VisionOutputParser.parse(text, mode);
+        VisionModelPort.Output out = port.recognize(imageUrl, VisionPrompts.promptOf(mode), VisionPrompts.schemaOf(mode));
+        RecognitionResult parsed = VisionOutputParser.parse(out.text(), mode);
+        return out.degraded() ? parsed.asDegraded() : parsed;
     }
 
     @Override

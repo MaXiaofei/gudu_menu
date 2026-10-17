@@ -1,6 +1,7 @@
 package com.gudu.xsd.modules.mealplan.domain.service;
 
 import com.gudu.xsd.modules.mealplan.domain.model.DishCandidate;
+import com.gudu.xsd.modules.mealplan.domain.model.DishKind;
 import com.gudu.xsd.modules.mealplan.domain.model.HouseholdProfile;
 import com.gudu.xsd.modules.mealplan.domain.model.PlannedSlot;
 import com.gudu.xsd.modules.mealplan.domain.model.SlotBadge;
@@ -15,7 +16,7 @@ import java.util.Set;
 
 /**
  * 餐程校验：每天人均钠（午晚菜 1 人份 + 早餐等其它摄入基线）不超过档案上限；本周不重样；
- * 有宝宝时每天至少一格宝宝可吃；每格都排上了菜。
+ * 有宝宝时每天至少一格宝宝可吃；每格都排上了菜；每餐至少一道非主食、非甜品的菜（不把粥/馒头/糖水单独排成一餐）。
  */
 public final class PlanValidator {
 
@@ -46,12 +47,21 @@ public final class PlanValidator {
             }
             for (PlannedSlot s : ds) {
                 if (!seen.add(s.dishId())) issues.add(new DayIssue(day, "菜重复了", Set.of(s.dishId())));
+                DishCandidate c = byId.get(s.dishId());
+                if (c != null && !isMainDish(c)) {
+                    issues.add(new DayIssue(day, s.meal().label() + "只有" + c.name() + "，缺一道正菜", Set.of(s.dishId())));
+                }
             }
             if (profile.hasBaby() && ds.stream().noneMatch(s -> s.badges().contains(SlotBadge.BABY))) {
                 issues.add(new DayIssue(day, "缺一道宝宝可吃的菜", Set.of()));
             }
         }
         return issues;
+    }
+
+    /** 能单独撑起一餐的菜：荤菜、素菜、汤（主食与甜品不算）。 */
+    public static boolean isMainDish(DishCandidate c) {
+        return c.kind() != DishKind.STAPLE && c.kind() != DishKind.DESSERT;
     }
 
     /** 人均日钠（mg）。 */

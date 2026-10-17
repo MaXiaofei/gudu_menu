@@ -31,9 +31,29 @@ public class HouseholdAssembler {
 
     public List<Member> members(Collection<Long> memberIds) {
         List<Long> ids = memberIds == null ? List.of() : memberIds.stream().filter(Objects::nonNull).distinct().toList();
-        List<Member> out = ids.isEmpty() ? memberService.list() : memberService.listByIds(ids);
+        List<Member> out = ids.isEmpty() ? memberService.household(null) : memberService.listByIds(ids);
         if (out.isEmpty()) throw new BizException("没有找到就餐成员");
         return out;
+    }
+
+    /** 营养报告默认成员：家里有健康档案的人里，按 高血压 → 高血脂 → 宝宝辅食 → 其它档案 → 本人 的顺序挑第一位。 */
+    public Member defaultReportMember(Long currentMemberId) {
+        List<Member> all = memberService.household(currentMemberId);
+        for (String a : List.of("高血压", "高血脂", "宝宝辅食")) {
+            for (Member m : all) {
+                if (audiences(m).contains(a)) return m;
+            }
+        }
+        for (Member m : all) {
+            if (!audiences(m).isEmpty()) return m;
+        }
+        return all.stream().filter(m -> m.getId().equals(currentMemberId)).findFirst()
+                .orElseGet(() -> all.isEmpty() ? member(currentMemberId) : all.get(0));
+    }
+
+    private static List<String> audiences(Member m) {
+        Object a = m.getHealthProfile() == null ? null : m.getHealthProfile().get("audiences");
+        return a instanceof Collection<?> c ? c.stream().map(String::valueOf).toList() : List.of();
     }
 
     public Member member(Long memberId) {

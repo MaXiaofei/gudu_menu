@@ -12,7 +12,9 @@ import com.gudu.xsd.modules.agent.domain.model.ToolCallRecord;
 import com.gudu.xsd.modules.agent.domain.model.TraceSpan;
 import com.gudu.xsd.modules.agent.domain.model.TraceStatus;
 import com.gudu.xsd.modules.agent.domain.port.Kitchen;
+import com.gudu.xsd.modules.agent.domain.service.DishMentionGuard;
 import com.gudu.xsd.modules.agent.domain.service.PhoneMasker;
+import com.gudu.xsd.modules.agent.domain.service.PlainReply;
 import com.gudu.xsd.modules.ai.AiInputGuard;
 import com.gudu.xsd.modules.ai.gateway.application.ModelGateway;
 import com.gudu.xsd.modules.ai.gateway.application.ModelUnavailableException;
@@ -30,6 +32,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * 咕嘟编排器（ReAct，≤ {@value #MAX_STEPS} 步）：护栏 → 组装上下文（系统提示 + 家庭画像 + 历史）→
@@ -73,6 +77,7 @@ public class AgentOrchestrator {
     public TurnResult run(TurnRequest req, Env env, AgentEventSink sink) {
         long t0 = System.currentTimeMillis();
         Turn turn = new Turn(t0);
+        turn.dishNames = memoize(env.kitchen()::dishNames);
         sink.send("meta", ordered("messageId", req.messageId(), "traceId", req.traceId()));
 
         // 1. 输入护栏
@@ -115,6 +120,11 @@ public class AgentOrchestrator {
                     for (ToolCall call : res.reply().toolCalls()) {
                         String out = runTool(call, ctx, env, req, turn, sink);
                         messages.add(ChatMessage.tool(call.id(), out));
+                    }
+                    List<String> allowed = cardDishNames(turn.cards);
+                    if (!allowed.isEmpty()) {
+                        messages.add(ChatMessage.system("【本轮可推荐的菜】" + String.join("、", allowed)
+                                + "。回复里提到的菜名只能从这份清单里选，不要提清单以外的菜。"));
                     }
                     continue;
                 }
@@ -165,6 +175,7 @@ public class AgentOrchestrator {
         turn.span(type, (type == SpanType.RETRIEVAL ? "retrieval." : "tool.") + call.name(), s0, out.ok(),
                 mask(args, turn), mask(Map.of("summary", String.valueOf(out.summary())), turn), 0, BigDecimal.ZERO);
         sink.send("tool_end", ordered("name", call.name(), "summary", out.summary(), "ms", ms, "ok", out.ok()));
+        turn.evidence.add(out.summary() + " " + out.data());
         for (Map<String, Object> card : out.cards()) {
             turn.cards.add(card);
             sink.send("card", card);
@@ -238,13 +249,27 @@ public class AgentOrchestrator {
         return m;
     }
 
+    /** 本轮卡片里的菜名（recipes / plan 卡片的 items[].name），注入给模型作为可推荐清单。 */
+    static List<String> cardDishNames(List<Map<String, Object>> cards) {
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        for (Map<String, Object> c : cards) {
+            if (c.get("items") instanceof List<?> items) {
+                for (Object it : items) {
+                    if (it instanceof Map<?, ?> m && m.get("name") instanceof String n && !n.isBlank()) names.add(n);
+                }
+            }
+        }
+        return List.copyOf(names);
+    }
+
     private TurnResult finish(TurnRequest req, Turn turn, String rawReply, AgentEventSink sink) {
-        PhoneMasker.Masked masked = PhoneMasker.mask(rawReply);
+        PhoneMasker.Masked masked = PhoneMasker.mask(PlainReply.of(rawReply));
         turn.phoneMasked += masked.count();
         String reply = masked.text().length() > MAX_REPLY ? masked.text().substring(0, MAX_REPLY) : masked.text();
         long g0 = System.currentTimeMillis();
         turn.span(SpanType.GUARD, "guard.output", g0, true, Map.of("length", reply.length()),
                 Map.of("phoneMasked", masked.count()), 0, BigDecimal.ZERO);
+        observeDishMentions(req, turn, reply);
         for (int i = 0; i < reply.length(); i += TOKEN_CHUNK) {
             if (turn.firstTokenMs == null) turn.firstTokenMs = System.currentTimeMillis() - turn.start;
             sink.send("token", Map.of("text", reply.substring(i, Math.min(reply.length(), i + TOKEN_CHUNK))));
@@ -257,6 +282,34 @@ public class AgentOrchestrator {
                 turn.status, turn.provider, turn.model, turn.degraded, turn.steps, turn.promptTokens,
                 turn.completionTokens, turn.cost, System.currentTimeMillis() - turn.start, turn.firstTokenMs,
                 turn.phoneMasked);
+    }
+
+    /** 回复里提到、但本轮卡片 / 动作 / 工具结果 / 用户原话里都没有的菜名：记一条 guard span（不拦截，先观测）。 */
+    private static void observeDishMentions(TurnRequest req, Turn turn, String reply) {
+        long g0 = System.currentTimeMillis();
+        try {
+            List<String> evidence = new ArrayList<>(turn.evidence);
+            evidence.add(req.text() == null ? "" : req.text());
+            turn.cards.forEach(c -> evidence.add(String.valueOf(c)));
+            turn.actions.forEach(a -> evidence.add(a.title() + " " + a.preview()));
+            List<String> bad = DishMentionGuard.unsupported(reply, evidence, turn.dishNames.get());
+            if (!bad.isEmpty()) {
+                turn.span(SpanType.GUARD, "guard.dish_mention", g0, false, Map.of("cards", turn.cards.size()),
+                        Map.of("unsupported", bad, "blocked", false), 0, BigDecimal.ZERO);
+            }
+        } catch (RuntimeException e) {
+            log.debug("菜名一致性观测失败: {}", e.getMessage());
+        }
+    }
+
+    /** 只取一次（菜名表按需查库）。 */
+    private static <T> Supplier<T> memoize(Supplier<T> source) {
+        Object[] box = new Object[1];
+        return () -> {
+            if (box[0] == null) box[0] = source.get();
+            @SuppressWarnings("unchecked") T v = (T) box[0];
+            return v;
+        };
     }
 
     // ================================================================== 内部
@@ -287,6 +340,10 @@ public class AgentOrchestrator {
         BigDecimal cost = BigDecimal.ZERO;
         Long firstTokenMs;
         int phoneMasked;
+
+        /** 本轮依据文本（用户原话、工具结果摘要），供回复菜名一致性观测。 */
+        final List<String> evidence = new ArrayList<>();
+        Supplier<Set<String>> dishNames = Set::of;
 
         Turn(long start) {
             this.start = start;
