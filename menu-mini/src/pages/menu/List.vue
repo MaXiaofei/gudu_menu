@@ -3,6 +3,7 @@
   <view class="page">
     <ui-tab-header title="食集">
       <view class="new-btn" @click="openCreate"><ui-icon name="plus" tone="white" :size="14" /><text class="new-txt">新食集</text></view>
+      <ui-me-avatar />
     </ui-tab-header>
 
     <ui-offline-bar />
@@ -15,6 +16,16 @@
     <view class="list">
       <!-- 进行中主卡 -->
       <active-menu-card v-if="current" :menu="current" :dishes="dishesOf(current.id)" @tap="onTapCard(current)" />
+
+      <!-- AI 一周餐程入口（周一至周日） -->
+      <view class="plan-card" data-testid="go-weekplan" @click="goWeekPlan">
+        <view class="plan-ic"><ui-icon name="calendar" tone="white" :size="22" /></view>
+        <view class="plan-main">
+          <text class="plan-title">让咕嘟排下周 7 天</text>
+          <text class="plan-sub">{{ planRange }} · 按家人档案排，顺手用掉快到期的</text>
+        </view>
+        <text class="plan-go">AI 排餐 ›</text>
+      </view>
 
       <text v-if="rest.length" class="sec-label">{{ current ? '接下来 · 其他食集' : '全部食集' }}</text>
       <view v-for="m in rest" :key="m.id" class="swipe-wrap">
@@ -78,6 +89,8 @@
 </template>
 
 <script setup lang="ts">
+import { PAGES } from '@/utils/nav'
+import { defaultPlanWeekStart, weekRangeLabel } from '@/utils/week'
 import { ref, computed, reactive } from 'vue'
 import { useSwipe } from '@/composables/useSwipe'
 import ActiveMenuCard from './parts/ActiveMenuCard.vue'
@@ -223,6 +236,11 @@ function confirmDelete(m: Menu) {
   })
 }
 
+
+const planRange = weekRangeLabel(defaultPlanWeekStart())
+function goWeekPlan() {
+  uni.navigateTo({ url: PAGES.weekPlan })
+}
 </script>
 
 <style scoped>
@@ -268,6 +286,48 @@ function confirmDelete(m: Menu) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.plan-card {
+  margin-bottom: var(--space-md);
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--primary-soft);
+  background: linear-gradient(120deg, var(--highlight), var(--secondary));
+}
+.plan-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--primary-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.plan-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.plan-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--title);
+}
+.plan-sub {
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.plan-go {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
 }
 .sec-label {
   margin-top: var(--space-sm);

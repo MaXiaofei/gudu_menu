@@ -4,7 +4,9 @@
     <view class="top" :style="{ paddingTop: sb + 'px' }">
       <text class="back" @click="goBack">‹</text>
       <view style="flex: 1" />
-      <text class="more">⋯</text>
+      <view v-if="detail" class="share" data-testid="share-community" @click="shareToCommunity">
+        <ui-icon name="users" tone="primary" :size="14" /><text class="share-txt">晒到厨房圈</text>
+      </view>
     </view>
 
     <ui-state v-if="loading" mode="loading" />
@@ -52,6 +54,7 @@
 </template>
 
 <script setup lang="ts">
+import { PAGES, withQuery } from '@/utils/nav'
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { foodLogDetail, copyMenu, type FoodLogDetail } from '@/api/foodlog'
@@ -102,9 +105,33 @@ async function copyAgain() {
     copying.value = false
   }
 }
+
+/** 食记一键分享：带菜名进入发布页（不带成员名与余量，kitchen-community spec）。 */
+function shareToCommunity() {
+  const d = detail.value
+  if (!d) return
+  const first = d.dishes.find((x) => x.dishId)
+  uni.navigateTo({
+    url: withQuery(PAGES.postCreate, { fromCookRecordId: d.menuId ?? undefined, dishId: first?.dishId ?? undefined, dishName: first?.dishName ?? undefined }),
+  })
+}
 </script>
 
 <style scoped>
+.share {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--primary-soft);
+  background: var(--highlight);
+}
+.share-txt {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--accent);
+}
 .page {
   height: 100vh;
   display: flex;

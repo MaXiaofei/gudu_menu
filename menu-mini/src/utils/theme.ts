@@ -34,7 +34,7 @@ export const THEME_OPTIONS: { name: ThemeName; label: string; desc: string }[] =
 export const THEME_STORAGE_KEY = 'gd_theme'
 
 /** tabBar 页（顺序与 pages.json tabBar.list 一致），图标文件名前缀。 */
-export const TAB_ICONS = ['dish', 'menu', 'recommend', 'pantry', 'profile'] as const
+export const TAB_ICONS = ['dish', 'menu', 'agent', 'community', 'pantry'] as const
 
 export function normalizeTheme(v: unknown): ThemeName {
   return typeof v === 'string' && v in THEMES ? v : DEFAULT_SKIN

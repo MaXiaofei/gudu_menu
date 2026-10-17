@@ -44,7 +44,7 @@ describe('utils/theme 双主题', () => {
     expect(uni.setTabBarStyle).toHaveBeenCalledWith(expect.objectContaining({ selectedColor: '#648449' }))
     expect(uni.setTabBarItem).toHaveBeenCalledTimes(5)
     expect(uni.setTabBarItem).toHaveBeenCalledWith(
-      expect.objectContaining({ index: 2, selectedIconPath: '/static/tabbar/recommend-matcha-on.png' }),
+      expect.objectContaining({ index: 2, selectedIconPath: '/static/tabbar/agent-matcha-on.png' }),
     )
   })
 

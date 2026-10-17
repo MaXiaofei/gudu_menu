@@ -66,6 +66,7 @@
 
       <view v-if="showActions" class="bottom">
         <button class="btn-add" :disabled="sheetRef?.busy" @click="sheetRef?.open()">+ 加入食集</button>
+        <button class="btn-follow" data-testid="cook-mode" @click="goCookMode">跟做</button>
         <button class="btn-cook" :disabled="cookLoading" data-testid="cook-now" @click="onCookNow">
           {{ cookLoading ? '加载中…' : '现在就做' }}
         </button>
@@ -91,8 +92,9 @@
 </template>
 
 <script setup lang="ts">
+import { PAGES, withQuery, COOK_AFTER_MODE_KEY } from '@/utils/nav'
 import { ref, computed } from 'vue'
-import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
+import { onLoad, onShow, onShareAppMessage } from '@dcloudio/uni-app'
 import { dishDetail, type DishDetail, type DishIngredient } from '@/api/dish'
 import { toAbsolute, originalList } from '@/utils/image'
 import { navInset } from '@/utils/token'
@@ -225,6 +227,20 @@ function closeCook() {
 function goFoodlog() {
   closeCook()
   uni.navigateTo({ url: '/pages/foodlog/Index' })
+}
+
+/** 跟做模式最后一步「做好了」→ 回到详情直接打开做完确认（storage 标记，跨分包不传对象）。 */
+onShow(() => {
+  const flag = uni.getStorageSync(COOK_AFTER_MODE_KEY)
+  if (flag && Number(flag) === dishId.value) {
+    uni.removeStorageSync(COOK_AFTER_MODE_KEY)
+    onCookNow()
+  }
+})
+
+/** 跟做模式（pkg-ai/CookMode）：大字步骤 + 计时器 + 问咕嘟。 */
+function goCookMode() {
+  uni.navigateTo({ url: withQuery(PAGES.cookMode, { id: dishId.value }) })
 }
 </script>
 
@@ -396,6 +412,21 @@ function goFoodlog() {
   padding: var(--space-md) var(--space-lg) calc(var(--space-md) + env(safe-area-inset-bottom));
   background: var(--card);
   border-top: 1px solid var(--border);
+}
+.btn-follow {
+  height: 48px;
+  line-height: 48px;
+  padding: 0 16px;
+  margin: 0;
+  border-radius: var(--radius-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--title);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.btn-follow::after {
+  border: none;
 }
 .btn-add,
 .btn-cook {

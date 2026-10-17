@@ -4,8 +4,9 @@
     <ui-tab-header title="我家余量" :sub="`我家的厨房 · ${totalCount} 样`">
       <view class="shop-btn" data-testid="go-shopping" @click="goShopping">
         <ui-icon name="cart" :size="16" />
-        <text class="shop-txt">采购清单</text>
+        <text class="shop-txt">采购</text>
       </view>
+      <ui-me-avatar />
     </ui-tab-header>
 
     <ui-offline-bar />
@@ -81,6 +82,10 @@
       <view style="height: 96px" />
     </scroll-view>
 
+    <view class="fab fab-scan" data-testid="fab-scan" @click="goScan">
+      <ui-icon name="camera" tone="primary" :size="18" />
+      <text class="fab-scan-txt">拍照</text>
+    </view>
     <view class="fab" data-testid="fab-add" @click="goAdd">
       <ui-icon name="plus" tone="white" :size="18" />
       <text class="fab-txt">入库</text>
@@ -89,6 +94,7 @@
 </template>
 
 <script setup lang="ts">
+import { PAGES } from '@/utils/nav'
 import { ref, reactive, computed } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { listGroupedPage, listExpiring, pantrySummary, setPantryLevel, sourceLabel, sourceSub, type PantryGroupedItem, type ExpiringItem, type PantrySummary } from '@/api/pantry'
@@ -269,6 +275,11 @@ function subText(it: PantryGroupedItem): string {
 function goDetail(it: { ingredientId: number }) {
   uni.navigateTo({ url: `/pages/pantry/Detail?id=${it.ingredientId}` })
 }
+/** 拍冰箱 / 小票批量入库（pkg-ai/Scan）。 */
+function goScan() {
+  uni.navigateTo({ url: PAGES.scan })
+}
+
 function goAdd() {
   uni.navigateTo({ url: '/pages/pantry/Add' })
 }
@@ -438,6 +449,17 @@ function goShopping() {
   gap: 6px;
   box-shadow: 0 6px 18px rgba(var(--sh), 0.35);
   z-index: 10;
+}
+.fab-scan {
+  right: 124px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(var(--sh), 0.16);
+}
+.fab-scan-txt {
+  color: var(--accent);
+  font-size: var(--fs-md);
+  font-weight: 700;
 }
 .fab-txt {
   color: var(--on-primary);

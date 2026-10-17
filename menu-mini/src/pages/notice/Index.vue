@@ -88,7 +88,7 @@ async function open(n: Notice) {
     n.isRead = 1
     markRead(n.id).catch(() => (n.isRead = 0))
   }
-  if (n.type === 'expiry') uni.switchTab({ url: '/pages/recommend/Index' })
+  if (n.type === 'expiry') uni.switchTab({ url: '/pages/agent/Index' })
   else if (n.type === 'shopping') uni.navigateTo({ url: '/pages/shopping/List' })
 }
 

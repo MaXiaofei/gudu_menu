@@ -27,6 +27,20 @@
       }
     },
     {
+      "path": "pages/agent/Index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/community/Index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 200
+      }
+    },
+    {
       "path": "pages/recommend/Index",
       "style": {
         "navigationStyle": "custom"
@@ -203,22 +217,22 @@
         "selectedIconPath": "static/tabbar/menu-cream-on.png"
       },
       {
-        "pagePath": "pages/recommend/Index",
-        "text": "智荐",
-        "iconPath": "static/tabbar/recommend-cream.png",
-        "selectedIconPath": "static/tabbar/recommend-cream-on.png"
+        "pagePath": "pages/agent/Index",
+        "text": "咕嘟",
+        "iconPath": "static/tabbar/agent-cream.png",
+        "selectedIconPath": "static/tabbar/agent-cream-on.png"
+      },
+      {
+        "pagePath": "pages/community/Index",
+        "text": "厨房圈",
+        "iconPath": "static/tabbar/community-cream.png",
+        "selectedIconPath": "static/tabbar/community-cream-on.png"
       },
       {
         "pagePath": "pages/pantry/List",
         "text": "我家余量",
         "iconPath": "static/tabbar/pantry-cream.png",
         "selectedIconPath": "static/tabbar/pantry-cream-on.png"
-      },
-      {
-        "pagePath": "pages/profile/Profile",
-        "text": "我的",
-        "iconPath": "static/tabbar/profile-cream.png",
-        "selectedIconPath": "static/tabbar/profile-cream-on.png"
       }
     ]
   },
@@ -232,5 +246,97 @@
     "navigationBarTitleText": "",
     "navigationBarBackgroundColor": "#FDFAF4",
     "backgroundColor": "#FDFAF4"
+  },
+  "subPackages": [
+    {
+      "root": "pkg-agent",
+      "pages": [
+        {
+          "path": "Chat",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Voice",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-community",
+      "pages": [
+        {
+          "path": "Post",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Create",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Topic",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-ai",
+      "pages": [
+        {
+          "path": "Scan",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "ScanResult",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "WeekPlan",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Nutrition",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "CookMode",
+          "style": {
+            "navigationStyle": "custom",
+            "pageOrientation": "portrait"
+          }
+        }
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/agent/Index": {
+      "network": "all",
+      "packages": [
+        "pkg-agent"
+      ]
+    },
+    "pages/community/Index": {
+      "network": "all",
+      "packages": [
+        "pkg-community"
+      ]
+    }
   }
 }

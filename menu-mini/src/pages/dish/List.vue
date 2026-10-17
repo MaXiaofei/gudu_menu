@@ -13,6 +13,7 @@
         <ui-avatar-stack :items="memberFaces" :size="22" :max="3" />
         <text class="fam-txt">我家的厨房</text>
       </view>
+      <ui-me-avatar />
     </ui-tab-header>
 
     <ui-offline-bar />

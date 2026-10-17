@@ -3,6 +3,8 @@
   <!-- 我的（prototype Me）：渐变头 + 大头像 + 三格统计 + 最近食记照片条 + 分组设置。 -->
   <view class="page">
     <view class="head" :style="{ paddingTop: nav + 'px' }">
+      <!-- 「我的」不再是 Tab（右上角头像进入），顶部返回 -->
+      <view class="back-row" data-testid="profile-back" @click="goBack"><text class="back">‹</text><text class="back-title">我的</text></view>
       <view class="user-card" data-testid="user-card" @click="go('/pages/profile/Edit')">
         <ui-member-avatar :name="displayName" :avatar-url="me?.avatarUrl" :size="64" ring />
         <view class="user-info">
@@ -55,8 +57,9 @@ import { getMe, meStats, type MemberMe, type MeStats } from '@/api/member'
 import { recentCooked, type RecentCooked } from '@/api/recommend'
 import { unreadCount } from '@/api/notification'
 import { navInset } from '@/utils/token'
-import { THEME_OPTIONS, themeState, applyTabBar } from '@/utils/theme'
+import { THEME_OPTIONS, themeState } from '@/utils/theme'
 import { APP_VERSION } from '@/config/app'
+import { PAGES, goTab } from '@/utils/nav'
 
 const auth = useAuthStore()
 const memberStore = useMemberStore()
@@ -67,7 +70,6 @@ const unread = ref(0)
 const nav = navInset()
 
 onShow(() => {
-  applyTabBar()
   memberStore.load().catch(() => {})
   getMe()
     .then((m) => (me.value = m))
@@ -99,6 +101,7 @@ const groups = computed(() => [
   {
     title: '我的内容',
     items: [
+      { label: '营养报告', icon: 'chart', tone: 't3', url: PAGES.nutrition, value: '本周' },
       { label: '食记', icon: 'calendar', tone: 't2', url: '/pages/foodlog/Index' },
       { label: '采购清单', icon: 'cart', tone: 't3', url: '/pages/shopping/List' },
       { label: '写菜谱', icon: 'book', tone: 't1', url: '/pages/dish/Create' },
@@ -123,6 +126,11 @@ function go(url: string) {
   uni.navigateTo({ url })
 }
 
+function goBack() {
+  if (getCurrentPages().length > 1) uni.navigateBack()
+  else goTab('dish')
+}
+
 function onLogout() {
   uni.showModal({
     title: '退出登录',
@@ -144,6 +152,24 @@ function onLogout() {
   padding-right: var(--sp-16);
   padding-bottom: var(--sp-16);
   background: linear-gradient(180deg, var(--primary-soft), var(--bg));
+}
+.back-row {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.back {
+  font-size: var(--fs-h2);
+  font-weight: 700;
+  color: var(--title);
+  line-height: 1;
+  padding-right: 6px;
+}
+.back-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--title);
 }
 .user-card {
   display: flex;

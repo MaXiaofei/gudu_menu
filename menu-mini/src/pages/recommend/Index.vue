@@ -3,16 +3,21 @@
   <!-- 智荐（prototype Smart）：今晚首推大图 → 快到期先吃 → 你家常做 → 应季 → 最近做过 → 想吃点别的。
        数据：/recommend/home + /cookbook/recent；空分区隐藏。 -->
   <view class="page">
-    <ui-tab-header title="今晚吃点什么">
-      <template #eyebrow>
-        <ui-avatar-stack v-if="faces.length" :items="faces" :size="22" />
-        <text class="eyebrow">{{ eyebrow }}</text>
+    <!-- 原「智荐」Tab → 咕嘟首屏的二级页「全部推荐」 -->
+    <ui-back-header title="全部推荐">
+      <template #subtitle>
+        <view class="sub-row">
+          <ui-avatar-stack v-if="faces.length" :items="faces" :size="18" />
+          <text class="eyebrow">{{ eyebrow }}</text>
+        </view>
       </template>
-      <view class="bell" aria-label="消息" data-testid="bell" @click="goNotice">
-        <ui-icon name="bell" :size="20" />
-        <text v-if="unread" class="bell-dot" />
-      </view>
-    </ui-tab-header>
+      <template #action>
+        <view class="bell" aria-label="消息" data-testid="bell" @click="goNotice">
+          <ui-icon name="bell" :size="20" />
+          <text v-if="unread" class="bell-dot" />
+        </view>
+      </template>
+    </ui-back-header>
 
     <ui-offline-bar />
     <view class="body">
@@ -144,6 +149,7 @@ import { unreadCount } from '@/api/notification'
 import { relativeDate } from '@/utils/datetime'
 import { expiryText } from '@/utils/freshness'
 import AskBlock from './parts/AskBlock.vue'
+import { goTab } from '@/utils/nav'
 
 const askRef = ref<InstanceType<typeof AskBlock> | null>(null)
 const faces = ref<{ name: string; tags?: string[] | null }[]>([])
@@ -220,7 +226,7 @@ function cardMeta(d: DishCard): string {
 }
 
 function goPantry() {
-  uni.switchTab({ url: '/pages/pantry/List' })
+  goTab('pantry')
 }
 function goFoodlog() {
   uni.navigateTo({ url: '/pages/foodlog/Index' })
@@ -237,6 +243,11 @@ function goDish(id: number) {
 .page {
   min-height: 100vh;
   background: var(--bg);
+}
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 .eyebrow {
   font-size: var(--fs-sm);
