@@ -24,5 +24,14 @@ public record PrepItemVO(
         /** 是否共用项（dishCount &gt;= 2），前端 🔥 高亮便利字段。 */
         boolean shared,
         /** 库存档位 ENOUGH/LOW/NONE（家里：充足/不足/用完；没建档按 NONE）。B5。 */
-        String stockLevel
-) {}
+        String stockLevel,
+        /** 插画 key（V68，可空：客户端退首字）。 */
+        String iconKey
+) {
+
+    /** 无插画 key 的便捷构造（测试与旧调用方）。 */
+    public PrepItemVO(Long ingredientId, String ingredientName, List<String> usageTexts, int dishCount,
+                      List<String> dishNames, String status, boolean shared, String stockLevel) {
+        this(ingredientId, ingredientName, usageTexts, dishCount, dishNames, status, shared, stockLevel, null);
+    }
+}

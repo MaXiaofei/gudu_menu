@@ -132,4 +132,20 @@ class DishCoverageAppServiceTest {
         assertThat(svc.coverageOf(List.of())).isEmpty();
         verify(dishService, never()).ingredientsOf(any());
     }
+
+    @Test
+    void 登录后回填最近做菜_未登录不回填() {
+        DishCookHistoryAppService history = mock(DishCookHistoryAppService.class);
+        svc.setCookHistory(history);
+        Page<Dish> page = new Page<>(1, 10);
+        page.setRecords(List.of(dish(1)));
+        when(dishService.search(any())).thenReturn(page);
+        when(coverage.coverageOf(any())).thenReturn(java.util.Map.of());
+
+        svc.search(new DishSearchDTO(), true);
+        verify(history).fillLastCooked(page.getRecords());
+
+        svc.search(new DishSearchDTO(), false);
+        verify(history, org.mockito.Mockito.times(1)).fillLastCooked(any());
+    }
 }

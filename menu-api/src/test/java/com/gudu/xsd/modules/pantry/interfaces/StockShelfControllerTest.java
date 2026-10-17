@@ -91,4 +91,19 @@ class StockShelfControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.suggestedDays").doesNotExist());
     }
+
+    @Test
+    void 余量统计_契约字段() throws Exception {
+        given(appService.summary()).willReturn(new com.gudu.xsd.modules.pantry.application.dto.PantrySummaryView(
+                24, 6, 3, 3, List.of(new com.gudu.xsd.modules.pantry.application.dto.PantrySummaryView.CategoryCount(10L, "蔬菜", 9))));
+        mvc.perform(get("/pantry/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.enough").value(24))
+                .andExpect(jsonPath("$.data.low").value(6))
+                .andExpect(jsonPath("$.data.out").value(3))
+                .andExpect(jsonPath("$.data.expiring3d").value(3))
+                .andExpect(jsonPath("$.data.byCategory[0].categoryId").value(10))
+                .andExpect(jsonPath("$.data.byCategory[0].name").value("蔬菜"))
+                .andExpect(jsonPath("$.data.byCategory[0].count").value(9));
+    }
 }

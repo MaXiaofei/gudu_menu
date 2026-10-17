@@ -196,4 +196,52 @@ class IngredientServiceTest {
         assertThat(vo.getCategoryName()).isEqualTo("蔬菜");
         assertThat(vo.getNutrition()).containsEntry("calorie", new BigDecimal("19"));
     }
+
+    // ---------- 插画 key（V68） ----------
+
+    @Test
+    void 新增食材_按名称计算插画key() {
+        when(baseMapper.insert(any(Ingredient.class))).thenReturn(1);
+        Ingredient i = ing(null, "西红柿");
+
+        svc.save(i);
+
+        assertThat(i.getIconKey()).isEqualTo("tomato");
+    }
+
+    @Test
+    void 改名_重算插画key_品类沿用旧值() {
+        Ingredient old = ing(5L, "番茄");
+        when(baseMapper.selectById(5L)).thenReturn(old);
+        when(baseMapper.updateById(any(Ingredient.class))).thenReturn(1);
+        Ingredient patch = ing(5L, "胡萝卜");
+
+        svc.updateById(patch);
+
+        assertThat(patch.getIconKey()).isEqualTo("carrot");
+    }
+
+    @Test
+    void 只改其他字段_不动插画key() {
+        when(baseMapper.updateById(any(Ingredient.class))).thenReturn(1);
+        Ingredient patch = new Ingredient();
+        patch.setId(5L);
+        patch.setEdible(1);
+
+        svc.updateById(patch);
+
+        assertThat(patch.getIconKey()).isNull();
+        verify(baseMapper, never()).selectById(any());
+    }
+
+    @Test
+    void 批量插画key_只含非空() {
+        Ingredient a = ing(1L, "番茄");
+        a.setIconKey("tomato");
+        Ingredient b = ing(2L, "秋葵");
+        when(baseMapper.selectByIds(any())).thenReturn(List.of(a, b));
+
+        assertThat(svc.iconKeyMap(List.of(1L, 2L))).containsExactly(Map.entry(1L, "tomato"));
+        assertThat(svc.iconKeyMap(List.of())).isEmpty();
+    }
 }

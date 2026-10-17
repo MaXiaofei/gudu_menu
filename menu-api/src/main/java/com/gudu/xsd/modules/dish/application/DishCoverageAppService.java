@@ -38,6 +38,14 @@ public class DishCoverageAppService {
     private final DishService dishService;
     private final StockCoverageAppService coverageAppService;
 
+    /** 做菜历史回填（可选注入：单测不提供时跳过）。 */
+    private DishCookHistoryAppService cookHistory;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setCookHistory(DishCookHistoryAppService cookHistory) {
+        this.cookHistory = cookHistory;
+    }
+
     /**
      * @param loggedIn 是否登录（未登录 coverage 一律 null，sort=coverage 退化为默认排序）
      */
@@ -55,10 +63,12 @@ public class DishCoverageAppService {
             Page<Dish> page = new Page<>(q.getPageNum(), q.getPageSize());
             page.setTotal(total);
             page.setRecords(records);
+            if (cookHistory != null) cookHistory.fillLastCooked(records);
             return page;
         }
         IPage<Dish> result = dishService.search(q);
         if (loggedIn) fillCoverage(result.getRecords());
+        if (loggedIn && cookHistory != null) cookHistory.fillLastCooked(result.getRecords());
         return result;
     }
 

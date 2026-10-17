@@ -3,6 +3,7 @@ package com.gudu.xsd.modules.cookbook.application;
 import com.gudu.xsd.modules.cookbook.application.dto.RecentDishView;
 import com.gudu.xsd.modules.cookbook.domain.model.CookedDishRecord;
 import com.gudu.xsd.modules.cookbook.domain.model.DishCookStat;
+import com.gudu.xsd.modules.cookbook.domain.model.LastCooked;
 import com.gudu.xsd.modules.cookbook.domain.repository.CookedDishRecordRepository;
 import com.gudu.xsd.modules.cookbook.domain.service.UsedMemoFormatter;
 import com.gudu.xsd.modules.dish.Dish;
@@ -80,5 +81,16 @@ public class CookingRecordAppService {
     /** 批量做过次数（无记录的菜不含）。 */
     public Map<Long, Integer> cookedCounts(Long memberId, Collection<Long> dishIds) {
         return repository.countsByMember(memberId, dishIds);
+    }
+
+    /** 本自然月做了几顿饭（「我的」统计；当前单家庭统计全部成员）。 */
+    public long occasionsThisMonth() {
+        java.time.LocalDate first = java.time.LocalDate.now(clock).withDayOfMonth(1);
+        return repository.countOccasions(first.atStartOfDay(), first.plusMonths(1).atStartOfDay());
+    }
+
+    /** 每道菜最近一次谁做的、什么时候（菜谱列表「上次 3 天前 · 妈妈做的」）。 */
+    public Map<Long, LastCooked> lastCooked(Collection<Long> dishIds) {
+        return repository.lastCookedOf(dishIds);
     }
 }

@@ -1003,4 +1003,98 @@ class GuduE2ECoverageTest {
         assertThat(d.get("trend").size()).isEqualTo(7);
         assertThat(d.get("trend").get(6).get("date").asText()).hasSize(10);
     }
+
+    // ===================== W. 原型改版 P0（prototype-ui-rollout 0.2/0.3/0.7） =====================
+
+    private static JsonNode byId(JsonNode arr, String idField, long id) {
+        for (JsonNode n : arr) if (n.get(idField).asLong() == id) return n;
+        return null;
+    }
+
+    @Test
+    void W1_食材插画key_各接口透出() {
+        String token = loginAdmin();
+        // 食材库
+        JsonNode ings = get(token, "/ingredient?keyword=番茄&pageNum=1&pageSize=50");
+        assertThat(ings.get("code").asInt()).as("ingredient msg=" + text(ings, "msg")).isEqualTo(0);
+        assertThat(byId(ings.get("data").get("records"), "id", ING_TOMATO).get("iconKey").asText()).isEqualTo("tomato");
+        // 菜谱详情用料
+        JsonNode detail = get(token, "/dish/" + DISH_FANQIE).get("data");
+        JsonNode dishIngs = detail.has("ingredients") ? detail.get("ingredients") : detail.get("dish").get("ingredients");
+        assertThat(byId(dishIngs, "ingredientId", ING_TOMATO).get("iconKey").asText()).isEqualTo("tomato");
+        assertThat(byId(dishIngs, "ingredientId", 2L).get("iconKey").asText()).isEqualTo("egg");
+        // 余量分组 / 详情 / 临期（种子：番茄明天到期）
+        assertThat(byId(get(token, "/pantry/grouped").get("data").get("items"), "ingredientId", ING_TOMATO)
+                .get("iconKey").asText()).isEqualTo("tomato");
+        assertThat(get(token, "/pantry/item?ingredientId=" + ING_TOMATO).get("data").get("iconKey").asText()).isEqualTo("tomato");
+        assertThat(byId(get(token, "/pantry/expiring?days=3").get("data"), "ingredientId", ING_TOMATO)
+                .get("iconKey").asText()).isEqualTo("tomato");
+        // 做菜确认弹窗
+        JsonNode mats = get(token, "/cook/dish/" + DISH_FANQIE + "/materials").get("data").get("items");
+        assertThat(byId(mats, "ingredientId", ING_TOMATO).get("iconKey").asText()).isEqualTo("tomato");
+        // 采购：关联食材取库里 key；手动项按名称推断（纸巾→tissue）
+        long listId = post(token, "/shopping/create", null).get("data").asLong();
+        post(token, "/shopping/item/custom", Map.of("listId", listId, "name", "番茄", "amount", 1));
+        post(token, "/shopping/item/custom", Map.of("listId", listId, "name", "E2E抽纸"));
+        Map<String, String> iconByName = new HashMap<>();
+        for (JsonNode it : get(token, "/shopping/" + listId).get("data").get("items")) {
+            iconByName.put(it.get("ingredientName").asText(), it.get("iconKey").isNull() ? null : it.get("iconKey").asText());
+        }
+        assertThat(iconByName).containsEntry("番茄", "tomato").containsEntry("E2E抽纸", "tissue");
+        delete(token, "/shopping/" + listId);
+        // 新建食材自动算 key
+        Map<String, Object> ing = new HashMap<>();
+        ing.put("name", "E2E胡萝卜");
+        ing.put("edible", 1);
+        JsonNode created = post(token, "/ingredient", Map.of("ingredient", ing, "nutritions", List.of()));
+        assertThat(created.get("code").asInt()).as("新建食材 msg=" + text(created, "msg")).isEqualTo(0);
+        long newId = created.get("data").asLong();
+        assertThat(get(token, "/ingredient/" + newId).get("data").get("iconKey").asText()).isEqualTo("carrot");
+        delete(token, "/ingredient/" + newId);
+    }
+
+    @Test
+    void W2_余量统计_我的统计_最近做菜人() {
+        String token = loginAdmin();
+        // 余量统计：种子番茄/鸡蛋均充足、番茄明天到期
+        JsonNode sum = get(token, "/pantry/summary");
+        assertThat(sum.get("code").asInt()).as("summary msg=" + text(sum, "msg")).isEqualTo(0);
+        JsonNode sd = sum.get("data");
+        assertThat(sd.get("enough").asInt()).isGreaterThanOrEqualTo(2);
+        assertThat(sd.get("expiring3d").asInt()).isGreaterThanOrEqualTo(1);
+        int total = sd.get("enough").asInt() + sd.get("low").asInt() + sd.get("out").asInt();
+        int byCat = 0;
+        for (JsonNode c : sd.get("byCategory")) {
+            byCat += c.get("count").asInt();
+            assertThat(c.get("name").asText()).isNotBlank();
+        }
+        assertThat(byCat).as("分类计数之和 = 三档之和").isEqualTo(total);
+
+        // 我的统计：做一次菜（用完明天到期的番茄）→ 做饭 +1、少扔 +1
+        JsonNode before = get(token, "/me/stats");
+        assertThat(before.get("code").asInt()).as("me/stats msg=" + text(before, "msg")).isEqualTo(0);
+        JsonNode cook = post(token, "/cook/dish/" + DISH_FANQIE, Map.of("servings", 1, "usedUp", List.of(ING_TOMATO)));
+        assertThat(cook.get("code").asInt()).as("cook msg=" + text(cook, "msg")).isEqualTo(0);
+        JsonNode after = get(token, "/me/stats").get("data");
+        assertThat(after.get("cookedThisMonth").asLong()).isEqualTo(before.get("data").get("cookedThisMonth").asLong() + 1);
+        assertThat(after.get("savedFromWaste").asLong()).isEqualTo(before.get("data").get("savedFromWaste").asLong() + 1);
+        assertThat(after.get("familyDishes").asLong()).isPositive();
+
+        // 菜谱列表：最近一次做菜时间 + 做菜人
+        JsonNode rec = byId(get(token, "/dish/search?keyword=番茄炒蛋&pageNum=1&pageSize=10").get("data").get("records"),
+                "id", DISH_FANQIE);
+        assertThat(rec.get("cookedCount").asInt()).isPositive();
+        assertThat(rec.get("lastCookedAt").asText()).startsWith(LocalDate.now().toString());
+        assertThat(rec.get("lastCookedBy").get("name").asText()).isNotBlank();
+        assertThat(rec.get("lastCookedBy").has("avatarUrl")).isTrue();
+
+        // 首页智荐菜卡 coverUrl 字段（与 coverImage 同值）
+        JsonNode home = get(token, "/recommend/home").get("data");
+        for (String k : List.of("expiringPicks", "frequent", "seasonal")) {
+            for (JsonNode c : home.get(k)) {
+                assertThat(c.has("coverUrl")).as(k + " 应带 coverUrl").isTrue();
+                assertThat(c.get("coverUrl")).isEqualTo(c.get("coverImage"));
+            }
+        }
+    }
 }

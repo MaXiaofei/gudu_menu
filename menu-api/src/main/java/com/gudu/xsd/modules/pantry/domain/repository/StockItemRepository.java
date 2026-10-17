@@ -18,6 +18,14 @@ public interface StockItemRepository {
     /** 记了保质期的全部余量（临期查询用，本家通常 < 200 条）。 */
     List<StockItem> findAllWithBestBefore();
 
+    /** 本家全部余量（含「用完」；余量统计用，本家通常 < 200 条）。 */
+    List<StockItem> findAll();
+
+    /**
+     * 「少扔」计数：[from, to) 内做菜用掉（用完/用了一些）且使用日在保质期前 windowDays 天内（含到期当天）的流水条数。
+     */
+    long countCookedBeforeExpiry(java.time.LocalDateTime from, java.time.LocalDateTime to, int windowDays);
+
     /** 新建或更新（含把保质期置空）；新建回填 id。 */
     void save(StockItem item);
 

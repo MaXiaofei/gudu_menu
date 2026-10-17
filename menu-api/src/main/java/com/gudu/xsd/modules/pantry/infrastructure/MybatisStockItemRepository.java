@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.gudu.xsd.modules.pantry.IngredientStock;
 import com.gudu.xsd.modules.pantry.StockLog;
+import com.gudu.xsd.modules.pantry.domain.model.StockAction;
 import com.gudu.xsd.modules.pantry.domain.model.StockItem;
 import com.gudu.xsd.modules.pantry.domain.model.StockLevel;
 import com.gudu.xsd.modules.pantry.domain.model.StockLogEntry;
@@ -50,6 +51,23 @@ public class MybatisStockItemRepository implements StockItemRepository {
     }
 
     @Override
+    public List<StockItem> findAll() {
+        return stockMapper.selectList(null).stream().map(MybatisStockItemRepository::toDomain).toList();
+    }
+
+    @Override
+    public long countCookedBeforeExpiry(java.time.LocalDateTime from, java.time.LocalDateTime to, int windowDays) {
+        Long n = stockLogMapper.selectCount(new QueryWrapper<StockLog>()
+                .in("action", StockAction.COOK.code(), StockAction.COOK_PARTIAL.code())
+                .isNotNull("best_before")
+                .ge("create_time", from)
+                .lt("create_time", to)
+                .apply("DATE(create_time) >= DATE_SUB(best_before, INTERVAL {0} DAY)", Math.max(0, windowDays))
+                .apply("DATE(create_time) <= best_before"));
+        return n == null ? 0 : n;
+    }
+
+    @Override
     public void save(StockItem item) {
         if (item.id() == null) {
             IngredientStock po = new IngredientStock();
@@ -78,6 +96,7 @@ public class MybatisStockItemRepository implements StockItemRepository {
         log.setAfterLevel(entry.after() == null ? null : entry.after().name());
         log.setNote(entry.note());
         log.setRefId(entry.refId());
+        log.setBestBefore(entry.bestBefore());
         stockLogMapper.insert(log);
     }
 

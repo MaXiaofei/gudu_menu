@@ -34,6 +34,9 @@ public class StockLog {
     /** 变动后档位。V43。 */
     private String afterLevel;
 
+    /** 变动前保质期快照（V69，做菜用掉时记录）。 */
+    private java.time.LocalDate bestBefore;
+
     /** 备注（手动：朋友送/赠品/旧库存补登）。 */
     private String note;
 

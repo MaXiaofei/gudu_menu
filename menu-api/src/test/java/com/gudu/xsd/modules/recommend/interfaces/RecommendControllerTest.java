@@ -62,16 +62,19 @@ class RecommendControllerTest {
     void 首页智荐_契约结构() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
-            DishCard card = new DishCard(1L, "菠菜炒蛋", null, 15, 2, 3,
+            DishCard card = new DishCard(1L, "菠菜炒蛋", "https://img/1.jpg", 15, 2, 3,
                     new CoverageView(1, 2, List.of(new CoverageView.Missing(2L, "鸡蛋"))));
             given(appService.home(7L)).willReturn(new HomeRecommendView(
-                    List.of(new ExpiringItemView(5L, "菠菜", "ENOUGH", LocalDate.of(2026, 10, 18), 2)),
+                    List.of(new ExpiringItemView(5L, "菠菜", "ENOUGH", LocalDate.of(2026, 10, 18), 2, "spinach")),
                     List.of(card), List.of(), List.of()));
 
             mvc.perform(get("/recommend/home"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.expiring[0].daysLeft").value(2))
+                    .andExpect(jsonPath("$.data.expiring[0].iconKey").value("spinach"))
                     .andExpect(jsonPath("$.data.expiringPicks[0].dishId").value(1))
+                    .andExpect(jsonPath("$.data.expiringPicks[0].coverUrl").value("https://img/1.jpg"))
+                    .andExpect(jsonPath("$.data.expiringPicks[0].coverImage").value("https://img/1.jpg"))
                     .andExpect(jsonPath("$.data.expiringPicks[0].cookMinutes").value(15))
                     .andExpect(jsonPath("$.data.expiringPicks[0].cookedCount").value(3))
                     .andExpect(jsonPath("$.data.expiringPicks[0].coverage.enough").value(1))

@@ -166,10 +166,16 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
             if (!ingIds.isEmpty()) {
-                Map<Long, String> nameMap = ingredientMapper.selectBatchIds(ingIds).stream()
+                List<Ingredient> ingRows = ingredientMapper.selectBatchIds(ingIds);
+                Map<Long, String> nameMap = ingRows.stream()
                         .collect(Collectors.toMap(Ingredient::getId, Ingredient::getName));
+                Map<Long, String> iconMap = new java.util.HashMap<>();
+                for (Ingredient ing : ingRows) {
+                    if (ing.getIconKey() != null) iconMap.put(ing.getId(), ing.getIconKey());
+                }
                 for (DishIngredient di : ingredients) {
                     di.setIngredientName(nameMap.get(di.getIngredientId()));
+                    di.setIconKey(iconMap.get(di.getIngredientId()));
                 }
             }
         }
@@ -269,6 +275,17 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         fillRelNames(dishes);
         fillCookedCount(dishes, currentDinerId());
     }
+
+    /**
+     * 家庭菜谱数（「我的」统计）：排除批量导入的公共库内容（source_name=下厨房）。
+     * multi-tenant-family 落地后改为 family_id = 当前家庭。
+     */
+    public long countFamilyDishes() {
+        return count(new QueryWrapper<Dish>().and(w -> w.isNull("source_name").or().ne("source_name", PUBLIC_IMPORT_SOURCE)));
+    }
+
+    /** 批量导入的公共库来源名（recipe-content-seed）。 */
+    public static final String PUBLIC_IMPORT_SOURCE = "下厨房";
 
     /** 批量取多道菜的用料（一次查询；覆盖率/做菜确认用）。 */
     public List<DishIngredient> ingredientsOf(Collection<Long> dishIds) {

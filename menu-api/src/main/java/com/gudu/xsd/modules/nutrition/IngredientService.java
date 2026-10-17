@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gudu.xsd.modules.dict.SysDict;
 import com.gudu.xsd.modules.dict.mapper.DictMapper;
+import com.gudu.xsd.modules.nutrition.domain.service.IngredientIconPolicy;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientNutritionMapper;
 import com.gudu.xsd.modules.nutrition.mapper.NutritionMetricMapper;
@@ -34,6 +35,49 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
     @Autowired
     public void setDictMapper(DictMapper dictMapper) {
         this.dictMapper = dictMapper;
+    }
+
+    /** 新增食材：按名称/品类计算插画 key（V68）。 */
+    @Override
+    public boolean save(Ingredient ing) {
+        fillIconKey(ing);
+        return super.save(ing);
+    }
+
+    /** 更新食材：改了名称或品类时重算插画 key；两者都没带则不动 icon_key。 */
+    @Override
+    public boolean updateById(Ingredient ing) {
+        if (ing != null && (ing.getName() != null || ing.getPurchaseCategoryId() != null)) {
+            Ingredient old = ing.getId() == null ? null : getById(ing.getId());
+            String name = ing.getName() != null ? ing.getName() : (old == null ? null : old.getName());
+            Long categoryId = ing.getPurchaseCategoryId() != null ? ing.getPurchaseCategoryId()
+                    : (old == null ? null : old.getPurchaseCategoryId());
+            ing.setIconKey(IngredientIconPolicy.resolve(name, categoryNameOf(categoryId)));
+        }
+        return super.updateById(ing);
+    }
+
+    /** 按名称 + 品类写入插画 key（调用方在 insert 前使用，如 pantry 手动入库新建食材）。 */
+    public void fillIconKey(Ingredient ing) {
+        if (ing == null) return;
+        ing.setIconKey(IngredientIconPolicy.resolve(ing.getName(), categoryNameOf(ing.getPurchaseCategoryId())));
+    }
+
+    /** 食材 id → 插画 key（只含非空；VO 批量回填用）。 */
+    public Map<Long, String> iconKeyMap(java.util.Collection<Long> ingredientIds) {
+        Map<Long, String> out = new HashMap<>();
+        if (ingredientIds == null || ingredientIds.isEmpty()) return out;
+        List<Long> ids = ingredientIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return out;
+        for (Ingredient ing : listByIds(ids)) {
+            if (ing.getIconKey() != null) out.put(ing.getId(), ing.getIconKey());
+        }
+        return out;
+    }
+
+    private String categoryNameOf(Long purchaseCategoryId) {
+        if (purchaseCategoryId == null) return null;
+        return categoryNameMap().get(purchaseCategoryId); // 复用品类字典查询（食材写入低频）
     }
 
     /** 保存食材，并整体替换其营养 EAV（新增/复用同一路径）。 */

@@ -3,6 +3,7 @@ package com.gudu.xsd.modules.pantry.interfaces;
 import com.gudu.xsd.common.R;
 import com.gudu.xsd.modules.pantry.application.StockAppService;
 import com.gudu.xsd.modules.pantry.application.dto.ExpiringItemView;
+import com.gudu.xsd.modules.pantry.application.dto.PantrySummaryView;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +28,12 @@ public class StockShelfController {
     @GetMapping("/expiring")
     public R<List<ExpiringItemView>> expiring(@RequestParam(defaultValue = "3") int days) {
         return R.ok(appService.expiring(days));
+    }
+
+    /** 余量顶部四格（充足/不足/用完/3 天内到期）+ 分类计数（prototype-ui-rollout 0.7）。 */
+    @GetMapping("/summary")
+    public R<PantrySummaryView> summary() {
+        return R.ok(appService.summary());
     }
 
     /** 默认保质天数建议 {suggestedDays: number|null}（前端预填 bestBefore=今天+suggestedDays）。 */

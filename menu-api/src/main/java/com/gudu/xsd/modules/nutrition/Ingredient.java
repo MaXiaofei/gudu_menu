@@ -15,6 +15,9 @@ public class Ingredient {
 
     private String name;
 
+    /** 插画 key（V68，docs/design/assets.json ing）；写入时由 IngredientService 按 IngredientIconPolicy 计算。 */
+    private String iconKey;
+
     /** 关联 sys_dict(purchase_category)。 */
     private Long purchaseCategoryId;
 

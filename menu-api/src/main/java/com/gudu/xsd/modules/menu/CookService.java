@@ -120,7 +120,8 @@ public class CookService {
                     ing.getName(),
                     usageTexts,
                     levelMap.getOrDefault(id, StockLevel.NONE).name(),
-                    ing.getPurchaseCategoryId() != null && condimentCategoryIds.contains(ing.getPurchaseCategoryId())));
+                    ing.getPurchaseCategoryId() != null && condimentCategoryIds.contains(ing.getPurchaseCategoryId()),
+                    ing.getIconKey()));
         }
         items.sort(java.util.Comparator
                 .comparing((CookMaterialsVO.Item it) -> it.isCondiment()) // false=食材在前，true=调料在后

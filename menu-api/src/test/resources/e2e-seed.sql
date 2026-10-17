@@ -2,19 +2,32 @@
 -- 静态种子(user/sys_dict/nutrition_metric/ingredient/ingredient_nutrition/dish/dish_ingredient/menu_template)
 --   由 V01-V23 已灌，不在此重置。只清理动态业务表，保证用例间数据隔离。
 -- 逻辑删除字段 deleted 的表用物理删（DELETE）彻底清，避免 MP 逻辑删除残留干扰。
-DELETE FROM shopping_item;
-DELETE FROM shopping_list;
+--
+-- 演示家庭（scripts/seed/demo-family.mjs，recipe-content-seed 5.x）保留不清：
+--   成员 phone LIKE 'demo%'；其食集 = menu.target_member_id 指向演示成员；
+--   做饭记录/收藏/通知按 member_id 归属。E2E 用例只读写自己的账号与新建数据，不受影响。
+--   （NOT IN 前置 IS NULL 判断：NULL NOT IN (...) 为 NULL，不加会漏删）
+DELETE FROM shopping_item WHERE list_id NOT IN (
+  SELECT sl.id FROM shopping_list sl JOIN menu m ON m.id = sl.source_menu_id
+  JOIN member mb ON mb.id = m.target_member_id WHERE mb.phone LIKE 'demo%');
+DELETE FROM shopping_list WHERE source_menu_id IS NULL OR source_menu_id NOT IN (
+  SELECT m.id FROM menu m JOIN member mb ON mb.id = m.target_member_id WHERE mb.phone LIKE 'demo%');
 DELETE FROM daily_log_item;
 DELETE FROM daily_log;
-DELETE FROM notification;
+DELETE FROM notification WHERE member_id IS NULL
+  OR member_id NOT IN (SELECT id FROM member WHERE phone LIKE 'demo%');
 DELETE FROM pantry_change_log;
 DELETE FROM pantry;
 DELETE FROM review;
 DELETE FROM review_score;
-DELETE FROM cooking_record;
-DELETE FROM favorite;
-DELETE FROM menu_dish;
-DELETE FROM menu;
+DELETE FROM cooking_record WHERE member_id IS NULL
+  OR member_id NOT IN (SELECT id FROM member WHERE phone LIKE 'demo%');
+DELETE FROM favorite WHERE member_id IS NULL
+  OR member_id NOT IN (SELECT id FROM member WHERE phone LIKE 'demo%');
+DELETE FROM menu_dish WHERE menu_id NOT IN (
+  SELECT m.id FROM menu m JOIN member mb ON mb.id = m.target_member_id WHERE mb.phone LIKE 'demo%');
+DELETE FROM menu WHERE target_member_id IS NULL
+  OR target_member_id NOT IN (SELECT id FROM member WHERE phone LIKE 'demo%');
 DELETE FROM dish_history;
 DELETE FROM ai_call_log;
 -- V67 意见反馈（每账号每日 ≤10 条限流，E2E 重复跑必须清）
@@ -29,36 +42,59 @@ DELETE FROM feedback;
 --   而 dish_ingredient(dish=1) 仍引用旧 id(1/2/16/17/18)，形成孤儿
 --   → 营养汇总/采购展开/AI 落库全取不到食材，E2E 三场景失败。
 --   本块每次 @Test 前幂等修复，可重复执行、对已规范状态无副作用。
--- 幂等要点：先按 name 清掉漂移番茄/鸡蛋(连同其营养/dish_ingredient)，
---   再清空固定 id(1/2) 的占位行，最后以固定 id 重新插入。
+-- 幂等要点：漂移行（同名、id 不是 1/2）先改名让位，其菜谱引用迁到固定 id 后再删；
+--   固定 id 已是番茄/鸡蛋时原地保留。不再按名字清空全库菜谱的番茄/鸡蛋关联——
+--   旧写法每个 @Test 都会删掉公共菜谱库里所有含番茄/鸡蛋的 dish_ingredient
+--   （recipe-content-seed 导入的 300+ 道菜因此丢关联，覆盖率/智荐失真）。
 -- ============================================================
 
 -- ---- 番茄 -> id=1 ----
--- 先按 name 删漂移番茄（高自增 id）及其营养/dish_ingredient，避免留孤儿
-DELETE inn FROM ingredient_nutrition inn JOIN ingredient i ON i.id = inn.ingredient_id WHERE i.name = '番茄';
-DELETE di  FROM dish_ingredient  di  JOIN ingredient i ON i.id = di.ingredient_id  WHERE i.name = '番茄';
-DELETE FROM ingredient WHERE name = '番茄';
--- 清空固定 id=1 占位（当前可能为空，安全）及其营养/dish_ingredient
+-- 固定 id=1 若被别的食材占用：连同其营养/菜谱关联清掉（与旧语义一致）
+DELETE inn FROM ingredient_nutrition inn JOIN ingredient i ON i.id = inn.ingredient_id
+  WHERE i.id = 1 AND i.name <> '番茄';
+DELETE di FROM dish_ingredient di JOIN ingredient i ON i.id = di.ingredient_id
+  WHERE i.id = 1 AND i.name <> '番茄';
+DELETE FROM ingredient WHERE id = 1 AND name <> '番茄';
+-- 漂移番茄（同名、id≠1）改名让位
+UPDATE ingredient SET name = CONCAT('__drift_tomato_', id) WHERE name = '番茄' AND id <> 1;
+-- 品类按名取（预发库字典 id 曾重排，按名兜底，取不到回退 24）
+INSERT INTO ingredient(id, name, icon_key, purchase_category_id, purchase_count, usage_count, deleted)
+  VALUES (1, '番茄', 'tomato', COALESCE((SELECT d.id FROM sys_dict d WHERE d.dict_group = 'purchase_category'
+    AND d.name = '蔬菜' ORDER BY d.id LIMIT 1), 24), 0, 0, 0)
+  ON DUPLICATE KEY UPDATE name = '番茄', icon_key = 'tomato', purchase_category_id = VALUES(purchase_category_id), deleted = 0;
+-- 漂移行的菜谱引用迁到 id=1（同菜已有 id=1 的重复行由 IGNORE 跳过，随后删掉）
+UPDATE IGNORE dish_ingredient di JOIN ingredient i ON i.id = di.ingredient_id
+  SET di.ingredient_id = 1 WHERE i.name LIKE '\_\_drift\_tomato\_%';
+DELETE di  FROM dish_ingredient di JOIN ingredient i ON i.id = di.ingredient_id WHERE i.name LIKE '\_\_drift\_tomato\_%';
+DELETE inn FROM ingredient_nutrition inn JOIN ingredient i ON i.id = inn.ingredient_id WHERE i.name LIKE '\_\_drift\_tomato\_%';
+DELETE s   FROM ingredient_stock s JOIN ingredient i ON i.id = s.ingredient_id WHERE i.name LIKE '\_\_drift\_tomato\_%';
+DELETE FROM ingredient WHERE name LIKE '\_\_drift\_tomato\_%';
 DELETE FROM ingredient_nutrition WHERE ingredient_id = 1;
-DELETE FROM dish_ingredient       WHERE ingredient_id = 1;
-DELETE FROM ingredient WHERE id = 1;
--- 品类按名取（标准库 蔬菜=24；预发库字典 id 曾重排，按名兜底，取不到回退 24）
-INSERT INTO ingredient(id, name, purchase_category_id, purchase_count, usage_count, deleted)
-  VALUES (1, '番茄', COALESCE((SELECT d.id FROM sys_dict d WHERE d.dict_group = 'purchase_category'
-    AND d.name = '蔬菜' ORDER BY d.id LIMIT 1), 24), 0, 0, 0);
 INSERT INTO ingredient_nutrition(ingredient_id, metric_id, value) VALUES
   (1, 1, 19), (1, 2, 0.9), (1, 3, 0.2), (1, 4, 4.0), (1, 5, 2.6), (1, 6, 30);
 
 -- ---- 鸡蛋 -> id=2 ----
-DELETE inn FROM ingredient_nutrition inn JOIN ingredient i ON i.id = inn.ingredient_id WHERE i.name = '鸡蛋';
-DELETE di  FROM dish_ingredient  di  JOIN ingredient i ON i.id = di.ingredient_id  WHERE i.name = '鸡蛋';
-DELETE FROM ingredient WHERE name = '鸡蛋';
+-- 固定 id=2 若被别的食材占用：连同其营养/菜谱关联清掉（与旧语义一致）
+DELETE inn FROM ingredient_nutrition inn JOIN ingredient i ON i.id = inn.ingredient_id
+  WHERE i.id = 2 AND i.name <> '鸡蛋';
+DELETE di FROM dish_ingredient di JOIN ingredient i ON i.id = di.ingredient_id
+  WHERE i.id = 2 AND i.name <> '鸡蛋';
+DELETE FROM ingredient WHERE id = 2 AND name <> '鸡蛋';
+-- 漂移鸡蛋（同名、id≠2）改名让位
+UPDATE ingredient SET name = CONCAT('__drift_egg_', id) WHERE name = '鸡蛋' AND id <> 2;
+-- 品类按名取（预发库字典 id 曾重排，按名兜底，取不到回退 27）
+INSERT INTO ingredient(id, name, icon_key, purchase_category_id, purchase_count, usage_count, deleted)
+  VALUES (2, '鸡蛋', 'egg', COALESCE((SELECT d.id FROM sys_dict d WHERE d.dict_group = 'purchase_category'
+    AND d.name = '蛋类' ORDER BY d.id LIMIT 1), 27), 0, 0, 0)
+  ON DUPLICATE KEY UPDATE name = '鸡蛋', icon_key = 'egg', purchase_category_id = VALUES(purchase_category_id), deleted = 0;
+-- 漂移行的菜谱引用迁到 id=2（同菜已有 id=2 的重复行由 IGNORE 跳过，随后删掉）
+UPDATE IGNORE dish_ingredient di JOIN ingredient i ON i.id = di.ingredient_id
+  SET di.ingredient_id = 2 WHERE i.name LIKE '\_\_drift\_egg\_%';
+DELETE di  FROM dish_ingredient di JOIN ingredient i ON i.id = di.ingredient_id WHERE i.name LIKE '\_\_drift\_egg\_%';
+DELETE inn FROM ingredient_nutrition inn JOIN ingredient i ON i.id = inn.ingredient_id WHERE i.name LIKE '\_\_drift\_egg\_%';
+DELETE s   FROM ingredient_stock s JOIN ingredient i ON i.id = s.ingredient_id WHERE i.name LIKE '\_\_drift\_egg\_%';
+DELETE FROM ingredient WHERE name LIKE '\_\_drift\_egg\_%';
 DELETE FROM ingredient_nutrition WHERE ingredient_id = 2;
-DELETE FROM dish_ingredient       WHERE ingredient_id = 2;
-DELETE FROM ingredient WHERE id = 2;
-INSERT INTO ingredient(id, name, purchase_category_id, purchase_count, usage_count, deleted)
-  VALUES (2, '鸡蛋', COALESCE((SELECT d.id FROM sys_dict d WHERE d.dict_group = 'purchase_category'
-    AND d.name = '蛋类' ORDER BY d.id LIMIT 1), 27), 0, 0, 0);
 INSERT INTO ingredient_nutrition(ingredient_id, metric_id, value) VALUES
   (2, 1, 144), (2, 2, 13.3), (2, 3, 8.8), (2, 4, 2.8), (2, 5, 1.5), (2, 6, 30);
 

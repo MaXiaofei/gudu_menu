@@ -15,4 +15,7 @@ public class PantryVO extends Pantry {
 
     /** 食材名（join ingredient）。 */
     private String ingredientName;
+
+    /** 插画 key（V68，可空：客户端退首字）。 */
+    private String iconKey;
 }

@@ -136,6 +136,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             } else {
                 ing = new Ingredient();
                 ing.setName(name.trim());
+                ing.setIconKey(com.gudu.xsd.modules.nutrition.domain.service.IngredientIconPolicy.byName(ing.getName()));
                 ingredientMapper.insert(ing);
             }
             ingredientId = ing.getId();
@@ -207,6 +208,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             PantryGroupedVO.Item item = new PantryGroupedVO.Item();
             item.setIngredientId(s.getIngredientId());
             item.setIngredientName(ing.getName());
+            item.setIconKey(ing.getIconKey());
             item.setLevel(lvl);
             item.setBestBefore(s.getBestBefore());
             item.setDaysLeft(com.gudu.xsd.modules.pantry.domain.model.StockItem.daysLeft(s.getBestBefore(), today));
@@ -241,6 +243,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         PantryItemDetailVO vo = new PantryItemDetailVO();
         vo.setIngredientId(ingredientId);
         vo.setIngredientName(ing.getName());
+        vo.setIconKey(ing.getIconKey());
         vo.setLevel(stock == null ? IngredientStock.LEVEL_NONE : stock.getLevel());
         vo.setBestBefore(stock == null ? null : stock.getBestBefore());
         vo.setDaysLeft(stock == null ? null
@@ -263,6 +266,7 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
                     PantryVO vo = new PantryVO();
                     vo.setIngredientId(e.ingredientId());
                     vo.setIngredientName(e.ingredientName());
+                    vo.setIconKey(e.iconKey());
                     vo.setExpireDate(e.bestBefore());
                     return vo;
                 }).collect(Collectors.toList());

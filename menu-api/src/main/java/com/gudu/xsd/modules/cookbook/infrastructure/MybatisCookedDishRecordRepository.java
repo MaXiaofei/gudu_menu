@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gudu.xsd.modules.cookbook.CookingRecord;
 import com.gudu.xsd.modules.cookbook.domain.model.CookedDishRecord;
 import com.gudu.xsd.modules.cookbook.domain.model.DishCookStat;
+import com.gudu.xsd.modules.cookbook.domain.model.LastCooked;
 import com.gudu.xsd.modules.cookbook.domain.repository.CookedDishRecordRepository;
 import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import lombok.RequiredArgsConstructor;
@@ -76,6 +77,34 @@ public class MybatisCookedDishRecordRepository implements CookedDishRecordReposi
         Map<Long, Integer> out = new HashMap<>();
         for (DishCookStat s : toStats(mapper.selectMaps(statQuery(memberId).in("dish_id", ids)))) {
             out.put(s.dishId(), s.count());
+        }
+        return out;
+    }
+
+    @Override
+    public long countOccasions(LocalDateTime from, LocalDateTime to) {
+        List<Map<String, Object>> rows = mapper.selectMaps(new QueryWrapper<CookingRecord>()
+                .select("COUNT(DISTINCT COALESCE(event_id, CONCAT('r', id))) AS cnt")
+                .ge("cooked_at", from)
+                .lt("cooked_at", to));
+        if (rows.isEmpty() || rows.get(0) == null || rows.get(0).get("cnt") == null) return 0;
+        return ((Number) rows.get(0).get("cnt")).longValue();
+    }
+
+    @Override
+    public Map<Long, LastCooked> lastCookedOf(Collection<Long> dishIds) {
+        List<Long> ids = dishIds == null ? List.of() : dishIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+        String in = ids.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        List<CookingRecord> rows = mapper.selectList(new QueryWrapper<CookingRecord>()
+                .select("id", "dish_id", "member_id", "cooked_at")
+                .inSql("(dish_id, cooked_at)",
+                        "SELECT dish_id, MAX(cooked_at) FROM cooking_record WHERE dish_id IN (" + in + ") GROUP BY dish_id")
+                .orderByDesc("id"));
+        Map<Long, LastCooked> out = new HashMap<>();
+        for (CookingRecord r : rows) {
+            // 同一时刻多条（整集做同一事件）取 id 最大的一条
+            out.putIfAbsent(r.getDishId(), new LastCooked(r.getDishId(), r.getMemberId(), r.getCookedAt()));
         }
         return out;
     }

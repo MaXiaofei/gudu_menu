@@ -133,4 +133,23 @@ class CookingRecordAppServiceTest {
         assertThat(svc.cookedCounts(7L, List.of(1L))).containsEntry(1L, 4);
         assertThat(svc.recordIdsOf("e")).containsExactly(1L);
     }
+
+    @Test
+    void 本月做饭顿数_按自然月区间() {
+        CookingRecordAppService fixed = new CookingRecordAppService(repo, dishService,
+                Clock.fixed(java.time.LocalDate.of(2026, 10, 16).atTime(9, 0).atZone(ZONE).toInstant(), ZONE));
+        when(repo.countOccasions(any(), any())).thenReturn(21L);
+
+        assertThat(fixed.occasionsThisMonth()).isEqualTo(21L);
+        verify(repo).countOccasions(java.time.LocalDate.of(2026, 10, 1).atStartOfDay(),
+                java.time.LocalDate.of(2026, 11, 1).atStartOfDay());
+    }
+
+    @Test
+    void 最近一次做菜_透传仓储() {
+        var lc = new com.gudu.xsd.modules.cookbook.domain.model.LastCooked(1L, 7L, java.time.LocalDateTime.of(2026, 10, 13, 18, 0));
+        when(repo.lastCookedOf(List.of(1L, 2L))).thenReturn(java.util.Map.of(1L, lc));
+
+        assertThat(svc.lastCooked(List.of(1L, 2L))).containsOnlyKeys(1L).containsEntry(1L, lc);
+    }
 }

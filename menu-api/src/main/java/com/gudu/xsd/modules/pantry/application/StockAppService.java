@@ -8,6 +8,8 @@ import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.IngredientService;
 import com.gudu.xsd.modules.pantry.application.dto.BestBeforeUpdate;
 import com.gudu.xsd.modules.pantry.application.dto.ExpiringItemView;
+import com.gudu.xsd.modules.pantry.application.dto.PantrySummaryView;
+import com.gudu.xsd.modules.pantry.domain.service.StockSummaryCalculator;
 import com.gudu.xsd.modules.pantry.application.dto.StockShelfView;
 import com.gudu.xsd.modules.pantry.domain.model.StockAction;
 import com.gudu.xsd.modules.pantry.domain.model.StockChange;
@@ -101,23 +103,26 @@ public class StockAppService {
         for (Long id : up) {
             StockItem item = byIng.get(id);
             StockChange change;
+            LocalDate bestBeforeSnapshot = null;
             if (item == null) {
                 item = StockItem.create(id, StockLevel.NONE, null);
                 change = new StockChange(null, StockLevel.NONE);
             } else {
+                bestBeforeSnapshot = item.bestBefore();
                 change = item.markUsedUp();
             }
             repository.save(item);
-            repository.appendLog(StockLogEntry.of(id, StockAction.COOK, change, null));
+            repository.appendLog(StockLogEntry.cooked(id, StockAction.COOK, change, bestBeforeSnapshot));
             eventPublisher.publishFrom(item);
         }
         for (Long id : partial) {
             StockItem item = byIng.get(id);
             if (item == null) continue;
+            LocalDate bestBeforeSnapshot = item.bestBefore();
             StockChange change = item.markPartiallyUsed(now);
             repository.save(item);
             if (change.changed()) {
-                repository.appendLog(StockLogEntry.of(id, StockAction.COOK_PARTIAL, change, null));
+                repository.appendLog(StockLogEntry.cooked(id, StockAction.COOK_PARTIAL, change, bestBeforeSnapshot));
             }
             eventPublisher.publishFrom(item);
         }
@@ -130,14 +135,46 @@ public class StockAppService {
         List<StockItem> hits = repository.findAllWithBestBefore().stream()
                 .filter(s -> s.isExpiringWithin(window, today)).toList();
         if (hits.isEmpty()) return List.of();
-        Map<Long, String> names = ingredientNames(hits.stream().map(StockItem::ingredientId).toList());
+        List<Long> hitIds = hits.stream().map(StockItem::ingredientId).toList();
+        Map<Long, String> names = ingredientNames(hitIds);
+        Map<Long, String> icons = ingredientService.iconKeyMap(hitIds);
         return hits.stream()
                 .filter(s -> names.containsKey(s.ingredientId())) // 食材被删则跳过
                 .map(s -> new ExpiringItemView(s.ingredientId(), names.get(s.ingredientId()), s.level().name(),
-                        s.bestBefore(), s.daysLeft(today)))
+                        s.bestBefore(), s.daysLeft(today), icons.get(s.ingredientId())))
                 .sorted(Comparator.comparing(ExpiringItemView::daysLeft)
                         .thenComparing(ExpiringItemView::ingredientName, java.text.Collator.getInstance()))
                 .toList();
+    }
+
+    /** 余量顶部统计 + 分类计数（GET /pantry/summary）：一次读余量 + 食材 + 品类字典，无 N+1。 */
+    public PantrySummaryView summary() {
+        List<StockItem> items = repository.findAll();
+        Map<Long, Long> categoryByIng = new java.util.HashMap<>();
+        Set<Long> knownIngredients = new java.util.HashSet<>();
+        if (!items.isEmpty()) {
+            for (Ingredient ing : ingredientService.listByIds(items.stream().map(StockItem::ingredientId).distinct().toList())) {
+                knownIngredients.add(ing.getId());
+                if (ing.getPurchaseCategoryId() != null) categoryByIng.put(ing.getId(), ing.getPurchaseCategoryId());
+            }
+        }
+        List<StockItem> alive = items.stream().filter(s -> knownIngredients.contains(s.ingredientId())).toList(); // 食材被删则不计
+        StockSummaryCalculator.Summary s = StockSummaryCalculator.summarize(alive, categoryByIng::get, LocalDate.now(clock));
+        Map<Long, String> categoryNames = dictService.listByGroup("purchase_category").stream()
+                .collect(Collectors.toMap(SysDict::getId, SysDict::getName, (a, b) -> a));
+        List<PantrySummaryView.CategoryCount> byCategory = s.byCategory().entrySet().stream()
+                .map(e -> new PantrySummaryView.CategoryCount(e.getKey(),
+                        e.getKey() == null ? "其他" : categoryNames.getOrDefault(e.getKey(), "其他"), e.getValue()))
+                .sorted(Comparator.comparingInt(PantrySummaryView.CategoryCount::count).reversed())
+                .toList();
+        return new PantrySummaryView(s.enough(), s.low(), s.out(), s.expiring3d(), byCategory);
+    }
+
+    /** 「本月少扔」：本自然月做菜用掉、且在保质期前 3 天内用掉的流水条数（V69 起累计）。 */
+    public long savedFromWasteThisMonth() {
+        LocalDate first = LocalDate.now(clock).withDayOfMonth(1);
+        return repository.countCookedBeforeExpiry(first.atStartOfDay(), first.plusMonths(1).atStartOfDay(),
+                StockSummaryCalculator.EXPIRING_DAYS);
     }
 
     /** 批量取档位（未建档不含）。 */

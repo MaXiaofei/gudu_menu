@@ -118,7 +118,8 @@ public class MenuPrepService {
             String status = statusByIng.getOrDefault(line.ingredientId(), PrepStatus.PENDING.name());
             String stockLevel = levelByIng.getOrDefault(line.ingredientId(), "NONE");
             PrepItemVO vo = new PrepItemVO(line.ingredientId(), name, usageTexts,
-                    line.dishCount(), dishNames, status, line.dishCount() >= 2, stockLevel);
+                    line.dishCount(), dishNames, status, line.dishCount() >= 2, stockLevel,
+                    ing == null ? null : ing.getIconKey());
             if (isCondiment) {
                 condiments.add(vo);
             } else {

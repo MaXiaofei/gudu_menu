@@ -13,6 +13,8 @@ public class PantryItemDetailVO {
 
     private Long ingredientId;
     private String ingredientName;
+    /** 插画 key（V68，可空：客户端退首字）。 */
+    private String iconKey;
     /** ENOUGH 充足 / LOW 快用完 / NONE 没有。 */
     private String level;
     /** 保质期（V64，可空）。 */

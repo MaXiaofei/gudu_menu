@@ -249,4 +249,68 @@ class StockAppServiceTest {
         assertThatThrownBy(() -> svc.suggestShelfLifeDays(null)).isInstanceOf(BizException.class);
         assertThatThrownBy(() -> svc.suggestShelfLifeDays(99L)).hasMessageContaining("食材不存在");
     }
+
+    // ---------- prototype-ui-rollout 0.7：余量统计 / 本月少扔 / 做菜流水保质期快照 ----------
+
+    @Test
+    void 余量统计_三档_临期_按品类降序_被删食材不计() {
+        when(repo.findAll()).thenReturn(List.of(
+                StockItem.rehydrate(1L, 1L, StockLevel.ENOUGH, TODAY.plusDays(2), null),
+                StockItem.rehydrate(2L, 2L, StockLevel.LOW, null, null),
+                StockItem.rehydrate(3L, 3L, StockLevel.NONE, null, null),
+                StockItem.rehydrate(4L, 4L, StockLevel.ENOUGH, null, null),
+                StockItem.rehydrate(5L, 99L, StockLevel.ENOUGH, null, null))); // 99 食材已删
+        when(ingredientService.listByIds(any())).thenReturn(List.of(
+                ing(1, "番茄", 10L), ing(2, "菠菜", 10L), ing(3, "鲈鱼", 20L), ing(4, "抽纸", null)));
+        SysDict veg = new SysDict();
+        veg.setId(10L);
+        veg.setName("蔬菜");
+        SysDict fish = new SysDict();
+        fish.setId(20L);
+        fish.setName("水产海鲜");
+        when(dictService.listByGroup("purchase_category")).thenReturn(List.of(veg, fish));
+
+        var v = svc.summary();
+
+        assertThat(v.enough()).isEqualTo(2);
+        assertThat(v.low()).isEqualTo(1);
+        assertThat(v.out()).isEqualTo(1);
+        assertThat(v.expiring3d()).isEqualTo(1);
+        assertThat(v.byCategory()).extracting(c -> c.name() + ":" + c.count())
+                .containsExactly("蔬菜:2", "水产海鲜:1", "其他:1");
+    }
+
+    @Test
+    void 本月少扔_按自然月区间查询() {
+        when(repo.countCookedBeforeExpiry(any(), any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(4L);
+
+        assertThat(svc.savedFromWasteThisMonth()).isEqualTo(4L);
+        verify(repo).countCookedBeforeExpiry(LocalDate.of(2026, 10, 1).atStartOfDay(),
+                LocalDate.of(2026, 11, 1).atStartOfDay(), 3);
+    }
+
+    @Test
+    void 做菜流水记下用掉前的保质期() {
+        when(repo.findByIngredientIds(any())).thenReturn(List.of(
+                StockItem.rehydrate(1L, 1L, StockLevel.ENOUGH, TODAY.plusDays(1), null),
+                StockItem.rehydrate(2L, 2L, StockLevel.ENOUGH, TODAY.plusDays(5), null)));
+
+        svc.consume(List.of(1L), List.of(2L));
+
+        ArgumentCaptor<StockLogEntry> logs = ArgumentCaptor.forClass(StockLogEntry.class);
+        verify(repo, times(2)).appendLog(logs.capture());
+        assertThat(logs.getAllValues()).extracting(StockLogEntry::ingredientId, StockLogEntry::bestBefore)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(1L, TODAY.plusDays(1)),
+                        org.assertj.core.groups.Tuple.tuple(2L, TODAY.plusDays(5)));
+    }
+
+    @Test
+    void 临期项带插画key() {
+        when(repo.findAllWithBestBefore()).thenReturn(List.of(
+                StockItem.rehydrate(1L, 1L, StockLevel.ENOUGH, TODAY.plusDays(1), null)));
+        when(ingredientService.listByIds(any())).thenReturn(List.of(ing(1, "番茄", 10L)));
+        when(ingredientService.iconKeyMap(any())).thenReturn(java.util.Map.of(1L, "tomato"));
+
+        assertThat(svc.expiring(3)).singleElement().extracting(ExpiringItemView::iconKey).isEqualTo("tomato");
+    }
 }
