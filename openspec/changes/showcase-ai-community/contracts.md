@@ -152,7 +152,12 @@ type NutritionReport = { member: MemberLite & { profile: string }; range: { from
 ## 6. 模型网关（后台配置与切换）
 
 - 所有模型调用（Agent 对话/工具调用、餐程排布、文案生成、拍照识别、营养补全等）统一经 `ModelGateway`，按**能力**路由：`CHAT`、`TOOLS`、`VISION`。
-- 默认：CHAT / TOOLS → DeepSeek `deepseek-chat`（key 取环境变量 `DEEPSEEK_API_KEY` 作为初始种子）；降级链 → GLM → Mock（规则）。VISION 默认 Mock（DeepSeek 公开 API 无视觉模型），后台可配任意 OpenAI 兼容多模态模型。
+- 默认（2026-10-16 调研 DeepSeek 官方文档并实测）：**CHAT / TOOLS / VISION 全部 → DeepSeek `deepseek-flash`**（DeepSeek-V4.1-Flash，2026-09-10 发布，原生多模态，输入 text+image，1M 上下文，支持 Tool Calls / JSON Output）；可选 `deepseek-v4-pro`（仅文本，更强推理，单价约 4.5 倍）。旧名 `deepseek-chat` 目前被路由到 deepseek-flash，配置统一改用 `deepseek-flash`。降级链 → GLM（如配置）→ Mock（规则）。key 初始种子取 `DEEPSEEK_API_KEY`。
+- DeepSeek 调用要点：
+  - **思考模式默认开启**：路由配置增加 `thinking: "disabled"|"low"|"high"|"max"`；对话/识别默认 `disabled`（实测图片识别 0.9s），餐程排布可用 `low`。开启思考且带 tools 时，历史轮次的 `reasoning_content` 必须原样回传。思考模式下 temperature 不生效。
+  - **图片**：OpenAI 兼容 content 块 `{"type":"image_url","image_url":{"url": "data:image/jpeg;base64,..." 或公网 URL, "detail":"low"}}`；JPEG/PNG/GIF/WebP；公网 URL 需 60 秒内可下载、≤32MiB；每图 token 上限 1024（low 档 512×512 更省）。识别优先传 staging/生产图片公网 URL，失败退回 base64。
+  - **JSON**：`response_format: {"type":"json_object"}`，提示词里给出字段结构。
+  - **峰谷计价**：北京时间工作日 9–12、14–18 点为高峰（价格翻倍）；单价配置拆为 peak/offPeak，成本按调用时刻计算。
 - 供应商 key 入库 AES-GCM 加密（密钥取环境变量 `GUDU_SECRET_KEY`，缺失时只允许环境变量来源的 key），接口只返回掩码；切换即时生效（Redis 广播失效本地缓存），每次切换写审计日志。
 - 迁移编号：**V73 ai_gateway**（B1 组）。
 
@@ -163,7 +168,7 @@ type NutritionReport = { member: MemberLite & { profile: string }; range: { from
 | PUT | `/admin/ai/gateway/providers/{id}` | 同上（`apiKey` 留空 = 不修改） | `Provider` |
 | DELETE | `/admin/ai/gateway/providers/{id}` | — | `{}`（被路由引用时 409） |
 | POST | `/admin/ai/gateway/providers/{id}/test` | `{ model, capability }` | `{ ok, latencyMs, error: string\|null, sample: string\|null }` |
-| PUT | `/admin/ai/gateway/routes/{capability}` | `{ primary: { providerId, model }, fallbacks: { providerId, model }[], timeoutMs, maxRetries }` | `Route` |
+| PUT | `/admin/ai/gateway/routes/{capability}` | `{ primary: { providerId, model }, fallbacks: { providerId, model }[], timeoutMs, maxRetries, thinking }` | `Route` |
 | GET | `/admin/ai/gateway/usage` | `range=today\|7d` | `{ byRoute: { capability, provider, model, calls, failRate, p95Ms, costFen }[] }` |
 
 ```ts
@@ -171,7 +176,9 @@ type Provider = { providerId: number; name: string; type: "OPENAI_COMPATIBLE" | 
   apiKeyMasked: string | null; keySource: "DB" | "ENV" | "NONE"; enabled: boolean; models: Model[];
   health: { ok: boolean; latencyMs: number | null; checkedAt: string | null } }
 type Model = { model: string; capabilities: ("CHAT"|"TOOLS"|"VISION")[];
-  inputPricePerMTokFen: number; outputPricePerMTokFen: number }
+  price: { inputCacheHitFen: number; inputFen: number; outputFen: number };   // 每百万 token，高峰价；空闲 = 高峰 / 2
+  peakHours: string | null }                                                  // 如 "Mon-Fri 09-12,14-18 Asia/Shanghai"
 type Route = { capability: "CHAT"|"TOOLS"|"VISION"; primary: { providerId; model };
-  fallbacks: { providerId; model }[]; timeoutMs: number; maxRetries: number; updatedAt: string; updatedBy: string }
+  fallbacks: { providerId; model }[]; timeoutMs: number; maxRetries: number;
+  thinking: "disabled"|"low"|"high"|"max"; updatedAt: string; updatedBy: string }
 ```
