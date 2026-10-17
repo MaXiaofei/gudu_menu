@@ -52,6 +52,50 @@ void main() {
       expect(captor.last!.data, {'rating': -1});
     });
 
+    test('revise：POST /agent/actions/{id}/revise {args} → 新 PendingAction', () async {
+      final captor = installMock((_) => okResponse({
+            'actionId': 'c2',
+            'tool': 'mark_cooked',
+            'title': '麻婆豆腐做好了',
+            'preview': {'servings': 4},
+            'status': 'PENDING',
+          }));
+      final old = PendingAction.fromJson({
+        'actionId': 'c1',
+        'tool': 'mark_cooked',
+        'title': '麻婆豆腐做好了',
+        'args': {'dishId': 9, 'note': '保留'},
+        'preview': {
+          'dish': {'id': 9, 'name': '麻婆豆腐'},
+          'servings': 3,
+          'eaters': [{'memberId': 2, 'name': '林林'}, {'memberId': 1, 'name': '小王'}],
+          'lines': [
+            {'name': '北豆腐', 'ingredientId': 5, 'delta': '-1 块', 'status': 'USED_UP'},
+            {'name': '郫县豆瓣酱', 'delta': '适量', 'status': 'SKIP'},
+          ],
+        },
+      });
+      final r = CookedRevision.from(old)..servings = 4;
+      r.eaterIds.add(3);
+      expect(r.lines.first.amount, '1 块', reason: '从 delta 去掉减号作为默认用量');
+      final next = await AgentService.revise(old, r.toArgs());
+      expect(captor.last!.path, '/agent/actions/c1/revise');
+      expect(captor.last!.data, {
+        'args': {
+          'dishId': 9,
+          'note': '保留',
+          'servings': 4,
+          'eaterIds': [1, 2, 3],
+          'lines': [
+            {'name': '北豆腐', 'ingredientId': 5, 'status': 'USED_UP', 'amount': '1 块'},
+            {'name': '郫县豆瓣酱', 'status': 'SKIP'},
+          ],
+        },
+      });
+      expect(next.actionId, 'c2');
+      expect(next.servings, 4);
+    });
+
     test('send：SSE 流经 dio 解析成事件，带 context 与 Accept 头', () async {
       installMock((_) => okResponse({}));
       RequestOptions? captured;
@@ -107,7 +151,7 @@ void main() {
       expect(captor.last!.path, '/community/feed');
       expect(captor.last!.queryParameters, {'tab': 'follow', 'cursor': 'c0', 'size': 20});
       expect(p.items.single.author.nickname, '糖糖酱');
-      expect(p.items.single.coverRatio, 0.65, reason: '极端比例被限幅');
+      expect(p.items.single.coverRatio, 0.5, reason: '后端约定 0.5–2，脏数据被限幅');
       expect(p.nextCursor, 'abc');
     });
 
@@ -120,11 +164,14 @@ void main() {
         dishId: 3,
         topicIds: [1],
         followersOnly: true,
-        fromCookRecordId: 88,
+        fromFoodLogId: 88,
+        coverRatio: 0.75,
       );
       expect(captor.last!.path, '/community/posts');
       expect(captor.last!.data['visibility'], 'FOLLOWERS');
-      expect(captor.last!.data['fromCookRecordId'], 88);
+      expect(captor.last!.data['fromFoodLogId'], 88);
+      expect(captor.last!.data.containsKey('fromCookRecordId'), isFalse);
+      expect(captor.last!.data['coverRatio'], 0.75);
       expect(r.status, 'REVIEWING');
     });
 
@@ -146,6 +193,19 @@ void main() {
       final c = await CommunityService.comment(5, '学到了', parentId: 2);
       expect(captor.last!.data, {'text': '学到了', 'parentId': 2});
       expect(c.text, '学到了');
+    });
+
+    test('topics?status=ACTIVE：发布页话题列表，带 weekNo', () async {
+      final captor = installMock((_) => okResponse([
+            {'topicId': 9, 'name': '#一周不重样', 'weekNo': 3},
+            {'topicId': 10, 'name': '#宝宝辅食'},
+          ]));
+      final list = await CommunityService.topics();
+      expect(captor.last!.path, '/community/topics');
+      expect(captor.last!.queryParameters, {'status': 'ACTIVE'});
+      expect(list.map((t) => t.name), ['#一周不重样', '#宝宝辅食']);
+      expect(list.first.weekNo, 3);
+      expect(list.last.weekNo, isNull);
     });
 
     test('topic 详情：我的进度与排行', () async {

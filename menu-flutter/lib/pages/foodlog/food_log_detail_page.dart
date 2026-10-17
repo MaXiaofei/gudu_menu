@@ -204,13 +204,14 @@ class _FoodLogDetailPageState extends State<FoodLogDetailPage> {
         Text('复制这 ${d.dishes.length} 道菜 + 份数到新食集，重新走一遍流程',
             style: t.textStyles.sm.copyWith(color: t.caption), textAlign: TextAlign.center),
         const SizedBox(height: AppTokens.sp12),
-        // 晒到厨房圈（showcase-ai-community：从食记带入，不带家庭成员名与余量）
+        // 晒到厨房圈（showcase-ai-community：传 fromFoodLogId，后端带入整顿饭的菜与图；不带家庭成员名与余量）
         OutlinedButton.icon(
           key: const Key('foodlog-share-community'),
           onPressed: d.dishes.isEmpty
               ? null
               : () => context.push('/community/create',
                   extra: PostDraftSeed(
+                    foodLogId: d.foodLogId,
                     dishId: d.dishes.first.dishId,
                     dishName: d.dishes.first.dishName,
                     fromText: '${time.isEmpty ? '' : '$time '}做了 ${d.dishes.map((x) => x.dishName).join('、')}',

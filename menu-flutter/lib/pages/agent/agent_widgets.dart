@@ -2,15 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/error_text.dart';
 import '../../models/showcase_types.dart';
 import '../../services/agent_service.dart';
+import '../../stores/member_store.dart';
 import '../../widgets/dish_image.dart';
 import '../../widgets/ingredient_icon.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/tone_badge.dart';
+
+/// 动作卡变化回调：[replacing] 为被 revise 取代的旧 actionId（新卡原位替换）。
+typedef ActionChanged = void Function(PendingAction action, {String? replacing});
 
 /// 咕嘟头像（品牌 logo 圆底）。
 class GuduAvatar extends StatelessWidget {
@@ -65,7 +70,7 @@ class UserBubble extends StatelessWidget {
 /// 助手消息：工具调用链 → 正文（流式光标）→ 卡片 → 待确认动作 → 评价与报错编号。
 class AssistantMessageView extends StatelessWidget {
   final AgentMessage message;
-  final ValueChanged<PendingAction> onActionChanged;
+  final ActionChanged onActionChanged;
   final ValueChanged<int>? onRate;
   final VoidCallback? onRetry;
 
@@ -506,7 +511,7 @@ class RecipeCardsRow extends StatelessWidget {
 /// 待确认动作卡：PENDING 显示预览 + 有效期倒计时 + 取消/确认；DONE 显示结果 + 撤销。
 class ActionCardView extends StatefulWidget {
   final PendingAction action;
-  final ValueChanged<PendingAction> onChanged;
+  final ActionChanged onChanged;
   const ActionCardView({super.key, required this.action, required this.onChanged});
 
   @override
@@ -555,6 +560,26 @@ class _ActionCardViewState extends State<ActionCardView> {
     }
   }
 
+  /// 改一下（mark_cooked：人份 / 谁吃了 / 实际用量）→ revise → 新卡原位替换旧卡。
+  Future<void> _revise() async {
+    final a = widget.action;
+    final args = await showCookedReviseSheet(context, a);
+    if (args == null || !mounted) return;
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final next = await AgentService.revise(a, args);
+      _tick?.cancel();
+      widget.onChanged(next, replacing: a.actionId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('修改失败：${errorText(e)}')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _undo() async {
     final token = widget.action.undoToken;
     if (token == null) return;
@@ -576,6 +601,7 @@ class _ActionCardViewState extends State<ActionCardView> {
       'CANCELLED' => '已取消',
       'EXPIRED' => '已过期，请重新发起',
       'UNDONE' => '已撤销',
+      'SUPERSEDED' => '已按修改重新生成',
       _ => remain == null
           ? '确认后才会执行'
           : '5 分钟内有效 · 剩 ${remain.inMinutes}:${(remain.inSeconds % 60).toString().padLeft(2, '0')}',
@@ -605,6 +631,12 @@ class _ActionCardViewState extends State<ActionCardView> {
             children: [
               Expanded(child: Text(statusText, style: ts.caption)),
               if (pending) ...[
+                if (a.tool == 'mark_cooked')
+                  TextButton(
+                    key: Key('action-revise-${a.actionId}'),
+                    onPressed: _busy ? null : _revise,
+                    child: const Text('改一下'),
+                  ),
                 TextButton(
                   key: Key('action-cancel-${a.actionId}'),
                   onPressed: _busy ? null : () => _run(() => AgentService.cancel(a), '取消失败'),
@@ -827,4 +859,188 @@ class AgentInputBar extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// 做完回写「改一下」：人份步进、谁吃了（家庭成员多选）、每样用料的实际去向与用量。
+/// 返回 revise 的 args；取消返回 null。
+Future<Map<String, dynamic>?> showCookedReviseSheet(BuildContext context, PendingAction action) {
+  return showModalBottomSheet<Map<String, dynamic>>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => _CookedReviseSheet(action: action),
+  );
+}
+
+class _CookedReviseSheet extends StatefulWidget {
+  final PendingAction action;
+  const _CookedReviseSheet({required this.action});
+
+  @override
+  State<_CookedReviseSheet> createState() => _CookedReviseSheetState();
+}
+
+class _CookedReviseSheetState extends State<_CookedReviseSheet> {
+  late final CookedRevision _r = CookedRevision.from(widget.action);
+  late final List<TextEditingController> _amounts = [for (final l in _r.lines) TextEditingController(text: l.amount)];
+
+  @override
+  void dispose() {
+    for (final c in _amounts) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  /// 可选的人：家庭成员（Provider）∪ 预览里已有的人。
+  List<MemberLite> _people() {
+    final out = <int, MemberLite>{for (final e in widget.action.eaters) e.memberId: e};
+    try {
+      for (final m in context.read<MemberStore>().members) {
+        out.putIfAbsent(m.id, () => MemberLite(memberId: m.id, name: m.name, avatarUrl: m.avatarUrl));
+      }
+    } catch (_) {}
+    return out.values.toList();
+  }
+
+  void _setStatus(int i, String status) {
+    final l = _r.lines[i];
+    setState(() => _r.lines[i] =
+        (name: l.name, ingredientId: l.ingredientId, iconKey: l.iconKey, status: status, amount: _amounts[i].text.trim()));
+  }
+
+  Map<String, dynamic> _result() {
+    for (var i = 0; i < _r.lines.length; i++) {
+      final l = _r.lines[i];
+      _r.lines[i] = (name: l.name, ingredientId: l.ingredientId, iconKey: l.iconKey, status: l.status, amount: _amounts[i].text.trim());
+    }
+    return _r.toArgs();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    final ts = t.textStyles;
+    final people = _people();
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(AppTokens.sp16, 0, AppTokens.sp16, AppTokens.sp24),
+          children: [
+            Text('改一下 · ${widget.action.cookedDish?.name ?? widget.action.title}', style: ts.subtitle),
+            const SizedBox(height: AppTokens.sp16),
+            Row(children: [
+              Expanded(child: Text('做了几人份', style: ts.cardTitle.copyWith(color: t.title))),
+              IconButton(
+                key: const Key('revise-servings-minus'),
+                tooltip: '减少',
+                onPressed: _r.servings > 1 ? () => setState(() => _r.servings--) : null,
+                icon: const Icon(Icons.remove_circle_outline_rounded),
+              ),
+              SizedBox(width: 32, child: Text('${_r.servings}', textAlign: TextAlign.center, style: ts.h3)),
+              IconButton(
+                key: const Key('revise-servings-plus'),
+                tooltip: '增加',
+                onPressed: () => setState(() => _r.servings++),
+                icon: const Icon(Icons.add_circle_outline_rounded),
+              ),
+            ]),
+            if (people.isNotEmpty) ...[
+              const SizedBox(height: AppTokens.sp8),
+              Text('谁吃了', style: ts.sectionLabel.copyWith(color: t.body)),
+              const SizedBox(height: AppTokens.sp8),
+              Wrap(
+                spacing: AppTokens.sp16,
+                runSpacing: AppTokens.sp8,
+                children: [
+                  for (final p in people)
+                    InkWell(
+                      key: Key('revise-eater-${p.memberId}'),
+                      borderRadius: BorderRadius.circular(AppTokens.rMd),
+                      onTap: () => setState(() =>
+                          _r.eaterIds.contains(p.memberId) ? _r.eaterIds.remove(p.memberId) : _r.eaterIds.add(p.memberId)),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Opacity(
+                          opacity: _r.eaterIds.contains(p.memberId) ? 1 : 0.45,
+                          child: MemberAvatar(
+                            name: p.name,
+                            avatarUrl: p.avatarUrl,
+                            size: 44,
+                            ringColor: _r.eaterIds.contains(p.memberId) ? AppTokens.success : t.border,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(p.name, style: ts.caption.copyWith(color: t.title)),
+                      ]),
+                    ),
+                ],
+              ),
+            ],
+            if (_r.lines.isNotEmpty) ...[
+              const SizedBox(height: AppTokens.sp16),
+              Text('用料实际去向', style: ts.sectionLabel.copyWith(color: t.body)),
+              for (var i = 0; i < _r.lines.length; i++) _lineRow(t, i),
+            ],
+            const SizedBox(height: AppTokens.sp16),
+            ElevatedButton(
+              key: const Key('revise-save'),
+              onPressed: () => Navigator.of(context).pop(_result()),
+              child: const Text('按这个重新生成'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _lineRow(AppTokens t, int i) {
+    final ts = t.textStyles;
+    final l = _r.lines[i];
+    Widget seg(String status, String label) {
+      final on = l.status == status;
+      return Padding(
+        padding: const EdgeInsets.only(right: AppTokens.sp4),
+        child: ChoiceChip(
+          key: Key('revise-line-$i-$status'),
+          label: Text(label, style: ts.caption.copyWith(color: on ? t.primaryDeep : t.title)),
+          selected: on,
+          onSelected: (_) => _setStatus(i, status),
+          selectedColor: t.primarySoft,
+          showCheckmark: false,
+          visualDensity: VisualDensity.compact,
+          side: BorderSide(color: on ? t.primaryDeep : t.border),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppTokens.sp10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            IngredientIcon(name: l.name, iconKey: l.iconKey, size: 30),
+            const SizedBox(width: AppTokens.sp8),
+            Expanded(child: Text(l.name, style: ts.cardTitle.copyWith(color: t.title))),
+            if (l.status != 'SKIP')
+              SizedBox(
+                width: 96,
+                child: TextField(
+                  key: Key('revise-amount-$i'),
+                  controller: _amounts[i],
+                  textAlign: TextAlign.right,
+                  style: ts.body.copyWith(color: t.title),
+                  decoration: const InputDecoration(isDense: true, hintText: '用量'),
+                ),
+              ),
+          ]),
+          const SizedBox(height: AppTokens.sp4),
+          Row(children: [seg('USED_UP', '用完了'), seg('LEFT', '用了一些'), seg('SKIP', '没用到')]),
+        ],
+      ),
+    );
+  }
 }

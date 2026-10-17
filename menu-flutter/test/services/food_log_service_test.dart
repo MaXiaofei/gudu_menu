@@ -269,6 +269,13 @@ void main() {
       expect(d.reviewed, false);
     });
 
+    test('foodLogId（厨房圈「晒到厨房圈」传 fromFoodLogId）：有则解析，旧接口缺省为 null', () {
+      expect(FoodLogDetail.fromJson({'menuId': 1, 'name': 'x', 'foodLogId': 77}).foodLogId, 77);
+      expect(FoodLogDetail.fromJson({'menuId': 1, 'name': 'x'}).foodLogId, isNull);
+      expect(FoodLogMeal.fromJson({'name': 'x', 'foodLogId': 78}).foodLogId, 78);
+      expect(FoodLogMeal.fromJson({'name': 'x'}).foodLogId, isNull);
+    });
+
     test('FoodLogDish 缺可选字段 → null', () {
       final dish = FoodLogDish.fromJson({'dishId': 1, 'dishName': '西红柿炒蛋'});
       expect(dish.dishId, 1);

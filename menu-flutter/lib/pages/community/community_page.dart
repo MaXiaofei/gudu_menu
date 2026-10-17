@@ -217,7 +217,8 @@ class _CommunityPageState extends State<CommunityPage> {
                       Row(children: [
                         Icon(Icons.emoji_events_outlined, size: 14, color: t.primary),
                         const SizedBox(width: AppTokens.sp4),
-                        Text('本周话题挑战', style: ts.xs.copyWith(color: t.primary)),
+                        Text(topic.weekNo == null ? '本周话题挑战' : '本周话题挑战 · 第 ${topic.weekNo} 周',
+                            style: ts.xs.copyWith(color: t.primary)),
                       ]),
                       const SizedBox(height: AppTokens.sp4),
                       Text(topic.name, maxLines: 1, overflow: TextOverflow.ellipsis,

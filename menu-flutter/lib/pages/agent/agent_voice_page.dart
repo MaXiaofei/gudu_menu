@@ -80,11 +80,12 @@ class _AgentVoicePageState extends State<AgentVoicePage> with SingleTickerProvid
             )
           else
             _tips(t),
-          if (_c.sessionId != null && reply != null && !_c.sending)
+          // 做完回写卡自带「改一下」（人份 / 谁吃了 / 实际用量 → revise）；其他情况继续对话修正
+          if (_c.sessionId != null && reply != null && !_c.sending && !reply.actions.any((a) => a.isPending))
             OutlinedButton.icon(
               onPressed: () => context.pushReplacement('/agent/chat', extra: {'sessionId': _c.sessionId}),
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              label: const Text('改一下（继续对话）'),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+              label: const Text('继续对话'),
             ),
         ],
       ),

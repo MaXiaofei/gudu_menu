@@ -99,7 +99,7 @@ class _TopicPageState extends State<TopicPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('厨房圈话题挑战${tp.startDate != null && tp.endDate != null ? ' · ${md(tp.startDate!)} – ${md(tp.endDate!)}' : ''}',
+                      Text('厨房圈话题挑战${tp.weekNo == null ? '' : ' · 第 ${tp.weekNo} 周'}${tp.startDate != null && tp.endDate != null ? ' · ${md(tp.startDate!)} – ${md(tp.endDate!)}' : ''}',
                           style: ts.xs.copyWith(color: AppTokens.onPhoto.withAlpha(220))),
                       const SizedBox(height: AppTokens.sp4),
                       Text(tp.name, style: ts.h1.copyWith(color: AppTokens.onPhoto)),

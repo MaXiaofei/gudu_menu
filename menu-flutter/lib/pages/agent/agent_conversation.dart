@@ -110,10 +110,12 @@ class AgentConversation extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateAction(PendingAction a) {
+  /// 更新动作卡；[replacing] 为被 revise 取代的旧 actionId（新卡原位替换旧卡）。
+  void updateAction(PendingAction a, {String? replacing}) {
+    final key = replacing ?? a.actionId;
     for (var i = 0; i < messages.length; i++) {
       final acts = messages[i].actions;
-      final j = acts.indexWhere((e) => e.actionId == a.actionId);
+      final j = acts.indexWhere((e) => e.actionId == key);
       if (j >= 0) {
         final next = [...acts]..[j] = a;
         messages[i] = messages[i].copyWith(actions: next);

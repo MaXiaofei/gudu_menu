@@ -12,6 +12,8 @@ import '../../widgets/dish_image.dart';
 
 /// 从食记 / 话题带入发布页的参数（GoRoute extra）。
 class PostDraftSeed {
+  /// 食记 id（/food-log 的 foodLogId）：发布时传 fromFoodLogId，后端带入整顿饭的菜和最多 9 张图。
+  final int? foodLogId;
   final int? dishId;
   final String? dishName;
   final String? dishCoverUrl;
@@ -21,6 +23,7 @@ class PostDraftSeed {
   final int? topicId;
   final String? topicName;
   const PostDraftSeed({
+    this.foodLogId,
     this.dishId,
     this.dishName,
     this.dishCoverUrl,
@@ -67,7 +70,18 @@ class _PostCreatePageState extends State<PostCreatePage> {
     _loadTopics();
   }
 
+  /// 进行中的话题（GET /community/topics?status=ACTIVE）；接口不可用时退回横幅话题。
   Future<void> _loadTopics() async {
+    try {
+      final list = await CommunityService.topics();
+      if (!mounted) return;
+      setState(() {
+        for (final tp in list) {
+          _topics.putIfAbsent(tp.topicId, () => tp.name);
+        }
+      });
+      return;
+    } catch (_) {}
     try {
       final b = await CommunityService.banner();
       final tp = b.topic;
@@ -106,7 +120,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
     try {
       final text = await CommunityService.aiText(
         dishId: widget.seed.dishId,
-        cookRecordId: widget.seed.cookRecordId,
+        // foodLogId 即这顿饭的代表做菜记录 id
+        cookRecordId: widget.seed.cookRecordId ?? widget.seed.foodLogId,
         imageUrls: _images,
         style: style,
       );
@@ -120,7 +135,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
 
   Future<void> _publish() async {
     final title = _title.text.trim();
-    if (_images.isEmpty) return _toast('至少放一张成品图');
+    if (_images.isEmpty && widget.seed.foodLogId == null) return _toast('至少放一张成品图');
     if (title.isEmpty) return _toast('写个标题吧');
     setState(() => _publishing = true);
     try {
@@ -131,7 +146,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
         dishId: widget.seed.dishId,
         topicIds: _topicIds.toList(),
         followersOnly: _followersOnly,
-        fromCookRecordId: widget.seed.cookRecordId,
+        fromCookRecordId: widget.seed.foodLogId == null ? widget.seed.cookRecordId : null,
+        fromFoodLogId: widget.seed.foodLogId,
       );
       if (!mounted) return;
       _toast(r.status == 'REVIEWING' ? '已提交，审核通过后大家就能看到' : '发布成功');
@@ -152,6 +168,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
     final t = AppTokens.of(context);
     final ts = t.textStyles;
     final seed = widget.seed;
+    // 从食记带入时图片由后端带（最多 9 张），这里不强制先选图
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
@@ -262,7 +279,12 @@ class _PostCreatePageState extends State<PostCreatePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('从食记带入', style: ts.cardTitle.copyWith(color: t.title)),
-                Text('${seed.fromText} · 已带入 ${seed.imageUrls.length} 张照片', style: ts.caption),
+                Text(
+                  seed.foodLogId != null && seed.imageUrls.isEmpty
+                      ? '${seed.fromText} · 发布时自动带入这顿饭的照片'
+                      : '${seed.fromText} · 已带入 ${seed.imageUrls.length} 张照片',
+                  style: ts.caption,
+                ),
               ],
             ),
           ),

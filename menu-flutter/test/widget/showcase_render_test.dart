@@ -176,4 +176,92 @@ void main() {
     expect(find.text('不扣'), findsOneWidget);
     expect(find.text('林林'), findsOneWidget);
   });
+
+  testWidgets('语音页：改一下（人份 / 谁吃了 / 用量）→ revise → 新卡原位替换', (tester) async {
+    final a = installShowcase((o) {
+      if (o.path == '/agent/sessions') return okResponse({'sessionId': 's9'});
+      if (o.path == '/agent/actions/c1/revise') {
+        return okResponse({
+          'actionId': 'c2',
+          'tool': 'mark_cooked',
+          'title': '麻婆豆腐做好了 · 已修改',
+          'preview': {
+            'dish': {'id': 9, 'name': '麻婆豆腐'},
+            'servings': 4,
+            'eaters': [{'memberId': 1, 'name': '小王'}],
+            'lines': [{'name': '北豆腐', 'delta': '-半块', 'after': '半块', 'status': 'LEFT'}],
+          },
+          'status': 'PENDING',
+        });
+      }
+      return SseBody(sse('action', {
+            'actionId': 'c1',
+            'tool': 'mark_cooked',
+            'title': '麻婆豆腐做好了',
+            'preview': {
+              'dish': {'id': 9, 'name': '麻婆豆腐'},
+              'servings': 3,
+              'eaters': [{'memberId': 1, 'name': '小王'}, {'memberId': 2, 'name': '林林'}],
+              'lines': [{'name': '北豆腐', 'ingredientId': 5, 'delta': '-1 块', 'after': '0', 'status': 'USED_UP'}],
+            },
+            'status': 'PENDING',
+          }) +
+          sse('done', {}));
+    });
+    await pump(tester, const AgentVoicePage());
+    await tester.enterText(find.byKey(const Key('voice-text')), '麻婆豆腐做完了');
+    await tester.tap(find.byKey(const Key('voice-send')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.ensureVisible(find.byKey(const Key('action-revise-c1')));
+    await tester.tap(find.byKey(const Key('action-revise-c1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('revise-servings-plus')));
+    await tester.tap(find.byKey(const Key('revise-eater-2'))); // 林林没吃
+    await tester.tap(find.byKey(const Key('revise-line-0-LEFT')));
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('revise-amount-0')), '半块');
+    await tester.tap(find.byKey(const Key('revise-save')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final body = a.requests.firstWhere((r) => r.path == '/agent/actions/c1/revise').data as Map;
+    final args = body['args'] as Map;
+    expect(args['servings'], 4);
+    expect(args['eaterIds'], [1]);
+    expect(args['lines'], [
+      {'name': '北豆腐', 'ingredientId': 5, 'status': 'LEFT', 'amount': '半块'},
+    ]);
+    expect(find.text('麻婆豆腐做好了 · 已修改'), findsOneWidget);
+    expect(find.text('麻婆豆腐做好了'), findsNothing, reason: '旧卡被新卡原位替换');
+    expect(find.text('4 人份'), findsOneWidget);
+    expect(find.byKey(const Key('action-confirm-c2')), findsOneWidget);
+  });
+
+  testWidgets('从食记发布：话题来自 topics?status=ACTIVE，提交带 fromFoodLogId', (tester) async {
+    final a = installShowcase((o) {
+      if (o.path == '/community/topics') {
+        return okResponse([
+          {'topicId': 9, 'name': '#一周不重样', 'weekNo': 3},
+          {'topicId': 10, 'name': '#宝宝辅食'},
+        ]);
+      }
+      if (o.path == '/community/posts') return okResponse({'postId': 1, 'status': 'PUBLISHED'});
+      return okResponse(null);
+    });
+    await pump(tester, const PostCreatePage(seed: PostDraftSeed(foodLogId: 77, dishId: 3, dishName: '滑蛋虾仁', fromText: '10/16 18:40 做了 滑蛋虾仁')));
+    expect(a.requests.any((r) => r.path == '/community/topics' && r.queryParameters['status'] == 'ACTIVE'), isTrue);
+    expect(find.text('#宝宝辅食'), findsOneWidget);
+    expect(find.textContaining('发布时自动带入这顿饭的照片'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('post-title')), '10 分钟的滑蛋虾仁');
+    await tester.tap(find.byKey(const Key('post-publish')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final body = a.requests.firstWhere((r) => r.path == '/community/posts').data as Map;
+    expect(body['fromFoodLogId'], 77);
+    expect(body.containsKey('fromCookRecordId'), isFalse);
+    expect(body.containsKey('menuId'), isFalse);
+  });
 }

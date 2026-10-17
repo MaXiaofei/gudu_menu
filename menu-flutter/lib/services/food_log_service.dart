@@ -100,6 +100,8 @@ class FoodLogMeal {
   final bool reviewed;
   /// 各菜封面（与 dishNames 同序；旧接口无此字段 → 空，页面退首字）。
   final List<String?> covers;
+  /// 这顿饭的代表做菜记录 id（厨房圈「从食记分享」传 fromFoodLogId；旧接口无 → null）。
+  final int? foodLogId;
 
   FoodLogMeal({
     this.menuId,
@@ -112,6 +114,7 @@ class FoodLogMeal {
     required this.partialCount,
     required this.reviewed,
     this.covers = const [],
+    this.foodLogId,
   });
 
   factory FoodLogMeal.fromJson(Map<String, dynamic> j) => FoodLogMeal(
@@ -125,6 +128,7 @@ class FoodLogMeal {
         partialCount: (j['partialCount'] as num?)?.toInt() ?? 0,
         reviewed: j['reviewed'] == true,
         covers: ((j['covers'] ?? j['coverUrls'] ?? const []) as List).map((e) => e as String?).toList(),
+        foodLogId: (j['foodLogId'] as num?)?.toInt(),
       );
 }
 
@@ -189,6 +193,8 @@ class FoodLogDetail {
   final List<String> usedUp;
   final List<String> partial;
   final bool reviewed;
+  /// 这顿饭的代表做菜记录 id（同 [FoodLogMeal.foodLogId]）。
+  final int? foodLogId;
 
   FoodLogDetail({
     required this.menuId,
@@ -199,6 +205,7 @@ class FoodLogDetail {
     required this.usedUp,
     required this.partial,
     required this.reviewed,
+    this.foodLogId,
   });
 
   factory FoodLogDetail.fromJson(Map<String, dynamic> j) => FoodLogDetail(
@@ -212,6 +219,7 @@ class FoodLogDetail {
         usedUp: ((j['usedUp'] as List?) ?? const []).cast<String>(),
         partial: ((j['partial'] as List?) ?? const []).cast<String>(),
         reviewed: j['reviewed'] == true,
+        foodLogId: (j['foodLogId'] as num?)?.toInt(),
       );
 }
 

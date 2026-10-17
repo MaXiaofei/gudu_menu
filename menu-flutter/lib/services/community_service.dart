@@ -38,8 +38,8 @@ class PostCard {
       author: UserLite.fromJson(j['author']),
       title: Json.s(j['title']),
       coverUrl: Json.s(j['coverUrl']),
-      // 极端比例会让瀑布流某一列过长：限定在 3:4.6 ~ 4:3 之间
-      coverRatio: r <= 0 ? 0.75 : r.clamp(0.65, 1.34).toDouble(),
+      // 后端给 0.5–2（宽/高）；兜底限幅，避免脏数据让瀑布流某一列过长
+      coverRatio: r <= 0 ? 0.75 : r.clamp(0.5, 2.0).toDouble(),
       imageCount: Json.i(j['imageCount'], 1),
       likeCount: Json.i(j['likeCount']),
       liked: Json.b(j['liked']),
@@ -180,6 +180,9 @@ class Topic {
   final int participantCount;
   final int postCount;
   final List<String> coverUrls;
+
+  /// 挑战第几周（周一至周日为一周）；后端未给为 null。
+  final int? weekNo;
   const Topic({
     required this.topicId,
     required this.name,
@@ -190,6 +193,7 @@ class Topic {
     this.participantCount = 0,
     this.postCount = 0,
     this.coverUrls = const [],
+    this.weekNo,
   });
 
   factory Topic.fromJson(Map<String, dynamic> j) => Topic(
@@ -202,6 +206,7 @@ class Topic {
         participantCount: Json.i(j['participantCount']),
         postCount: Json.i(j['postCount']),
         coverUrls: Json.strs(j['coverUrls']),
+        weekNo: Json.iOrNull(j['weekNo']),
       );
 
   /// 距结束还剩几天（含当天）；无结束日返回 null。
@@ -300,6 +305,8 @@ class CommunityService {
     List<int> topicIds = const [],
     bool followersOnly = false,
     int? fromCookRecordId,
+    int? fromFoodLogId,
+    double? coverRatio,
   }) async {
     final d = Json.map(await ApiClient.instance.post('/community/posts', body: {
       'title': title,
@@ -309,6 +316,8 @@ class CommunityService {
       'topicIds': topicIds,
       'visibility': followersOnly ? 'FOLLOWERS' : 'PUBLIC',
       if (fromCookRecordId != null) 'fromCookRecordId': fromCookRecordId,
+      if (fromFoodLogId != null) 'fromFoodLogId': fromFoodLogId,
+      if (coverRatio != null) 'coverRatio': coverRatio,
     }));
     return (postId: Json.i(d['postId']), status: Json.s(d['status'], 'PUBLISHED'));
   }
@@ -353,6 +362,12 @@ class CommunityService {
 
   static Future<bool> follow(int userId, bool on) async =>
       Json.b(Json.map(await ApiClient.instance.post('/community/users/$userId/follow', body: {'on': on}))['following']);
+
+  /// 话题列表（发布页选话题用 status=ACTIVE）。
+  static Future<List<Topic>> topics({String status = 'ACTIVE', int? size}) async {
+    final d = await ApiClient.instance.get('/community/topics', query: {'status': status, if (size != null) 'size': size});
+    return Json.maps(d).map(Topic.fromJson).toList();
+  }
 
   static Future<TopicDetail> topic(int topicId) async =>
       TopicDetail.fromJson(Json.map(await ApiClient.instance.get('/community/topics/$topicId')));

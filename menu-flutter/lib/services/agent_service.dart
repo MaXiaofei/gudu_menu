@@ -68,9 +68,12 @@ class PendingAction {
   final Map<String, dynamic> preview;
   final DateTime? expiresAt;
 
-  /// PENDING / DONE / CANCELLED / EXPIRED（客户端另有 UNDONE）
+  /// PENDING / DONE / CANCELLED / EXPIRED / SUPERSEDED（被 revise 取代；客户端另有 UNDONE）
   final String status;
   final String? undoToken;
+
+  /// 工具参数（后端可选下发；revise 时在它基础上改）。
+  final Map<String, dynamic> args;
 
   const PendingAction({
     required this.actionId,
@@ -80,6 +83,7 @@ class PendingAction {
     this.expiresAt,
     this.status = 'PENDING',
     this.undoToken,
+    this.args = const {},
   });
 
   factory PendingAction.fromJson(Map<String, dynamic> j) => PendingAction(
@@ -89,6 +93,7 @@ class PendingAction {
         preview: Json.map(j['preview']),
         expiresAt: Json.date(j['expiresAt']),
         status: Json.s(j['status'], 'PENDING'),
+        args: Json.map(j['args']),
       );
 
   PendingAction copyWith({String? status, String? undoToken}) => PendingAction(
@@ -99,6 +104,7 @@ class PendingAction {
         expiresAt: expiresAt,
         status: status ?? this.status,
         undoToken: undoToken ?? this.undoToken,
+        args: args,
       );
 
   bool get isPending => status == 'PENDING';
@@ -127,6 +133,62 @@ class PendingAction {
     }
     return out;
   }
+}
+
+/// mark_cooked 的可改参数（revise 的 args）。
+///
+/// 结构：`{dishId, servings, eaterIds: [memberId], lines: [{name, ingredientId?, status: USED_UP|LEFT|SKIP, amount?}]}`；
+/// 后端下发了 [PendingAction.args] 时以它为底，只覆盖这几项。
+class CookedRevision {
+  int servings;
+  final Set<int> eaterIds;
+  final List<({String name, int? ingredientId, String? iconKey, String status, String amount})> lines;
+  final int? dishId;
+  final Map<String, dynamic> base;
+
+  CookedRevision({
+    required this.servings,
+    required this.eaterIds,
+    required this.lines,
+    this.dishId,
+    this.base = const {},
+  });
+
+  factory CookedRevision.from(PendingAction a) {
+    final raw = Json.maps(a.preview['lines']);
+    return CookedRevision(
+      servings: a.servings,
+      eaterIds: {for (final e in a.eaters) e.memberId},
+      dishId: a.cookedDish?.id ?? Json.iOrNull(a.args['dishId']),
+      base: a.args,
+      lines: [
+        for (final l in raw)
+          (
+            name: Json.s(l['name']),
+            ingredientId: Json.iOrNull(l['ingredientId']),
+            iconKey: Json.sOrNull(l['iconKey']),
+            status: Json.s(l['status'], 'LEFT'),
+            amount: Json.s(l['amount'], Json.s(l['delta']).replaceFirst(RegExp(r'^[-−]\s*'), '')),
+          ),
+      ],
+    );
+  }
+
+  Map<String, dynamic> toArgs() => {
+        ...base,
+        if (dishId != null) 'dishId': dishId,
+        'servings': servings,
+        'eaterIds': eaterIds.toList()..sort(),
+        'lines': [
+          for (final l in lines)
+            {
+              'name': l.name,
+              if (l.ingredientId != null) 'ingredientId': l.ingredientId,
+              'status': l.status,
+              if (l.status != 'SKIP' && l.amount.isNotEmpty) 'amount': l.amount,
+            },
+        ],
+      };
 }
 
 /// 对话里的卡片（recipes / menu / pantry / plan）。
@@ -453,6 +515,12 @@ class AgentService {
   static Future<PendingAction> cancel(PendingAction a) async {
     final d = Json.map(await ApiClient.instance.post('/agent/actions/${a.actionId}/cancel'));
     return a.copyWith(status: Json.s(d['status'], 'CANCELLED'));
+  }
+
+  /// 修改待确认动作的参数（改人份 / 谁吃了 / 实际用量），返回新的 PendingAction（旧的变 SUPERSEDED）。
+  static Future<PendingAction> revise(PendingAction a, Map<String, dynamic> args) async {
+    final d = await ApiClient.instance.post('/agent/actions/${a.actionId}/revise', body: {'args': args});
+    return PendingAction.fromJson(Json.map(d));
   }
 
   static Future<void> undo(String undoToken) async {
