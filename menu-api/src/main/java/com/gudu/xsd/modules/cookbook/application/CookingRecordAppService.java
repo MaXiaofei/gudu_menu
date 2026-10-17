@@ -52,6 +52,16 @@ public class CookingRecordAppService {
         return ids;
     }
 
+    /** 做菜记录的只读引用（厨房圈「从食记分享」用）。 */
+    public java.util.Optional<com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef> refOf(Long recordId) {
+        return repository.refOf(recordId);
+    }
+
+    /** 同一顿饭的全部做菜记录（食记 = 一顿饭）。 */
+    public List<com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef> sameMealRefs(Long recordId) {
+        return repository.sameMealRefs(recordId);
+    }
+
     /** 某次做菜事件写入的记录 id。 */
     public List<Long> recordIdsOf(String eventId) {
         return repository.idsByEventId(eventId);
