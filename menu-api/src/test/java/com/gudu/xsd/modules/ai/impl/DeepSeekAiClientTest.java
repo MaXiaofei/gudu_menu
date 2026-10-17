@@ -31,7 +31,7 @@ class DeepSeekAiClientTest {
         var c = new DeepSeekAiClient(rc, mock(MockAiClient.class), mock(MenuRecommender.class),
                 new ObjectMapper(), new AiOutputGuard());
         ReflectionTestUtils.setField(c, "baseUrl", "https://api.deepseek.com/v1");
-        ReflectionTestUtils.setField(c, "model", "deepseek-chat");
+        ReflectionTestUtils.setField(c, "model", "deepseek-flash");
         ReflectionTestUtils.setField(c, "key", "sk-xxx");
         // 4 模板点经基类委托调用子类实现，值应与注入一致
         assertThat(c.provider()).isEqualTo("deepseek");

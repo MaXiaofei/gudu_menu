@@ -7,6 +7,7 @@ import com.gudu.xsd.modules.ai.AiClient;
 import com.gudu.xsd.modules.ai.AiOutputGuard;
 import com.gudu.xsd.modules.ai.MenuRecommender;
 import com.gudu.xsd.modules.ai.dto.CandidateDish;
+import com.gudu.xsd.modules.ai.gateway.application.ModelGateway;
 import com.gudu.xsd.modules.ai.dto.DishEstimateRequest;
 import com.gudu.xsd.modules.ai.dto.DishEstimateResponse;
 import com.gudu.xsd.modules.ai.dto.MenuCandidate;
@@ -95,11 +96,10 @@ public abstract class OpenAiCompatibleClient implements AiClient {
             throw new BizException("食材名不能为空");
         }
         try {
-            String k = key();
-            if (k == null || k.isBlank()) {
+            if (gateway == null && (key() == null || key().isBlank())) {
                 throw new BizException("API_KEY 未配置，降级 mock");
             }
-            ChatResult cr = chat(
+            ChatResult cr = chat("nutrition_fill",
                     ROLE_LOCK + "你是营养师。给定食材名，返回它每100克的营养成分 JSON，字段 calorie/protein/fat/carb/sugar/gi"
                             + "（数值，gi 是升糖指数 0-100）。只返回 JSON。",
                     "食材名：" + req.name());
@@ -122,14 +122,13 @@ public abstract class OpenAiCompatibleClient implements AiClient {
             throw new BizException("菜品描述不能为空");
         }
         try {
-            String k = key();
-            if (k == null || k.isBlank()) {
+            if (gateway == null && (key() == null || key().isBlank())) {
                 throw new BizException("API_KEY 未配置，降级 mock");
             }
             BigDecimal factor = req.servingFactor() == null ? BigDecimal.ONE : req.servingFactor();
             String user = "菜品/一餐描述：" + req.description()
                     + "\n份数(servingFactor)：" + factor;
-            ChatResult cr = chat(
+            ChatResult cr = chat("dish_estimate",
                     ROLE_LOCK + "你是营养师。根据用户对一道菜/一餐的文字描述，估算其总营养成分。"
                             + "返回 JSON:{\"calorie\":数值,\"protein\":数值,\"fat\":数值,"
                             + "\"carb\":数值,\"sugar\":数值}。"
@@ -168,8 +167,31 @@ public abstract class OpenAiCompatibleClient implements AiClient {
 
     // ---------------- 内部：HTTP + 解析 ----------------
 
+    /**
+     * 模型网关（生产装配时注入）：注入后所有调用走网关的 CHAT 路由（DeepSeek → GLM → 失败抛出，本类降级 mock）；
+     * 未注入（单测直接 new）时沿用本类自带的 RestClient 直连。
+     */
+    private ModelGateway gateway;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setGateway(ModelGateway gateway) {
+        this.gateway = gateway;
+    }
+
+    /** 调用：有网关走网关（JSON 模式），否则直连 chat/completions。 */
+    private ChatResult chat(String scene, String system, String user) {
+        if (gateway != null) {
+            com.gudu.xsd.modules.ai.gateway.domain.model.ChatResult r = gateway.chatJson(scene, system, user);
+            if (r.content() == null || r.content().isBlank()) {
+                throw new BizException("模型返回 content 为空");
+            }
+            return new ChatResult(r.content(), r.reply().usage().promptTokens(), r.reply().usage().completionTokens());
+        }
+        return chatDirect(system, user);
+    }
+
     /** POST chat/completions，返回 content 文本 + token 用量。 */
-    private ChatResult chat(String system, String user) {
+    private ChatResult chatDirect(String system, String user) {
         Map<String, Object> body = Map.of(
                 "model", model(),
                 "messages", List.of(

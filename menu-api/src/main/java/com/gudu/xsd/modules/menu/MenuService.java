@@ -110,6 +110,31 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         }
     }
 
+    /**
+     * 追加菜（咕嘟 Agent 确认后执行）：已在食集里的菜跳过，不整单替换（保留备注与点菜人）。
+     *
+     * @return 新增的菜 id（未新增的不含）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public List<Long> addDishes(Long menuId, List<Long> dishIds, Long memberId) {
+        if (menuId == null || getById(menuId) == null) throw new com.gudu.xsd.common.BizException("食集不存在");
+        java.util.Set<Long> existing = menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId))
+                .stream().map(MenuDish::getDishId).filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        List<Long> added = new ArrayList<>();
+        for (Long dishId : dishIds) {
+            if (dishId == null || !existing.add(dishId)) continue;
+            MenuDish md = new MenuDish();
+            md.setMenuId(menuId);
+            md.setDishId(dishId);
+            md.setServingFactor(BigDecimal.ONE);
+            md.setAddedByMemberId(memberId);
+            menuDishMapper.insert(md);
+            added.add(dishId);
+        }
+        return added;
+    }
+
     /** 详情：菜单 + 关联菜品列表（每项冗余菜名/封面/备注，避免前端逐菜 GET /dish/{id} 取名 N+1）。
      *  totalMinutes = Σ 各菜烹饪时间（原型副标题「约 N 分钟」）。 */
     public MenuDetail detail(Long id) {

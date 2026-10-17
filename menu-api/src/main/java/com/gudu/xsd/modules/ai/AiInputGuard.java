@@ -74,6 +74,29 @@ public class AiInputGuard {
             "番茄", "西红柿", "土豆", "黄瓜", "白菜", "排骨", "鸡", "鸭", "牛", "羊", "猪"
     );
 
+    /** 咕嘟对话单条输入上限。 */
+    public static final int AGENT_MAX_LEN = 500;
+
+    /**
+     * 咕嘟对话护栏：只拦空、超长、明显越界词（黑名单）；不做食物白名单——闲聊与越界由 Agent 礼貌引导。
+     *
+     * @return 违规原因；合规返回 empty
+     */
+    public java.util.Optional<String> agentViolation(String text) {
+        if (text == null || text.isBlank()) return java.util.Optional.of("输入不能为空");
+        String trimmed = text.trim();
+        if (trimmed.length() > AGENT_MAX_LEN) {
+            return java.util.Optional.of("一次说的有点多，精简到 " + AGENT_MAX_LEN + " 字以内吧");
+        }
+        String lower = trimmed.toLowerCase();
+        for (String kw : BLACKLIST) {
+            // 「手机号」「密码」在做饭对话里不算越界词（如间接注入里的手机号由工具结果脱敏处理）
+            if (kw.equals("手机号") || kw.equals("密码") || kw.equals("你是谁") || kw.equals("闲聊")) continue;
+            if (lower.contains(kw)) return java.util.Optional.of("这个话题我帮不上忙，我只聊做饭和吃的。");
+        }
+        return java.util.Optional.empty();
+    }
+
     /** 校验用户输入文本。无效抛 {@link BizException}。 */
     public void validate(String text) {
         if (text == null || text.isBlank()) {

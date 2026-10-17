@@ -75,8 +75,27 @@ public class AiClientRouter implements AiClient {
         this.glmAccessor = new GlmAccessor(glm);
     }
 
-    /** 取当前 provider：Redis 有值优先，否则回退启动初值。 */
+    /**
+     * 模型网关（生产装配注入）：注入后 provider 状态以网关 CHAT 路由主目标为准，切换改写网关路由（含审计与广播）。
+     * 未注入（单测）时沿用 Redis key 语义。
+     */
+    private com.gudu.xsd.modules.ai.gateway.application.ModelGateway gateway;
+    private com.gudu.xsd.modules.ai.gateway.application.GatewayAdminAppService gatewayAdmin;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setGateway(com.gudu.xsd.modules.ai.gateway.application.ModelGateway gateway,
+                           com.gudu.xsd.modules.ai.gateway.application.GatewayAdminAppService gatewayAdmin) {
+        this.gateway = gateway;
+        this.gatewayAdmin = gatewayAdmin;
+    }
+
+    /** 取当前 provider：网关 CHAT 主目标；无网关时 Redis 有值优先，否则回退启动初值。 */
     public String currentProvider() {
+        if (gateway != null) {
+            String p = gateway.legacyProvider();
+            // 后台配了自定义供应商（不在旧三选一里）：真实调用仍经网关，旧接口按 deepseek 展示
+            return clients.containsKey(p) ? p : "deepseek";
+        }
         try {
             String v = redis.opsForValue().get(REDIS_KEY);
             if (v != null && !v.isBlank()) {
@@ -97,6 +116,9 @@ public class AiClientRouter implements AiClient {
      * @throws com.gudu.xsd.common.BizException 非法值 或 Redis 写入失败
      */
     public String switchProvider(String provider) {
+        if (gatewayAdmin != null) {
+            return gatewayAdmin.switchLegacyProvider(provider, "legacy:/ai/provider");
+        }
         if (provider == null || !clients.containsKey(provider)) {
             throw new com.gudu.xsd.common.BizException(
                     "非法 provider：" + provider + "，可选 " + PROVIDERS);
@@ -127,6 +149,11 @@ public class AiClientRouter implements AiClient {
 
     /** 各 provider 是否已配 key（mock 永远可用）；用于 GET /ai/provider 展示可用状态。 */
     public boolean providerReady(String provider) {
+        if (gateway != null) {
+            return gateway.providers().values().stream()
+                    .filter(p -> p.name().equalsIgnoreCase(provider))
+                    .anyMatch(p -> p.enabled() && gateway.hasKey(p));
+        }
         return switch (provider) {
             case "deepseek" -> deepSeekAccessor.hasKey();
             case "glm" -> glmAccessor.hasKey();

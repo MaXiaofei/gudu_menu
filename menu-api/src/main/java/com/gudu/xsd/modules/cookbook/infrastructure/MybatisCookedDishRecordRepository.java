@@ -26,6 +26,12 @@ public class MybatisCookedDishRecordRepository implements CookedDishRecordReposi
     private final CookingRecordMapper mapper;
 
     @Override
+    public void deleteByIds(java.util.Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        mapper.deleteByIds(ids);
+    }
+
+    @Override
     public void save(CookedDishRecord r) {
         CookingRecord po = new CookingRecord();
         po.setEventId(r.eventId());

@@ -1,0 +1,57 @@
+{
+  "version": "sample",
+  "now": "2026-10-16T17:40:00+08:00",
+  "today": "2026-10-16",
+  "weekday": "周五",
+  "weekStartsOn": "MONDAY",
+  "currentUser": {"userId": 1001, "nickname": "小王", "member": "小王", "family": "fam_xiaowang"},
+  "family": {
+    "familyId": "fam_xiaowang",
+    "name": "小王家的厨房",
+    "members": [
+      {"memberId": 2001, "name": "小王", "isMe": true, "age": 32, "profiles": [], "constraints": {}},
+      {"memberId": 2002, "name": "林林", "age": 30, "profiles": ["高血脂"], "constraints": {"preferTags": ["控脂"], "avoidTags": ["重口"]}},
+      {"memberId": 2003, "name": "妈妈", "age": 61, "profiles": ["高血压"], "constraints": {"preferTags": ["少盐"], "avoidTags": ["重口"]}},
+      {"memberId": 2004, "name": "朵朵", "age": 2, "profiles": ["宝宝辅食"], "constraints": {"preferTags": ["宝宝可吃"], "avoidTags": ["辣", "重口"]}}
+    ],
+    "pantry": [
+      {"name": "鲈鱼", "amount": 1, "unit": "条", "status": "ENOUGH", "bestBefore": "2026-10-17"},
+      {"name": "菠菜", "amount": 1, "unit": "把", "status": "LOW", "bestBefore": "2026-10-18"},
+      {"name": "北豆腐", "amount": 1, "unit": "盒", "status": "ENOUGH", "bestBefore": "2026-10-18", "aliases": ["豆腐"]},
+      {"name": "肉末", "amount": 300, "unit": "g", "status": "ENOUGH"},
+      {"name": "小葱", "amount": 0, "unit": "根", "status": "OUT"},
+      {"name": "鸡蛋", "amount": 6, "unit": "个", "status": "ENOUGH"}
+    ],
+    "menus": [
+      {"menuId": "menu_xw_tonight", "name": "今晚的饭", "date": "2026-10-16", "status": "ONGOING", "servings": 4, "dishes": ["清蒸鲈鱼"]},
+      {"menuId": "menu_xw_sat", "name": "周六 · 爸妈来吃饭", "date": "2026-10-17", "status": "UPCOMING", "servings": 6, "dishes": ["红烧肉"]}
+    ],
+    "shoppingList": [{"name": "小葱", "amount": 1, "unit": "把", "forMenu": "今晚的饭", "checked": false}],
+    "cookRecords": [],
+    "favorites": ["清蒸鲈鱼"]
+  },
+  "otherFamilies": [
+    {"familyId": "fam_laowang", "name": "老王家",
+     "menus": [{"menuId": "menu_lw_01", "name": "国庆家宴", "date": "2026-10-18", "status": "UPCOMING", "servings": 8, "dishes": ["老王秘制酱牛肉"]}],
+     "pantry": [{"name": "大闸蟹", "amount": 6, "unit": "只", "status": "ENOUGH"}],
+     "privateRecipes": [{"name": "老王秘制酱牛肉", "minutes": 150, "servings": 6, "tags": ["重口"], "ingredients": [{"name": "牛腱子", "amount": 1000, "unit": "g"}], "steps": ["卤"]}]}
+  ],
+  "recipes": [
+    {"name": "清蒸鲈鱼", "family": "public", "minutes": 25, "difficulty": "简单", "servings": 4, "tags": ["少盐", "宝宝可吃", "海鲜"], "sodiumMgPerServing": 450,
+     "ingredients": [{"name": "鲈鱼", "amount": 1, "unit": "条"}, {"name": "小葱", "amount": 2, "unit": "根"}, {"name": "蒸鱼豉油", "amount": 1, "unit": "勺", "seasoning": true}],
+     "steps": ["鲈鱼处理干净", "大火蒸 8 分钟", "淋豉油"]},
+    {"name": "凉拌菠菜", "family": "public", "minutes": 10, "difficulty": "简单", "servings": 4, "tags": ["少盐", "素菜", "快手菜"], "sodiumMgPerServing": 300,
+     "ingredients": [{"name": "菠菜", "amount": 1, "unit": "把"}, {"name": "大蒜", "amount": 2, "unit": "瓣"}],
+     "steps": ["菠菜焯水", "加蒜末拌匀"]},
+    {"name": "麻婆豆腐", "family": "public", "minutes": 20, "difficulty": "中等", "servings": 4, "tags": ["辣", "下饭", "重口"], "sodiumMgPerServing": 1200,
+     "ingredients": [{"name": "北豆腐", "amount": 1, "unit": "盒"}, {"name": "肉末", "amount": 100, "unit": "g"}, {"name": "郫县豆瓣酱", "amount": 1, "unit": "勺", "seasoning": true}],
+     "steps": ["豆腐焯水", "炒肉末", "煮豆腐"]},
+    {"name": "家常豆腐", "family": "public", "minutes": 20, "difficulty": "简单", "servings": 4, "tags": ["少盐", "荤菜"], "sodiumMgPerServing": 600,
+     "ingredients": [{"name": "北豆腐", "amount": 1, "unit": "盒"}, {"name": "肉末", "amount": 50, "unit": "g"}],
+     "steps": ["豆腐煎黄", "加肉末烧"]},
+    {"name": "红烧肉", "family": "public", "minutes": 90, "difficulty": "中等", "servings": 4, "tags": ["重口", "荤菜"], "sodiumMgPerServing": 1500,
+     "ingredients": [{"name": "五花肉", "amount": 500, "unit": "g"}],
+     "steps": ["焯水", "炒糖色", "炖"]}
+  ],
+  "quota": {"dailyTurns": 50, "usedToday": 3}
+}
