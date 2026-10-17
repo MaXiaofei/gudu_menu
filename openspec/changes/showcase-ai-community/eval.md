@@ -62,7 +62,10 @@
 - `tools.mode`：`exact`（顺序与数量完全一致）/ `subsequence`（按顺序出现，可夹杂其他只读工具）/ `set`（不计顺序）/ `none`（不应调用任何工具）。
 - 参数匹配器：字面值、`eq`、`in`、`contains`、`containsAny`、`gte/lte`、`regex`、`any`；路径用点号（`filters.tags`）；菜谱用名称匹配。
 - 多轮：`turns` 中可以有 `assistant` 占位（`{"role":"assistant","expect":{...}}`），用于检查指代消解（「就这三道」）和确认流程（用户说「确认」/「算了」）。
-- `actions`：写操作必须以 PendingAction 出现；`requireConfirm: true` 时检查确认前夹具未变化、确认后变化符合 `effects`。
+- 匹配器另有 `containsAll`、`notContains`；同一对象内多个匹配器为「且」；`calls` 元素可写 `{"anyOf":[...]}` 表示多种合理调用任一命中；对象数组路径写 `items[].name`。
+- 多轮：历史回复可 `scripted: true`（带 cards/actions）；用户轮可为点击事件 `confirm_action` / `cancel_action`。
+- `expect.meta.degraded`；`fixturePatch.toolErrors`（指定工具返回错误）；卡片期望 `eachDish` 约束。
+- `actions`：写操作必须以 PendingAction 出现；可检查 `confirmed / cancelled / undone / supersedes / pending[].count`；`effects` 为 `{entity, name, field, match}[]` 或 `{noChange: true}`；`requireConfirm: true` 时检查确认前夹具未变化、确认后变化符合 `effects`。
 
 ## 4. 类别与配额（首版 ≥ 160 条，dev : test ≈ 6 : 4）
 
@@ -118,9 +121,12 @@
 | `recommend_tonight` | `n?: number, forMembers?: string[]` | 读 |
 | `list_menus` | `status?: "ONGOING"\|"UPCOMING"\|"DONE", date?: string` | 读 |
 | `add_to_menu` | `menu?: string`（食集名或 id）, `newMenu?: { name, date, servings }`, `dishes: string[]` | 写·确认 |
+| `remove_from_menu` | `menu: string, dishes: string[]` | 写·确认 |
+| `get_shopping_list` | `menu?: string` | 读 |
 | `add_to_shopping` | `items: { name, amount?, unit? }[]` | 写·确认 |
-| `mark_cooked` | `dish: string, servings: number, eaters?: string[]` | 写·确认 |
+| `mark_cooked` | `dish: string, servings: number, eaters?: string[], date?: string, overrides?: { name, amount, unit? }[]`（实际用量覆盖默认扣减） | 写·确认 |
 | `add_pantry` | `items: { name, amount, unit, bestBefore?: string }[]` | 写·确认 |
+| `undo_action` | `action?: string`（缺省 = 本会话最近一次已执行的写操作） | 写（撤销，无需二次确认） |
 | `plan_week` | `weekStart?: string, servings?: number, constraints?: string[]` | 读（产出草稿） |
 
 - 成员、菜谱、食集参数用**名称**（服务端解析为 id 并校验归属），便于评测和防止模型臆造 id。

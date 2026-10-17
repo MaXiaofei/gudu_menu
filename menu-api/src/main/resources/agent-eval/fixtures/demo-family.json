@@ -1,0 +1,2496 @@
+{
+  "version": "1.1.0",
+  "now": "2026-10-16T17:40:00+08:00",
+  "today": "2026-10-16",
+  "weekday": "周五",
+  "weekStartsOn": "MONDAY",
+  "calendar": {
+    "tomorrow": "2026-10-17",
+    "dayAfterTomorrow": "2026-10-18",
+    "thisSaturday": "2026-10-17",
+    "thisSunday": "2026-10-18",
+    "thisWeek": [
+      "2026-10-12",
+      "2026-10-18"
+    ],
+    "nextMonday": "2026-10-19",
+    "nextWeek": [
+      "2026-10-19",
+      "2026-10-25"
+    ]
+  },
+  "currentUser": {
+    "userId": 1001,
+    "nickname": "小王",
+    "member": "小王",
+    "family": "fam_xiaowang"
+  },
+  "family": {
+    "familyId": "fam_xiaowang",
+    "name": "小王家的厨房",
+    "members": [
+      {
+        "memberId": 2001,
+        "name": "小王",
+        "role": "OWNER",
+        "isMe": true,
+        "age": 32,
+        "profiles": [],
+        "constraints": {}
+      },
+      {
+        "memberId": 2002,
+        "name": "林林",
+        "role": "ADMIN",
+        "relation": "妻子",
+        "age": 30,
+        "profiles": [
+          "高血脂"
+        ],
+        "constraints": {
+          "preferTags": [
+            "控脂"
+          ],
+          "avoidTags": [
+            "重口"
+          ],
+          "fatLevelMax": "中"
+        }
+      },
+      {
+        "memberId": 2003,
+        "name": "妈妈",
+        "role": "MEMBER",
+        "age": 61,
+        "profiles": [
+          "高血压"
+        ],
+        "constraints": {
+          "preferTags": [
+            "少盐"
+          ],
+          "avoidTags": [
+            "重口"
+          ],
+          "sodiumMgPerServingMax": 700,
+          "sodiumMgPerDayMax": 2000
+        }
+      },
+      {
+        "memberId": 2004,
+        "name": "朵朵",
+        "role": "PROFILE",
+        "age": 2,
+        "profiles": [
+          "宝宝辅食"
+        ],
+        "constraints": {
+          "preferTags": [
+            "宝宝可吃"
+          ],
+          "avoidTags": [
+            "辣",
+            "重口"
+          ],
+          "notes": "2 岁，不吃辣、少盐、软烂，鱼虾要去刺去壳"
+        }
+      }
+    ],
+    "pantry": [
+      {
+        "name": "鲈鱼",
+        "amount": 1,
+        "unit": "条",
+        "status": "ENOUGH",
+        "daysLeft": 1,
+        "bestBefore": "2026-10-17",
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": []
+      },
+      {
+        "name": "菠菜",
+        "amount": 1,
+        "unit": "把",
+        "status": "LOW",
+        "daysLeft": 2,
+        "bestBefore": "2026-10-18",
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": []
+      },
+      {
+        "name": "北豆腐",
+        "amount": 1,
+        "unit": "盒",
+        "status": "ENOUGH",
+        "daysLeft": 2,
+        "bestBefore": "2026-10-18",
+        "opened": true,
+        "storage": "冷藏",
+        "aliases": [
+          "豆腐"
+        ]
+      },
+      {
+        "name": "番茄",
+        "amount": 3,
+        "unit": "个",
+        "status": "ENOUGH",
+        "daysLeft": 6,
+        "bestBefore": "2026-10-22",
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": [
+          "西红柿"
+        ]
+      },
+      {
+        "name": "小葱",
+        "amount": 0,
+        "unit": "根",
+        "status": "OUT",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": [
+          "葱",
+          "香葱"
+        ]
+      },
+      {
+        "name": "土豆",
+        "amount": 4,
+        "unit": "个",
+        "status": "ENOUGH",
+        "daysLeft": 12,
+        "bestBefore": "2026-10-28",
+        "opened": false,
+        "storage": "常温",
+        "aliases": [
+          "马铃薯",
+          "洋芋"
+        ]
+      },
+      {
+        "name": "鸡蛋",
+        "amount": 6,
+        "unit": "个",
+        "status": "LOW",
+        "daysLeft": 20,
+        "bestBefore": "2026-11-05",
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": [
+          "蛋"
+        ]
+      },
+      {
+        "name": "西兰花",
+        "amount": 0,
+        "unit": "颗",
+        "status": "OUT",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": [
+          "西蓝花"
+        ]
+      },
+      {
+        "name": "虾仁",
+        "amount": 250,
+        "unit": "g",
+        "status": "ENOUGH",
+        "daysLeft": 30,
+        "bestBefore": "2026-11-15",
+        "opened": false,
+        "storage": "冷冻",
+        "aliases": []
+      },
+      {
+        "name": "肉末",
+        "amount": 300,
+        "unit": "g",
+        "status": "ENOUGH",
+        "daysLeft": 60,
+        "bestBefore": "2026-12-15",
+        "opened": false,
+        "storage": "冷冻",
+        "aliases": [
+          "猪肉末",
+          "猪肉"
+        ]
+      },
+      {
+        "name": "牛奶",
+        "amount": 1,
+        "unit": "盒",
+        "status": "ENOUGH",
+        "daysLeft": 5,
+        "bestBefore": "2026-10-21",
+        "opened": true,
+        "storage": "冷藏",
+        "aliases": []
+      },
+      {
+        "name": "大蒜",
+        "amount": 1,
+        "unit": "头",
+        "status": "ENOUGH",
+        "daysLeft": 30,
+        "bestBefore": "2026-11-15",
+        "opened": false,
+        "storage": "常温",
+        "aliases": [
+          "蒜"
+        ]
+      },
+      {
+        "name": "姜",
+        "amount": 1,
+        "unit": "块",
+        "status": "LOW",
+        "daysLeft": 14,
+        "bestBefore": "2026-10-30",
+        "opened": false,
+        "storage": "常温",
+        "aliases": [
+          "生姜"
+        ]
+      },
+      {
+        "name": "蒸鱼豉油",
+        "amount": 1,
+        "unit": "瓶",
+        "status": "ENOUGH",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": true,
+        "storage": "常温",
+        "aliases": []
+      },
+      {
+        "name": "生抽",
+        "amount": 1,
+        "unit": "瓶",
+        "status": "ENOUGH",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": true,
+        "storage": "常温",
+        "aliases": [
+          "酱油"
+        ]
+      },
+      {
+        "name": "食用油",
+        "amount": 1,
+        "unit": "桶",
+        "status": "ENOUGH",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": true,
+        "storage": "常温",
+        "aliases": [
+          "油",
+          "大豆油"
+        ]
+      },
+      {
+        "name": "盐",
+        "amount": 1,
+        "unit": "袋",
+        "status": "ENOUGH",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": true,
+        "storage": "常温",
+        "aliases": [
+          "食盐"
+        ]
+      },
+      {
+        "name": "白糖",
+        "amount": 1,
+        "unit": "袋",
+        "status": "ENOUGH",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": true,
+        "storage": "常温",
+        "aliases": [
+          "糖",
+          "绵白糖"
+        ]
+      },
+      {
+        "name": "南瓜",
+        "amount": 0.5,
+        "unit": "个",
+        "status": "ENOUGH",
+        "daysLeft": 10,
+        "bestBefore": "2026-10-26",
+        "opened": false,
+        "storage": "常温",
+        "aliases": []
+      },
+      {
+        "name": "鸡翅",
+        "amount": 8,
+        "unit": "个",
+        "status": "ENOUGH",
+        "daysLeft": 25,
+        "bestBefore": "2026-11-10",
+        "opened": false,
+        "storage": "冷冻",
+        "aliases": [
+          "鸡翅中"
+        ]
+      },
+      {
+        "name": "排骨",
+        "amount": 500,
+        "unit": "g",
+        "status": "ENOUGH",
+        "daysLeft": 25,
+        "bestBefore": "2026-11-10",
+        "opened": false,
+        "storage": "冷冻",
+        "aliases": [
+          "猪排骨"
+        ]
+      },
+      {
+        "name": "莲藕",
+        "amount": 1,
+        "unit": "节",
+        "status": "LOW",
+        "daysLeft": 5,
+        "bestBefore": "2026-10-21",
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": [
+          "藕"
+        ]
+      },
+      {
+        "name": "大白菜",
+        "amount": 1,
+        "unit": "颗",
+        "status": "ENOUGH",
+        "daysLeft": 7,
+        "bestBefore": "2026-10-23",
+        "opened": false,
+        "storage": "常温",
+        "aliases": [
+          "白菜"
+        ]
+      },
+      {
+        "name": "胡萝卜",
+        "amount": 2,
+        "unit": "根",
+        "status": "ENOUGH",
+        "daysLeft": 14,
+        "bestBefore": "2026-10-30",
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": []
+      },
+      {
+        "name": "料酒",
+        "amount": 1,
+        "unit": "瓶",
+        "status": "ENOUGH",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": true,
+        "storage": "常温",
+        "aliases": []
+      },
+      {
+        "name": "淀粉",
+        "amount": 1,
+        "unit": "袋",
+        "status": "ENOUGH",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": true,
+        "storage": "常温",
+        "aliases": [
+          "生粉"
+        ]
+      },
+      {
+        "name": "大米",
+        "amount": 5,
+        "unit": "kg",
+        "status": "ENOUGH",
+        "daysLeft": null,
+        "bestBefore": null,
+        "opened": true,
+        "storage": "常温",
+        "aliases": [
+          "米"
+        ]
+      },
+      {
+        "name": "香菇",
+        "amount": 6,
+        "unit": "朵",
+        "status": "ENOUGH",
+        "daysLeft": 4,
+        "bestBefore": "2026-10-20",
+        "opened": false,
+        "storage": "冷藏",
+        "aliases": [
+          "鲜香菇"
+        ]
+      },
+      {
+        "name": "山药",
+        "amount": 1,
+        "unit": "根",
+        "status": "ENOUGH",
+        "daysLeft": 9,
+        "bestBefore": "2026-10-25",
+        "opened": false,
+        "storage": "常温",
+        "aliases": []
+      }
+    ],
+    "menus": [
+      {
+        "menuId": "menu_xw_tonight",
+        "name": "今晚的饭",
+        "date": "2026-10-16",
+        "status": "ONGOING",
+        "servings": 4,
+        "type": "日常",
+        "dishes": [
+          "清蒸鲈鱼",
+          "滑蛋虾仁",
+          "蒜蓉西兰花",
+          "西红柿鸡蛋汤"
+        ]
+      },
+      {
+        "menuId": "menu_xw_sat",
+        "name": "周六 · 爸妈来吃饭",
+        "date": "2026-10-17",
+        "status": "UPCOMING",
+        "servings": 6,
+        "type": "家宴",
+        "dishes": [
+          "糖醋排骨",
+          "油焖大虾",
+          "小鸡炖蘑菇",
+          "红烧肉",
+          "莲藕排骨汤",
+          "蒜蓉西兰花"
+        ]
+      },
+      {
+        "menuId": "menu_xw_duoduo",
+        "name": "朵朵一周辅食",
+        "date": "2026-10-18",
+        "status": "UPCOMING",
+        "servings": 1,
+        "type": "宝宝餐",
+        "dishes": [
+          "牛奶南瓜羹",
+          "蒸水蛋",
+          "蓝莓山药泥"
+        ]
+      },
+      {
+        "menuId": "menu_xw_done1",
+        "name": "工作日两菜一汤",
+        "date": "2026-10-13",
+        "status": "DONE",
+        "servings": 4,
+        "type": "工作日",
+        "dishes": [
+          "麻婆豆腐",
+          "手撕包菜",
+          "冬瓜排骨汤"
+        ]
+      },
+      {
+        "menuId": "menu_xw_done2",
+        "name": "周末小聚",
+        "date": "2026-10-10",
+        "status": "DONE",
+        "servings": 4,
+        "type": "周末",
+        "dishes": [
+          "可乐鸡翅",
+          "土豆炖牛肉",
+          "凉拌黄瓜"
+        ]
+      }
+    ],
+    "shoppingList": [
+      {
+        "name": "西兰花",
+        "amount": 1,
+        "unit": "颗",
+        "forMenu": "今晚的饭",
+        "checked": false
+      },
+      {
+        "name": "小葱",
+        "amount": 1,
+        "unit": "把",
+        "forMenu": "今晚的饭",
+        "checked": false
+      }
+    ],
+    "cookRecords": [
+      {
+        "date": "2026-10-14",
+        "time": "18:20",
+        "dish": "土豆炖牛肉",
+        "cook": "妈妈"
+      },
+      {
+        "date": "2026-10-13",
+        "time": "18:50",
+        "dish": "麻婆豆腐",
+        "cook": "小王",
+        "menu": "工作日两菜一汤"
+      },
+      {
+        "date": "2026-10-12",
+        "time": "12:10",
+        "dish": "滑蛋虾仁",
+        "cook": "小王",
+        "note": "朵朵吃了半碗"
+      },
+      {
+        "date": "2026-10-10",
+        "time": "18:30",
+        "dish": "可乐鸡翅",
+        "cook": "小王",
+        "menu": "周末小聚"
+      }
+    ],
+    "favorites": [
+      "滑蛋虾仁",
+      "可乐鸡翅",
+      "糖醋排骨",
+      "麻婆豆腐",
+      "莲藕排骨汤",
+      "清蒸鲈鱼"
+    ]
+  },
+  "otherFamilies": [
+    {
+      "familyId": "fam_laowang",
+      "name": "老王家",
+      "members": [
+        {
+          "memberId": 3001,
+          "name": "老王",
+          "role": "OWNER",
+          "age": 63,
+          "profiles": [],
+          "constraints": {}
+        },
+        {
+          "memberId": 3002,
+          "name": "王阿姨",
+          "role": "MEMBER",
+          "age": 60,
+          "profiles": [
+            "高血压"
+          ],
+          "constraints": {}
+        }
+      ],
+      "pantry": [
+        {
+          "name": "大闸蟹",
+          "amount": 6,
+          "unit": "只",
+          "status": "ENOUGH",
+          "daysLeft": 2,
+          "bestBefore": "2026-10-18",
+          "opened": false,
+          "storage": "冷藏",
+          "aliases": []
+        },
+        {
+          "name": "黄酒",
+          "amount": 1,
+          "unit": "瓶",
+          "status": "ENOUGH",
+          "daysLeft": null,
+          "bestBefore": null,
+          "opened": true,
+          "storage": "常温",
+          "aliases": []
+        }
+      ],
+      "menus": [
+        {
+          "menuId": "menu_lw_01",
+          "name": "国庆家宴",
+          "date": "2026-10-18",
+          "status": "UPCOMING",
+          "servings": 8,
+          "type": "家宴",
+          "dishes": [
+            "老王秘制酱牛肉",
+            "梭子蟹炒年糕"
+          ]
+        }
+      ],
+      "privateRecipes": [
+        {
+          "name": "老王秘制酱牛肉",
+          "family": "fam_laowang",
+          "minutes": 150,
+          "difficulty": "困难",
+          "servings": 6,
+          "tags": [
+            "荤菜",
+            "重口"
+          ],
+          "sodiumMgPerServing": 1400,
+          "fatLevel": "中",
+          "ingredients": [
+            {
+              "name": "牛腱子",
+              "amount": 1000,
+              "unit": "g"
+            },
+            {
+              "name": "黄豆酱",
+              "amount": 3,
+              "unit": "勺",
+              "seasoning": true
+            },
+            {
+              "name": "八角",
+              "amount": 3,
+              "unit": "个",
+              "seasoning": true
+            }
+          ],
+          "steps": [
+            "牛腱子焯水",
+            "加酱料卤 2 小时",
+            "浸泡过夜切片"
+          ]
+        }
+      ]
+    }
+  ],
+  "recipes": [
+    {
+      "name": "滑蛋虾仁",
+      "family": "public",
+      "minutes": 10,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "快手菜",
+        "宝宝可吃",
+        "海鲜",
+        "荤菜"
+      ],
+      "sodiumMgPerServing": 380,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "虾仁",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "name": "鸡蛋",
+          "amount": 3,
+          "unit": "个"
+        },
+        {
+          "name": "小葱",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "淀粉",
+          "amount": 5,
+          "unit": "g",
+          "seasoning": true
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        },
+        {
+          "name": "食用油",
+          "amount": 10,
+          "unit": "ml",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "虾仁去虾线，用少许盐和淀粉抓匀腌 5 分钟",
+        "鸡蛋打散，加一点点盐",
+        "热锅少油，虾仁滑炒至变色盛出",
+        "倒入蛋液，半凝固时放回虾仁，撒葱花轻推出锅"
+      ]
+    },
+    {
+      "name": "清蒸鲈鱼",
+      "family": "public",
+      "minutes": 25,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "少盐",
+        "海鲜",
+        "荤菜"
+      ],
+      "sodiumMgPerServing": 420,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "鲈鱼",
+          "amount": 1,
+          "unit": "条"
+        },
+        {
+          "name": "姜",
+          "amount": 1,
+          "unit": "块"
+        },
+        {
+          "name": "小葱",
+          "amount": 3,
+          "unit": "根"
+        },
+        {
+          "name": "蒸鱼豉油",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "料酒",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "食用油",
+          "amount": 15,
+          "unit": "ml",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "鲈鱼处理干净，两面划刀，抹料酒，塞姜片葱段",
+        "水开后上锅大火蒸 8 分钟，关火焖 2 分钟",
+        "倒掉蒸出的汤水，铺葱丝姜丝",
+        "淋蒸鱼豉油，浇一勺热油"
+      ]
+    },
+    {
+      "name": "莲藕排骨汤",
+      "family": "public",
+      "minutes": 90,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "汤",
+        "少盐",
+        "荤菜"
+      ],
+      "sodiumMgPerServing": 350,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "排骨",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "name": "莲藕",
+          "amount": 1,
+          "unit": "节"
+        },
+        {
+          "name": "姜",
+          "amount": 3,
+          "unit": "片"
+        },
+        {
+          "name": "料酒",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "盐",
+          "amount": 3,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "排骨冷水下锅加料酒焯水",
+        "莲藕去皮切滚刀块",
+        "排骨、莲藕、姜片加足量水，大火烧开转小火炖 80 分钟",
+        "出锅前加盐"
+      ]
+    },
+    {
+      "name": "红烧肉",
+      "family": "public",
+      "minutes": 90,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "重口",
+        "下饭",
+        "荤菜"
+      ],
+      "sodiumMgPerServing": 1100,
+      "fatLevel": "高",
+      "ingredients": [
+        {
+          "name": "五花肉",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "name": "姜",
+          "amount": 1,
+          "unit": "块"
+        },
+        {
+          "name": "小葱",
+          "amount": 2,
+          "unit": "根"
+        },
+        {
+          "name": "冰糖",
+          "amount": 30,
+          "unit": "g",
+          "seasoning": true
+        },
+        {
+          "name": "生抽",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "老抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "料酒",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "五花肉切块冷水焯水",
+        "小火炒冰糖至焦糖色，下肉翻炒上色",
+        "加生抽、老抽、料酒、姜、葱和热水",
+        "小火炖 60 分钟，大火收汁"
+      ]
+    },
+    {
+      "name": "蒜蓉西兰花",
+      "family": "public",
+      "minutes": 10,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "快手菜",
+        "素菜",
+        "少盐",
+        "控脂"
+      ],
+      "sodiumMgPerServing": 280,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "西兰花",
+          "amount": 1,
+          "unit": "颗"
+        },
+        {
+          "name": "大蒜",
+          "amount": 4,
+          "unit": "瓣"
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        },
+        {
+          "name": "食用油",
+          "amount": 10,
+          "unit": "ml",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "西兰花切小朵，淡盐水泡 10 分钟",
+        "开水焯 1 分钟捞出过凉",
+        "热油爆香蒜末，下西兰花快炒，加盐出锅"
+      ]
+    },
+    {
+      "name": "西红柿鸡蛋汤",
+      "family": "public",
+      "minutes": 15,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "汤",
+        "快手菜",
+        "宝宝可吃",
+        "少盐"
+      ],
+      "sodiumMgPerServing": 450,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "番茄",
+          "amount": 2,
+          "unit": "个"
+        },
+        {
+          "name": "鸡蛋",
+          "amount": 2,
+          "unit": "个"
+        },
+        {
+          "name": "小葱",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "淀粉",
+          "amount": 5,
+          "unit": "g",
+          "seasoning": true
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "番茄切块炒出汁",
+        "加水烧开，淋入水淀粉",
+        "转圈淋入蛋液，加盐撒葱花"
+      ]
+    },
+    {
+      "name": "土豆炖牛肉",
+      "family": "public",
+      "minutes": 80,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "荤菜",
+        "下饭"
+      ],
+      "sodiumMgPerServing": 820,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "牛肉",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "name": "土豆",
+          "amount": 2,
+          "unit": "个"
+        },
+        {
+          "name": "胡萝卜",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "姜",
+          "amount": 1,
+          "unit": "块"
+        },
+        {
+          "name": "生抽",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "料酒",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "牛肉切块焯水",
+        "炒香姜片，下牛肉加生抽料酒和热水炖 50 分钟",
+        "加土豆、胡萝卜再炖 20 分钟"
+      ]
+    },
+    {
+      "name": "牛奶南瓜羹",
+      "family": "public",
+      "minutes": 20,
+      "difficulty": "简单",
+      "servings": 1,
+      "tags": [
+        "宝宝可吃",
+        "甜口",
+        "少盐"
+      ],
+      "sodiumMgPerServing": 60,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "南瓜",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "name": "牛奶",
+          "amount": 150,
+          "unit": "ml"
+        }
+      ],
+      "steps": [
+        "南瓜去皮切块蒸 15 分钟",
+        "压成泥，加牛奶搅匀小火煮开"
+      ]
+    },
+    {
+      "name": "凉拌菠菜",
+      "family": "public",
+      "minutes": 10,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "凉菜",
+        "素菜",
+        "快手菜",
+        "控脂",
+        "少盐"
+      ],
+      "sodiumMgPerServing": 350,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "菠菜",
+          "amount": 1,
+          "unit": "把"
+        },
+        {
+          "name": "大蒜",
+          "amount": 3,
+          "unit": "瓣"
+        },
+        {
+          "name": "生抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "盐",
+          "amount": 1,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "菠菜洗净，开水焯 30 秒捞出过凉",
+        "挤干水分切段",
+        "加蒜末、生抽、盐拌匀"
+      ]
+    },
+    {
+      "name": "麻婆豆腐",
+      "family": "public",
+      "minutes": 20,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "辣",
+        "下饭",
+        "重口"
+      ],
+      "sodiumMgPerServing": 1200,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "北豆腐",
+          "amount": 1,
+          "unit": "盒"
+        },
+        {
+          "name": "肉末",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "name": "郫县豆瓣酱",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "花椒",
+          "amount": 1,
+          "unit": "小把",
+          "seasoning": true
+        },
+        {
+          "name": "小葱",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "大蒜",
+          "amount": 2,
+          "unit": "瓣"
+        },
+        {
+          "name": "淀粉",
+          "amount": 5,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "豆腐切块，盐水焯 2 分钟",
+        "炒散肉末，下豆瓣酱炒出红油",
+        "加水放豆腐小火煮 3 分钟",
+        "水淀粉分两次勾芡，撒花椒粉葱花"
+      ]
+    },
+    {
+      "name": "可乐鸡翅",
+      "family": "public",
+      "minutes": 30,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "甜口",
+        "荤菜",
+        "下饭"
+      ],
+      "sodiumMgPerServing": 650,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "鸡翅",
+          "amount": 8,
+          "unit": "个"
+        },
+        {
+          "name": "可乐",
+          "amount": 1,
+          "unit": "罐"
+        },
+        {
+          "name": "姜",
+          "amount": 3,
+          "unit": "片"
+        },
+        {
+          "name": "生抽",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "料酒",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "鸡翅两面划刀，冷水加料酒焯水",
+        "煎至两面金黄",
+        "倒入可乐、生抽、姜片，小火煮 15 分钟后收汁"
+      ]
+    },
+    {
+      "name": "小鸡炖蘑菇",
+      "family": "public",
+      "minutes": 60,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "荤菜",
+        "下饭"
+      ],
+      "sodiumMgPerServing": 900,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "鸡块",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "name": "香菇",
+          "amount": 6,
+          "unit": "朵"
+        },
+        {
+          "name": "粉条",
+          "amount": 1,
+          "unit": "把"
+        },
+        {
+          "name": "姜",
+          "amount": 1,
+          "unit": "块"
+        },
+        {
+          "name": "生抽",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "鸡块焯水",
+        "炒香姜片下鸡块翻炒，加生抽和热水",
+        "放香菇炖 40 分钟，最后放泡软的粉条"
+      ]
+    },
+    {
+      "name": "梭子蟹炒年糕",
+      "family": "public",
+      "minutes": 30,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "海鲜",
+        "荤菜",
+        "重口"
+      ],
+      "sodiumMgPerServing": 1000,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "梭子蟹",
+          "amount": 2,
+          "unit": "只"
+        },
+        {
+          "name": "年糕",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "name": "姜",
+          "amount": 1,
+          "unit": "块"
+        },
+        {
+          "name": "小葱",
+          "amount": 2,
+          "unit": "根"
+        },
+        {
+          "name": "生抽",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "白糖",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "梭子蟹切块裹淀粉煎香",
+        "下姜葱炒香，放年糕",
+        "加生抽白糖和少量水焖 5 分钟"
+      ]
+    },
+    {
+      "name": "蓝莓山药泥",
+      "family": "public",
+      "minutes": 25,
+      "difficulty": "简单",
+      "servings": 1,
+      "tags": [
+        "宝宝可吃",
+        "甜口",
+        "素菜"
+      ],
+      "sodiumMgPerServing": 30,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "山药",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "蓝莓酱",
+          "amount": 2,
+          "unit": "勺"
+        },
+        {
+          "name": "牛奶",
+          "amount": 30,
+          "unit": "ml"
+        }
+      ],
+      "steps": [
+        "山药去皮蒸 20 分钟",
+        "压泥加牛奶拌匀",
+        "装盘淋蓝莓酱"
+      ]
+    },
+    {
+      "name": "糖醋排骨",
+      "family": "public",
+      "minutes": 50,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "甜口",
+        "荤菜",
+        "下饭"
+      ],
+      "sodiumMgPerServing": 700,
+      "fatLevel": "高",
+      "ingredients": [
+        {
+          "name": "排骨",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "name": "白糖",
+          "amount": 30,
+          "unit": "g",
+          "seasoning": true
+        },
+        {
+          "name": "醋",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "生抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "料酒",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "姜",
+          "amount": 3,
+          "unit": "片"
+        }
+      ],
+      "steps": [
+        "排骨焯水",
+        "煎至微黄，加料酒生抽和热水炖 30 分钟",
+        "按「1 料酒 2 生抽 3 糖 4 醋」调汁，大火收汁"
+      ]
+    },
+    {
+      "name": "油焖大虾",
+      "family": "public",
+      "minutes": 25,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "海鲜",
+        "荤菜"
+      ],
+      "sodiumMgPerServing": 750,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "大虾",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "name": "姜",
+          "amount": 1,
+          "unit": "块"
+        },
+        {
+          "name": "小葱",
+          "amount": 2,
+          "unit": "根"
+        },
+        {
+          "name": "白糖",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "生抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "料酒",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "大虾剪须开背去虾线",
+        "热油煎至虾头出红油",
+        "加料酒生抽白糖和少量水焖 3 分钟收汁"
+      ]
+    },
+    {
+      "name": "麻酱拌面",
+      "family": "public",
+      "minutes": 15,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "主食",
+        "快手菜"
+      ],
+      "sodiumMgPerServing": 800,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "面条",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "name": "芝麻酱",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "黄瓜",
+          "amount": 0.5,
+          "unit": "根"
+        },
+        {
+          "name": "生抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "醋",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "芝麻酱加温水和生抽调开",
+        "面条煮熟过凉",
+        "铺黄瓜丝，浇麻酱拌匀"
+      ]
+    },
+    {
+      "name": "酸汤肥牛",
+      "family": "public",
+      "minutes": 30,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "辣",
+        "汤",
+        "荤菜",
+        "重口"
+      ],
+      "sodiumMgPerServing": 1500,
+      "fatLevel": "高",
+      "ingredients": [
+        {
+          "name": "肥牛卷",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "name": "金针菇",
+          "amount": 1,
+          "unit": "把"
+        },
+        {
+          "name": "黄灯笼辣椒酱",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "番茄",
+          "amount": 1,
+          "unit": "个"
+        },
+        {
+          "name": "大蒜",
+          "amount": 3,
+          "unit": "瓣"
+        }
+      ],
+      "steps": [
+        "炒香蒜末和黄灯笼辣椒酱",
+        "加水烧开下金针菇",
+        "肥牛卷烫 30 秒即出锅"
+      ]
+    },
+    {
+      "name": "鲜蔬金枪鱼沙拉",
+      "family": "public",
+      "minutes": 10,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "控脂",
+        "凉菜",
+        "快手菜",
+        "少盐"
+      ],
+      "sodiumMgPerServing": 300,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "金枪鱼罐头",
+          "amount": 1,
+          "unit": "罐"
+        },
+        {
+          "name": "生菜",
+          "amount": 1,
+          "unit": "颗"
+        },
+        {
+          "name": "番茄",
+          "amount": 1,
+          "unit": "个"
+        },
+        {
+          "name": "黄瓜",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "鸡蛋",
+          "amount": 1,
+          "unit": "个"
+        }
+      ],
+      "steps": [
+        "鸡蛋煮熟切块",
+        "蔬菜洗净切块",
+        "加金枪鱼拌匀，少量油醋汁调味"
+      ]
+    },
+    {
+      "name": "南瓜鸡肉饭",
+      "family": "public",
+      "minutes": 35,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "主食",
+        "宝宝可吃"
+      ],
+      "sodiumMgPerServing": 400,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "南瓜",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "name": "鸡胸肉",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "name": "大米",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "name": "胡萝卜",
+          "amount": 0.5,
+          "unit": "根"
+        }
+      ],
+      "steps": [
+        "鸡胸肉、南瓜、胡萝卜切丁",
+        "与淘好的米一起放电饭煲",
+        "按煮饭键，焖好拌匀"
+      ]
+    },
+    {
+      "name": "鲫鱼豆腐汤",
+      "family": "public",
+      "minutes": 40,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "汤",
+        "少盐",
+        "荤菜"
+      ],
+      "sodiumMgPerServing": 380,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "鲫鱼",
+          "amount": 1,
+          "unit": "条"
+        },
+        {
+          "name": "北豆腐",
+          "amount": 0.5,
+          "unit": "盒"
+        },
+        {
+          "name": "姜",
+          "amount": 3,
+          "unit": "片"
+        },
+        {
+          "name": "小葱",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "鲫鱼两面煎黄",
+        "加开水大火煮至奶白",
+        "放豆腐煮 10 分钟，加盐撒葱花"
+      ]
+    },
+    {
+      "name": "蒸水蛋",
+      "family": "public",
+      "minutes": 12,
+      "difficulty": "简单",
+      "servings": 1,
+      "tags": [
+        "宝宝可吃",
+        "快手菜",
+        "少盐"
+      ],
+      "sodiumMgPerServing": 150,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "鸡蛋",
+          "amount": 2,
+          "unit": "个"
+        },
+        {
+          "name": "生抽",
+          "amount": 3,
+          "unit": "滴",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "鸡蛋加 1.5 倍温水打散过筛",
+        "盖盘子中火蒸 10 分钟",
+        "滴几滴生抽"
+      ]
+    },
+    {
+      "name": "鱼香肉丝",
+      "family": "public",
+      "minutes": 25,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "辣",
+        "下饭",
+        "重口"
+      ],
+      "sodiumMgPerServing": 1300,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "猪里脊",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "name": "胡萝卜",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "木耳",
+          "amount": 1,
+          "unit": "把"
+        },
+        {
+          "name": "青椒",
+          "amount": 1,
+          "unit": "个"
+        },
+        {
+          "name": "郫县豆瓣酱",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "白糖",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "醋",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "肉丝上浆",
+        "调鱼香汁：糖、醋、生抽、淀粉",
+        "炒肉丝，下豆瓣酱和配菜，倒鱼香汁翻匀"
+      ]
+    },
+    {
+      "name": "酸辣土豆丝",
+      "family": "public",
+      "minutes": 15,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "辣",
+        "素菜",
+        "快手菜",
+        "下饭"
+      ],
+      "sodiumMgPerServing": 600,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "土豆",
+          "amount": 2,
+          "unit": "个"
+        },
+        {
+          "name": "干辣椒",
+          "amount": 4,
+          "unit": "个",
+          "seasoning": true
+        },
+        {
+          "name": "醋",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "土豆切丝泡水去淀粉",
+        "爆香干辣椒，下土豆丝大火快炒",
+        "沿锅边淋醋，加盐出锅"
+      ]
+    },
+    {
+      "name": "皮蛋瘦肉粥",
+      "family": "public",
+      "minutes": 45,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "粥",
+        "主食"
+      ],
+      "sodiumMgPerServing": 650,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "大米",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "name": "皮蛋",
+          "amount": 2,
+          "unit": "个"
+        },
+        {
+          "name": "肉末",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "name": "姜",
+          "amount": 3,
+          "unit": "片"
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "大米加水熬 30 分钟",
+        "下肉末、姜丝、皮蛋丁",
+        "再煮 10 分钟，加盐"
+      ]
+    },
+    {
+      "name": "冬瓜排骨汤",
+      "family": "public",
+      "minutes": 60,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "汤",
+        "少盐",
+        "荤菜"
+      ],
+      "sodiumMgPerServing": 330,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "冬瓜",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "name": "排骨",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "name": "姜",
+          "amount": 3,
+          "unit": "片"
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "排骨焯水后加姜片炖 40 分钟",
+        "放冬瓜块再煮 15 分钟",
+        "加盐"
+      ]
+    },
+    {
+      "name": "地三鲜",
+      "family": "public",
+      "minutes": 25,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "素菜",
+        "下饭",
+        "重口"
+      ],
+      "sodiumMgPerServing": 900,
+      "fatLevel": "高",
+      "ingredients": [
+        {
+          "name": "土豆",
+          "amount": 1,
+          "unit": "个"
+        },
+        {
+          "name": "茄子",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "青椒",
+          "amount": 1,
+          "unit": "个"
+        },
+        {
+          "name": "生抽",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "白糖",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "淀粉",
+          "amount": 5,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "土豆、茄子切滚刀块分别过油",
+        "调汁：生抽、糖、淀粉、水",
+        "下青椒和炸好的料，倒汁翻匀"
+      ]
+    },
+    {
+      "name": "手撕包菜",
+      "family": "public",
+      "minutes": 10,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "素菜",
+        "快手菜",
+        "下饭",
+        "辣"
+      ],
+      "sodiumMgPerServing": 700,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "包菜",
+          "amount": 0.5,
+          "unit": "颗"
+        },
+        {
+          "name": "干辣椒",
+          "amount": 3,
+          "unit": "个",
+          "seasoning": true
+        },
+        {
+          "name": "大蒜",
+          "amount": 3,
+          "unit": "瓣"
+        },
+        {
+          "name": "生抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "醋",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "包菜手撕成片",
+        "爆香蒜和干辣椒",
+        "大火快炒，沿锅边淋醋和生抽"
+      ]
+    },
+    {
+      "name": "白灼虾",
+      "family": "public",
+      "minutes": 10,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "海鲜",
+        "快手菜",
+        "少盐",
+        "控脂"
+      ],
+      "sodiumMgPerServing": 300,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "大虾",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "name": "姜",
+          "amount": 3,
+          "unit": "片"
+        },
+        {
+          "name": "蒸鱼豉油",
+          "amount": 2,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "水里放姜片烧开",
+        "下虾煮 2 分钟至变红卷曲",
+        "捞出蘸蒸鱼豉油"
+      ]
+    },
+    {
+      "name": "家常豆腐",
+      "family": "public",
+      "minutes": 20,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "素菜",
+        "少盐",
+        "下饭"
+      ],
+      "sodiumMgPerServing": 450,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "北豆腐",
+          "amount": 1,
+          "unit": "盒"
+        },
+        {
+          "name": "胡萝卜",
+          "amount": 0.5,
+          "unit": "根"
+        },
+        {
+          "name": "香菇",
+          "amount": 3,
+          "unit": "朵"
+        },
+        {
+          "name": "生抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "淀粉",
+          "amount": 5,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "豆腐切片煎至两面金黄",
+        "炒香香菇和胡萝卜片",
+        "放豆腐加生抽和少量水，勾薄芡"
+      ]
+    },
+    {
+      "name": "葱油饼",
+      "family": "public",
+      "minutes": 40,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "主食"
+      ],
+      "sodiumMgPerServing": 600,
+      "fatLevel": "高",
+      "ingredients": [
+        {
+          "name": "面粉",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "name": "小葱",
+          "amount": 5,
+          "unit": "根"
+        },
+        {
+          "name": "食用油",
+          "amount": 30,
+          "unit": "ml",
+          "seasoning": true
+        },
+        {
+          "name": "盐",
+          "amount": 3,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "温水和面醒 20 分钟",
+        "擀开抹油撒盐和葱花，卷起盘成饼",
+        "小火两面烙至金黄"
+      ]
+    },
+    {
+      "name": "蚝油生菜",
+      "family": "public",
+      "minutes": 8,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "素菜",
+        "快手菜",
+        "控脂"
+      ],
+      "sodiumMgPerServing": 500,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "生菜",
+          "amount": 1,
+          "unit": "颗"
+        },
+        {
+          "name": "蚝油",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "大蒜",
+          "amount": 3,
+          "unit": "瓣"
+        }
+      ],
+      "steps": [
+        "生菜焯水 20 秒摆盘",
+        "蒜末炒香加蚝油和少量水",
+        "浇在生菜上"
+      ]
+    },
+    {
+      "name": "小米粥",
+      "family": "public",
+      "minutes": 40,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "粥",
+        "宝宝可吃",
+        "少盐"
+      ],
+      "sodiumMgPerServing": 5,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "小米",
+          "amount": 80,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "小米淘洗后加 10 倍水",
+        "大火烧开转小火熬 35 分钟"
+      ]
+    },
+    {
+      "name": "番茄菜花",
+      "family": "public",
+      "minutes": 15,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "素菜",
+        "快手菜"
+      ],
+      "sodiumMgPerServing": 550,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "菜花",
+          "amount": 0.5,
+          "unit": "颗"
+        },
+        {
+          "name": "番茄",
+          "amount": 2,
+          "unit": "个"
+        },
+        {
+          "name": "生抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "白糖",
+          "amount": 1,
+          "unit": "小勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "菜花掰小朵焯水",
+        "番茄炒出汁",
+        "下菜花翻炒，加生抽和糖"
+      ]
+    },
+    {
+      "name": "香菇鸡肉粥",
+      "family": "public",
+      "minutes": 50,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "粥",
+        "宝宝可吃",
+        "少盐"
+      ],
+      "sodiumMgPerServing": 250,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "大米",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "name": "鸡胸肉",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "name": "香菇",
+          "amount": 3,
+          "unit": "朵"
+        },
+        {
+          "name": "姜",
+          "amount": 2,
+          "unit": "片"
+        }
+      ],
+      "steps": [
+        "大米熬 30 分钟",
+        "下鸡肉末、香菇丁、姜丝",
+        "再熬 15 分钟"
+      ]
+    },
+    {
+      "name": "奶白鲫鱼汤",
+      "family": "public",
+      "minutes": 45,
+      "difficulty": "中等",
+      "servings": 4,
+      "tags": [
+        "汤",
+        "少盐"
+      ],
+      "sodiumMgPerServing": 350,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "鲫鱼",
+          "amount": 1,
+          "unit": "条"
+        },
+        {
+          "name": "姜",
+          "amount": 3,
+          "unit": "片"
+        },
+        {
+          "name": "小葱",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "鲫鱼煎至两面金黄",
+        "冲入开水大火滚 20 分钟至奶白",
+        "加盐撒葱花"
+      ]
+    },
+    {
+      "name": "韭菜炒鸡蛋",
+      "family": "public",
+      "minutes": 10,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "快手菜",
+        "素菜"
+      ],
+      "sodiumMgPerServing": 500,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "韭菜",
+          "amount": 1,
+          "unit": "把"
+        },
+        {
+          "name": "鸡蛋",
+          "amount": 3,
+          "unit": "个"
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "鸡蛋炒散盛出",
+        "韭菜切段大火快炒",
+        "放回鸡蛋，加盐翻匀"
+      ]
+    },
+    {
+      "name": "凉拌黄瓜",
+      "family": "public",
+      "minutes": 8,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "凉菜",
+        "素菜",
+        "快手菜",
+        "控脂"
+      ],
+      "sodiumMgPerServing": 450,
+      "fatLevel": "低",
+      "ingredients": [
+        {
+          "name": "黄瓜",
+          "amount": 2,
+          "unit": "根"
+        },
+        {
+          "name": "大蒜",
+          "amount": 3,
+          "unit": "瓣"
+        },
+        {
+          "name": "醋",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        },
+        {
+          "name": "生抽",
+          "amount": 1,
+          "unit": "勺",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "黄瓜拍碎切段",
+        "加蒜末、醋、生抽拌匀"
+      ]
+    },
+    {
+      "name": "番茄鸡蛋炒饭",
+      "family": "public",
+      "minutes": 15,
+      "difficulty": "简单",
+      "servings": 4,
+      "tags": [
+        "主食",
+        "快手菜"
+      ],
+      "sodiumMgPerServing": 550,
+      "fatLevel": "中",
+      "ingredients": [
+        {
+          "name": "米饭",
+          "amount": 2,
+          "unit": "碗"
+        },
+        {
+          "name": "番茄",
+          "amount": 1,
+          "unit": "个"
+        },
+        {
+          "name": "鸡蛋",
+          "amount": 2,
+          "unit": "个"
+        },
+        {
+          "name": "小葱",
+          "amount": 1,
+          "unit": "根"
+        },
+        {
+          "name": "盐",
+          "amount": 2,
+          "unit": "g",
+          "seasoning": true
+        }
+      ],
+      "steps": [
+        "鸡蛋炒散盛出",
+        "番茄炒软，下米饭炒散",
+        "放回鸡蛋，加盐和葱花"
+      ]
+    }
+  ],
+  "quota": {
+    "dailyTurns": 50,
+    "usedToday": 3
+  },
+  "gateway": {
+    "CHAT": "deepseek-flash",
+    "TOOLS": "deepseek-flash",
+    "VISION": "deepseek-flash",
+    "fallbacks": [
+      "glm-4-plus",
+      "mock"
+    ]
+  }
+}
