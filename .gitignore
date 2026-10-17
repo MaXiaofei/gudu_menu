@@ -20,3 +20,7 @@ xiachufang/
 
 # ArchUnit 违规缓存（生成物）
 menu-api/src/test/resources/archunit_store/
+
+# 种子脚本依赖
+scripts/seed/node_modules/
+scripts/seed/.cache/
