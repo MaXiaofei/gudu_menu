@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>识别结果 · 咕嘟小食单原型</title>
+<style>
+
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px}
+body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}
+a{color:#B8622A;text-decoration:none}
+button,input,textarea{font-family:inherit;color:inherit}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px 0 30px;font-size:15px;font-weight:600;color:#4A382A}
+.sb svg{display:block}
+.top{display:flex;align-items:center;gap:8px;padding:2px 12px 8px;min-height:52px}
+.back{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#4A382A;flex-shrink:0}
+.ttl{flex:1;font-size:17px;font-weight:700}
+.h1{font-size:24px;font-weight:700}
+.card{flex-shrink:0;background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.sec{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.muted{font-size:12px;color:#6E5C49}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px;display:block}
+.av{border-radius:999px;display:block;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}
+.stack img{border:2px solid #FFFFFF;border-radius:999px;margin-left:-8px;display:block;background:#FBF0DD}
+.stack img:first-child{margin-left:0}
+.ph-img{object-fit:cover;display:block;flex-shrink:0;background:#FBF0DD}
+.btn{height:52px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 6px 16px rgba(169,101,30,.28);cursor:pointer}
+.ghost{height:52px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.chip{padding:7px 12px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:12px;color:#6E5C49;white-space:nowrap}
+.chip.on{background:#4A382A;color:#FFFFFF;border-color:#4A382A;font-weight:700}
+.tag{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.tag.ok{background:#F0F8EE;color:#2F7347}.tag.warn{background:#FFF7EC;color:#8A5A22;border:1px solid #F6D9BE}.tag.err{background:#DB5A4E;color:#FFFFFF}.tag.info{background:#E8F3FA;color:#2F6A8C}.tag.mute{background:#F5EEE2;color:#6E5C49}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.row+.row{border-top:1px solid #F3EBDD}
+.seg{display:flex;border-radius:9px;border:1px solid #F0E6D6;overflow:hidden;font-size:12px;background:#FFFFFF;flex-shrink:0}
+.seg span{padding:6px 9px;color:#6E5C49}
+.seg .ok{background:#4FAE6E;color:#FFFFFF;font-weight:700}.seg .warn{background:#E5A938;color:#4A382A;font-weight:700}.seg .err{background:#DB5A4E;color:#FFFFFF;font-weight:700}
+.lrow{display:flex;align-items:center;gap:12px;padding:0 14px;height:52px;color:#4A382A;font-size:15px}
+.lrow+.lrow{border-top:1px solid #F3EBDD}
+.lrow .ico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lrow .val{margin-left:auto;font-size:13px;color:#6E5C49;display:flex;align-items:center;gap:4px}
+
+
+.sum{display:flex;gap:14px;padding:12px 14px;align-items:center}
+.thumb{width:84px;height:116px;border-radius:12px;overflow:hidden;position:relative;flex-shrink:0;background:#DCE4E7}
+.thumb .fr{position:absolute;left:0;top:0;width:360px;height:500px;transform-origin:0 0}
+.thumb .frbg{position:absolute;inset:0;width:360px;height:500px;display:block}
+.thumb .it{position:absolute;display:block}
+.thumb .bx{position:absolute;border-radius:14px;border:5px solid #4FAE6E}
+.thumb .bx.warn{border-color:#E5A938}
+.thumb .lb{display:none}
+.big{font-size:22px;font-weight:700;line-height:1.25}
+.big em{font-style:normal;color:#8A5A22}
+.priv{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid #F3EBDD;font-size:12px;color:#6E5C49}
+.gh{display:flex;justify-content:space-between;align-items:center;padding:0 2px}
+.ir{display:flex;gap:10px;align-items:flex-start;padding:10px 12px}
+.ir+.ir{border-top:1px solid #F3EBDD}
+.ir.pend{background:#FFFBF3}
+.ir.off .ing,.ir.off .n{opacity:.55}
+.ir .chk{margin-top:10px}
+.chk{width:24px;height:24px;border-radius:999px;border:2px solid #E8DCCB;background:#FFFFFF;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chk.on{background:#4FAE6E;border-color:#4FAE6E}
+.nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding-top:2px}
+.n{font-size:15px;font-weight:700;white-space:nowrap}
+.cf.w{color:#8A5A22;background:#FFF7EC;border:1px solid #F6D9BE}
+.alts .muted{white-space:nowrap}
+.pen{color:#B8622A;flex-shrink:0}
+.cf{font-size:11px;font-weight:700;color:#2F7347;background:#F0F8EE;padding:2px 6px;border-radius:5px}
+.sub{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:#6E5C49}
+.sub span{display:inline-flex;align-items:center;gap:3px}
+.al{color:#2F6A8C!important;font-weight:600}
+.ex.w{color:#8A5A22;font-weight:700}
+.alts{display:flex;gap:6px;align-items:center;margin-top:2px}
+.chip.sm{padding:3px 9px;font-size:12px;color:#4A382A}
+.stp{display:flex;align-items:center;border:1px solid #F0E6D6;border-radius:10px;background:#FFFFFF;height:34px;flex-shrink:0;margin-top:5px}
+.stp span{width:26px;text-align:center;font-size:17px;color:#B8622A;font-weight:700}
+.stp b{min-width:34px;white-space:nowrap;text-align:center;font-size:15px}
+.stp small{font-size:11px;font-weight:500;color:#6E5C49;margin-left:1px}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 30px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:flex;flex-direction:column;gap:10px}
+
+</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+</head>
+<body>
+<div class="ph">
+<div class="sb" aria-hidden="true"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0M4 7a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.5" stroke="currentColor" opacity=".45"/><rect x="2.5" y="2.5" width="15" height="7" rx="2" fill="currentColor"/><path d="M24.5 4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".45"/></svg></span></div>
+
+<div class="top"><a href="Scan.html" class="back" aria-label="返回"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></a><span class="ttl">确认识别结果</span><a href="Scan.html" class="chip" style="display:flex;gap:4px;align-items:center;color:#4A382A;font-weight:600"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>再拍一层</a></div>
+<div style="flex:1;overflow:hidden;padding:0 16px 140px;display:flex;flex-direction:column;gap:14px">
+  <div class="card" style="overflow:hidden">
+    <div class="sum">
+      <div class="thumb"><div class="fr" style="transform:scale(0.2334)">
+<img src="img/extra/scan-fridge.svg" alt="" class="frbg">
+<img src="img/ing/milk.svg" alt="" class="it" style="left:40px;top:92px;width:92px;height:92px">
+<img src="img/ing/egg.svg" alt="" class="it" style="left:150px;top:112px;width:74px;height:74px">
+<img src="img/ing/tofu.svg" alt="" class="it" style="left:248px;top:116px;width:70px;height:70px">
+<img src="img/ing/tomato.svg" alt="" class="it" style="left:36px;top:284px;width:70px;height:70px">
+<img src="img/ing/tomato.svg" alt="" class="it" style="left:78px;top:300px;width:50px;height:50px">
+<img src="img/ing/broccoli.svg" alt="" class="it" style="left:140px;top:270px;width:86px;height:86px">
+<img src="img/ing/carrot.svg" alt="" class="it" style="left:248px;top:278px;width:78px;height:78px">
+<img src="img/ing/spinach.svg" alt="" class="it" style="left:56px;top:394px;width:84px;height:84px">
+<img src="img/ing/mushroom.svg" alt="" class="it" style="left:230px;top:416px;width:60px;height:60px">
+<div class="bx ok" style="left:34px;top:86px;width:104px;height:104px"><i></i><span class="lb">牛奶 ×1 盒<b>96%</b></span></div>
+<div class="bx ok" style="left:144px;top:106px;width:86px;height:86px"><i></i><span class="lb">鸡蛋 ×6<b>98%</b></span></div>
+<div class="bx ok" style="left:242px;top:110px;width:82px;height:82px"><i></i><span class="lb">北豆腐 ×1<b>91%</b></span></div>
+<div class="bx ok" style="left:30px;top:278px;width:82px;height:82px"><i></i><span class="lb">番茄 ×3<b>94%</b></span></div>
+<div class="bx ok" style="left:134px;top:264px;width:98px;height:98px"><i></i><span class="lb">西兰花 ×1<b>89%</b></span></div>
+<div class="bx ok" style="left:242px;top:272px;width:90px;height:90px"><i></i><span class="lb">胡萝卜 ×2<b>87%</b></span></div>
+<div class="bx warn" style="left:50px;top:388px;width:96px;height:96px"><i></i><span class="lb">菠菜 · 请确认<b>72%</b></span></div>
+</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+        <span class="sec">冰箱 · 2 张照片 · 用时 3.2 秒</span>
+        <span class="big">识别到 9 样<br><em>2 样待确认</em></span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="tag ok">9 样已对上食材库</span><span class="tag info">保质期按品类自动填</span></div>
+      </div>
+    </div>
+    <div class="priv"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>原图 24 小时后自动删除，只保留识别结果</div>
+  </div>
+  <div class="gh"><span class="sec" style="color:#8A5A22">请确认 · 2</span><span class="muted">看不准的不会自动放进去</span></div>
+  <div class="card" style="overflow:hidden">
+    <div class="ir pend">
+  <span class="chk on" role="checkbox" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>
+  <span class="ing"><img src="img/ing/spinach.svg" alt=""></span>
+  <div class="nm">
+    <div style="display:flex;align-items:center;gap:6px"><span class="n">菠菜</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pen"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="cf w">72%</span></div>
+    <div class="sub"><span class="ex w"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx='12' cy='12' r='8'/><path d='M12 8v4l3 2'/></svg>3 天后到期</span></div>
+    <div class="alts"><span class="muted">也可能是</span><span class="chip sm">油麦菜</span><span class="chip sm">小白菜</span></div>
+  </div>
+  <div class="stp"><span>−</span><b>1<small>把</small></b><span>+</span></div>
+</div>
+    <div class="ir pend off">
+  <span class="chk" role="checkbox" aria-checked="false"></span>
+  <span class="ing"><img src="img/ing/mushroom.svg" alt=""></span>
+  <div class="nm">
+    <div style="display:flex;align-items:center;gap:6px"><span class="n">香菇</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pen"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="cf w">64%</span></div>
+    <div class="sub"><span class="ex"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx='12' cy='12' r='8'/><path d='M12 8v4l3 2'/></svg>5 天后到期</span></div>
+    <div class="alts"><span class="muted">也可能是</span><span class="chip sm">杏鲍菇</span><span class="chip sm">口蘑</span></div>
+  </div>
+  <div class="stp"><span>−</span><b>4<small>朵</small></b><span>+</span></div>
+</div>
+  </div>
+  <div class="gh"><span class="sec">已识别 · 7</span><span style="font-size:13px;color:#B8622A;font-weight:600">全不选</span></div>
+  <div class="card" style="overflow:hidden">
+    <div class="ir">
+  <span class="chk on" role="checkbox" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>
+  <span class="ing"><img src="img/ing/tomato.svg" alt=""></span>
+  <div class="nm">
+    <div style="display:flex;align-items:center;gap:6px"><span class="n">番茄</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pen"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="cf">94%</span></div>
+    <div class="sub"><span class="al"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d='M5 12h14M13 6l6 6-6 6'/></svg>西红柿 → 番茄</span><span class="ex"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx='12' cy='12' r='8'/><path d='M12 8v4l3 2'/></svg>7 天后到期</span></div>
+    
+  </div>
+  <div class="stp"><span>−</span><b>3<small>个</small></b><span>+</span></div>
+</div>
+    <div class="ir">
+  <span class="chk on" role="checkbox" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>
+  <span class="ing"><img src="img/ing/tofu.svg" alt=""></span>
+  <div class="nm">
+    <div style="display:flex;align-items:center;gap:6px"><span class="n">北豆腐</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pen"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="cf">91%</span></div>
+    <div class="sub"><span class="ex w"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx='12' cy='12' r='8'/><path d='M12 8v4l3 2'/></svg>3 天后到期</span></div>
+    
+  </div>
+  <div class="stp"><span>−</span><b>1<small>块</small></b><span>+</span></div>
+</div>
+    <div class="ir">
+  <span class="chk on" role="checkbox" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>
+  <span class="ing"><img src="img/ing/egg.svg" alt=""></span>
+  <div class="nm">
+    <div style="display:flex;align-items:center;gap:6px"><span class="n">鸡蛋</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pen"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="cf">98%</span></div>
+    <div class="sub"><span class="ex"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx='12' cy='12' r='8'/><path d='M12 8v4l3 2'/></svg>30 天后到期</span></div>
+    
+  </div>
+  <div class="stp"><span>−</span><b>6<small>个</small></b><span>+</span></div>
+</div>
+    <div class="ir">
+  <span class="chk on" role="checkbox" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>
+  <span class="ing"><img src="img/ing/milk.svg" alt=""></span>
+  <div class="nm">
+    <div style="display:flex;align-items:center;gap:6px"><span class="n">牛奶</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pen"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="cf">96%</span></div>
+    <div class="sub"><span class="ex"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx='12' cy='12' r='8'/><path d='M12 8v4l3 2'/></svg>7 天后到期</span></div>
+    
+  </div>
+  <div class="stp"><span>−</span><b>1<small>盒</small></b><span>+</span></div>
+</div>
+    <div class="ir">
+  <span class="chk on" role="checkbox" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>
+  <span class="ing"><img src="img/ing/broccoli.svg" alt=""></span>
+  <div class="nm">
+    <div style="display:flex;align-items:center;gap:6px"><span class="n">西兰花</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pen"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="cf">89%</span></div>
+    <div class="sub"><span class="ex"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx='12' cy='12' r='8'/><path d='M12 8v4l3 2'/></svg>5 天后到期</span></div>
+    
+  </div>
+  <div class="stp"><span>−</span><b>1<small>颗</small></b><span>+</span></div>
+</div>
+  </div>
+</div>
+<div class="bar">
+  <div style="display:flex;justify-content:space-between;font-size:13px;color:#6E5C49"><span>已选 <b style="color:#4A382A">8 样</b> · 其中 2 样 3 天内到期</span><span style="color:#B8622A;font-weight:600">放进后可撤销</span></div>
+  <a href="Pantry.html" class="btn" role="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M5 12l5 5 9-10"/></svg>放进余量 · 8 样</a>
+</div>
+
+</div>
+</body>
+</html>

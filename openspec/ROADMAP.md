@@ -19,6 +19,9 @@
 | 4 | [`feature-gaps-closure`](changes/feature-gaps-closure/proposal.md) | 补齐功能缺口（单菜直做、临期主推、余量覆盖率、最近做过、各端占位功能） | 3 | Draft |
 | 5 | [`production-ops-baseline`](changes/production-ops-baseline/proposal.md) | Flyway、CI 门禁、备份、监控、回滚、nginx、App/小程序上架合规 | 1 | Draft |
 | 6 | [`design-system-convergence`](changes/design-system-convergence/proposal.md) | 三端视觉与设计系统收敛（token 化、共享组件、状态页、无障碍） | 4（页面稳定后） | Draft |
+| 7 | [`prototype-ui-rollout`](changes/prototype-ui-rollout/proposal.md) | 按高保真原型（`docs/design/prototype/`）改版四端：P0 素材与组件 → P1 主链路 → P2 家庭 → P3 生产级能力 | 6(组件)、3(P2) | Draft |
+| 8 | [`recipe-content-seed`](changes/recipe-content-seed/proposal.md) | 下厨房导入数据可重复种子脚本 + staging 演示家庭（**仅测试环境**，生产硬拒绝） | — | Draft |
+| 9 | [`showcase-ai-community`](changes/showcase-ai-community/proposal.md) | 咕嘟 Agent（对话操作 App）、厨房圈社区、拍照识别、一周餐程 + 营养报告、跟做模式、Agent 可观测与评测；导航改为 菜谱/食集/咕嘟/厨房圈/余量 | 3、7(P0)、2 | Draft |
 | — | [`cookbook-search-revamp`](changes/cookbook-search-revamp/proposal.md) | 历史 change：App 菜谱页重构 | — | 待归档核对 |
 
 ```

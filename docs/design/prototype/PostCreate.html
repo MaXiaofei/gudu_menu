@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>发布到厨房圈 · 咕嘟小食单原型</title>
+<style>
+
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 30px;font-size:15px;font-weight:600;letter-spacing:.2px}
+.sb i{display:flex;gap:6px;align-items:center;font-style:normal}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.scroll::-webkit-scrollbar,.hs::-webkit-scrollbar{display:none}
+.hs{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 6px}
+.hs>*{flex-shrink:0}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.sec b{font-size:18px;font-weight:700}
+.sec a{font-size:13px;color:#B8622A;font-weight:600}
+.lab{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.card{background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.ph img{display:block}
+.cover{object-fit:cover;background:#FBF0DD}
+img[src$="qingzheng-luyu.jpg"]{object-position:50% 85%}
+img[src$="huadan-xiaren.jpg"]{object-position:50% 80%}
+.t15{font-size:15px;font-weight:700}
+.t12{font-size:12px;color:#6E5C49}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap}
+.ok{background:#F0F8EE;color:#2F7347}.warn{background:#FFF7EC;color:#8A5A22}.err{background:#FDECEA;color:#9A2E22}.info{background:#E8F3FA;color:#2F6A8C}
+.plain{background:#FDFAF4;border:1px solid #F0E6D6;color:#6E5C49;font-weight:400}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px}
+.av{width:28px;height:28px;border-radius:999px;border:2px solid #FFFFFF;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}.stack>*+*{margin-left:-8px}
+.btn{height:52px;padding:0 22px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(169,101,30,.3)}
+.btn2{height:52px;padding:0 18px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.chk{width:24px;height:24px;border-radius:999px;border:2px solid #E8DCCB;background:#FFFFFF;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#FFFFFF}
+.chk.on{background:#4FAE6E;border-color:#4FAE6E}
+.seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:4px 16px 0;padding:4px;border-radius:12px;background:#FBF0DD;flex-shrink:0}
+.seg a{height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#6E5C49}
+.seg a[aria-selected="true"]{background:#FFFFFF;color:#4A382A;font-weight:700;box-shadow:0 1px 3px rgba(169,101,30,.14)}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 30px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:flex;gap:10px;align-items:center}
+nav.tab{position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:22px}
+nav.tab a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:#6E5C49}
+nav.tab a[aria-current]{font-weight:700;color:#B8622A}
+nav.tab a.fab{justify-content:flex-end}
+nav.tab .fabi{width:50px;height:50px;margin-top:-24px;border-radius:999px;background:#D17A3C;border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(169,101,30,.4)}
+
+
+.hd{height:48px;flex-shrink:0;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F0E6D6}
+.hd .pb{height:34px;padding:0 18px;border-radius:999px;background:#D17A3C;color:#FFFFFF;font-size:14px;font-weight:700;display:flex;align-items:center}
+.from{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#FFF7EC;border:1px solid #F6D9BE}
+.from img{width:40px;height:40px;border-radius:10px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.grid .g{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden}
+.grid .g img{width:100%;height:100%}
+.grid .g .cv{position:absolute;left:0;right:0;bottom:0;padding:3px 0;text-align:center;font-size:11px;font-weight:700;color:#FFFFFF;background:rgba(40,26,16,.55)}
+.grid .g .x{position:absolute;right:4px;top:4px;width:18px;height:18px;border-radius:999px;background:rgba(40,26,16,.55);color:#FFFFFF;display:flex;align-items:center;justify-content:center}
+.grid .add{aspect-ratio:1;border-radius:12px;border:1.5px dashed #E8DCCB;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#6E5C49;font-size:11px}
+.fld{background:#FFFFFF;border:1px solid #F0E6D6;border-radius:14px;padding:12px 14px}
+.ai{height:30px;padding:0 10px;border-radius:999px;background:linear-gradient(135deg,#E89150,#D17A3C);color:#FFFFFF;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.draft{margin-top:10px;padding:10px 12px;border-radius:12px;border:1.5px dashed #F0C49B;background:#FFFBF5;display:flex;flex-direction:column;gap:8px}
+.cur{display:inline-block;width:2px;height:15px;background:#D17A3C;vertical-align:-2px;margin-left:1px;animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.sm{height:28px;padding:0 10px;border-radius:999px;border:1px solid #E8DCCB;background:#FFFFFF;font-size:12px;font-weight:600;display:inline-flex;align-items:center}
+.sm.pri{background:#D17A3C;border-color:#D17A3C;color:#FFFFFF}
+.row{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.row+.row{border-top:1px solid #F0E6D6}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{height:32px;padding:0 12px;border-radius:999px;border:1px solid #E8DCCB;background:#FFFFFF;font-size:13px;display:inline-flex;align-items:center;gap:4px;color:#4A382A}
+.chip.on{background:#FBF0DD;border-color:#E89150;color:#8A4519;font-weight:700}
+.vis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vis a{padding:10px 12px;border-radius:12px;border:1px solid #E8DCCB;background:#FFFFFF;display:flex;gap:8px;align-items:flex-start}
+.vis a.on{border-color:#E89150;background:#FFF7EC;box-shadow:0 0 0 1px #E89150 inset}
+
+</style>
+<style>body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px;box-sizing:border-box}body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+</head>
+<body>
+<div class="ph">
+  <div class="sb" style="color:#4A382A" aria-hidden="true"><span>9:41</span><i>
+    <svg width="18" height="12" viewBox="0 0 18 12" fill="#4A382A"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#4A382A" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.5a9.5 9.5 0 0 1 13 0M4 7.3a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="#4A382A" stroke="none"/></svg>
+    <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="#4A382A" opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="1.8" fill="#4A382A"/><rect x="24" y="4" width="1.6" height="4" rx=".8" fill="#4A382A" opacity=".45"/></svg>
+  </i></div>
+  <div class="hd"><a href="Community.html" style="font-size:15px;color:#6E5C49">取消</a><b style="font-size:16px">发布到厨房圈</b><a href="Post.html" class="pb">发布</a></div>
+  <div class="scroll">
+  <div style="padding:14px 16px 40px;display:flex;flex-direction:column;gap:14px">
+    <div class="from">
+      <img class="cover" src="img/dish/huadan-xiaren.jpg" alt="">
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:700;color:#8A5A22">从食记带入</span><span style="font-size:12px;color:#6E5C49">今天 18:40 · 滑蛋虾仁 · 已带入 3 张照片</span></span>
+      <a href="CookLog.html" style="font-size:13px;font-weight:600;color:#B8622A">换一条</a>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="grid">
+        <span class="g"><img class="cover" src="img/dish/huadan-xiaren.jpg" alt="" style="object-position:50% 70%"><span class="cv">封面</span><span class="x"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></span></span>
+        <span class="g"><img class="cover" src="img/step/huadan-xiaren-5.jpg" alt="" style="object-position:75% 50%"><span class="x"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></span></span>
+        <span class="g"><img class="cover" src="img/step/huadan-xiaren-2.jpg" alt="" style="object-position:30% 60%"><span class="x"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></span></span>
+        <span class="add"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>继续添加</span></span>
+      </div>
+      <span class="t12" style="display:flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></svg>长按拖动调整顺序，第一张为封面</span>
+    </div>
+    <div class="fld" style="display:flex;align-items:center;gap:8px">
+      <span style="flex:1;font-size:16px;font-weight:700">10 分钟的滑蛋虾仁，嫩到宝宝抢着吃</span><span class="t12">17/30</span>
+    </div>
+    <div class="fld">
+      <div style="font-size:14px;line-height:1.65;color:#4A382A">早上赶时间做的，鸡蛋要小火推，看到七成熟就关火。</div>
+      <div class="draft">
+        <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#B8622A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg>AI 草稿 · 根据你的食记和菜谱步骤生成</span>
+        <span style="font-size:14px;line-height:1.65;color:#4A382A">虾仁用一点蛋清和淀粉抓匀腌 10 分钟，蛋液里加一勺牛奶会更嫩。锅里油温低一些，倒蛋液后用铲子从外往里推，七成熟就关火，余温会把它焖熟<span class="cur"></span></span>
+        <span style="display:flex;gap:8px"><span class="sm pri">用这段</span><span class="sm">换一版</span><span class="sm">更口语</span><span class="sm">更短</span></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="ai"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg>AI 帮我写</span><span class="t12">27/1000</span></div>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="row"><img class="cover" src="img/dish/huadan-xiaren.jpg" alt="" style="width:40px;height:40px;border-radius:10px"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lab">关联菜谱</span><span style="font-size:14px;font-weight:700">滑蛋虾仁 · 10 分钟</span></span><span class="tag ok">已关联</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E5C49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <span style="display:flex;justify-content:space-between"><span class="lab">话题</span><a href="Topic.html" style="font-size:12px;color:#B8622A;font-weight:600">更多话题</a></span>
+        <span class="chips"><span class="chip on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>#一周不重样</span><span class="chip">#宝宝辅食</span><span class="chip">#快手菜</span></span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span class="lab">谁可以看</span>
+      <div class="vis">
+        <a href="#" class="on"><span style="color:#B8622A;margin-top:1px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px">所有人</b><span class="t12">出现在推荐和话题里</span></span></a>
+        <a href="#"><span style="color:#6E5C49;margin-top:1px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg></span><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px">仅关注我的</b><span class="t12">只在关注流可见</span></span></a>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;padding:10px 12px;border-radius:12px;background:#F0F8EE;color:#2F7347">
+      <span style="flex-shrink:0;margin-top:1px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+      <span style="font-size:13px;line-height:1.55"><b>不会带上家庭成员名与余量</b><br>食记里的「朵朵、林林吃了」和用料去向已自动去掉，只发布菜和照片</span>
+    </div>
+    <p class="t12" style="margin:0;line-height:1.6">发布后由 AI 预审，通常 1 分钟内对所有人可见；含外链、广告或不适宜内容会转人工审核。发布即表示同意<a href="#" style="color:#B8622A">《厨房圈内容规范》</a>。</p>
+  </div>
+  </div>
+</div>
+</body>
+</html>

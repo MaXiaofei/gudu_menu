@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>咕嘟 · 咕嘟小食单原型</title>
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 30px;font-size:15px;font-weight:600;letter-spacing:.2px}
+.sb i{display:flex;gap:6px;align-items:center;font-style:normal}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.scroll::-webkit-scrollbar,.hs::-webkit-scrollbar{display:none}
+.hs{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 6px}
+.hs>*{flex-shrink:0}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.sec b{font-size:18px;font-weight:700}
+.sec a{font-size:13px;color:#B8622A;font-weight:600}
+.lab{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.card{background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.ph img{display:block}
+.cover{object-fit:cover;background:#FBF0DD}
+img[src$="qingzheng-luyu.jpg"]{object-position:50% 85%}
+img[src$="huadan-xiaren.jpg"]{object-position:50% 80%}
+.t15{font-size:15px;font-weight:700}
+.t12{font-size:12px;color:#6E5C49}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap}
+.ok{background:#F0F8EE;color:#2F7347}.warn{background:#FFF7EC;color:#8A5A22}.err{background:#FDECEA;color:#9A2E22}.info{background:#E8F3FA;color:#2F6A8C}
+.plain{background:#FDFAF4;border:1px solid #F0E6D6;color:#6E5C49;font-weight:400}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px}
+.av{width:28px;height:28px;border-radius:999px;border:2px solid #FFFFFF;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}.stack>*+*{margin-left:-8px}
+.btn{height:52px;padding:0 22px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(169,101,30,.3)}
+.btn2{height:52px;padding:0 18px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.chk{width:24px;height:24px;border-radius:999px;border:2px solid #E8DCCB;background:#FFFFFF;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#FFFFFF}
+.chk.on{background:#4FAE6E;border-color:#4FAE6E}
+.seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:4px 16px 0;padding:4px;border-radius:12px;background:#FBF0DD;flex-shrink:0}
+.seg a{height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#6E5C49}
+.seg a[aria-selected="true"]{background:#FFFFFF;color:#4A382A;font-weight:700;box-shadow:0 1px 3px rgba(169,101,30,.14)}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 30px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:flex;gap:10px;align-items:center}
+nav.tab{position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:22px}
+nav.tab a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:#6E5C49}
+nav.tab a[aria-current]{font-weight:700;color:#B8622A}
+nav.tab a.fab{justify-content:flex-end}
+nav.tab .fabi{width:50px;height:50px;margin-top:-24px;border-radius:999px;background:#D17A3C;border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(169,101,30,.4)}
+.hero{position:relative;display:block;height:300px;border-radius:22px;overflow:hidden;box-shadow:0 10px 28px rgba(74,56,42,.22);color:#FFFFFF}
+.hero>img{position:absolute;inset:0;width:100%;height:100%}
+.hero .sh{position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,26,16,.10) 0%,rgba(40,26,16,0) 30%,rgba(40,26,16,.55) 62%,rgba(40,26,16,.88) 100%)}
+.hero .in{position:absolute;left:0;right:0;bottom:0;padding:18px;display:flex;flex-direction:column;gap:10px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.mini{width:148px;display:flex;flex-direction:column;overflow:hidden;padding:0}
+.mini img{width:148px;height:104px}
+.mini .tx{padding:10px 10px 12px;display:flex;flex-direction:column;gap:6px}
+.exp{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:13px;font-weight:600}
+.exp img{width:24px;height:24px}
+.exp .d{font-size:11px;font-weight:700;padding:1px 6px;border-radius:999px}
+.season{width:220px;height:132px;position:relative;border-radius:16px;overflow:hidden;color:#FFFFFF}
+.season img{position:absolute;inset:0;width:100%;height:100%}
+.season .sh{position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,26,16,0) 35%,rgba(40,26,16,.78) 100%)}
+.season .tx{position:absolute;left:12px;right:12px;bottom:10px;display:flex;flex-direction:column;gap:2px}
+</style>
+<style>body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px;box-sizing:border-box}body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+<style>
+
+.ph{background:linear-gradient(180deg,#FBEBD9 0%,#FDFAF4 260px)}
+.bub{display:flex;gap:10px;align-items:flex-start}
+.bub .lg{width:34px;height:34px;border-radius:11px;flex-shrink:0;box-shadow:0 3px 8px rgba(169,101,30,.25)}
+.bub .say{background:#FFFFFF;border:1px solid #F0E6D6;border-radius:4px 16px 16px 16px;padding:11px 13px;font-size:14px;line-height:1.55;color:#4A382A;box-shadow:0 2px 10px rgba(169,101,30,.06)}
+.bub .say b{color:#B8622A}
+.hero2{position:relative;display:block;height:206px;border-radius:20px;overflow:hidden;box-shadow:0 10px 26px rgba(74,56,42,.2);color:#FFFFFF}
+.hero2>img{position:absolute;inset:0;width:100%;height:100%}
+.hero2 .sh{position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,26,16,.05) 0%,rgba(40,26,16,0) 30%,rgba(40,26,16,.6) 64%,rgba(40,26,16,.9) 100%)}
+.hero2 .in{position:absolute;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px}
+.alert{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:14px;background:#FFF4EC;border:1px solid #F6D9BE}
+.alert .ings{display:flex}
+.alert .ings span{width:30px;height:30px;border-radius:9px;background:#FFFFFF;border:1px solid #F6D9BE;display:flex;align-items:center;justify-content:center}
+.alert .ings span+span{margin-left:-6px}
+.alert .ings img{width:22px;height:22px}
+.ask{height:34px;padding:0 12px;border-radius:999px;background:#D17A3C;color:#FFFFFF;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px;flex-shrink:0;white-space:nowrap}
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.q{display:flex;align-items:center;gap:10px;padding:10px;border-radius:14px;background:#FFFFFF;border:1px solid #F0E6D6;box-shadow:0 2px 10px rgba(169,101,30,.06);min-width:0}
+.q .qt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.q .qi{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.q .qi img{width:26px;height:26px}
+.q b{font-size:13px;font-weight:700;line-height:1.3;color:#4A382A}
+.sess{display:flex;align-items:center;gap:12px;padding:12px}
+.sess+.sess{border-top:1px solid #F5EDE1}
+.sess .th{width:46px;height:46px;border-radius:12px;flex-shrink:0;object-fit:cover}
+.sess .tl{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.sess .tl span:first-child{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sess .tl span:last-child{font-size:12px;color:#6E5C49;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.composer{position:absolute;left:0;right:0;bottom:84px;z-index:5;padding:10px 12px 10px;background:linear-gradient(180deg,rgba(253,250,244,0) 0%,#FDFAF4 32%)}
+.composer .box{height:52px;border-radius:26px;background:#FFFFFF;border:1.5px solid #F2C9A3;box-shadow:0 6px 18px rgba(169,101,30,.16);display:flex;align-items:center;gap:6px;padding:0 6px 0 16px}
+.composer .box span.ph2{flex:1;font-size:14px;color:#6E5C49;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.composer .ib{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#4A382A;background:#FBF0DD;flex-shrink:0}
+.composer .ib.go{background:#D17A3C;color:#FFFFFF}
+
+</style>
+<style>
+nav.gnav{position:absolute;left:0;right:0;bottom:0;z-index:6;height:84px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:22px;box-sizing:border-box}
+nav.gnav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:#6E5C49;text-decoration:none}
+nav.gnav a[aria-current]{font-weight:700;color:#B8622A}
+nav.gnav a.fab{justify-content:flex-end}
+nav.gnav .fabi{width:54px;height:54px;margin-top:-28px;border-radius:999px;background:linear-gradient(145deg,#EE9C5C,#C96E31);border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px rgba(169,101,30,.42);position:relative}
+nav.gnav .fabi i{position:absolute;top:-2px;right:-4px;height:16px;padding:0 5px;border-radius:999px;background:#4A382A;color:#FFFFFF;font-style:normal;font-size:9px;font-weight:800;line-height:16px;border:2px solid #FFFFFF}
+.meav{width:36px;height:36px;border-radius:999px;border:2px solid #FFFFFF;box-shadow:0 2px 8px rgba(169,101,30,.18);display:block;flex-shrink:0;background:#FBF0DD}
+</style>
+</head>
+<body>
+<div class="ph">
+  <div class="sb" style="color:#4A382A" aria-hidden="true"><span>9:41</span><i>
+    <svg width="18" height="12" viewBox="0 0 18 12" fill="#4A382A"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#4A382A" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.5a9.5 9.5 0 0 1 13 0M4 7.3a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="#4A382A" stroke="none"/></svg>
+    <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="#4A382A" opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="1.8" fill="#4A382A"/><rect x="24" y="4" width="1.6" height="4" rx=".8" fill="#4A382A" opacity=".45"/></svg>
+  </i></div>
+  <div style="padding:2px 16px 10px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+    <span style="display:flex;flex-direction:column;gap:4px">
+      <span class="t12" style="display:flex;align-items:center;gap:6px;font-weight:600">晚上好，小王 · 周五 17:42</span>
+      <span style="display:flex;align-items:center;gap:8px"><span style="font-size:24px;font-weight:800;letter-spacing:.5px">今晚 4 口人</span><span class="stack"><img class="av" src="img/avatar/xiaowang.svg" alt="" style="width:26px;height:26px"><img class="av" src="img/avatar/linlin.svg" alt="" style="width:26px;height:26px"><img class="av" src="img/avatar/mama.svg" alt="" style="width:26px;height:26px"><img class="av" src="img/avatar/duoduo.svg" alt="" style="width:26px;height:26px"></span></span>
+    </span>
+    <span style="display:flex;align-items:center;gap:10px">
+      <a href="Notices.html" aria-label="消息，2 条未读" style="position:relative;width:38px;height:38px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;color:#4A382A"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg><span style="position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:999px;background:#DB5A4E;border:2px solid #FFFFFF"></span></a>
+      <a href="Me.html" aria-label="我的"><img class="meav" src="img/avatar/xiaowang.svg" alt=""></a>
+    </span>
+  </div>
+  <div class="scroll">
+  <div style="padding:4px 16px 170px;display:flex;flex-direction:column;gap:16px">
+    <div class="bub">
+      <img class="lg" src="img/extra/logo.svg" alt="咕嘟">
+      <span class="say">我看了下家里：<b>29 样食材</b>，鲈鱼<b>明天到期</b>。妈妈要少盐、朵朵吃软的——今晚这样安排怎么样？</span>
+    </div>
+
+    <section style="display:flex;flex-direction:column;gap:10px">
+      <div class="sec" style="margin-bottom:0"><b>今晚首推</b><a href="Smart.html">全部推荐 ›</a></div>
+      <a href="RecipeDetail.html" class="hero2" aria-label="首推：清蒸鲈鱼">
+        <img class="cover" src="img/dish/qingzheng-luyu.jpg" alt="清蒸鲈鱼"><span class="sh"></span>
+        <span class="pill" style="position:absolute;top:12px;left:12px;background:#DB5A4E;color:#FFFFFF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>鲈鱼明天到期</span>
+        <span class="pill" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.92);color:#4A382A"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>咕嘟推荐</span>
+        <span class="in">
+          <span style="display:flex;flex-direction:column;gap:3px">
+            <span style="font-size:23px;font-weight:800;text-shadow:0 1px 8px rgba(0,0,0,.25)">清蒸鲈鱼</span>
+            <span style="font-size:13px;opacity:.94">25 分钟 · 适合高血压 · 家里够 4/5，只差小葱</span>
+          </span>
+          <span style="display:flex;gap:8px">
+            <span class="btn" style="flex:1;height:44px;font-size:15px">现在就做</span>
+            <span class="btn2" style="height:44px;font-size:14px;background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.45);color:#FFFFFF"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3.9M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14.9 3.9M20 19v-4h-4"/></svg>换一道</span>
+          </span>
+        </span>
+      </a>
+    </section>
+
+    <div class="alert">
+      <span class="ings"><span><img src="img/ing/spinach.svg" alt=""></span><span><img src="img/ing/tofu.svg" alt=""></span></span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:700;color:#4A382A">还有 2 样快到期</span><span style="font-size:12px;color:#8A5A22">菠菜、北豆腐剩 2 天</span></span>
+      <a href="AgentChat.html" class="ask"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16v1a7 7 0 0 1-7 7h-2a7 7 0 0 1-7-7z"/><path d="M2 12h20"/><circle cx="9" cy="7.2" r="1.5"/><circle cx="14" cy="5" r="2"/><circle cx="16.2" cy="9" r="1"/></svg>问咕嘟怎么做</a>
+    </div>
+
+    <section>
+      <div class="sec"><b>试试这样问</b><span class="t12">说话或打字都行</span></div>
+      <div class="qgrid">
+        <a href="AgentChat.html" class="q"><span class="qi" style="background:#F0F8EE"><img src="img/ing/cabbage.svg" alt=""></span><span class="qt"><b>冰箱里的能做什么</b><span class="t12" style="font-size:11px">按余量和临期挑</span></span></a>
+        <a href="AgentChat.html" class="q"><span class="qi" style="background:#FDF0E6"><img src="img/ing/pumpkin.svg" alt=""></span><span class="qt"><b>朵朵这周辅食</b><span class="t12" style="font-size:11px">软烂无盐 · 不重样</span></span></a>
+        <a href="AgentChat.html" class="q"><span class="qi" style="background:#E8F3FA"><img src="img/ing/ribs.svg" alt=""></span><span class="qt"><b>周六爸妈来吃饭</b><span class="t12" style="font-size:11px">6 人 · 食集+采购</span></span></a>
+        <a href="Scan.html" class="q"><span class="qi" style="background:#FBF0DD"><img src="img/ing/egg.svg" alt=""></span><span class="qt"><b>拍冰箱入库</b><span class="t12" style="font-size:11px">拍一张，自动认出食材</span></span></a>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec"><b>最近和咕嘟聊过</b><a href="AgentChat.html">全部</a></div>
+      <div class="card" style="padding:0">
+        <a href="AgentChat.html" class="sess"><img class="th" src="img/dish/tangcu-paigu.jpg" alt=""><span class="tl"><span>周六爸妈来吃饭</span><span>已建食集「周六 · 爸妈来吃饭」6 道 · 采购 11 样</span></span><span class="t12" style="font-size:12px;flex-shrink:0">昨天</span></a>
+        <a href="AgentChat.html" class="sess"><img class="th" src="img/dish/zhengshuidan.jpg" alt=""><span class="tl"><span>朵朵什么时候能吃全蛋</span><span>参考了朵朵的辅食档案 · 推荐蒸水蛋</span></span><span class="t12" style="font-size:12px;flex-shrink:0">周二</span></a>
+        <a href="AgentChat.html" class="sess"><img class="th" src="img/dish/kele-jichi.jpg" alt=""><span class="tl"><span>可乐鸡翅能不能少糖</span><span>换成零度可乐 + 收汁减半，已存为我家版本</span></span><span class="t12" style="font-size:12px;flex-shrink:0">10/12</span></a>
+      </div>
+    </section>
+  </div>
+  </div>
+
+  <div class="composer">
+    <div class="box">
+      <span class="ph2">问咕嘟：今晚吃什么、帮我加采购…</span>
+      <a href="Scan.html" class="ib" aria-label="拍照"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></a>
+      <a href="AgentVoice.html" class="ib go" aria-label="按住说话"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></a>
+    </div>
+  </div>
+  <nav class="gnav" aria-label="主导航">
+    <a href="Recipes.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h5v17H6a2 2 0 0 0-2 2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v17h5a2 2 0 0 1 2 2z"/></svg>菜谱</a>
+    <a href="Menus.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>食集</a>
+    <a href="Agent.html" class="fab" aria-current="page"><span class="fabi"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16v1a7 7 0 0 1-7 7h-2a7 7 0 0 1-7-7z"/><path d="M2 12h20"/><circle cx="9" cy="7.2" r="1.5"/><circle cx="14" cy="5" r="2"/><circle cx="16.2" cy="9" r="1"/></svg><i>AI</i></span>咕嘟</a>
+    <a href="Community.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="16.8" cy="9.6" r="2.4"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M14.6 15.4A4.4 4.4 0 0 1 21 19.6"/></svg>厨房圈</a>
+    <a href="Pantry.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M6 10h12M9 6v1.5M9 13v3"/></svg>我家余量</a>
+  </nav>
+</div>
+</body>
+</html>

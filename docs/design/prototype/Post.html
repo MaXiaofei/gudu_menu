@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>动态详情 · 咕嘟小食单原型</title>
+<style>
+
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 30px;font-size:15px;font-weight:600;letter-spacing:.2px}
+.sb i{display:flex;gap:6px;align-items:center;font-style:normal}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.scroll::-webkit-scrollbar,.hs::-webkit-scrollbar{display:none}
+.hs{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 6px}
+.hs>*{flex-shrink:0}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.sec b{font-size:18px;font-weight:700}
+.sec a{font-size:13px;color:#B8622A;font-weight:600}
+.lab{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.card{background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.ph img{display:block}
+.cover{object-fit:cover;background:#FBF0DD}
+img[src$="qingzheng-luyu.jpg"]{object-position:50% 85%}
+img[src$="huadan-xiaren.jpg"]{object-position:50% 80%}
+.t15{font-size:15px;font-weight:700}
+.t12{font-size:12px;color:#6E5C49}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap}
+.ok{background:#F0F8EE;color:#2F7347}.warn{background:#FFF7EC;color:#8A5A22}.err{background:#FDECEA;color:#9A2E22}.info{background:#E8F3FA;color:#2F6A8C}
+.plain{background:#FDFAF4;border:1px solid #F0E6D6;color:#6E5C49;font-weight:400}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px}
+.av{width:28px;height:28px;border-radius:999px;border:2px solid #FFFFFF;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}.stack>*+*{margin-left:-8px}
+.btn{height:52px;padding:0 22px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(169,101,30,.3)}
+.btn2{height:52px;padding:0 18px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.chk{width:24px;height:24px;border-radius:999px;border:2px solid #E8DCCB;background:#FFFFFF;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#FFFFFF}
+.chk.on{background:#4FAE6E;border-color:#4FAE6E}
+.seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:4px 16px 0;padding:4px;border-radius:12px;background:#FBF0DD;flex-shrink:0}
+.seg a{height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#6E5C49}
+.seg a[aria-selected="true"]{background:#FFFFFF;color:#4A382A;font-weight:700;box-shadow:0 1px 3px rgba(169,101,30,.14)}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 30px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:flex;gap:10px;align-items:center}
+nav.tab{position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:22px}
+nav.tab a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:#6E5C49}
+nav.tab a[aria-current]{font-weight:700;color:#B8622A}
+nav.tab a.fab{justify-content:flex-end}
+nav.tab .fabi{width:50px;height:50px;margin-top:-24px;border-radius:999px;background:#D17A3C;border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(169,101,30,.4)}
+
+
+.gal{position:relative;height:370px;flex-shrink:0}
+.gal>img{position:absolute;inset:0;width:100%;height:100%}
+.gal .tg{position:absolute;left:0;right:0;top:0;height:120px;background:linear-gradient(180deg,rgba(30,18,10,.55),rgba(30,18,10,0))}
+.gal .top{position:absolute;left:0;right:0;top:0;padding:0 14px}
+.gal .row{display:flex;justify-content:space-between;align-items:center}
+.fb{width:38px;height:38px;border-radius:999px;background:rgba(255,255,255,.92);color:#4A382A;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.gal .pg{position:absolute;right:14px;bottom:60px;padding:3px 10px;border-radius:999px;background:rgba(30,18,10,.55);color:#FFFFFF;font-size:12px;font-weight:700}
+.gal .dots{position:absolute;left:0;right:0;bottom:62px;display:flex;justify-content:center;gap:5px}
+.gal .dots i{width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.6)}
+.gal .dots i.on{width:16px;background:#FFFFFF}
+.sheet{position:relative;margin-top:-46px;background:#FDFAF4;border-radius:22px 22px 0 0;padding:18px 16px 110px;display:flex;flex-direction:column;gap:16px}
+.au{display:flex;align-items:center;gap:10px}
+.au img{width:42px;height:42px;border-radius:999px}
+.follow{height:34px;padding:0 16px;border-radius:999px;background:#D17A3C;color:#FFFFFF;font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px}
+.ht{color:#B8622A;font-weight:600}
+.rc{padding:12px;display:flex;flex-direction:column;gap:12px}
+.rc .top{display:flex;gap:12px;align-items:center}
+.rc .top img{width:76px;height:76px;border-radius:12px;flex-shrink:0}
+.mini{display:flex;flex-direction:column;gap:6px;width:112px}
+.mini .ph2{position:relative;width:112px;height:112px;border-radius:12px;overflow:hidden}
+.mini .ph2 img.cover{width:100%;height:100%}
+.mini .ph2 img.a{position:absolute;left:6px;bottom:6px;width:24px;height:24px;border-radius:999px;border:2px solid #FFFFFF}
+.cm{display:flex;gap:10px}
+.cm>img{width:32px;height:32px;border-radius:999px;flex-shrink:0}
+.cm .b{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.cm .n{font-size:13px;color:#6E5C49;display:flex;align-items:center;gap:6px}
+.cm .tx{font-size:14px;line-height:1.55}
+.cm .meta{font-size:12px;color:#6E5C49;display:flex;gap:14px;align-items:center}
+.cm .meta b{display:flex;align-items:center;gap:3px;font-weight:500;margin-left:auto}
+.rep{margin-top:6px;padding:10px 12px;border-radius:12px;background:#FBF0DD;display:flex;gap:8px}
+.rep img{width:24px;height:24px;border-radius:999px;flex-shrink:0}
+.auth{padding:1px 6px;border-radius:4px;background:#F6D9BE;color:#8A4519;font-size:10px;font-weight:800}
+.bar .in{flex:1;height:40px;border-radius:999px;background:#FBF0DD;display:flex;align-items:center;gap:8px;padding:0 14px;color:#6E5C49;font-size:14px}
+.bar .act{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;color:#4A382A;min-width:38px}
+
+</style>
+<style>body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px;box-sizing:border-box}body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+</head>
+<body>
+<div class="ph">
+  <div class="scroll">
+  <div class="gal">
+    <img class="cover" src="img/dish/qingzheng-luyu.jpg" alt="清蒸鲈鱼成品">
+    <span class="tg"></span>
+    <div class="top"><div class="sb" style="color:#FFFFFF" aria-hidden="true"><span>9:41</span><i>
+    <svg width="18" height="12" viewBox="0 0 18 12" fill="#FFFFFF"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.5a9.5 9.5 0 0 1 13 0M4 7.3a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="#FFFFFF" stroke="none"/></svg>
+    <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="#FFFFFF" opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="1.8" fill="#FFFFFF"/><rect x="24" y="4" width="1.6" height="4" rx=".8" fill="#FFFFFF" opacity=".45"/></svg>
+  </i></div>
+      <div class="row"><a href="Community.html" class="fb" aria-label="返回"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a><span style="display:flex;gap:10px"><a href="#" class="fb" aria-label="分享"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></a><a href="#" class="fb" aria-label="更多"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></a></span></div>
+    </div>
+    <span class="dots"><i class="on"></i><i></i><i></i></span>
+    <span class="pg">1/3</span>
+  </div>
+  <div class="sheet">
+    <div class="au">
+      <img src="img/avatar/c-tangtang.svg" alt="">
+      <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:700">糖糖酱</span><span class="t12" style="display:flex;align-items:center;gap:3px">发布于 2 天前 · <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></svg>上海 · 作品 46</span></span>
+      <a href="#" class="follow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>关注</a>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h1 style="margin:0;font-size:20px;font-weight:800;line-height:1.4">第一次做清蒸鲈鱼就成功了！火候和时间都记下来了</h1>
+      <p style="margin:0;font-size:15px;line-height:1.7;color:#4A382A">一斤二两的鲈鱼，背上划刀摆成孔雀开屏，水开后大火蒸 8 分钟，关火再焖 2 分钟。倒掉盘里的腥水，铺葱丝淋热油，「滋啦」一声就成了。<br>关键：油一定要烧到微微冒烟，豉油最后沿盘边淋。</p>
+      <p style="margin:0;font-size:14px;display:flex;gap:10px;flex-wrap:wrap"><a href="Topic.html" class="ht">#一周不重样</a><a href="#" class="ht">#快手菜</a><a href="#" class="ht">#清蒸</a></p>
+    </div>
+    <div class="card rc">
+      <div class="top">
+        <img class="cover" src="img/dish/qingzheng-luyu.jpg" alt="" style="object-position:50% 85%">
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+          <span class="lab" style="letter-spacing:.5px">关联菜谱</span>
+          <span class="t15" style="font-size:16px">清蒸鲈鱼</span>
+          <span class="t12" style="display:flex;gap:8px;align-items:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 分钟 · 简单 · 用料 6 样</span>
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:#F0F8EE;color:#2F7347;font-size:12px;font-weight:600;white-space:nowrap">
+        <img src="img/ing/fish.svg" alt="" style="width:22px;height:22px">你家够 5/6 样，只差小葱 · 正好用掉快到期的鲈鱼
+      </div>
+      <a href="RecipeDetail.html" class="btn" style="height:48px;width:100%"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>照着做 · 复制到我家</a>
+      <span class="t12" style="text-align:center;margin-top:-4px">已有 128 人照着做 · 复制后可按你家口味改</span>
+    </div>
+    <section>
+      <div class="sec"><b style="font-size:16px">他们照着做了 · 128</b><a href="#">全部</a></div>
+      <div class="hs"><a href="#" class="mini"><span class="ph2"><img class="cover" src="img/step/qingzheng-luyu-9.jpg" alt="" style="object-position:50% 15%"><img class="a" src="img/avatar/c-linayi.svg" alt=""></span><span style="font-size:12px;color:#6E5C49">林阿姨</span></a><a href="#" class="mini"><span class="ph2"><img class="cover" src="img/dish/qingzheng-luyu.jpg" alt="" style="object-position:50% 85%"><img class="a" src="img/avatar/c-dabai.svg" alt=""></span><span style="font-size:12px;color:#6E5C49">大白不胖</span></a><a href="#" class="mini"><span class="ph2"><img class="cover" src="img/step/qingzheng-luyu-8.jpg" alt="" style="object-position:40% 20%"><img class="a" src="img/avatar/c-xiaoman.svg" alt=""></span><span style="font-size:12px;color:#6E5C49">小满</span></a><a href="#" class="mini"><span class="ph2"><img class="cover" src="img/step/qingzheng-luyu-5.jpg" alt="" style="object-position:50% 55%"><img class="a" src="img/avatar/c-amay.svg" alt=""></span><span style="font-size:12px;color:#6E5C49">阿May</span></a></div>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <div class="sec" style="margin:0"><b style="font-size:16px">评论 · 86</b><span class="t12">按热度</span></div>
+      <div class="cm"><img src="img/avatar/c-dabai.svg" alt=""><div class="b">
+        <span class="n">大白不胖</span>
+        <span class="tx">蒸 8 分钟是按多大的鱼算的？我买的快两斤</span>
+        <span class="meta">1 天前 · 北京<a href="#" style="color:#6E5C49">回复</a><b><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>12</b></span>
+        <div class="rep"><img src="img/avatar/c-tangtang.svg" alt=""><span style="font-size:13px;line-height:1.55"><b style="font-weight:700">糖糖酱</b> <span class="auth">作者</span> 一斤二两左右～两斤的话蒸 12 分钟，焖的时间不变</span></div>
+      </div></div>
+      <div class="cm"><img src="img/avatar/c-linayi.svg" alt=""><div class="b">
+        <span class="n">林阿姨家常菜</span>
+        <span class="tx">淋油那步一定要等油冒烟！照着做了，孙子吃了大半条</span>
+        <span class="meta">20 小时前 · 杭州<a href="#" style="color:#6E5C49">回复</a><b><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>34</b></span>
+      </div></div>
+      <div class="cm"><img src="img/avatar/c-mimi.svg" alt=""><div class="b">
+        <span class="n">米米妈</span>
+        <span class="tx">一岁半的宝宝能吃吗？</span>
+        <span class="meta">18 小时前 · 苏州<a href="#" style="color:#6E5C49">回复</a><b><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>8</b></span>
+      </div></div>
+    </section>
+  </div>
+  </div>
+  <div class="bar" style="padding-top:10px">
+    <span class="in"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 18l-1.5 3.5L8 20a8.5 8.5 0 1 0-3-2z"/></svg>说点什么…</span>
+    <span class="act" style="color:#DB5A4E"><svg width="24" height="24" viewBox="0 0 24 24" fill="#DB5A4E" stroke="#DB5A4E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>1.2k</span>
+    <span class="act"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>386</span>
+    <span class="act"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>52</span>
+  </div>
+</div>
+</body>
+</html>

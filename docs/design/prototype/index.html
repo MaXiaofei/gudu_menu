@@ -63,15 +63,17 @@ h1{margin:20px 0 16px;font-size:38px;font-weight:900;line-height:1.3}
     <div>
       <div class="brand"><img src="img/extra/logo.svg" alt="咕嘟小食单"><span>咕嘟小食单 · 全端高保真原型</span></div>
       <h1>一家人吃什么、家里剩什么、<br>买什么，在一张单子上说清楚</h1>
-      <div class="lead">覆盖 App、小程序与管理后台：菜谱、食集、智荐、我家余量、我的五个 Tab，加上多家庭、隐私合规、运营后台等生产级能力。所有页面可点击跳转。</div>
+      <div class="lead">覆盖 App、小程序与管理后台：菜谱、食集、咕嘟 Agent、厨房圈、我家余量五个 Tab，一句话就能查菜谱、排食集、做完回写；加上拍照识别、一周餐程、跟做模式，以及多家庭、隐私合规、Agent 可观测与评测等生产级能力。所有页面可点击跳转。</div>
       <div class="meta">
+        <a class="cta" href="Architecture.html" style="background:#4A382A">技术架构 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
         <a class="cta" href="all.html">全部画面一览 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-        <span>版本 2026-10 · 对应 OpenSpec 路线图 6 个 change</span>
+        <span>版本 2026-10 · 对应 OpenSpec 路线图 9 个 change</span>
       </div>
       <div class="meta" style="margin-top:14px;gap:8px">
         <span class="pill" style="background:#FBF0DD;color:#8A5A22">现有功能</span>
         <span class="pill" style="background:#E8F3FA;color:#2F6A8C">本轮补齐</span>
         <span class="pill" style="background:#F0F8EE;color:#2F7347">生产级新增</span>
+        <span class="pill" style="background:#4A382A;color:#FFF7EC">AI 与社区</span>
       </div>
     </div>
     <div class="mosaic">
@@ -114,43 +116,76 @@ h1{margin:20px 0 16px;font-size:38px;font-weight:900;line-height:1.3}
       </div>
     </div>
     <div class="tab hl">
-      <div class="band photos"><img src="img/dish/xiezi-niangao.jpg" alt=""><img src="img/dish/liangban-bocai.jpg" alt=""><img src="img/dish/tudou-niurou.jpg" alt=""></div>
+      <div class="band photos"><img src="img/dish/qingzheng-luyu.jpg" alt=""><img src="img/dish/liangban-bocai.jpg" alt=""><img src="img/dish/jiachang-doufu.jpg" alt=""></div>
       <div class="body">
-        <div class="kicker">TAB 3 · 中心</div>
-        <div class="tt">智荐</div>
-        <div class="desc">临期先吃、常做的、应季的、最近做过</div>
+        <div class="kicker">TAB 3 · 中心 · AI</div>
+        <div class="tt">咕嘟</div>
+        <div class="desc">一句话查菜谱、排食集、做完回写；写操作先确认</div>
         <div class="links">
-          <a href="Smart.html">智荐首页 →</a>
-          <a href="CookLog.html">食记 →</a>
+          <a href="Agent.html">咕嘟首屏 →</a>
+          <a href="AgentChat.html">对话 · 工具调用与确认卡 →</a>
+          <a href="AgentVoice.html">语音 · 做完回写 →</a>
+          <a href="Smart.html">全部推荐 →</a>
+        </div>
+      </div>
+    </div>
+    <div class="tab">
+      <div class="band photos"><img src="img/dish/kele-jichi.jpg" alt=""><img src="img/dish/tangcu-paigu.jpg" alt=""><img src="img/dish/nangua-geng.jpg" alt=""></div>
+      <div class="body">
+        <div class="kicker">TAB 4 · 社区</div>
+        <div class="tt">厨房圈</div>
+        <div class="desc">晒菜、照着做、话题挑战；食记一键分享</div>
+        <div class="links">
+          <a href="Community.html">Feed →</a>
+          <a href="Post.html">动态详情 · 照着做 →</a>
+          <a href="PostCreate.html">发布 · AI 帮写 →</a>
+          <a href="Topic.html">话题挑战 →</a>
         </div>
       </div>
     </div>
     <div class="tab">
       <div class="band ingband"><span><img src="img/ing/fish.svg" alt=""></span><span><img src="img/ing/spinach.svg" alt=""></span><span><img src="img/ing/tofu.svg" alt=""></span><span><img src="img/ing/tomato.svg" alt=""></span><span><img src="img/ing/egg.svg" alt=""></span><span><img src="img/ing/broccoli.svg" alt=""></span><span><img src="img/ing/scallion.svg" alt=""></span><span><img src="img/ing/milk.svg" alt=""></span></div>
       <div class="body">
-        <div class="kicker">TAB 4</div>
+        <div class="kicker">TAB 5</div>
         <div class="tt">我家余量</div>
-        <div class="desc">充足 / 不足 / 用完三档 + 保质期倒计时</div>
+        <div class="desc">三档库存 + 保质期；拍冰箱 / 小票批量入库</div>
         <div class="links">
           <a href="Pantry.html">余量总览 →</a>
           <a href="PantryAdd.html">入库 · 保质期 →</a>
-          <a href="ShopShare.html">采购清单转图片 →</a>
+          <a href="Scan.html">拍照识别 →</a>
+          <a href="ScanResult.html">识别结果确认 →</a>
         </div>
       </div>
     </div>
-    <div class="tab">
-      <div class="band meband"><span class="avs"><img src="img/avatar/xiaowang.svg" alt=""><img src="img/avatar/linlin.svg" alt=""><img src="img/avatar/mama.svg" alt=""></span><span style="display:flex;flex-direction:column;gap:2px;white-space:nowrap"><b style="font-size:14px">小王家的厨房</b><span style="font-size:12px;color:#6E5C49">4 位成员 · 主人</span></span></div>
-      <div class="body">
-        <div class="kicker">TAB 5</div>
-        <div class="tt">我的</div>
-        <div class="desc">家庭、外观、反馈、隐私与账号</div>
-        <div class="links">
-          <a href="Me.html">我的 →</a>
-          <a href="Theme.html">主题外观 →</a>
-          <a href="Feedback.html">意见反馈 →</a>
-          <a href="Privacy.html">隐私与账号 →</a>
-          <a href="Notices.html">消息与邀请 →</a>
-        </div>
+  </section>
+
+  <section class="trio">
+    <div class="box" style="background:#FFF7EC">
+      <div class="hd"><span class="avs"><img src="img/dish/mapo-doufu.jpg" alt="" style="object-fit:cover"><img src="img/dish/qingzheng-luyu.jpg" alt="" style="object-fit:cover"></span><span class="tt">AI 做饭助手</span></div>
+      <div class="desc" style="min-height:0">按成员档案生成一周餐程并校验营养；跟做时大字步骤、语音「下一步」、多计时器。</div>
+      <div class="row">
+        <a href="WeekPlan.html">一周餐程 →</a>
+        <a href="Nutrition.html">营养报告 →</a>
+        <a href="CookMode.html">跟做模式 →</a>
+        <a href="CookLog.html">食记 →</a>
+      </div>
+    </div>
+    <div class="box">
+      <div class="hd"><span class="avs"><img src="img/avatar/xiaowang.svg" alt=""><img src="img/avatar/linlin.svg" alt=""><img src="img/avatar/mama.svg" alt=""></span><span class="tt">我的（右上角头像）</span></div>
+      <div class="desc" style="min-height:0">家庭、外观、反馈、隐私与账号、消息。</div>
+      <div class="row">
+        <a href="Me.html">我的 →</a>
+        <a href="Theme.html">主题外观 →</a>
+        <a href="Feedback.html">意见反馈 →</a>
+        <a href="Privacy.html">隐私与账号 →</a>
+        <a href="Notices.html">消息与邀请 →</a>
+      </div>
+    </div>
+    <div class="box" style="background:#4A382A;color:#FFF7EC;border-color:#4A382A">
+      <div class="hd"><img src="img/extra/logo.svg" alt="" style="width:40px;height:40px"><span class="tt">技术架构 · 面试讲解</span></div>
+      <div class="desc" style="min-height:0;color:#F2E6D6">系统总览、Agent 运行时、DDD 限界上下文、社区 Feed、质量体系。</div>
+      <div class="row">
+        <a href="Architecture.html" style="color:#FFD9B5">技术架构总览 →</a>
       </div>
     </div>
   </section>
@@ -168,7 +203,7 @@ h1{margin:20px 0 16px;font-size:38px;font-weight:900;line-height:1.3}
     </div>
     <div class="box">
       <div class="hd"><img src="img/extra/avatar-admin.svg" alt="" style="width:40px;height:40px"><span class="tt">管理后台</span></div>
-      <div class="desc" style="min-height:0">运营看板、公共菜谱审核、营养数据审核、反馈、租户、AI 成本与系统健康。</div>
+      <div class="desc" style="min-height:0">运营看板、公共菜谱审核、营养数据审核、反馈、租户、AI 成本与系统健康，以及 Agent 调用链、评测与社区审核。</div>
       <div class="row">
         <a href="AdminDashboard.html">仪表盘 →</a>
         <a href="AdminLibrary.html">菜谱库审核 →</a>
@@ -177,6 +212,9 @@ h1{margin:20px 0 16px;font-size:38px;font-weight:900;line-height:1.3}
         <a href="AdminTenants.html">账号与家庭 →</a>
         <a href="AdminAi.html">AI 用量 →</a>
         <a href="AdminOps.html">系统健康 →</a>
+        <a href="AdminAgentTrace.html">Agent 调用链 →</a>
+        <a href="AdminAgentEval.html">Agent 评测 →</a>
+        <a href="AdminCommunity.html">社区审核 →</a>
       </div>
     </div>
     <div class="box">
@@ -202,7 +240,9 @@ h1{margin:20px 0 16px;font-size:38px;font-weight:900;line-height:1.3}
     <span class="arrow">→</span>
     <span class="step"><img src="img/ing/egg.svg" alt="" class=ing>我家余量 + 食记</span>
     <span class="arrow">→</span>
-    <span class="step end"><img src="img/ing/fish.svg" alt="" class="ing">智荐（临期先吃）</span>
+    <span class="step end"><img src="img/ing/fish.svg" alt="" class="ing">咕嘟（临期先吃）</span>
+    <span class="arrow">→</span>
+    <span class="step"><img src="img/dish/kele-jichi.jpg" alt="">晒到厨房圈</span>
   </section>
   <div class="note">菜品照片取自现有公共菜谱库导入数据，仅用于本地原型演示；正式上线前需替换为有授权的图片。食材插画与头像为原型自绘。</div>
 </div>

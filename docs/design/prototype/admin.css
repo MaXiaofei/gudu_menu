@@ -81,3 +81,49 @@ img.thumb{width:44px;height:44px;border-radius:10px}
 tbody tr:hover{background:#FFFBF5}
 th,td{white-space:nowrap}
 td .wrap{white-space:normal}
+
+/* —— Agent 调用链 / 评测 / 社区审核（showcase-ai-community） —— */
+.split{display:flex;gap:16px;align-items:flex-start}
+.split>.l{flex:0 1 380px;min-width:320px}
+.split>.r{flex:1 1 640px;min-width:0}
+.list{display:flex;flex-direction:column}
+.li{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);align-items:flex-start;cursor:pointer}
+.li:last-child{border-bottom:none}
+.li.on{background:var(--highlight);box-shadow:inset 3px 0 0 var(--primary-deep)}
+.li .t{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .q{font-size:13px;color:var(--title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wf{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.wf .axis{display:grid;grid-template-columns:200px 1fr 92px;gap:12px;color:var(--body);font-size:11px}
+.wf .axis .ticks{display:flex;justify-content:space-between}
+.wf .sp{display:grid;grid-template-columns:200px 1fr 92px;gap:12px;align-items:center;padding:5px 0;border-radius:8px}
+.wf .sp.on{background:var(--highlight)}
+.wf .nm{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.wf .nm .k{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.wf .tr{position:relative;height:22px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(25% - 1px),var(--border) calc(25% - 1px),var(--border) 25%)}
+.wf .tr i{position:absolute;top:3px;height:16px;border-radius:4px;min-width:3px}
+.wf .tr i.pend{background:repeating-linear-gradient(45deg,#F6D9BE 0 6px,#FFF7EC 6px 12px);border:1px dashed var(--primary-deep)}
+.wf .dur{text-align:right;font-variant-numeric:tabular-nums;color:var(--title)}
+.dot{width:8px;height:8px;border-radius:999px;display:inline-block;flex-shrink:0}
+.c-guard{background:#8A7B6B}.c-llm{background:#E89150}.c-tool{background:#4FAE6E}.c-ret{background:#4FA0D0}.c-act{background:#D17A3C}
+pre.json{margin:0;padding:12px 14px;border-radius:12px;background:#FDFAF4;border:1px solid var(--border);font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.6;color:var(--title);white-space:pre-wrap;word-break:break-all}
+pre.json .k{color:#B8622A}pre.json .s{color:#2F7347}pre.json .n{color:#2F6A8C}pre.json .m{background:#FFF7EC;color:#8A5A22;border-radius:4px;padding:0 3px}
+pre.json .miss{background:#FBD9D5;color:#9A2E22;border-radius:4px;padding:0 3px}
+.callout{display:flex;gap:10px;padding:12px 14px;border-radius:12px;font-size:13px;line-height:1.6}
+.callout.warn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--primary-soft)}
+.callout.err{background:#FDECEA;color:var(--err)}
+.callout.ok{background:var(--ok-bg);color:var(--ok)}
+.callout svg{flex-shrink:0;margin-top:2px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+.kv span:nth-child(odd){color:var(--body)}
+.gate{display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:16px;border:1px solid #F3C2BC;background:linear-gradient(90deg,#FDECEA,#FFF)}
+.gate .ic{width:44px;height:44px;border-radius:12px;background:#DB5A4E;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.delta-up{color:var(--ok);font-weight:700}.delta-dn{color:var(--err);font-weight:700}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.diff-del{background:#FBD9D5;color:#9A2E22;border-radius:4px;padding:1px 5px;text-decoration:line-through}
+.diff-add{background:#FFF7EC;color:#8A5A22;border-radius:4px;padding:1px 5px;border:1px solid var(--primary-soft)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--bg);border:1px solid var(--border);color:var(--title)}
+.risk{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+.risk.h{background:#FBD9D5;color:#9A2E22}.risk.m{background:#FFF7EC;color:#8A5A22;border:1px solid var(--primary-soft)}.risk.l{background:var(--ok-bg);color:var(--ok)}
+.conf{height:8px;border-radius:4px;background:var(--border);overflow:hidden}
+.conf i{display:block;height:100%;border-radius:4px}
+textarea.input{height:auto;padding:10px 12px;line-height:1.5;resize:none;width:100%;box-sizing:border-box}

@@ -45,6 +45,11 @@
 - [ ] 8.2 iconfont 本地化；分包；主包 < 2MB 校验进 CI
 - [ ] 8.3 公众平台：服务器域名、隐私保护指引填写清单（文档）
 
+## 8A. 内容合规（来自 `recipe-content-seed` 6.1）
+- [ ] 8A.1 生产公共库不含第三方导入内容：上线前及每次部署执行
+  `SELECT COUNT(*) FROM dish WHERE source_name = '下厨房' AND deleted = 0;` 结果必须为 0（CI/部署脚本断言）
+- [ ] 8A.2 生产图片目录不含 `xc_*` 文件（`find /var/www/images -name 'xc_*' | wc -l` = 0）
+
 ## 9. 仓库卫生
 - [ ] 9.1 移除已入库产物，补 .gitignore；删废弃 compose
 - [ ] 9.2 application-dev.yml 去硬编码 IP

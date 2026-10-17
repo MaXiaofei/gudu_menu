@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>营养报告 · 咕嘟小食单原型</title>
+<style>
+
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px}
+body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}
+a{color:#B8622A;text-decoration:none}
+button,input,textarea{font-family:inherit;color:inherit}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px 0 30px;font-size:15px;font-weight:600;color:#4A382A}
+.sb svg{display:block}
+.top{display:flex;align-items:center;gap:8px;padding:2px 12px 8px;min-height:52px}
+.back{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#4A382A;flex-shrink:0}
+.ttl{flex:1;font-size:17px;font-weight:700}
+.h1{font-size:24px;font-weight:700}
+.card{flex-shrink:0;background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.sec{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.muted{font-size:12px;color:#6E5C49}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px;display:block}
+.av{border-radius:999px;display:block;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}
+.stack img{border:2px solid #FFFFFF;border-radius:999px;margin-left:-8px;display:block;background:#FBF0DD}
+.stack img:first-child{margin-left:0}
+.ph-img{object-fit:cover;display:block;flex-shrink:0;background:#FBF0DD}
+.btn{height:52px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 6px 16px rgba(169,101,30,.28);cursor:pointer}
+.ghost{height:52px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.chip{padding:7px 12px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:12px;color:#6E5C49;white-space:nowrap}
+.chip.on{background:#4A382A;color:#FFFFFF;border-color:#4A382A;font-weight:700}
+.tag{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.tag.ok{background:#F0F8EE;color:#2F7347}.tag.warn{background:#FFF7EC;color:#8A5A22;border:1px solid #F6D9BE}.tag.err{background:#DB5A4E;color:#FFFFFF}.tag.info{background:#E8F3FA;color:#2F6A8C}.tag.mute{background:#F5EEE2;color:#6E5C49}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.row+.row{border-top:1px solid #F3EBDD}
+.seg{display:flex;border-radius:9px;border:1px solid #F0E6D6;overflow:hidden;font-size:12px;background:#FFFFFF;flex-shrink:0}
+.seg span{padding:6px 9px;color:#6E5C49}
+.seg .ok{background:#4FAE6E;color:#FFFFFF;font-weight:700}.seg .warn{background:#E5A938;color:#4A382A;font-weight:700}.seg .err{background:#DB5A4E;color:#FFFFFF;font-weight:700}
+.lrow{display:flex;align-items:center;gap:12px;padding:0 14px;height:52px;color:#4A382A;font-size:15px}
+.lrow+.lrow{border-top:1px solid #F3EBDD}
+.lrow .ico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lrow .val{margin-left:auto;font-size:13px;color:#6E5C49;display:flex;align-items:center;gap:4px}
+
+
+.col>*{flex-shrink:0}
+.mbs{display:flex;gap:8px;overflow:hidden;margin-right:-16px}
+.mb{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;flex-shrink:0}
+.mb img{border-radius:999px;background:#FBF0DD;display:block;width:32px;height:32px}
+.mb span{display:flex;flex-direction:column;line-height:1.2}
+.mb b{font-size:13px}.mb i{font-style:normal;font-size:11px;color:#6E5C49}
+.mb.on{background:#4A382A;border-color:#4A382A;color:#FFFFFF}.mb.on i{color:#F6D9BE}
+.seg2{display:flex;padding:3px;border-radius:10px;background:#FBF0DD;font-size:13px}
+.seg2 span{padding:5px 12px;border-radius:8px;color:#6E5C49}.seg2 .on{background:#FFFFFF;color:#4A382A;font-weight:700;box-shadow:0 1px 3px rgba(169,101,30,.14)}
+.lg{display:flex;gap:14px;font-size:12px;color:#6E5C49;align-items:center}
+.lg i{display:inline-block;width:14px;height:0;border-top:2px solid #D17A3C;vertical-align:middle;margin-right:4px}
+.lg i.d{border-top:1.5px dashed #6E5C49}
+.alert{border-color:#F3C9C3;background:linear-gradient(180deg,#FFF6F4,#FFFFFF 60%)}
+.meter{position:relative;height:10px;border-radius:999px;background:#F5EEE2;overflow:visible}
+.meter i{position:absolute;left:0;top:0;bottom:0;width:86.7%;border-radius:999px;background:linear-gradient(90deg,#E5A938,#DB5A4E)}
+.meter b{position:absolute;top:-4px;bottom:-4px;left:66.7%;width:2px;background:#2F7347;border-radius:2px}
+.src{display:flex;gap:8px}
+.src>div{flex:1;display:flex;gap:8px;align-items:center;padding:6px;border-radius:12px;background:#FFFFFF;border:1px solid #F0E6D6;min-width:0}
+.src img{width:40px;height:40px;border-radius:9px}
+.src .t{font-size:13px;font-weight:700;white-space:nowrap}
+.sw{display:flex;align-items:center;gap:6px;padding:8px;border-radius:12px;background:#F0F8EE}
+.sw img{width:36px;height:36px;border-radius:8px}
+.btn.sm{height:40px;font-size:14px;border-radius:12px;padding:0 14px;box-shadow:none}
+
+</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+</head>
+<body>
+<div class="ph">
+<div class="sb" aria-hidden="true"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0M4 7a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.5" stroke="currentColor" opacity=".45"/><rect x="2.5" y="2.5" width="15" height="7" rx="2" fill="currentColor"/><path d="M24.5 4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".45"/></svg></span></div>
+
+<div class="top"><a href="Me.html" class="back" aria-label="返回"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></a><span class="ttl">营养报告</span><span class="seg2"><span class="on">本周</span><span>本月</span></span></div>
+<div class="col" style="flex:1;overflow:hidden;padding:0 16px 24px;display:flex;flex-direction:column;gap:12px">
+  <div class="mbs"><span class="mb on"><img src="img/avatar/mama.svg" alt="" width="40" height="40"><span><b>妈妈</b><i>高血压</i></span></span><span class="mb"><img src="img/avatar/linlin.svg" alt="" width="40" height="40"><span><b>林林</b><i>高血脂</i></span></span><span class="mb"><img src="img/avatar/duoduo.svg" alt="" width="40" height="40"><span><b>朵朵</b><i>宝宝辅食</i></span></span><span class="mb"><img src="img/avatar/xiaowang.svg" alt="" width="40" height="40"><span><b>小王</b></span></span></div>
+  <div class="card" style="padding:14px 14px 8px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div style="font-size:17px;font-weight:700">妈妈本周 4 项达标 · <span style="color:#9A2E22">钠超标</span></div><div class="muted" style="margin-top:2px">根据 11 条食记按每人份估算 · 10.10–10.16</div></div>
+    </div>
+    <div style="display:flex;justify-content:center;margin-top:12px"><svg width="320" height="234" viewBox="0 0 320 234" role="img" aria-label="本周营养雷达图：钠超出建议 30%"><polygon points="160.0,105.5 177.6,118.3 170.9,139.0 149.1,139.0 142.4,118.3" fill="none" stroke="#F0E6D6" stroke-width="1"/><polygon points="160.0,87.0 195.2,112.6 181.7,153.9 138.3,153.9 124.8,112.6" fill="none" stroke="#F0E6D6" stroke-width="1"/><polygon points="160.0,68.5 212.8,106.8 192.6,168.9 127.4,168.9 107.2,106.8" fill="none" stroke="#F0E6D6" stroke-width="1"/><polygon points="160.0,50.0 230.4,101.1 203.5,183.9 116.5,183.9 89.6,101.1" fill="none" stroke="#F0E6D6" stroke-width="1"/><line x1="160" y1="124" x2="160.0" y2="50.0" stroke="#F0E6D6"/><line x1="160" y1="124" x2="230.4" y2="101.1" stroke="#F0E6D6"/><line x1="160" y1="124" x2="203.5" y2="183.9" stroke="#F0E6D6"/><line x1="160" y1="124" x2="116.5" y2="183.9" stroke="#F0E6D6"/><line x1="160" y1="124" x2="89.6" y2="101.1" stroke="#F0E6D6"/><polygon points="160.0,67.1 214.1,106.4 193.5,170.1 126.5,170.1 105.9,106.4" fill="none" stroke="#6E5C49" stroke-width="1.5" stroke-dasharray="4 3"/><polygon points="160.0,71.6 216.8,105.5 196.1,173.7 116.5,183.9 104.8,106.1" fill="rgba(232,145,80,.28)" stroke="#D17A3C" stroke-width="2" stroke-linejoin="round"/><circle cx="160.0" cy="71.6" r="3.5" fill="#D17A3C" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="216.8" cy="105.5" r="3.5" fill="#D17A3C" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="196.1" cy="173.7" r="3.5" fill="#D17A3C" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="116.5" cy="183.9" r="5" fill="#DB5A4E" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="104.8" cy="106.1" r="3.5" fill="#D17A3C" stroke="#FFFFFF" stroke-width="1.5"/><text x="160.0" y="10.0" text-anchor="middle" font-size="12" font-weight="700" fill="#4A382A">能量<tspan x="160.0" dy="15" font-weight="500" fill="#6E5C49">92%</tspan></text><text x="251.3" y="92.3" text-anchor="start" font-size="12" font-weight="700" fill="#4A382A">蛋白质<tspan x="251.3" dy="15" font-weight="500" fill="#6E5C49">105%</tspan></text><text x="216.4" y="199.7" text-anchor="start" font-size="12" font-weight="700" fill="#4A382A">脂肪<tspan x="216.4" dy="15" font-weight="500" fill="#6E5C49">108%</tspan></text><text x="103.6" y="199.7" text-anchor="end" font-size="12" font-weight="700" fill="#9A2E22">钠<tspan x="103.6" dy="15" font-weight="500" fill="#9A2E22">130%</tspan></text><text x="68.7" y="92.3" text-anchor="end" font-size="12" font-weight="700" fill="#4A382A">膳食纤维<tspan x="68.7" dy="15" font-weight="500" fill="#6E5C49">102%</tspan></text></svg></div>
+    <div class="lg" style="justify-content:center;padding-bottom:6px"><span><i></i>实际摄入</span><span><i class="d"></i>高血压人群建议量</span></div>
+  </div>
+  <div class="card alert" style="padding:14px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:center;gap:8px"><span class="tag err">超标</span><b style="font-size:15px">钠 本周日均 2.6g</b><span class="muted" style="margin-left:auto">建议 ≤2g</span></div>
+    <div class="meter"><i></i><b></b></div>
+    <div class="sec">主要来自</div>
+    <div class="src">
+      <div><img class="ph-img" src="img/dish/hongshao-rou.jpg" alt=""><div style="min-width:0"><div class="t">红烧肉</div><div class="muted">每份钠 1.4g</div></div></div>
+      <div><img class="ph-img" src="img/dish/mapo-doufu.jpg" alt=""><div style="min-width:0"><div class="t">麻婆豆腐</div><div class="muted">每份钠 1.1g</div></div></div>
+    </div>
+    <div class="sw" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="font-size:12px;color:#2F7347"><b>下周换成</b> 清蒸鲈鱼、蒜蓉西兰花 · 日均可降到 <b>1.8g</b></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <img class="ph-img" src="img/dish/qingzheng-luyu.jpg" alt=""><span style="font-size:13px;font-weight:700">清蒸鲈鱼</span>
+        <img class="ph-img" src="img/dish/suanrong-xilanhua.jpg" alt="" style="margin-left:4px"><span style="font-size:13px;font-weight:700">蒜蓉西兰花</span>
+        <a href="WeekPlan.html" class="btn sm" role="button" style="margin-left:auto">换进餐程</a>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">近 7 天钠摄入</b><span class="muted">6 天超过建议</span></div>
+    <svg width="310" height="120" viewBox="0 0 310 120" role="img" aria-label="近 7 天钠摄入，7 天中 6 天超过 2 克"><text x="20" y="102.0" text-anchor="end" font-size="10" fill="#6E5C49">1</text><line x1="26" x2="310" y1="98.0" y2="98.0" stroke="#F3EBDD"/><text x="20" y="66.8" text-anchor="end" font-size="10" fill="#6E5C49">2</text><line x1="26" x2="310" y1="62.8" y2="62.8" stroke="#F3EBDD"/><text x="20" y="31.6" text-anchor="end" font-size="10" fill="#6E5C49">3</text><line x1="26" x2="310" y1="27.6" y2="27.6" stroke="#F3EBDD"/>
+<line x1="26" x2="310" y1="62.8" y2="62.8" stroke="#4FAE6E" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="310" y="57.8" text-anchor="end" font-size="10" font-weight="700" fill="#2F7347">建议 ≤2g</text>
+<polygon points="26.0,98.0 26.0,59.3 72.0,31.1 118.0,48.7 164.0,24.1 210.0,55.8 256.0,34.6 302.0,38.2 302.0,98.0" fill="rgba(219,90,78,.08)"/>
+<polyline points="26.0,59.3 72.0,31.1 118.0,48.7 164.0,24.1 210.0,55.8 256.0,34.6 302.0,38.2" fill="none" stroke="#DB5A4E" stroke-width="2" stroke-linejoin="round"/><circle cx="26.0" cy="59.3" r="3.5" fill="#DB5A4E" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="72.0" cy="31.1" r="3.5" fill="#DB5A4E" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="118.0" cy="48.7" r="3.5" fill="#DB5A4E" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="164.0" cy="24.1" r="3.5" fill="#DB5A4E" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="210.0" cy="55.8" r="3.5" fill="#DB5A4E" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="256.0" cy="34.6" r="3.5" fill="#DB5A4E" stroke="#FFFFFF" stroke-width="1.5"/><circle cx="302.0" cy="38.2" r="3.5" fill="#DB5A4E" stroke="#FFFFFF" stroke-width="1.5"/><text x="26.0" y="116" text-anchor="middle" font-size="10" fill="#6E5C49">10.10</text><text x="72.0" y="116" text-anchor="middle" font-size="10" fill="#6E5C49">11</text><text x="118.0" y="116" text-anchor="middle" font-size="10" fill="#6E5C49">12</text><text x="164.0" y="116" text-anchor="middle" font-size="10" fill="#6E5C49">13</text><text x="210.0" y="116" text-anchor="middle" font-size="10" fill="#6E5C49">14</text><text x="256.0" y="116" text-anchor="middle" font-size="10" fill="#6E5C49">15</text><text x="302.0" y="116" text-anchor="middle" font-size="10" fill="#6E5C49">16</text>
+<text x="164.0" y="16.1" text-anchor="middle" font-size="10" font-weight="700" fill="#9A2E22">3.1g 红烧肉</text></svg>
+  </div>
+  <div class="card" style="padding:12px 14px;display:flex;gap:10px;align-items:center">
+    <span class="ing" style="background:#F0F8EE"><img src="img/ing/spinach.svg" alt=""></span>
+    <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#2F7347">膳食纤维达标</div><div class="muted">本周吃了 9 种蔬菜，比上周多 3 种</div></div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>
