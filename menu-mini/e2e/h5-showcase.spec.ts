@@ -81,8 +81,15 @@ test.describe('H5 咕嘟 Agent', () => {
     await expect(c).toContainText('不扣')
     await expect(c).toContainText('朵朵没选')
     await shot(page, 'AgentVoice')
-    await c.locator('[data-testid="cooked-confirm"]').click()
-    await expect(c).toContainText('已回写余量')
+    // 改人份 → revise → 新动作替换旧卡
+    await c.locator('.st-btn').nth(1).click()
+    await c.locator('[data-testid="cooked-edit"]').click()
+    const c2 = page.locator('[data-testid="cooked-a-cook-2"]')
+    await expect(c2).toContainText('−130g', { timeout: 10000 })
+    await expect(page.locator('[data-testid="cooked-a-cook"]')).toHaveCount(0)
+    await expect(c2.locator('[data-testid="servings"]')).toContainText('4')
+    await c2.locator('[data-testid="cooked-confirm"]').click()
+    await expect(c2).toContainText('已回写余量')
   })
 })
 
@@ -91,6 +98,7 @@ test.describe('H5 厨房圈', () => {
     await setup(page)
     await page.goto('/#/pages/community/Index')
     await expect(page.locator('[data-testid="topic-banner"]')).toContainText('#一周不重样', { timeout: 15000 })
+    await expect(page.locator('[data-testid="topic-banner"]')).toContainText('第 3 周')
     await expect(page.locator('.flow .col')).toHaveCount(2)
     await expect(page.locator('.pc')).toHaveCount(6)
     await expect(page.locator('.badge.hot').first()).toContainText('照着做')
@@ -121,7 +129,7 @@ test.describe('H5 厨房圈', () => {
 
   test('发布：校验提示 + AI 帮我写 + 隐私提示', async ({ page }) => {
     await setup(page)
-    await page.goto('/#/pkg-community/Create?fromCookRecordId=8&dishId=1&dishName=%E6%BB%91%E8%9B%8B%E8%99%BE%E4%BB%81&images=' + encodeURIComponent('https://mock.gudu.test/img/dish/huadan-xiaren.jpg'))
+    await page.goto('/#/pkg-community/Create?fromFoodLogId=8&dishId=1&dishName=%E6%BB%91%E8%9B%8B%E8%99%BE%E4%BB%81&images=' + encodeURIComponent('https://mock.gudu.test/img/dish/huadan-xiaren.jpg'))
     await expect(page.locator('.from')).toContainText('已带入 1 张照片', { timeout: 15000 })
     await page.locator('[data-testid="publish"]').click()
     await expect(page.locator('.uni-toast, uni-toast')).toContainText('写个标题吧')
@@ -129,6 +137,7 @@ test.describe('H5 厨房圈', () => {
     await expect(page.locator('.ai-text')).toContainText('七成熟')
     await page.locator('[data-testid="ai-use"]').click()
     await expect(page.locator('.privacy')).toContainText('不会带上家庭成员名')
+    await expect(page.locator('.chip')).toHaveCount(3) // GET /community/topics?status=ACTIVE
     await shot(page, 'PostCreate')
   })
 

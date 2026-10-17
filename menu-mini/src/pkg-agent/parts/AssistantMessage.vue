@@ -85,7 +85,7 @@
           :busy="busy === a.actionId"
           @confirm="$emit('confirm', $event)"
           @undo="$emit('undo', $event)"
-          @revise="$emit('revise', $event)"
+          @revise="(a, args) => $emit('revise', a, args)"
         />
         <action-card
           v-else
@@ -119,7 +119,7 @@ import CookedCard from './CookedCard.vue'
 
 const props = defineProps<{
   msg: AgentMessage
-  family: { name: string; avatarUrl?: string | null; tags?: string[] | null }[]
+  family: { id?: number; name: string; avatarUrl?: string | null; tags?: string[] | null }[]
   busy?: string
 }>()
 defineEmits<{
@@ -127,7 +127,7 @@ defineEmits<{
   (e: 'cancel', a: PendingAction): void
   (e: 'undo', a: PendingAction): void
   (e: 'expire', a: PendingAction): void
-  (e: 'revise', text: string): void
+  (e: 'revise', a: PendingAction, args: Record<string, unknown>): void
   (e: 'rate', m: AgentMessage, r: 1 | -1): void
 }>()
 

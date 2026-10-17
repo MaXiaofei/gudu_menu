@@ -22,7 +22,7 @@
         </view>
         <view class="banner-shade" />
         <view class="banner-info">
-          <text class="banner-kicker">本周话题挑战</text>
+          <text class="banner-kicker">话题挑战{{ weekNoText(topic) ? ' · ' + weekNoText(topic) : '' }}</text>
           <text class="banner-name">#{{ topic.name }}</text>
           <text class="banner-sub">{{ countText(topic.participantCount) }} 人参与 · {{ countText(topic.postCount) }} 作品</text>
         </view>
@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { onShow, onPullDownRefresh, onReachBottom, onShareAppMessage } from '@dcloudio/uni-app'
-import { banner, countText, feed, react, toggleLikeLocal, type FeedTab, type PostCard as Post, type Topic } from '@/api/community'
+import { banner, countText, coverHeightRatio, feed, react, toggleLikeLocal, weekNoText, type FeedTab, type PostCard as Post, type Topic } from '@/api/community'
 import type { UserLite } from '@/api/contract'
 import { createCursorList, splitColumns } from '@/utils/cursor'
 import { thumbOf } from '@/utils/image'
@@ -86,8 +86,8 @@ const topic = ref<Topic | null>(null)
 const updates = ref<UserLite[]>([])
 
 const list = createCursorList<Post>((cursor) => feed(tab.value as FeedTab, cursor, { topicId: tab.value === 'topic' ? topic.value?.topicId : undefined }), (p) => p.postId)
-/** 列高 ≈ 图高（1/coverRatio，夹取同卡片）+ 文字区 0.45 */
-const cols = computed(() => splitColumns(list.items, (p) => Math.min(1.6, Math.max(0.75, 1 / (p.coverRatio || 1))) + 0.45))
+/** 列高 ≈ 图高（与卡片同一换算）+ 文字区 0.45 */
+const cols = computed(() => splitColumns(list.items, (p) => coverHeightRatio(p.coverRatio) + 0.45))
 
 let loaded = false
 onShow(() => {

@@ -11,8 +11,21 @@ import {
   agentSuggestions,
   listSessions,
   parseVoiceCommand,
+  reviseAction,
 } from '@/api/agent'
-import { feed, createPost, validatePost, countText, toggleLikeLocal, react, addComment } from '@/api/community'
+import {
+  feed,
+  createPost,
+  validatePost,
+  countText,
+  toggleLikeLocal,
+  react,
+  addComment,
+  coverHeightRatio,
+  toCoverRatio,
+  listTopics,
+  weekNoText,
+} from '@/api/community'
 import { toReviewRows, confidenceLevel, aliasHint, applyJob, pollJob, bestBeforeText } from '@/api/vision'
 import { createDraft, sortedDays, distinctDishCount, radarPoints, linePoints, type MealPlanDraft } from '@/api/mealplan'
 import { coverageLabel, yuan } from '@/api/contract'
@@ -208,5 +221,40 @@ describe('api/agent 本地语音指令', () => {
     expect(parseVoiceCommand('开始计时')).toBe('timer')
     expect(parseVoiceCommand('没有郫县豆瓣酱用什么代替')).toBeNull()
     expect(parseVoiceCommand('')).toBeNull()
+  })
+})
+
+describe('对接已合并后端（厨房圈 / revise）', () => {
+  it('coverRatio 夹到 0.5–2：卡片高宽比 = 1 / coverRatio', () => {
+    expect(coverHeightRatio(0.75)).toBeCloseTo(1.333, 3)
+    expect(coverHeightRatio(0.2)).toBe(2)
+    expect(coverHeightRatio(5)).toBe(0.5)
+    expect(coverHeightRatio(undefined)).toBe(1)
+    expect(toCoverRatio(1080, 1440)).toBe(0.75)
+    expect(toCoverRatio(4000, 1000)).toBe(2)
+    expect(toCoverRatio(0, 10)).toBeUndefined()
+  })
+
+  it('发布：fromFoodLogId + coverRatio 夹取；不再传 fromCookRecordId', async () => {
+    const http = installHttpMock({ 'POST /community/posts': { postId: 1, status: 'PUBLISHED' } })
+    await createPost({ title: '滑蛋虾仁', text: '', imageUrls: ['u'], topicIds: [], visibility: 'PUBLIC', fromFoodLogId: 88, coverRatio: 3 })
+    expect(http.calls[0].data.fromFoodLogId).toBe(88)
+    expect(http.calls[0].data.coverRatio).toBe(2)
+    expect(http.calls[0].data).not.toHaveProperty('fromCookRecordId')
+  })
+
+  it('话题列表 GET /community/topics?status=ACTIVE；weekNo 文案', async () => {
+    const http = installHttpMock({ 'GET /community/topics': [{ topicId: 7, name: '一周不重样', weekNo: 3 }] })
+    const ts = await listTopics()
+    expect(http.calls[0].data).toEqual({ status: 'ACTIVE', size: 10 })
+    expect(weekNoText(ts[0])).toBe('第 3 周')
+    expect(weekNoText({ weekNo: null })).toBe('')
+  })
+
+  it('revise：POST /agent/actions/{id}/revise { args } → 新 PendingAction', async () => {
+    const http = installHttpMock({ 'POST /agent/actions/a-1/revise': { actionId: 'a-2', status: 'PENDING' } })
+    const next = await reviseAction('a-1', { servings: 4, eaterIds: [1, 3] })
+    expect(next.actionId).toBe('a-2')
+    expect(http.calls[0].data).toEqual({ args: { servings: 4, eaterIds: [1, 3] } })
   })
 })

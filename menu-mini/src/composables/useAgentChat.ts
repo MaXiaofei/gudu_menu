@@ -11,6 +11,7 @@ import {
   ensureSession,
   listMessages,
   rateMessage,
+  reviseAction,
   sendMessage,
   undoAction,
   type AgentMessage,
@@ -123,6 +124,24 @@ export function useAgentChat(opts: { context?: MessageContext } = {}) {
     uni.showToast({ title: '已撤销', icon: 'none' })
   }
 
+  /** 修改待确认动作 → 新动作原位替换旧卡（旧卡作废）。 */
+  async function revise(a: PendingAction, args: Record<string, unknown>) {
+    if (busyAction.value) return
+    busyAction.value = a.actionId
+    try {
+      const next = await reviseAction(a.actionId, args)
+      for (const m of messages) {
+        const i = m.actions.findIndex((x) => x.actionId === a.actionId)
+        if (i >= 0) {
+          m.actions.splice(i, 1, next)
+          break
+        }
+      }
+    } finally {
+      busyAction.value = ''
+    }
+  }
+
   function expire(a: PendingAction) {
     if (a.status === 'PENDING') a.status = 'EXPIRED'
   }
@@ -138,5 +157,5 @@ export function useAgentChat(opts: { context?: MessageContext } = {}) {
     }
   }
 
-  return { messages, sessionId, sending, busyAction, init, send, stop, confirm, cancel, undo, expire, rate }
+  return { messages, sessionId, sending, busyAction, init, send, stop, confirm, cancel, undo, revise, expire, rate }
 }

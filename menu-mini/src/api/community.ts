@@ -12,7 +12,7 @@ export interface PostCard {
   author: UserLite
   title: string
   coverUrl: string
-  /** 宽 / 高 */
+  /** 封面宽 / 高（后端 0.5–2），瀑布流按它定卡片高度 */
   coverRatio: number
   imageCount: number
   likeCount: number
@@ -28,6 +28,8 @@ export interface Topic {
   rule: string
   startDate: string
   endDate: string
+  /** 第几期（周） */
+  weekNo?: number | null
   participantCount: number
   postCount: number
   coverUrls: string[]
@@ -70,7 +72,10 @@ export interface CreatePostBody {
   dishId?: number
   topicIds: number[]
   visibility: 'PUBLIC' | 'FOLLOWERS'
-  fromCookRecordId?: number
+  /** 从食记分享：食记列表/详情的 foodLogId */
+  fromFoodLogId?: number
+  /** 封面宽 / 高（可选，0.5–2） */
+  coverRatio?: number
 }
 
 export async function feed(tab: FeedTab, cursor: string | null, opts: { topicId?: number; size?: number } = {}): Promise<CursorPage<PostCard>> {
@@ -81,6 +86,29 @@ export async function feed(tab: FeedTab, cursor: string | null, opts: { topicId?
       data: { tab, topicId: opts.topicId, cursor, size: opts.size ?? 20 },
     }),
   )
+}
+
+/** 封面高 / 宽（瀑布流卡片高度）：coverRatio 夹到后端约定的 0.5–2 再取倒数。 */
+export function coverHeightRatio(coverRatio?: number | null): number {
+  const r = Math.min(2, Math.max(0.5, coverRatio || 1))
+  return 1 / r
+}
+
+/** 宽高 → coverRatio（夹到 0.5–2，两位小数）；拿不到尺寸返回 undefined。 */
+export function toCoverRatio(width?: number, height?: number): number | undefined {
+  if (!width || !height) return undefined
+  return Math.round(Math.min(2, Math.max(0.5, width / height)) * 100) / 100
+}
+
+/** 进行中的话题（发布页选择用）：GET /community/topics?status=ACTIVE */
+export async function listTopics(status: 'ACTIVE' | 'ENDED' = 'ACTIVE', size = 10): Promise<Topic[]> {
+  const r = await request<Topic[] | null>({ url: '/community/topics', method: 'GET', data: { status, size }, silent: true })
+  return Array.isArray(r) ? r : []
+}
+
+/** 话题期数文案：「第 3 周」 */
+export function weekNoText(t?: Pick<Topic, 'weekNo'> | null): string {
+  return t?.weekNo ? `第 ${t.weekNo} 周` : ''
 }
 
 export async function banner(): Promise<{ topic: Topic | null; followingUpdates: UserLite[] }> {
@@ -100,11 +128,9 @@ export function validatePost(b: Pick<CreatePostBody, 'title' | 'text' | 'imageUr
 }
 
 export function createPost(b: CreatePostBody): Promise<{ postId: number; status: string }> {
-  return request({
-    url: '/community/posts',
-    method: 'POST',
-    data: { ...b, title: b.title.trim(), text: (b.text || '').trim(), imageUrls: b.imageUrls.slice(0, 9) },
-  })
+  const data: Record<string, unknown> = { ...b, title: b.title.trim(), text: (b.text || '').trim(), imageUrls: b.imageUrls.slice(0, 9) }
+  if (b.coverRatio !== undefined) data.coverRatio = toCoverRatio(b.coverRatio, 1)
+  return request({ url: '/community/posts', method: 'POST', data })
 }
 
 export function postDetail(id: number): Promise<PostDetail> {

@@ -112,7 +112,7 @@ function shareToCommunity() {
   if (!d) return
   const first = d.dishes.find((x) => x.dishId)
   uni.navigateTo({
-    url: withQuery(PAGES.postCreate, { fromCookRecordId: d.menuId ?? undefined, dishId: first?.dishId ?? undefined, dishName: first?.dishName ?? undefined }),
+    url: withQuery(PAGES.postCreate, { fromFoodLogId: d.foodLogId ?? undefined, dishId: first?.dishId ?? undefined, dishName: first?.dishName ?? undefined }),
   })
 }
 </script>

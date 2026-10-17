@@ -1,6 +1,6 @@
 <template>
   <!-- 做完回写确认卡（mark_cooked，prototype AgentVoice）：成品图 + 人份 + 谁吃了 + 用料去向；
-       改了人份/吃的人 → 「按修改重算」把修改发回咕嘟生成新动作（确认接口不收参数，保证预览与执行一致）。 -->
+       改了人份/吃的人 → 「按修改重算」调 POST /agent/actions/{id}/revise，新动作替换本卡（确认接口不收参数，预览即执行）。 -->
   <view class="cooked" :data-testid="'cooked-' + action.actionId">
     <view class="top">
       <ui-dish-image :src="pv.dish?.coverUrl" :name="pv.dish?.name" :width="64" :height="64" :radius="14" />
@@ -49,7 +49,7 @@
     </view>
 
     <view v-if="action.status === 'PENDING'" class="btns">
-      <view class="btn" data-testid="cooked-edit" @click="onEdit"><ui-icon name="edit" :size="16" /><text class="btn-txt">{{ changed ? '按修改重算' : '改一下' }}</text></view>
+      <view class="btn" data-testid="cooked-edit" @click="onEdit"><ui-icon name="edit" :size="16" /><text class="btn-txt">{{ busy ? '重算中…' : changed ? '按修改重算' : '改一下' }}</text></view>
       <view class="btn primary" data-testid="cooked-confirm" @click="$emit('confirm', action)">
         <text class="btn-txt on">{{ busy ? '回写中…' : '确认回写' }}</text>
       </view>
@@ -70,14 +70,14 @@ import type { MarkCookedPreview, PendingAction } from '@/api/agent'
 
 const props = defineProps<{
   action: PendingAction
-  /** 家庭成员（含未吃的人），用于多选 */
-  family: { name: string; avatarUrl?: string | null; tags?: string[] | null }[]
+  /** 家庭成员（含未吃的人），用于多选；id = memberId */
+  family: { id?: number; name: string; avatarUrl?: string | null; tags?: string[] | null }[]
   busy?: boolean
 }>()
 const emit = defineEmits<{
   (e: 'confirm', a: PendingAction): void
   (e: 'undo', a: PendingAction): void
-  (e: 'revise', text: string): void
+  (e: 'revise', a: PendingAction, args: { servings: number; eaterIds: number[] }): void
 }>()
 
 const pv = computed<MarkCookedPreview>(() => props.action.preview || ({} as MarkCookedPreview))
@@ -90,8 +90,12 @@ watch(pv, (v) => {
 })
 
 const members = computed(() => {
-  const list = [...props.family]
-  for (const e of pv.value.eaters || []) if (!list.some((m) => m.name === e.name)) list.push({ name: e.name, avatarUrl: e.avatarUrl })
+  const list = props.family.map((m) => ({ ...m }))
+  for (const e of pv.value.eaters || []) {
+    const hit = list.find((m) => m.name === e.name)
+    if (hit) hit.id = hit.id ?? e.memberId
+    else list.push({ id: e.memberId, name: e.name, avatarUrl: e.avatarUrl })
+  }
   return list
 })
 function toggle(n: string) {
@@ -112,13 +116,19 @@ const warn = computed(() => {
   return spicy ? `${baby.name}没选：这道菜偏辣偏咸，默认没算她` : ''
 })
 
+/** 修改参数：人份 + 吃的人（memberId）。 */
+function reviseArgs() {
+  const ids = members.value.filter((m) => picked.has(m.name) && m.id).map((m) => m.id as number)
+  return { servings: servings.value, eaterIds: ids }
+}
+
 const statusText = computed(() =>
   props.action.status === 'PENDING' ? '待确认 · 确认后回写余量，5 分钟内可撤销' : props.action.status === 'DONE' ? '已回写' : '',
 )
 
 function onEdit() {
   if (!changed.value) return uni.showToast({ title: '改人份或点头像，再点这里', icon: 'none' })
-  emit('revise', `改一下：做了 ${servings.value} 人份，吃的人是${[...picked].join('、') || '没人'}`)
+  emit('revise', props.action, reviseArgs())
 }
 </script>
 

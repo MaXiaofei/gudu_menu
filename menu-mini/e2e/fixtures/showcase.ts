@@ -53,6 +53,7 @@ export const TOPIC = {
   rule: '每天发布 1 条带 #一周不重样 的作品算打卡；全勤得「不重样」徽章，前 10 名上首页推荐。',
   startDate: '2026-10-12',
   endDate: '2026-10-18',
+  weekNo: 3,
   participantCount: 2130,
   postCount: 16200,
   coverUrls: [DISHES[1].coverUrl, DISHES[6].coverUrl, DISHES[0].coverUrl],
@@ -81,9 +82,36 @@ export const SHOWCASE_HANDLERS: Handler[] = [
   (u) => (/\/agent\/actions\/[^/]+\/confirm$/.test(u.pathname) ? { status: 'DONE', result: {}, undoToken: 'u-1' } : undefined),
   (u) => (/\/agent\/actions\/[^/]+\/cancel$/.test(u.pathname) ? { status: 'CANCELLED' } : undefined),
   (u) => (u.pathname.endsWith('/agent/actions/undo') ? { status: 'UNDONE' } : undefined),
+  (u) =>
+    /\/agent\/actions\/[^/]+\/revise$/.test(u.pathname)
+      ? {
+          actionId: 'a-cook-2',
+          tool: 'mark_cooked',
+          title: '做完回写 · 麻婆豆腐',
+          expiresAt: new Date(Date.now() + 300000).toISOString(),
+          status: 'PENDING',
+          preview: {
+            dish: card(6, { tags: ['偏辣'] }),
+            servings: 4,
+            eaters: [
+              { memberId: 1, name: '小王', avatarUrl: null },
+              { memberId: 2, name: '林林', avatarUrl: null },
+              { memberId: 3, name: '妈妈', avatarUrl: null },
+            ],
+            lines: [
+              { name: '北豆腐', iconKey: 'tofu', delta: '−1 块', after: '余量 0 · 用完了', status: 'USED_UP' },
+              { name: '肉末', iconKey: 'pork', delta: '−130g', after: '剩 170g', status: 'LEFT' },
+            ],
+          },
+        }
+      : undefined,
   (u) => (/\/agent\/messages\/[^/]+\/feedback$/.test(u.pathname) ? {} : undefined),
   // ---- 厨房圈 ----
   (u) => (u.pathname.endsWith('/community/banner') ? { topic: TOPIC, followingUpdates: AUTHORS.slice(0, 5) } : undefined),
+  (u) =>
+    u.pathname.endsWith('/community/topics')
+      ? [TOPIC, { ...TOPIC, topicId: 8, name: '宝宝辅食', weekNo: null }, { ...TOPIC, topicId: 9, name: '快手菜', weekNo: null }]
+      : undefined,
   (u) =>
     u.pathname.endsWith('/community/feed')
       ? u.searchParams.get('tab') === 'follow'

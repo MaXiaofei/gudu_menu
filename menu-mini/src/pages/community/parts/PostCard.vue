@@ -23,17 +23,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { countText, type PostCard } from '@/api/community'
+import { countText, coverHeightRatio, type PostCard } from '@/api/community'
 import { thumbOf } from '@/utils/image'
 
 const props = defineProps<{ post: PostCard }>()
 defineEmits<{ (e: 'open', p: PostCard): void; (e: 'like', p: PostCard): void }>()
 
-/** 高宽比夹在 0.75–1.6，避免极端长图撑爆瀑布流。 */
-const ratioPct = computed(() => {
-  const hw = 1 / (props.post.coverRatio || 1)
-  return `${Math.min(1.6, Math.max(0.75, hw)) * 100}%`
-})
+/** 卡片图高 = 宽 × 高宽比（coverRatio 后端约定 0.5–2）。 */
+const ratioPct = computed(() => `${coverHeightRatio(props.post.coverRatio) * 100}%`)
 const cover = computed(() => thumbOf(props.post.coverUrl))
 const avatar = computed(() => (props.post.author.avatarUrl ? thumbOf(props.post.author.avatarUrl) : null))
 </script>

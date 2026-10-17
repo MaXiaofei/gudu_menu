@@ -123,6 +123,14 @@ export function cancelAction(actionId: string): Promise<{ status: 'CANCELLED' }>
   return request({ url: `/agent/actions/${encodeURIComponent(actionId)}/cancel`, method: 'POST' })
 }
 
+/**
+ * 修改待确认动作（如做完回写改人份 / 吃的人）：POST /agent/actions/{id}/revise { args }
+ * → 新 PendingAction，替换旧卡（旧动作作废）。
+ */
+export function reviseAction(actionId: string, args: Record<string, unknown>): Promise<PendingAction> {
+  return request({ url: `/agent/actions/${encodeURIComponent(actionId)}/revise`, method: 'POST', data: { args } })
+}
+
 export function undoAction(undoToken: string): Promise<{ status: 'UNDONE' }> {
   return request({ url: '/agent/actions/undo', method: 'POST', data: { undoToken } })
 }

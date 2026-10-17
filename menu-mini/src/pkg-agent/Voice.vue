@@ -59,7 +59,7 @@
             @cancel="chat.cancel"
             @undo="chat.undo"
             @expire="chat.expire"
-            @revise="send"
+            @revise="chat.revise"
             @rate="chat.rate"
           />
         </view>
@@ -80,7 +80,7 @@ import AssistantMessage from './parts/AssistantMessage.vue'
 
 const inset = navInset()
 const chat = useAgentChat({ context: { page: 'voice' } })
-const family = ref<{ name: string; avatarUrl?: string | null; tags?: string[] | null }[]>([])
+const family = ref<{ id?: number; name: string; avatarUrl?: string | null; tags?: string[] | null }[]>([])
 const recording = ref(false)
 const uploading = ref(false)
 const transcript = ref('')
@@ -108,7 +108,7 @@ function barH(i: number) {
 
 onLoad(() => {
   listMembers()
-    .then((ms) => (family.value = ms.map((m) => ({ name: m.name, avatarUrl: (m as any).avatarUrl ?? null, tags: m.audienceTags }))))
+    .then((ms) => (family.value = ms.map((m) => ({ id: m.id, name: m.name, avatarUrl: (m as any).avatarUrl ?? null, tags: m.audienceTags }))))
     .catch(() => {})
   chat.init().catch(() => {})
   if (canRecord) {

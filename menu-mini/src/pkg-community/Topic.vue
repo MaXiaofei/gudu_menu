@@ -16,7 +16,7 @@
           <button class="circle share" open-type="share"><ui-icon name="share" :size="18" /></button>
         </view>
         <view class="hero-info">
-          <view class="kicker"><ui-icon name="trophy" tone="white" :size="12" /><text class="kicker-txt">厨房圈话题挑战 · {{ shortDate(topic.startDate) }} – {{ shortDate(topic.endDate) }}</text></view>
+          <view class="kicker"><ui-icon name="trophy" tone="white" :size="12" /><text class="kicker-txt">厨房圈话题挑战{{ weekNoText(topic) ? ' · ' + weekNoText(topic) : '' }} · {{ shortDate(topic.startDate) }} – {{ shortDate(topic.endDate) }}</text></view>
           <text class="name">#{{ topic.name }}</text>
           <text class="intro">{{ topic.intro }}</text>
           <view class="stats">
@@ -99,7 +99,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
-import { countText, feed, topicDetail, type PostCard, type TopicDetail } from '@/api/community'
+import { countText, feed, topicDetail, weekNoText, type PostCard, type TopicDetail } from '@/api/community'
 import { createCursorList } from '@/utils/cursor'
 import { thumbOf } from '@/utils/image'
 import { statusBarHeight } from '@/utils/token'

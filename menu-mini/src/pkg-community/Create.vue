@@ -17,7 +17,7 @@
           <ui-dish-image :src="images[0]" :name="dishName" :width="44" :height="44" :radius="10" />
           <view class="from-main">
             <text class="from-title">从食记带入</text>
-            <text class="from-sub">{{ dishName }} · 已带入 {{ images.length }} 张照片</text>
+            <text class="from-sub">{{ dishName }}{{ images.length ? ` · 已带入 ${images.length} 张照片` : ' · 加几张成品照吧' }}</text>
           </view>
         </view>
 
@@ -122,7 +122,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { aiText, banner, createPost, validatePost } from '@/api/community'
+import { aiText, createPost, listTopics, toCoverRatio, validatePost } from '@/api/community'
 import { chooseImages, uploadImage } from '@/api/upload'
 import { searchDishes, type Dish } from '@/api/dish'
 import { navInset } from '@/utils/token'
@@ -136,7 +136,9 @@ const text = ref('')
 const dish = ref<{ id: number; name: string; coverUrl: string | null } | null>(null)
 const dishName = ref('')
 const fromLog = ref(false)
-const cookRecordId = ref<number | undefined>()
+const foodLogId = ref<number | undefined>()
+/** 封面宽/高（选图时用 getImageInfo 取尺寸；从食记带入的图不知道尺寸则不传） */
+const ratios = ref<Record<string, number>>({})
 const topicIds = ref<number[]>([])
 const topicOptions = ref<{ topicId: number; name: string }[]>([])
 const visibility = ref<'PUBLIC' | 'FOLLOWERS'>('PUBLIC')
@@ -150,9 +152,11 @@ const results = ref<Dish[]>([])
 const searching = ref(false)
 
 onLoad((q: any) => {
-  if (q?.fromCookRecordId) {
+  if (q?.fromFoodLogId) {
     fromLog.value = true
-    cookRecordId.value = Number(q.fromCookRecordId)
+    foodLogId.value = Number(q.fromFoodLogId)
+  } else if (q?.dishId && q?.dishName) {
+    fromLog.value = true // 食记没有做菜记录（foodLogId 为空）时仍按「从食记带入」展示
   }
   if (q?.images) images.value = decodeURIComponent(q.images).split(',').filter(Boolean).slice(0, 9)
   if (q?.dishId) {
@@ -160,13 +164,10 @@ onLoad((q: any) => {
     dish.value = { id: Number(q.dishId), name: dishName.value, coverUrl: images.value[0] || null }
   }
   const presetTopic = Number(q?.topicId) || 0
-  banner()
-    .then((b) => {
-      if (b.topic) topicOptions.value = [{ topicId: b.topic.topicId, name: b.topic.name }]
-      if (presetTopic && b.topic?.topicId === presetTopic) topicIds.value = [presetTopic]
-    })
-    .catch(() => {})
   if (presetTopic) topicIds.value = [presetTopic]
+  listTopics('ACTIVE')
+    .then((ts) => (topicOptions.value = ts.map((t) => ({ topicId: t.topicId, name: t.name }))))
+    .catch(() => {})
 })
 
 async function addPhotos() {
@@ -175,7 +176,12 @@ async function addPhotos() {
   if (!paths.length) return
   uploading.value = true
   try {
-    for (const p of paths) images.value.push((await uploadImage(p)).url)
+    for (const p of paths) {
+      const [up, info] = await Promise.all([uploadImage(p), uni.getImageInfo({ src: p }).catch(() => null)])
+      images.value.push(up.url)
+      const r = toCoverRatio((info as any)?.width, (info as any)?.height)
+      if (r) ratios.value[up.url] = r
+    }
   } catch {
     uni.showToast({ title: '有照片没传上去', icon: 'none' })
   } finally {
@@ -194,7 +200,8 @@ async function runAi(style: 'default' | 'casual' | 'short') {
   aiLoading.value = true
   aiDraft.value = ''
   try {
-    const r = await aiText({ dishId: dish.value?.id, cookRecordId: cookRecordId.value, imageUrls: images.value.slice(0, 3), style })
+    // 后端 ai-text 的 cookRecordId 与 foodLogId 同源（做菜记录 id）
+    const r = await aiText({ dishId: dish.value?.id, cookRecordId: foodLogId.value, imageUrls: images.value.slice(0, 3), style })
     aiDraft.value = r.text
   } catch {
     aiDraft.value = ''
@@ -238,7 +245,8 @@ async function onPublish() {
       dishId: dish.value?.id,
       topicIds: topicIds.value,
       visibility: visibility.value,
-      fromCookRecordId: cookRecordId.value,
+      fromFoodLogId: foodLogId.value,
+      coverRatio: ratios.value[images.value[0]],
     })
     uni.showToast({ title: r.status === 'PUBLISHED' ? '发布成功' : '已提交，审核后可见', icon: 'none' })
     setTimeout(() => uni.redirectTo({ url: withQuery(PAGES.post, { id: r.postId }) }), 500)

@@ -31,7 +31,7 @@
             @cancel="chat.cancel"
             @undo="chat.undo"
             @expire="chat.expire"
-            @revise="ask"
+            @revise="chat.revise"
             @rate="chat.rate"
           />
         </view>
@@ -81,7 +81,7 @@ const inset = navInset()
 const chat = useAgentChat()
 const text = ref('')
 const anchor = ref('')
-const family = ref<{ name: string; avatarUrl?: string | null; tags?: string[] | null }[]>([])
+const family = ref<{ id?: number; name: string; avatarUrl?: string | null; tags?: string[] | null }[]>([])
 const now = new Date()
 const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
@@ -101,7 +101,7 @@ const followUps = computed(() => {
 
 onLoad(async (q: any) => {
   listMembers()
-    .then((ms) => (family.value = ms.map((m) => ({ name: m.name, avatarUrl: (m as any).avatarUrl ?? null, tags: m.audienceTags }))))
+    .then((ms) => (family.value = ms.map((m) => ({ id: m.id, name: m.name, avatarUrl: (m as any).avatarUrl ?? null, tags: m.audienceTags }))))
     .catch(() => {})
   try {
     if (q?.sessionId) await chat.init(q.sessionId, true)
