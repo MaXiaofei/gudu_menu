@@ -66,7 +66,10 @@ void main() {
     // 登录（登录页无预填用户名，需两项都输入）
     await tester.enterText(find.byType(TextField).at(0), 'admin');
     await tester.enterText(find.byType(TextField).at(1), '123456');
+    await tester.ensureVisible(find.byKey(const Key('login-agree')));
     await tester.tap(find.byKey(const Key('login-agree')));
+    await tester.pump();
+    await tester.ensureVisible(find.text('登录'));
     await tester.tap(find.text('登录'));
     await tester.pumpAndSettle();
   }

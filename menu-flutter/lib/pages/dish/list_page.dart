@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/image_helper.dart';
+import 'package:provider/provider.dart';
+
 import '../../core/app_theme.dart';
 import '../../models/dish.dart';
+import '../../models/member.dart';
 import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
 import '../../services/menu_service.dart';
+import '../../stores/member_store.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/loading_empty.dart';
-import '../../widgets/select_chip.dart';
-import '../../widgets/status_chip.dart';
+import '../../widgets/member_avatar.dart';
 import '../../widgets/search_box.dart';
+import '../../widgets/select_chip.dart';
+import '../../widgets/skeleton.dart';
+import 'dish_cards.dart';
 
 /// 排序：cooked=做过最多；latest=最新；coverage=家里够的优先（G3）。
 enum _SortMode { cooked, latest, coverage }
@@ -162,105 +167,146 @@ class _DishListPageState extends State<DishListPage> {
     if (mounted) setState(() => _loading = false);
   }
 
+  /// 当前家里的成员（无 Provider 时——如单测直接 pump 本页——返回空）。
+  List<Member> _members(BuildContext context) {
+    try {
+      return Provider.of<MemberStore>(context).members;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  bool get _browsing => widget.selectForMenuId == null;
+
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
+    final ts = t.textStyles;
+    final members = _members(context);
     return Scaffold(
       backgroundColor: t.bg,
-      // DESIGN.md §13：Tab 主页无标题（不放「菜谱」），顶部用 ActionBar。
-      // 菜谱页无操作，ActionBar() 不传 action → 返回 SizedBox.shrink。
+      floatingActionButton: _browsing
+          ? FloatingActionButton.extended(
+              heroTag: 'dish-create',
+              backgroundColor: t.title,
+              foregroundColor: t.card,
+              elevation: 2,
+              shape: const StadiumBorder(),
+              onPressed: () => context.push('/create-dish'),
+              icon: const Icon(Icons.add_rounded),
+              label: Text('写菜谱', style: ts.cardTitle.copyWith(color: t.card)),
+            )
+          : null,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // 顶部：picker 模式（食集「+ 加菜」push 进入）显示返回箭头；Tab 主页用 ActionBar
-            if (widget.selectForMenuId != null)
+            if (!_browsing)
+              const BackHeader(title: '选择要加入的菜')
+            else
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp4),
                 child: Row(
                   children: [
-                    GestureDetector(
-                      onTap: () => context.pop(),
-                      child: Text('‹',
-                          style: TextStyle(
-                              fontSize: 22,
-                              color: t.title,
-                              fontWeight: FontWeight.w800)),
-                    ),
-                    const Spacer(),
+                    Expanded(child: Text('菜谱', style: ts.h2)),
+                    if (members.isNotEmpty)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(AppTokens.rPill),
+                        onTap: () => context.push('/members'),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(AppTokens.sp4, AppTokens.sp4, AppTokens.sp10, AppTokens.sp4),
+                          decoration: BoxDecoration(
+                            color: t.card,
+                            border: Border.all(color: t.border),
+                            borderRadius: BorderRadius.circular(AppTokens.rPill),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AvatarStack(
+                                size: 24,
+                                max: 3,
+                                people: [for (final m in members) (name: m.name, avatarUrl: m.avatarUrl)],
+                              ),
+                              const SizedBox(width: AppTokens.sp6),
+                              Text('我的家 · ${members.length} 人', style: ts.caption.copyWith(color: t.title)),
+                              Icon(Icons.expand_more_rounded, size: 16, color: t.body),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-              )
-            else
-              // 写菜谱入口已迁到「我的」Tab（§16）；菜谱页无操作
-              const ActionBar(),
-            if (widget.selectForMenuId != null) _buildSelectHint(t),
+              ),
             _buildSearchBox(t),
-            if (_tags.isNotEmpty) _buildTagBar(t),
-            if (_cuisines.isNotEmpty) _buildCuisineBar(t),
             _buildSortBar(t),
             Expanded(
               child: _firstLoading
-                  ? const LoadingView()
+                  ? const SkeletonList(count: 5, thumb: 84)
                   : _loadFailed
-                  ? ErrorView(text: '菜谱加载失败', onRetry: _reload)
-                  : RefreshIndicator(
-                      color: t.primary,
-                      onRefresh: _reload,
-                      child: _dishes.isEmpty
-                          ? ListView(
-                              children: const [SizedBox(height: 200), EmptyView(text: '暂无菜品')])
-                          : ListView.builder(
-                              controller: _scroll,
-                              padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12),
-                              itemCount: _dishes.length + 1,
-                              itemBuilder: (_, i) {
-                                if (i == _dishes.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Center(
-                                      child: Text(
-                                        _hasMore ? '上拉加载更多' : '没有更多了',
-                                        style: t.textStyles.caption,
-                                      ),
-                                    ),
-                                  );
-                                }
-                                final dish = _dishes[i];
-                                final card = _DishCard(
-                                  dish: dish,
-                                  onTapOverride: widget.selectForMenuId != null
-                                      ? () => _addToMenu(dish)
-                                      : null,
-                                );
-                                // 选择模式（加菜）不删除；普通浏览支持左滑删除错误菜谱
-                                if (widget.selectForMenuId != null) return card;
-                                return Dismissible(
-                                  key: ValueKey('dish-${dish.id}'),
-                                  direction: DismissDirection.endToStart,
-                                  background: Container(
-                                    margin: const EdgeInsets.only(bottom: 7),
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.only(right: 20),
-                                    decoration: BoxDecoration(
-                                      color: AppTokens.error,
-                                      borderRadius: BorderRadius.circular(AppTokens.rMd),
-                                    ),
-                                    child: const Icon(Icons.delete_outline,
-                                        color: Colors.white),
+                      ? ErrorView(text: '菜谱加载失败', onRetry: _reload)
+                      : RefreshIndicator(
+                          color: t.primary,
+                          onRefresh: _reload,
+                          child: _dishes.isEmpty
+                              ? ListView(children: [
+                                  const SizedBox(height: 80),
+                                  EmptyView(
+                                    text: '暂无菜品',
+                                    subtitle: '写下家里常做的菜，或从链接导入',
+                                    actionLabel: _browsing ? '写菜谱' : null,
+                                    onAction: _browsing ? () => context.push('/create-dish') : null,
                                   ),
-                                  confirmDismiss: (_) => _confirmDelete(dish),
-                                  onDismissed: (_) {
-                                    setState(() =>
-                                        _dishes.removeWhere((d) => d.id == dish.id));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('已删除「${dish.name}」')));
+                                ])
+                              : ListView.builder(
+                                  controller: _scroll,
+                                  padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp4, AppTokens.sp16, 96),
+                                  itemCount: _dishes.length + 1,
+                                  itemBuilder: (_, i) {
+                                    if (i == _dishes.length) {
+                                      return Padding(
+                                        padding: const EdgeInsets.all(AppTokens.sp16),
+                                        child: Center(
+                                          child: Text(_hasMore ? '上拉加载更多' : '没有更多了', style: ts.caption),
+                                        ),
+                                      );
+                                    }
+                                    final dish = _dishes[i];
+                                    final featured = _browsing &&
+                                        i == 0 &&
+                                        (dish.coverUrl ?? '').isNotEmpty &&
+                                        _keywordCtrl.text.trim().isEmpty;
+                                    final card = featured
+                                        ? FeaturedDishCard(dish: dish)
+                                        : DishRowCard(
+                                            dish: dish,
+                                            onTapOverride: _browsing ? null : () => _addToMenu(dish),
+                                          );
+                                    if (!_browsing) return card;
+                                    return Dismissible(
+                                      key: ValueKey('dish-${dish.id}'),
+                                      direction: DismissDirection.endToStart,
+                                      background: Container(
+                                        margin: const EdgeInsets.only(bottom: AppTokens.sp10),
+                                        alignment: Alignment.centerRight,
+                                        padding: const EdgeInsets.only(right: AppTokens.sp20),
+                                        decoration: BoxDecoration(
+                                          color: AppTokens.error,
+                                          borderRadius: BorderRadius.circular(AppTokens.rLg),
+                                        ),
+                                        child: Icon(Icons.delete_outline, color: t.card),
+                                      ),
+                                      confirmDismiss: (_) => _confirmDelete(dish),
+                                      onDismissed: (_) {
+                                        setState(() => _dishes.removeWhere((d) => d.id == dish.id));
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(SnackBar(content: Text('已删除「${dish.name}」')));
+                                      },
+                                      child: card,
+                                    );
                                   },
-                                  child: card,
-                                );
-                              },
-                            ),
-                    ),
+                                ),
+                        ),
             ),
           ],
         ),
@@ -268,23 +314,52 @@ class _DishListPageState extends State<DishListPage> {
     );
   }
 
-  /// 选择模式提示条（从食集详情「+ 加菜」进来时显示）。
-  Widget _buildSelectHint(AppTokens t) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, AppTokens.sp4, 14, 0),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.sp12, vertical: 8),
-        decoration: BoxDecoration(
-          color: t.highlight,
-          borderRadius: BorderRadius.circular(AppTokens.rSm),
-          border: Border.all(color: t.primarySoft),
-        ),
-        child: Text('选择要加入的菜',
-            style: t.textStyles.sm.copyWith(color: t.title)),
-      ),
+  /// 筛选弹层：分类 + 菜系（原型「筛选」芯片）。
+  Future<void> _openFilter() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final t = AppTokens.of(ctx);
+        final ts = t.textStyles;
+        return StatefulBuilder(builder: (ctx, setSheet) {
+          Widget group(String title, List<DictItem> dict, int? sel, ValueChanged<int?> onSel) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: ts.lg),
+                  const SizedBox(height: AppTokens.sp8),
+                  Wrap(spacing: AppTokens.sp8, runSpacing: AppTokens.sp8, children: [
+                    SelectChip(label: '全部', selected: sel == null, onTap: () => onSel(null)),
+                    for (final d in dict) SelectChip(label: d.name, selected: sel == d.id, onTap: () => onSel(d.id)),
+                  ]),
+                  const SizedBox(height: AppTokens.sp16),
+                ],
+              );
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(AppTokens.sp16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_tags.isNotEmpty)
+                    group('分类', _tags, _selectedTagId, (id) => setSheet(() => _selectedTagId = id)),
+                  if (_cuisines.isNotEmpty)
+                    group('菜系', _cuisines, _selectedCuisineId, (id) => setSheet(() => _selectedCuisineId = id)),
+                  if (_tags.isEmpty && _cuisines.isEmpty) Text('暂无可用筛选', style: ts.body),
+                  const SizedBox(height: AppTokens.sp8),
+                  ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('看结果')),
+                ],
+              ),
+            ),
+          );
+        });
+      },
     );
+    if (mounted) {
+      setState(() {});
+      _reload();
+    }
   }
 
   /// 选择模式：把菜加入目标食集，提示后返回。
@@ -342,78 +417,35 @@ class _DishListPageState extends State<DishListPage> {
   /// （原型 cookbook-search.html 行16-23）
   Widget _buildSearchBox(AppTokens t) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, AppTokens.sp4, 14, AppTokens.sp8),
+      padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp4),
       // 统一搜索框（DESIGN.md §11.1.2）：白底细边框单层 + 框内放大镜 + 14px hint
       child: SearchBox(
         controller: _keywordCtrl,
         focusNode: _searchFocus,
-        hint: '搜菜名',
+        hint: '搜菜名、食材',
         customCursor: true,
         onSubmitted: (_) => _reload(),
       ),
     );
   }
 
-  /// 分类标签行：全部 + tag 横排横向滚动，选中深色高亮（原型行26-32）。
-  Widget _buildTagBar(AppTokens t) {
-    return _dictBar(t, _tags, _selectedTagId, (id) {
-      setState(() => _selectedTagId = id);
-      _reload();
-    });
-  }
-
-  /// 菜系标签行：全部 + cuisine 横排，与分类同款样式（§16，参考下厨房 APP 筛选栏）。
-  Widget _buildCuisineBar(AppTokens t) {
-    return _dictBar(t, _cuisines, _selectedCuisineId, (id) {
-      setState(() => _selectedCuisineId = id);
-      _reload();
-    });
-  }
-
-  /// 筛选标签行共用：首项「全部」+ 字典 chips，横向滚动，选中深色高亮。
-  Widget _dictBar(
-      AppTokens t, List<DictItem> dict, int? selectedId, ValueChanged<int?> onSelect) {
+  Widget _buildSortBar(AppTokens t) {
+    final filtered = _selectedTagId != null || _selectedCuisineId != null;
     return SizedBox(
-      height: 36,
+      height: 44,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(
-            AppTokens.sp12, 0, AppTokens.sp12, AppTokens.sp8),
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16, vertical: AppTokens.sp6),
         children: [
-          _dictChip(t, null, '全部', selectedId == null, () => onSelect(null)),
-          ...dict.map((item) => Padding(
-                padding: const EdgeInsets.only(left: 6),
-                child: _dictChip(
-                    t, item.id, item.name, selectedId == item.id, () => onSelect(item.id)),
-              )),
-        ],
-      ),
-    );
-  }
-
-  Widget _dictChip(AppTokens t, int? id, String name, bool selected, VoidCallback onTap) {
-    return SelectChip(label: name, selected: selected, onTap: onTap);
-  }
-
-  Widget _buildSortBar(AppTokens t) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppTokens.sp12, 0, AppTokens.sp12, AppTokens.sp4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('$_total 道', style: t.textStyles.xs),
-          // 排序选项（下厨房式：横排可切换，选中深色高亮）
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _sortChip(t, '最新', _SortMode.latest),
-              const SizedBox(width: 6),
-              _sortChip(t, '做过最多', _SortMode.cooked),
-              const SizedBox(width: 6),
-              _sortChip(t, '家里够的优先', _SortMode.coverage),
-            ],
-          ),
+          _sortChip(t, '家里够的优先', _SortMode.coverage),
+          const SizedBox(width: AppTokens.sp8),
+          _sortChip(t, '做得最多', _SortMode.cooked),
+          const SizedBox(width: AppTokens.sp8),
+          _sortChip(t, '最新', _SortMode.latest),
+          const SizedBox(width: AppTokens.sp8),
+          SelectChip(label: filtered ? '筛选 · 已选' : '筛选', selected: filtered, onTap: _openFilter),
+          const SizedBox(width: AppTokens.sp12),
+          Center(child: Text('$_total 道', style: t.textStyles.caption)),
         ],
       ),
     );
@@ -429,97 +461,6 @@ class _DishListPageState extends State<DishListPage> {
         setState(() => _sort = mode);
         _reload();
       },
-    );
-  }
-}
-
-/// 列表卡片：白底 + 1px描边 + 12px圆角 + margin间距 + 横向布局
-/// （44px缩略图 + 菜名 + 做过N次·时间）（原型行40-71）。
-class _DishCard extends StatelessWidget {
-  final Dish dish;
-  /// 选择模式：非空时点击走此回调（加菜），否则默认进菜谱详情。
-  final VoidCallback? onTapOverride;
-  const _DishCard({required this.dish, this.onTapOverride});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    final hasCover = dish.coverUrl != null && dish.coverUrl!.isNotEmpty;
-    final thumbUrl = hasCover
-        ? ImageHelper.toThumbnail(ImageHelper.toAbsolute(dish.coverUrl!))
-        : null;
-
-    return GestureDetector(
-      onTap: onTapOverride ?? () => context.push('/dish/${dish.id}'),
-      child: Container(
-      margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
-        border: Border.all(color: t.border),
-      ),
-      child: Row(
-        children: [
-          // 44px 缩略图，11px 圆角（原型 border-radius:11px）
-          ClipRRect(
-            borderRadius: BorderRadius.circular(11),
-            child: SizedBox(
-              width: 44,
-              height: 44,
-              child: thumbUrl != null
-                  ? Image.network(
-                      thumbUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder(t, dish.name),
-                      loadingBuilder: (_, child, progress) =>
-                          progress == null ? child : _placeholder(t, dish.name),
-                    )
-                  : _placeholder(t, dish.name),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(dish.name, style: t.textStyles.cardTitle),
-                const SizedBox(height: 1),
-                Text(
-                  [
-                    dish.cookedCount > 0 ? '做过 ${dish.cookedCount} 次' : '没做过',
-                    '${dish.cookTime ?? 0} 分',
-                  ].join(' · '),
-                  style: t.textStyles.tiny,
-                ),
-              ],
-            ),
-          ),
-          // 家里够 X/Y 样（本家余量覆盖，G3；未登录/无可计用料不显示）
-          if (dish.coverage != null && dish.coverage!.label.isNotEmpty)
-            StatusChip(
-              label: dish.coverage!.label,
-              color: coverageColor(t, dish.coverage!),
-            ),
-        ],
-      ),
-      ),
-    );
-  }
-
-  /// 无封面图时的占位：奶油色底 + 菜名首字（DESIGN.md §10.4，不用 emoji 顶替图片）。
-  Widget _placeholder(AppTokens t, String name) {
-    final initial = name.trim().isNotEmpty ? name.trim().characters.first : '菜';
-    return Container(
-      color: t.secondary, // 原型 #FBF0DD，走 token 不裸色值（DESIGN.md §11.2）
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: t.textStyles.lg.copyWith(
-          color: t.title.withAlpha(115), // ≈ 0.45 透明度
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }

@@ -80,7 +80,7 @@ class RecentCooked {
   factory RecentCooked.fromJson(Map<String, dynamic> j) => RecentCooked(
         dishId: (j['dishId'] as num).toInt(),
         name: (j['name'] ?? '') as String,
-        coverImage: j['coverImage'] as String?,
+        coverImage: (j['coverUrl'] ?? j['coverImage']) as String?,
         lastCookedAt: DateTime.tryParse(j['lastCookedAt']?.toString() ?? ''),
         cookedCount: (j['cookedCount'] as num?)?.toInt() ?? 0,
       );

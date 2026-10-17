@@ -49,6 +49,21 @@ class AppTokens extends ThemeExtension<AppTokens> {
   static const Color error = Color(0xFFDB5A4E);
   static const Color info = Color(0xFF4FA0D0);
 
+  // —— 功能色的深色文字档 / 浅底（彩色底上的小字用深色档，WCAG ≥4.5，原型 Tokens 页）——
+  static const Color successText = Color(0xFF2F7347);
+  static const Color warningText = Color(0xFF8A5A22);
+  static const Color errorText = Color(0xFF9A2E22);
+  static const Color infoText = Color(0xFF2F6A8C);
+  static const Color successBg = Color(0xFFF0F8EE);
+  static const Color warningBg = Color(0xFFFFF7EC);
+  static const Color errorBg = Color(0xFFFBE4E1);
+  static const Color infoBg = Color(0xFFE8F3FA);
+
+  /// 照片上的叠加文字/按钮（与皮肤无关：照片上始终白字 + 暗渐变）。
+  static const Color onPhoto = Color(0xFFFFFFFF);
+  static const Color photoScrim = Color(0x8C000000); // ≈ .55
+  static const Color photoScrimStrong = Color(0xCC000000); // ≈ .80（大图卡底部文字区）
+
   /// 圆角阶梯（7 档，对齐 DESIGN.md §4）
   /// 实际值：2 / 4 / 8 / 12 / 16 / 22 / 999
   static const double r2 = 2;   // 小色条 / 进度条 / 细分割块
@@ -212,11 +227,12 @@ ThemeData buildBrandTheme(AppTokens t) {
       space: 1,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
+      // 主按钮底色 primaryDeep：primary 上白字对比度不足（奶油 2.44:1），原型 Components 页定稿
       style: ElevatedButton.styleFrom(
-        backgroundColor: t.primary,
+        backgroundColor: t.primaryDeep,
         foregroundColor: Colors.white,
-        disabledBackgroundColor: t.caption,
-        disabledForegroundColor: Colors.white,
+        disabledBackgroundColor: t.primarySoft,
+        disabledForegroundColor: t.accent,
         minimumSize: const Size(double.infinity, 48),
         elevation: 0,
         // 按钮文案统一：15/w800 白字（此前各页手写 w800 不一，字号缺省）
@@ -230,16 +246,18 @@ ThemeData buildBrandTheme(AppTokens t) {
     // 文字按钮统一：14/w700 主色（危险操作在页面侧 copyWith error 色）
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: t.primary,
+        foregroundColor: t.primaryDeep,
         textStyle: const TextStyle(
             fontSize: 14, fontWeight: FontWeight.w700, height: 1.2),
       ),
     ),
     // 描边按钮统一：14/w700 主色 + 主色描边 + 48 高（与主按钮同尺寸语言）
     outlinedButtonTheme: OutlinedButtonThemeData(
+      // 次按钮：白底描边、标题色字（原型 ghost 按钮）
       style: OutlinedButton.styleFrom(
-        foregroundColor: t.primary,
-        side: BorderSide(color: t.primary, width: 1.5),
+        foregroundColor: t.title,
+        backgroundColor: t.card,
+        side: BorderSide(color: t.border, width: 1),
         minimumSize: const Size(double.infinity, 48),
         textStyle: const TextStyle(
             fontSize: 14, fontWeight: FontWeight.w700, height: 1.2),
@@ -386,9 +404,9 @@ class VxTextStyles {
       lg:       TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: t.title, height: 1.4),
       md:       TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: t.body,  height: 1.5),
       sm:       TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: t.body,  height: 1.5),
-      xs:       TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: t.caption, height: 1.4),
-      tiny:     TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: t.caption, height: 1.4),
-      micro:    TextStyle(fontSize:  9, fontWeight: FontWeight.w800, color: t.caption, height: 1.4),
+      xs:       TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: t.body, height: 1.4),
+      tiny:     TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: t.body, height: 1.4),
+      micro:    TextStyle(fontSize:  9, fontWeight: FontWeight.w800, color: t.body, height: 1.4),
     );
   }
 

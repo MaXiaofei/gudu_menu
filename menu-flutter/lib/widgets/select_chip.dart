@@ -33,16 +33,18 @@ class SelectChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: AppTokens.sp6),
         decoration: BoxDecoration(
           color: selected ? t.title : t.card,
-          borderRadius: BorderRadius.circular(AppTokens.rSm),
+          // 原型（Components「筛选芯片」）：胶囊形
+          borderRadius: BorderRadius.circular(AppTokens.rPill),
           border: selected ? null : Border.all(color: t.border),
         ),
         child: Text(
           label,
-          style: t.textStyles.sectionLabel.copyWith(
-            color: selected ? Colors.white : (semanticColor ?? t.body),
+          style: t.textStyles.caption.copyWith(
+            color: selected ? t.card : (semanticColor ?? t.body),
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
           ),
         ),
       ),

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
-import '../../core/image_helper.dart';
 import '../../models/menu.dart';
 import '../../services/menu_service.dart';
-import '../../widgets/action_bar.dart';
+import '../../widgets/dish_image.dart';
+import '../../widgets/illustration.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/select_chip.dart';
+import '../../widgets/skeleton.dart';
+import '../../widgets/tone_badge.dart';
 
 /// 食集列表（对应后端 GET /menu）。
 /// 分页（pageSize=20，按创建时间倒序）+ 下拉刷新 + 上拉加载更多。
@@ -175,10 +177,10 @@ class _MenuListPageState extends State<MenuListPage> {
       padding: const EdgeInsets.only(right: AppTokens.sp16),
       margin: const EdgeInsets.only(bottom: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFE53935),
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
+        color: AppTokens.error,
+        borderRadius: BorderRadius.circular(AppTokens.rLg),
       ),
-      child: const Icon(Icons.delete_outline, color: Colors.white),
+      child: Icon(Icons.delete_outline, color: t.card),
     );
   }
 
@@ -234,93 +236,96 @@ class _MenuListPageState extends State<MenuListPage> {
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
+    final ts = t.textStyles;
+    // 「全部」下第一个进行中的食集做成拼图大卡（原型 Menus「进行中」）
+    final heroIndex = _status == 'DONE' ? -1 : _menus.indexWhere((m) => !m.isDone);
     return Scaffold(
       backgroundColor: t.bg,
-      // DESIGN.md §13：Tab 主页无标题，顶部 ActionBar 放「新建食集」（右对齐，库存页同款样式）。
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            ActionBar(
-              action: _topButton(
-                label: '新建食集',
-                filled: true,
-                onTap: _createMenu,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, 0),
+              child: Row(
+                children: [
+                  Expanded(child: Text('食集', style: ts.h2)),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp16),
+                      shape: const StadiumBorder(),
+                    ),
+                    onPressed: _createMenu,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('新食集'),
+                  ),
+                ],
               ),
             ),
             _buildStatusBar(t),
             Expanded(
               child: _firstLoading
-                  ? const LoadingView()
+                  ? const SkeletonList(count: 4, thumb: 64)
                   : RefreshIndicator(
                       color: t.primary,
                       onRefresh: _reload,
                       child: _menus.isEmpty
                           ? ListView(
-                              children: const [
-                                // 空态不放 CTA：右上角「新建食集」按钮已在同一屏（§13.1 操作右对齐），避免双入口
-                                EmptyView(text: '还没有食集'),
+                              children: [
+                                const SizedBox(height: 60),
+                                EmptyView(
+                                  text: '还没有食集',
+                                  subtitle: '把一顿饭要做的菜放在一起，备菜、采购、一起点菜都在这里',
+                                  illustration: const StateIllustration(keys: ['rice', 'fish', 'broccoli']),
+                                  actionLabel: '新建食集',
+                                  onAction: _createMenu,
+                                ),
                               ],
                             )
                           : ListView.builder(
                               controller: _scroll,
-                              padding: const EdgeInsets.fromLTRB(AppTokens.sp12,
-                                  AppTokens.sp4, AppTokens.sp12, AppTokens.sp16),
+                              padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp4, AppTokens.sp16, AppTokens.sp24),
                               itemCount: _menus.length + 1,
                               itemBuilder: (_, i) {
                                 if (i == _menus.length) {
                                   return Padding(
                                     padding: const EdgeInsets.all(AppTokens.sp16),
-                                    child: Center(
-                                      child: Text(
-                                        _hasMore ? '上拉加载更多' : '没有更多了',
-                                        style: t.textStyles.caption,
-                                      ),
-                                    ),
+                                    child: Center(child: Text(_hasMore ? '上拉加载更多' : '没有更多了', style: ts.caption)),
                                   );
                                 }
                                 final menu = _menus[i];
+                                final names = _dishNames[menu.id] ?? const <String>[];
+                                final card = i == heroIndex
+                                    ? _ActiveMenuCard(menu: menu, dishNames: names)
+                                    : _MenuCard(menu: menu, dishNames: names);
+                                final label = i == heroIndex
+                                    ? '进行中'
+                                    : (heroIndex >= 0 && i == (heroIndex == 0 ? 1 : 0) ? '其他食集' : null);
                                 return Dismissible(
                                   key: ValueKey(menu.id),
                                   direction: DismissDirection.endToStart,
                                   background: _dismissBackground(t),
                                   confirmDismiss: (_) => _confirmDelete(menu),
-                                  child: _MenuCard(
-                                    menu: menu,
-                                    dishNames: _dishNames[menu.id] ?? const [],
-                                  ),
+                                  child: label == null
+                                      ? card
+                                      : Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Padding(
+                                              padding: EdgeInsets.only(
+                                                  top: i == 0 ? 0 : AppTokens.sp12, bottom: AppTokens.sp8),
+                                              child: Text(label, style: ts.sectionLabel),
+                                            ),
+                                            card,
+                                          ],
+                                        ),
                                 );
                               },
                             ),
                     ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// 右上角主按钮（库存页同款：深棕实底白字、8px 圆角、11/w700）。
-  Widget _topButton({
-    required String label,
-    required bool filled,
-    required VoidCallback onTap,
-  }) {
-    final t = AppTokens.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
-        decoration: BoxDecoration(
-          color: filled ? t.title : t.card,
-          border: filled ? null : Border.all(color: t.border),
-          borderRadius: BorderRadius.circular(AppTokens.rSm),
-        ),
-        child: Text(
-          label,
-          style: t.textStyles.sectionLabel.copyWith(
-            color: filled ? Colors.white : t.body,
-          ),
         ),
       ),
     );
@@ -353,67 +358,75 @@ class _MenuListPageState extends State<MenuListPage> {
   }
 }
 
-/// 食集卡片（原型 menu-list-preview.html）。
-/// 进行中=高亮卡（highlight 底 + primarySoft 描边）；已完成=普通卡。
-class _MenuCard extends StatelessWidget {
+const _week = ['一', '二', '三', '四', '五', '六', '日'];
+
+/// 进行中大卡（原型 Menus）：菜品照片拼图封面 + 名称 + 菜数/人数/日期。
+class _ActiveMenuCard extends StatelessWidget {
   final Menu menu;
-  /// 前 3 个菜名（详情接口冗余返回），covers 为空时用首字色块占位。
   final List<String> dishNames;
-  const _MenuCard({required this.menu, this.dishNames = const []});
+  const _ActiveMenuCard({required this.menu, this.dishNames = const []});
 
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
-    final done = menu.isDone;
-    final highlight = !done;
-
+    final ts = t.textStyles;
+    final covers = menu.covers;
+    final n = menu.dishCount ?? covers.length;
     return GestureDetector(
       onTap: () => context.push('/menu/${menu.id}'),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 7),
-        padding: const EdgeInsets.all(11),
+        margin: const EdgeInsets.only(bottom: AppTokens.sp10),
+        padding: const EdgeInsets.all(AppTokens.sp10),
         decoration: BoxDecoration(
-          color: highlight ? t.highlight : t.card,
-          borderRadius: BorderRadius.circular(AppTokens.rMd),
-          border: Border.all(
-            color: highlight ? t.primarySoft : t.border,
-            width: highlight ? 1.5 : 1,
-          ),
+          color: t.card,
+          borderRadius: BorderRadius.circular(AppTokens.rXl),
+          border: Border.all(color: t.primary, width: 1.5),
+          boxShadow: t.elevationMd,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 标题行：菜名 + 状态胶囊
-            Row(
+            Stack(
               children: [
-                Expanded(
-                  child: Text(menu.name,
-                      style: t.textStyles.cardTitle,
-                      overflow: TextOverflow.ellipsis),
+                DishCollage(
+                  urls: covers.isEmpty ? [null] : covers,
+                  names: dishNames.isEmpty ? [menu.name] : dishNames,
+                  height: 160,
+                  radius: AppTokens.rLg,
                 ),
-                _StatusPill(done: done),
+                const Positioned(
+                    left: AppTokens.sp10, top: AppTokens.sp10, child: ToneBadge('进行中', tone: BadgeTone.warning)),
+                if (n > covers.length && covers.isNotEmpty)
+                  Positioned(
+                    right: AppTokens.sp10,
+                    bottom: AppTokens.sp10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: AppTokens.photoScrim, borderRadius: BorderRadius.circular(AppTokens.rPill)),
+                      child: Text('+${n - covers.length} 道', style: ts.chip.copyWith(color: AppTokens.onPhoto)),
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 5),
-            // 第二行：封面缩略堆叠 + 菜数 + 份数 + 相对日期
-            Row(
-              children: [
-                // 有封面图 → 显图；无图但有菜名 → 菜名首字色块占位；都没有 → 不显示堆叠。
-                if (menu.covers.isNotEmpty) ...[
-                  _CoverStack(covers: menu.covers),
-                  const SizedBox(width: AppTokens.sp8),
-                ] else if (dishNames.isNotEmpty) ...[
-                  _InitialStack(names: dishNames),
-                  const SizedBox(width: AppTokens.sp8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppTokens.sp6, AppTokens.sp12, AppTokens.sp6, AppTokens.sp4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(menu.name, style: ts.h3),
+                        const SizedBox(height: 2),
+                        Text('$n 道菜 · ${menu.servingCount ?? 1} 人吃 · ${_relativeDate(menu.createdAt)}',
+                            style: ts.caption),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: t.body),
                 ],
-                Text('${menu.dishCount ?? 0} 道菜',
-                    style: t.textStyles.tiny),
-                const Spacer(),
-                Text(
-                  '${menu.servingCount ?? 1} 人份 · ${_relativeDate(menu.createdAt)}',
-                  style: t.textStyles.tiny,
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -422,131 +435,70 @@ class _MenuCard extends StatelessWidget {
   }
 }
 
-/// 状态胶囊：实心底白字（进行中 warning / 已完成 success）。
-class _StatusPill extends StatelessWidget {
-  final bool done;
-  const _StatusPill({required this.done});
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    final color = done ? AppTokens.success : AppTokens.warning;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(AppTokens.rPill),
-      ),
-      child: Text(
-        done ? '已完成' : '进行中',
-        style: t.textStyles.micro.copyWith(color: Colors.white),
-      ),
-    );
-  }
-}
-
-/// 封面缩略堆叠：最多 3 个 22×22 圆角图，后两个左移 -8 叠加（原型 margin-left:-8）。
-class _CoverStack extends StatelessWidget {
-  final List<String> covers;
-  const _CoverStack({required this.covers});
-
-  static const _size = 22.0;
-  static const _overlap = 8.0; // 叠加像素
-  static const _radius = 6.0;
+/// 食集行（原型 Menus「接下来」）：日期块 + 名称/菜数 + 叠放小圆菜品图。
+class _MenuCard extends StatelessWidget {
+  final Menu menu;
+  /// 前 3 个菜名（详情接口冗余返回），covers 为空时用首字占位。
+  final List<String> dishNames;
+  const _MenuCard({required this.menu, this.dishNames = const []});
 
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
-    final list = covers.take(3).toList();
-    // 总宽 = 第一个 + 后续每个 (size - overlap)
-    final width = _size + (list.length - 1) * (_size - _overlap);
-    return SizedBox(
-      width: width,
-      height: _size,
-      child: Stack(
-        children: [
-          for (int i = 0; i < list.length; i++)
-            Positioned(
-              left: i * (_size - _overlap),
-              top: 0,
-              child: _thumb(list[i], t, i),
+    final ts = t.textStyles;
+    final done = menu.isDone;
+    final d = menu.createdAt;
+    final covers = menu.covers.isNotEmpty ? menu.covers : <String?>[for (final _ in dishNames) null];
+    return GestureDetector(
+      onTap: () => context.push('/menu/${menu.id}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppTokens.sp10),
+        padding: const EdgeInsets.all(AppTokens.sp12),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(AppTokens.rLg),
+          border: Border.all(color: t.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 52,
+              decoration: BoxDecoration(color: t.secondary, borderRadius: BorderRadius.circular(AppTokens.rMd)),
+              alignment: Alignment.center,
+              child: d == null
+                  ? Icon(Icons.restaurant_menu_rounded, color: t.primaryDeep)
+                  : Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text('周${_week[d.weekday - 1]}', style: ts.chip),
+                      Text('${d.day}', style: ts.h3.copyWith(height: 1.1)),
+                    ]),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _thumb(String url, AppTokens t, int index) {
-    final abs = ImageHelper.toAbsolute(url);
-    final thumb = ImageHelper.toThumbnail(abs);
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(_radius),
-        border: Border.all(color: t.card, width: 1.5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      width: _size,
-      height: _size,
-      child: Image.network(
-        thumb,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _placeholder(t),
-        loadingBuilder: (_, child, progress) =>
-            progress == null ? child : _placeholder(t),
-      ),
-    );
-  }
-
-  Widget _placeholder(AppTokens t) => Container(color: t.secondary);
-}
-
-/// 菜名首字色块堆叠（covers 无图时的降级占位，DESIGN.md §10.4 禁用 emoji 顶图）。
-/// 尺寸/叠加规则同 _CoverStack（22×22，后一个左移 8 叠加），最多 3 个。
-class _InitialStack extends StatelessWidget {
-  final List<String> names;
-  const _InitialStack({required this.names});
-
-  static const _size = 22.0;
-  static const _overlap = 8.0;
-  static const _radius = 6.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    final list = names.take(3).toList();
-    if (list.isEmpty) return const SizedBox.shrink();
-    final width = _size + (list.length - 1) * (_size - _overlap);
-    return SizedBox(
-      width: width,
-      height: _size,
-      child: Stack(
-        children: [
-          for (int i = 0; i < list.length; i++)
-            Positioned(
-              left: i * (_size - _overlap),
-              top: 0,
-              child: _block(list[i], t),
+            const SizedBox(width: AppTokens.sp12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text(menu.name,
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: ts.cardTitle.copyWith(color: t.title)),
+                    ),
+                    if (done) ...[
+                      const SizedBox(width: AppTokens.sp6),
+                      const ToneBadge('已完成', tone: BadgeTone.success),
+                    ],
+                  ]),
+                  const SizedBox(height: 2),
+                  Text('${menu.dishCount ?? 0} 道菜 · ${menu.servingCount ?? 1} 人份 · ${_relativeDate(menu.createdAt)}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: ts.caption),
+                ],
+              ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _block(String name, AppTokens t) {
-    final initial = name.trim().isNotEmpty ? name.trim().characters.first : '菜';
-    return Container(
-      decoration: BoxDecoration(
-        color: t.secondary,
-        borderRadius: BorderRadius.circular(_radius),
-        border: Border.all(color: t.card, width: 1.5),
-      ),
-      alignment: Alignment.center,
-      width: _size,
-      height: _size,
-      child: Text(
-        initial,
-        style: t.textStyles.sm.copyWith(
-          fontWeight: FontWeight.w600,
-          color: t.title.withAlpha(115), // ≈ 0.45 透明度，同 dish 列表占位
+            if (covers.isNotEmpty) ...[
+              const SizedBox(width: AppTokens.sp8),
+              DishCircleStack(urls: covers, names: dishNames, size: 38),
+            ],
+          ],
         ),
       ),
     );

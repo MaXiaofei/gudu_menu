@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
-import '../../core/image_helper.dart';
 import '../../models/dish.dart';
+import '../../services/pantry_service.dart' show ExpiringItem;
 import '../../services/recommend_service.dart';
+import '../../widgets/dish_image.dart';
 import '../../widgets/error_view.dart';
-import '../../widgets/initial_avatar.dart';
-import '../../widgets/loading_empty.dart';
-import '../../widgets/status_chip.dart';
+import '../../widgets/ingredient_icon.dart';
+import '../../widgets/skeleton.dart';
+import '../../widgets/tone_badge.dart';
 
-/// 智荐 tab 首页分区（G4/G5）：临期主推 / 你常做 / 季节鲜（GET /recommend/home）
-/// + 最近做过（GET /cookbook/recent）。
+/// 智荐首页分区（原型 Smart）：今晚首推大图卡 → 快到期的，先吃掉 → 你家常做 → 应季 → 最近做过。
+/// 数据：GET /recommend/home + GET /cookbook/recent。
 ///
-/// - 加载中：LoadingView 骨架；
-/// - 失败：ErrorView + 重试；
-/// - 分区无数据：隐藏该分区；全部为空：整块不渲染（下方语义找菜照常可用）。
+/// - 加载中：骨架；失败：ErrorView + 重试；
+/// - 分区无数据隐藏；全部为空整块不渲染（下方语义找菜照常可用）。
 class SmartHomeSections extends StatefulWidget {
   const SmartHomeSections({super.key});
 
@@ -27,7 +27,8 @@ class SmartHomeSectionsState extends State<SmartHomeSections> {
   RecommendHome? _home;
   List<RecentCooked> _recent = const [];
   bool _loading = true;
-  bool _failed = false;
+  Object? _error;
+  int _heroIndex = 0;
 
   @override
   void initState() {
@@ -39,7 +40,7 @@ class SmartHomeSectionsState extends State<SmartHomeSections> {
   Future<void> reload() async {
     setState(() {
       _loading = true;
-      _failed = false;
+      _error = null;
     });
     try {
       final results = await Future.wait([
@@ -51,86 +52,99 @@ class SmartHomeSectionsState extends State<SmartHomeSections> {
         _home = results[0] as RecommendHome;
         _recent = results[1] as List<RecentCooked>;
         _loading = false;
+        _heroIndex = 0;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _failed = true;
+        _error = e;
         _loading = false;
       });
     }
   }
 
+  /// 首推候选：临期主推优先，其次你常做。
+  List<DishCard> get _heroPool {
+    final h = _home ?? const RecommendHome();
+    return h.expiringPicks.isNotEmpty ? h.expiringPicks : h.frequent;
+  }
+
+  static String _month() => '${DateTime.now().month}';
+
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
-    if (_loading) return const LoadingView();
-    if (_failed) {
-      return ErrorView(text: '智荐加载失败', onRetry: reload);
+    if (_loading) {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SkeletonBox(height: 300, radius: AppTokens.rXl),
+          SizedBox(height: AppTokens.sp16),
+          SkeletonBox(width: 160, height: 16),
+          SizedBox(height: AppTokens.sp12),
+          SkeletonBox(height: 120, radius: AppTokens.rLg),
+        ],
+      );
+    }
+    if (_error != null) {
+      return ErrorView(text: '智荐加载失败', onRetry: reload, error: _error, compact: true);
     }
     final h = _home ?? const RecommendHome();
+    final pool = _heroPool;
+    final hero = pool.isEmpty ? null : pool[_heroIndex % pool.length];
+    final fromExpiring = h.expiringPicks.isNotEmpty;
+    final restPicks = fromExpiring ? h.expiringPicks.where((d) => d != hero).toList() : h.expiringPicks;
+    final frequent = fromExpiring ? h.frequent : h.frequent.where((d) => d != hero).toList();
     final children = <Widget>[
-      if (h.expiring.isNotEmpty || h.expiringPicks.isNotEmpty)
+      if (hero != null)
+        _HeroCard(
+          card: hero,
+          expiring: fromExpiring && h.expiring.isNotEmpty ? h.expiring.first : null,
+          canSwap: pool.length > 1,
+          onSwap: () => setState(() => _heroIndex++),
+        ),
+      if (h.expiring.isNotEmpty || restPicks.isNotEmpty)
         _section(
           t,
           key: 'expiring',
-          title: '临期主推',
-          sub: '这些快到期了，先吃掉它们',
+          title: '快到期的，先吃掉',
+          action: ('余量', () => context.go('/pantry')),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (h.expiring.isNotEmpty)
-                Wrap(
-                  spacing: AppTokens.sp6,
-                  runSpacing: AppTokens.sp6,
-                  children: [
-                    for (final e in h.expiring)
-                      StatusChip(
-                        label: '${e.ingredientName} · ${e.daysText}',
-                        color: expiryColor(t, e.daysLeft),
-                      ),
-                  ],
+                SizedBox(
+                  height: 44,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: h.expiring.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: AppTokens.sp8),
+                    itemBuilder: (_, i) => _ExpiringPill(item: h.expiring[i]),
+                  ),
                 ),
-              if (h.expiringPicks.isNotEmpty) ...[
-                const SizedBox(height: AppTokens.sp8),
-                for (final d in h.expiringPicks) _DishRow(card: d),
+              if (restPicks.isNotEmpty) ...[
+                const SizedBox(height: AppTokens.sp12),
+                _DishStrip(cards: restPicks, subtitle: (c) => c.coverage?.label ?? ''),
               ],
             ],
           ),
         ),
-      if (h.frequent.isNotEmpty)
+      if (frequent.isNotEmpty)
         _section(t,
             key: 'frequent',
-            title: '你常做',
-            child: _DishStrip(cards: h.frequent)),
+            title: '你家常做',
+            child: _DishStrip(
+                cards: frequent,
+                subtitle: (c) => c.cookedCount > 0 ? '做过 ${c.cookedCount} 次' : (c.coverage?.label ?? ''))),
       if (h.seasonal.isNotEmpty)
-        _section(t,
-            key: 'seasonal',
-            title: '季节鲜',
-            sub: '当季食材，正是好吃的时候',
-            child: _DishStrip(cards: h.seasonal)),
+        _section(t, key: 'seasonal', title: '${_month()}月应季', child: _SeasonStrip(cards: h.seasonal)),
       if (_recent.isNotEmpty)
         _section(
           t,
           key: 'recent',
           title: '最近做过',
-          child: SizedBox(
-            height: 112,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _recent.length,
-              separatorBuilder: (_, __) => const SizedBox(width: AppTokens.sp8),
-              itemBuilder: (_, i) {
-                final r = _recent[i];
-                return _MiniCard(
-                  dishId: r.dishId,
-                  name: r.name,
-                  cover: r.coverImage,
-                  meta: '${r.lastCookedLabel()} · 做过 ${r.cookedCount} 次',
-                );
-              },
-            ),
-          ),
+          action: ('食记', () => context.push('/food-log')),
+          child: Column(children: [for (final r in _recent.take(3)) _RecentRow(r: r)]),
         ),
     ];
     if (children.isEmpty) return const SizedBox.shrink();
@@ -138,28 +152,25 @@ class SmartHomeSectionsState extends State<SmartHomeSections> {
   }
 
   Widget _section(AppTokens t,
-      {required String key, required String title, String? sub, required Widget child}) {
+      {required String key, required String title, (String, VoidCallback)? action, required Widget child}) {
+    final ts = t.textStyles;
     return Padding(
       key: ValueKey('smart-section-$key'),
-      padding: const EdgeInsets.only(bottom: AppTokens.sp16),
+      padding: const EdgeInsets.only(top: AppTokens.sp24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(title, style: t.textStyles.cardTitle.copyWith(color: t.title)),
-              if (sub != null) ...[
-                const SizedBox(width: AppTokens.sp8),
-                Expanded(
-                  child: Text(sub,
-                      overflow: TextOverflow.ellipsis,
-                      style: t.textStyles.sectionLabel),
+              Expanded(child: Text(title, style: ts.subtitle)),
+              if (action != null)
+                GestureDetector(
+                  onTap: action.$2,
+                  child: Text('${action.$1} ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),
                 ),
-              ],
             ],
           ),
-          const SizedBox(height: AppTokens.sp8),
+          const SizedBox(height: AppTokens.sp12),
           child,
         ],
       ),
@@ -167,28 +178,201 @@ class SmartHomeSectionsState extends State<SmartHomeSections> {
   }
 }
 
-/// 横向菜卡条（你常做 / 季节鲜）。
-class _DishStrip extends StatelessWidget {
-  final List<DishCard> cards;
-  const _DishStrip({required this.cards});
+/// 今晚首推大图卡：满宽照片 + 渐变 + 到期徽章 + 现在就做 / 换一道。
+class _HeroCard extends StatelessWidget {
+  final DishCard card;
+  final ExpiringItem? expiring;
+  final bool canSwap;
+  final VoidCallback onSwap;
+  const _HeroCard({required this.card, this.expiring, required this.canSwap, required this.onSwap});
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    final ts = t.textStyles;
+    final e = expiring;
+    final cov = card.coverage;
+    return GestureDetector(
+      onTap: () => context.push('/dish/${card.dishId}'),
+      child: Container(
+        key: const ValueKey('smart-hero'),
+        height: 320,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(AppTokens.rXl), boxShadow: t.elevationMd),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTokens.rXl),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DishImage(url: card.coverImage, name: card.name, radius: 0, original: true),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0.3, 1],
+                    colors: [Colors.transparent, AppTokens.photoScrimStrong],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: AppTokens.sp16,
+                right: AppTokens.sp16,
+                top: AppTokens.sp16,
+                child: Row(
+                  children: [
+                    if (e != null)
+                      ToneBadge('${e.ingredientName}${e.daysLeft <= 0 ? '今天到期' : e.daysLeft == 1 ? '明天到期' : '剩 ${e.daysLeft} 天'}',
+                          tone: BadgeTone.solidError, icon: Icons.schedule_rounded),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp10, vertical: AppTokens.sp4),
+                      decoration: BoxDecoration(color: t.card, borderRadius: BorderRadius.circular(AppTokens.rPill)),
+                      child: Text('今晚首推', style: ts.sectionLabel.copyWith(color: t.title)),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: AppTokens.sp16,
+                right: AppTokens.sp16,
+                bottom: AppTokens.sp16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(card.name, style: ts.h2.copyWith(color: AppTokens.onPhoto)),
+                    const SizedBox(height: AppTokens.sp4),
+                    Wrap(
+                      spacing: AppTokens.sp8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (e != null) Text('先用掉快到期的${e.ingredientName}', style: ts.caption.copyWith(color: AppTokens.onPhoto)),
+                        if (cov != null && cov.label.isNotEmpty)
+                          Text(cov.label, style: ts.caption.copyWith(color: AppTokens.onPhoto, fontWeight: FontWeight.w700)),
+                        if ((card.cookMinutes ?? 0) > 0)
+                          Text('${card.cookMinutes} 分钟', style: ts.caption.copyWith(color: AppTokens.onPhoto)),
+                      ],
+                    ),
+                    const SizedBox(height: AppTokens.sp12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => context.push('/dish/${card.dishId}'),
+                            child: const Text('现在就做'),
+                          ),
+                        ),
+                        if (canSwap) ...[
+                          const SizedBox(width: AppTokens.sp10),
+                          SizedBox(
+                            width: 112,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTokens.onPhoto,
+                                backgroundColor: AppTokens.photoScrim,
+                                side: const BorderSide(color: AppTokens.onPhoto),
+                              ),
+                              onPressed: onSwap,
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text('换一道'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 临期食材胶囊：插画 + 名称 + 剩余天数。
+class _ExpiringPill extends StatelessWidget {
+  final ExpiringItem item;
+  const _ExpiringPill({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    final badge = ToneBadge.expiry(item.daysLeft) ?? ToneBadge(item.daysText);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(AppTokens.sp4, AppTokens.sp4, AppTokens.sp8, AppTokens.sp4),
+      decoration: BoxDecoration(
+        color: t.card,
+        border: Border.all(color: t.border),
+        borderRadius: BorderRadius.circular(AppTokens.rPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IngredientIcon(name: item.ingredientName, size: 32, background: t.bg),
+          const SizedBox(width: AppTokens.sp6),
+          Text(item.ingredientName, style: t.textStyles.cardTitle.copyWith(color: t.title)),
+          const SizedBox(width: AppTokens.sp6),
+          badge,
+        ],
+      ),
+    );
+  }
+}
+
+/// 横滑菜卡：照片 4:3 + 菜名 + 副信息。
+class _DishStrip extends StatelessWidget {
+  final List<DishCard> cards;
+  final String Function(DishCard) subtitle;
+  const _DishStrip({required this.cards, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    final ts = t.textStyles;
     return SizedBox(
-      height: 112,
+      height: 178,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
         itemCount: cards.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppTokens.sp8),
+        separatorBuilder: (_, __) => const SizedBox(width: AppTokens.sp12),
         itemBuilder: (_, i) {
           final c = cards[i];
-          return _MiniCard(
-            dishId: c.dishId,
-            name: c.name,
-            cover: c.coverImage,
-            meta: c.coverage?.label.isNotEmpty == true
-                ? c.coverage!.label
-                : (c.cookedCount > 0 ? '做过 ${c.cookedCount} 次' : '没做过'),
+          final sub = subtitle(c);
+          final cov = ToneBadge.coverage(c.coverage);
+          return GestureDetector(
+            onTap: () => context.push('/dish/${c.dishId}'),
+            child: Container(
+              width: 140,
+              decoration: BoxDecoration(
+                color: t.card,
+                borderRadius: BorderRadius.circular(AppTokens.rLg),
+                border: Border.all(color: t.border),
+                boxShadow: t.elevationSm,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DishImage(url: c.coverImage, name: c.name, width: 140, height: 100, radius: 0),
+                  Padding(
+                    padding: const EdgeInsets.all(AppTokens.sp10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: ts.cardTitle.copyWith(color: t.title)),
+                        const SizedBox(height: AppTokens.sp4),
+                        if (cov != null && sub == c.coverage?.label)
+                          cov
+                        else if (sub.isNotEmpty)
+                          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: ts.caption),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -196,88 +380,101 @@ class _DishStrip extends StatelessWidget {
   }
 }
 
-/// 小方卡：封面（无图首字占位）+ 菜名 + 一行副信息。
-class _MiniCard extends StatelessWidget {
-  final int dishId;
-  final String name;
-  final String? cover;
-  final String meta;
-  const _MiniCard(
-      {required this.dishId, required this.name, this.cover, required this.meta});
+/// 应季大图横滑卡：照片 + 底部渐变菜名。
+class _SeasonStrip extends StatelessWidget {
+  final List<DishCard> cards;
+  const _SeasonStrip({required this.cards});
 
   @override
   Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    final url = cover;
-    return GestureDetector(
-      onTap: () => context.push('/dish/$dishId'),
-      child: SizedBox(
-        width: 96,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppTokens.rMd),
+    final ts = AppTokens.of(context).textStyles;
+    return SizedBox(
+      height: 150,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: cards.length,
+        separatorBuilder: (_, __) => const SizedBox(width: AppTokens.sp12),
+        itemBuilder: (_, i) {
+          final c = cards[i];
+          return GestureDetector(
+            onTap: () => context.push('/dish/${c.dishId}'),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTokens.rLg),
               child: SizedBox(
-                width: 96,
-                height: 64,
-                child: url != null && url.isNotEmpty
-                    ? Image.network(
-                        ImageHelper.toThumbnail(ImageHelper.toAbsolute(url)),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            InitialAvatar(name: name, size: 96, radius: 0),
-                      )
-                    : InitialAvatar(name: name, size: 96, radius: 0),
+                width: 220,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    DishImage(url: c.coverImage, name: c.name, radius: 0),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: [0.45, 1],
+                          colors: [Colors.transparent, AppTokens.photoScrim],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: AppTokens.sp12,
+                      right: AppTokens.sp12,
+                      bottom: AppTokens.sp10,
+                      child: Text(c.name, style: ts.lg.copyWith(color: AppTokens.onPhoto, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: AppTokens.sp4),
-            Text(name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: t.textStyles.caption.copyWith(
-                    color: t.title, fontWeight: FontWeight.w700)),
-            Text(meta,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: t.textStyles.chip),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
-/// 临期主推里的菜行：菜名 + 家里够 X/Y 样。
-class _DishRow extends StatelessWidget {
-  final DishCard card;
-  const _DishRow({required this.card});
+/// 最近做过一行：照片 + 菜名 + 「今天 · 做过 N 次」+ 再做一次。
+class _RecentRow extends StatelessWidget {
+  final RecentCooked r;
+  const _RecentRow({required this.r});
 
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
-    final cov = card.coverage;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTokens.sp6),
-      child: InkWell(
-        onTap: () => context.push('/dish/${card.dishId}'),
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.sp12, vertical: AppTokens.sp10),
-          decoration: BoxDecoration(
-            color: t.card,
-            borderRadius: BorderRadius.circular(AppTokens.rMd),
-            border: Border.all(color: t.border),
-          ),
-          child: Row(
-            children: [
-              Expanded(child: Text(card.name, style: t.textStyles.cardTitle)),
-              if (cov != null && cov.label.isNotEmpty)
-                StatusChip(label: cov.label, color: coverageColor(t, cov)),
-              Icon(Icons.chevron_right, size: 16, color: t.caption),
-            ],
-          ),
+    final ts = t.textStyles;
+    return GestureDetector(
+      onTap: () => context.push('/dish/${r.dishId}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppTokens.sp10),
+        padding: const EdgeInsets.all(AppTokens.sp10),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(AppTokens.rLg),
+          border: Border.all(color: t.border),
+        ),
+        child: Row(
+          children: [
+            DishImage.square(url: r.coverImage, name: r.name, size: 56),
+            const SizedBox(width: AppTokens.sp12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(r.name, style: ts.cardTitle.copyWith(color: t.title)),
+                  const SizedBox(height: 2),
+                  Text('${r.lastCookedLabel()} · 做过 ${r.cookedCount} 次', style: ts.caption),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: AppTokens.sp6),
+              decoration: BoxDecoration(
+                color: t.secondary,
+                borderRadius: BorderRadius.circular(AppTokens.rPill),
+              ),
+              child: Text('再做一次', style: ts.sectionLabel.copyWith(color: t.primaryDeep)),
+            ),
+          ],
         ),
       ),
     );

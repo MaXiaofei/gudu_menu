@@ -6,7 +6,9 @@ import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
 import '../../core/error_text.dart';
 import '../../stores/member_store.dart';
-import '../../widgets/action_bar.dart';
+import '../../models/member.dart';
+import '../../services/notification_service.dart';
+import '../../widgets/member_avatar.dart';
 import 'smart_home_sections.dart';
 
 /// 智荐 tab：顶部「临期主推 / 你常做 / 季节鲜 / 最近做过」分区（G4/G5，/recommend/home），
@@ -27,6 +29,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
   /// 语义找菜失败文案（与组合推荐错误分开展示）。
   String? _semanticError;
   final _homeKey = GlobalKey<SmartHomeSectionsState>();
+  final _bellKey = GlobalKey<_NoticeBellState>();
 
   Future<void> _recommend() async {
     setState(() { _loading = true; _error = null; _groups = null; });
@@ -115,23 +118,26 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
         bottom: false,
         child: Column(
           children: [
-            const ActionBar(),
             Expanded(
               child: RefreshIndicator(
                 color: t.primary,
-                onRefresh: () async => _homeKey.currentState?.reload(),
+                onRefresh: () async {
+                  _bellKey.currentState?.refresh();
+                  await _homeKey.currentState?.reload();
+                },
                 child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          // 页面标题（无花哨头部卡：Tab 主页 ActionBar 下直接内容，§13）
-          Text('智荐', style: t.textStyles.subtitle),
-          const SizedBox(height: AppTokens.sp12),
-          // 智荐分区：临期主推 / 你常做 / 季节鲜 / 最近做过（空分区隐藏）
+          _header(t),
+          const SizedBox(height: AppTokens.sp16),
+          // 智荐分区：今晚首推 / 快到期的 / 你家常做 / 应季 / 最近做过（空分区隐藏）
           SmartHomeSections(key: _homeKey),
-          Text('想吃点别的？说说口味，从菜谱语义库找菜、组合推荐',
-              style: t.textStyles.caption.copyWith(color: t.caption)),
-          const SizedBox(height: AppTokens.sp8),
+          const SizedBox(height: AppTokens.sp24),
+          Text('想吃点别的？', style: t.textStyles.subtitle),
+          const SizedBox(height: AppTokens.sp4),
+          Text('说说口味，从菜谱库里找菜或组合一顿', style: t.textStyles.caption),
+          const SizedBox(height: AppTokens.sp12),
 
           // 想吃什么（语义主入口）：自然语言 + 快捷口味 chips
           TextField(
@@ -140,7 +146,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
               hintText: '想吃什么？如：清淡下饭、酸甜开胃',
               prefixIcon: const Icon(Icons.search, size: 18),
               isDense: true,
-              filled: true, fillColor: t.bg,
+              filled: true, fillColor: t.card,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.rMd)),
             ),
             onSubmitted: (_) => _semanticSearch(),
@@ -161,10 +167,10 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                         decoration: BoxDecoration(
-                          color: t.secondary, borderRadius: BorderRadius.circular(AppTokens.rPill),
-                          border: Border.all(color: t.primarySoft),
+                          color: t.card, borderRadius: BorderRadius.circular(AppTokens.rPill),
+                          border: Border.all(color: t.border),
                         ),
-                        child: Text(s, style: t.textStyles.xs.copyWith(color: t.accent)),
+                        child: Text(s, style: t.textStyles.caption.copyWith(color: t.title)),
                       ),
                     )).toList(),
           ),
@@ -187,7 +193,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             ),
           if (_semanticHits != null && _semanticHits!.isNotEmpty) ...[
             const SizedBox(height: AppTokens.sp12),
-            Text('找菜结果', style: t.textStyles.sectionLabel.copyWith(color: t.caption)),
+            Text('找菜结果', style: t.textStyles.subtitle),
             const SizedBox(height: AppTokens.sp6),
             ..._semanticHits!.map((h) {
               final dishId = h['dishId'] as int?;
@@ -222,7 +228,7 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))),
           if (_groups != null && _groups!.isNotEmpty) ...[
             const SizedBox(height: AppTokens.sp12),
-            Text('为你推荐', style: t.textStyles.sectionLabel.copyWith(color: t.caption)),
+            Text('为你推荐', style: t.textStyles.subtitle),
             const SizedBox(height: AppTokens.sp6),
             ..._groups!.asMap().entries.map((e) => _buildGroupCard(e.key + 1, e.value as Map<String, dynamic>)),
           ],
@@ -274,6 +280,42 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
           ], // Column
         ),
       ),
+    );
+  }
+
+  /// 顶部问候：家人头像 + 「周四晚上 · N 人吃饭」+ 今晚吃点什么。
+  Widget _header(AppTokens t) {
+    final ts = t.textStyles;
+    List<Member> members;
+    try {
+      members = context.watch<MemberStore>().members;
+    } catch (_) {
+      members = const [];
+    }
+    final now = DateTime.now();
+    const week = ['一', '二', '三', '四', '五', '六', '日'];
+    final part = now.hour < 10 ? '早上' : now.hour < 14 ? '中午' : now.hour < 18 ? '下午' : '晚上';
+    final meal = now.hour < 10 ? '早饭' : now.hour < 14 ? '午饭' : '晚饭';
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                if (members.isNotEmpty) ...[
+                  AvatarStack(size: 24, people: [for (final m in members) (name: m.name, avatarUrl: m.avatarUrl)]),
+                  const SizedBox(width: AppTokens.sp8),
+                ],
+                Text('周${week[now.weekday - 1]}$part${members.isEmpty ? '' : ' · ${members.length} 人吃饭'}', style: ts.caption),
+              ]),
+              const SizedBox(height: AppTokens.sp6),
+              Text('今${meal == '晚饭' ? '晚' : '天'}吃点什么', style: ts.h2),
+            ],
+          ),
+        ),
+        _NoticeBell(key: _bellKey),
+      ],
     );
   }
 
@@ -329,6 +371,69 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
             )),
           ],
         ]),
+      ),
+    );
+  }
+}
+
+/// 右上角消息铃铛 + 未读角标（进 /notices）。
+class _NoticeBell extends StatefulWidget {
+  const _NoticeBell({super.key});
+  @override
+  State<_NoticeBell> createState() => _NoticeBellState();
+}
+
+class _NoticeBellState extends State<_NoticeBell> {
+  int _unread = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    refresh();
+  }
+
+  Future<void> refresh() async {
+    try {
+      final c = await NotificationService.unreadCount();
+      if (mounted) setState(() => _unread = c);
+    } catch (_) {
+      // 角标失败不影响页面
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Semantics(
+      button: true,
+      label: _unread > 0 ? '消息，$_unread 条未读' : '消息',
+      child: GestureDetector(
+        onTap: () async {
+          await context.push('/notices');
+          refresh();
+        },
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(color: t.card, shape: BoxShape.circle, border: Border.all(color: t.border)),
+          child: Stack(alignment: Alignment.center, children: [
+            Icon(Icons.notifications_none_rounded, color: t.title),
+            if (_unread > 0)
+              Positioned(
+                right: 9,
+                top: 9,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: AppTokens.error,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: t.card, width: 1.5),
+                  ),
+                ),
+              ),
+          ]),
+        ),
       ),
     );
   }

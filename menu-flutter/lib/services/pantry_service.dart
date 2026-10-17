@@ -88,6 +88,25 @@ class PantryService {
   }
 
   /// 临期食材：GET /pantry/expiring?days=3（三档库存 best_before，按 daysLeft 升序，含已过期）。
+  /// 余量统计（P0 契约 `GET /pantry/summary`）。接口不存在（旧后端 404）时
+  /// 用 `/pantry/grouped` 汇总 + `/pantry/expiring` 本地聚合降级。
+  static Future<PantrySummary> summary() async {
+    try {
+      final data = await ApiClient.instance.get('/pantry/summary');
+      if (data is Map<String, dynamic>) return PantrySummary.fromJson(data);
+    } catch (_) {
+      // 降级：下方本地聚合（旧后端无该接口）
+    }
+    final g = await listGroupedPage(pageNum: 1, pageSize: 1);
+    var expiring = 0;
+    try {
+      expiring = (await listExpiring(days: 3)).length;
+    } catch (_) {
+      expiring = 0; // 临期接口失败不影响其余三格
+    }
+    return PantrySummary(enough: g.enough, low: g.low, out: g.none, expiring3d: expiring);
+  }
+
   static Future<List<ExpiringItem>> listExpiring({int days = 3}) async {
     final data = await ApiClient.instance.get(
       '/pantry/expiring',
@@ -335,6 +354,40 @@ class PantryGrouped {
   }
 }
 
+/// 余量统计（顶部四格：充足/不足/用完/3 天内到期）。
+class PantrySummary {
+  final int enough;
+  final int low;
+  final int out;
+  final int expiring3d;
+  final List<({int? categoryId, String name, int count})> byCategory;
+
+  const PantrySummary({
+    required this.enough,
+    required this.low,
+    required this.out,
+    required this.expiring3d,
+    this.byCategory = const [],
+  });
+
+  int get total => enough + low + out;
+
+  factory PantrySummary.fromJson(Map<String, dynamic> j) => PantrySummary(
+        enough: (j['enough'] as num?)?.toInt() ?? 0,
+        low: (j['low'] as num?)?.toInt() ?? 0,
+        out: (j['out'] as num?)?.toInt() ?? 0,
+        expiring3d: (j['expiring3d'] as num?)?.toInt() ?? 0,
+        byCategory: ((j['byCategory'] ?? const []) as List)
+            .whereType<Map>()
+            .map((e) => (
+                  categoryId: (e['categoryId'] as num?)?.toInt(),
+                  name: (e['name'] ?? '').toString(),
+                  count: (e['count'] as num?)?.toInt() ?? 0,
+                ))
+            .toList(),
+      );
+}
+
 /// 分组列表里的一项（一个食材一行，V42 档位版）。
 class PantryGroupedItem {
   final int ingredientId;
@@ -345,6 +398,10 @@ class PantryGroupedItem {
   final String? bestBefore;
   /// 剩余天数（今天到期=0，已过期为负；未填保质期为 null）。
   final int? daysLeft;
+  /// 食材插画 key（P0 契约，可空）。
+  final String? iconKey;
+  /// 采购品类名（插画兜底 + 分类 Tab；旧接口为 null）。
+  final String? categoryName;
 
   const PantryGroupedItem({
     required this.ingredientId,
@@ -353,6 +410,8 @@ class PantryGroupedItem {
     this.lastChange,
     this.bestBefore,
     this.daysLeft,
+    this.iconKey,
+    this.categoryName,
   });
 
   factory PantryGroupedItem.fromJson(Map<String, dynamic> j) => PantryGroupedItem(
@@ -361,6 +420,8 @@ class PantryGroupedItem {
         level: j['level'] as String? ?? StockLevel.none,
         bestBefore: j['bestBefore'] as String?,
         daysLeft: (j['daysLeft'] as num?)?.toInt(),
+        iconKey: j['iconKey'] as String?,
+        categoryName: (j['categoryName'] ?? j['purchaseCategoryName']) as String?,
         lastChange: j['lastChange'] == null
             ? null
             : LastChange.fromJson(j['lastChange'] as Map<String, dynamic>),

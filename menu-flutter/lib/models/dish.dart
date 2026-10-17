@@ -19,6 +19,11 @@ class Dish {
   final int cookedCount;
   /// 本家余量覆盖（「家里够 X/Y 样」，search 登录时回填；未登录/旧接口为 null）。
   final Coverage? coverage;
+  /// 最近一次做的时间（prototype-ui-rollout P0 契约；旧接口为 null）。
+  final DateTime? lastCookedAt;
+  /// 最近一次谁做的（成员名；旧接口为 null）。
+  final String? lastCookedBy;
+  final String? lastCookedByAvatar;
 
   const Dish({
     required this.id,
@@ -35,6 +40,9 @@ class Dish {
     this.tagNames = const [],
     this.cookedCount = 0,
     this.coverage,
+    this.lastCookedAt,
+    this.lastCookedBy,
+    this.lastCookedByAvatar,
   });
 
   factory Dish.fromJson(Map<String, dynamic> j) => Dish(
@@ -61,6 +69,9 @@ class Dish {
         coverage: j['coverage'] is Map
             ? Coverage.fromJson(j['coverage'] as Map<String, dynamic>)
             : null,
+        lastCookedAt: j['lastCookedAt'] is String ? DateTime.tryParse(j['lastCookedAt'] as String) : null,
+        lastCookedBy: j['lastCookedBy'] is Map ? (j['lastCookedBy']['name'] as String?) : null,
+        lastCookedByAvatar: j['lastCookedBy'] is Map ? (j['lastCookedBy']['avatarUrl'] as String?) : null,
       );
 }
 
@@ -119,7 +130,8 @@ class DishCard {
   factory DishCard.fromJson(Map<String, dynamic> j) => DishCard(
         dishId: (j['dishId'] as num).toInt(),
         name: (j['name'] ?? '') as String,
-        coverImage: j['coverImage'] as String?,
+        // P0 契约：coverUrl 优先，兼容旧字段 coverImage
+        coverImage: (j['coverUrl'] ?? j['coverImage']) as String?,
         cookMinutes: (j['cookMinutes'] as num?)?.toInt(),
         difficulty: (j['difficulty'] as num?)?.toInt(),
         cookedCount: (j['cookedCount'] as num?)?.toInt() ?? 0,
@@ -179,6 +191,8 @@ class DishIngredient {
   final String? unitName;
   /// 库存档位 ENOUGH/LOW/NONE（家里：充足/不足/用完；后端批量回填）。
   final String? stockLevel;
+  /// 食材插画 key（P0 契约，可空 → 客户端按名称/品类兜底）。
+  final String? iconKey;
 
   const DishIngredient({
     required this.ingredientId,
@@ -186,6 +200,7 @@ class DishIngredient {
     this.amount,
     this.unitName,
     this.stockLevel,
+    this.iconKey,
   });
 
   factory DishIngredient.fromJson(Map<String, dynamic> j) => DishIngredient(
@@ -194,6 +209,7 @@ class DishIngredient {
         amount: (j['amount'] as num?)?.toDouble(),
         unitName: j['unitName'] as String?,
         stockLevel: j['stockLevel'] as String?,
+        iconKey: j['iconKey'] as String?,
       );
 
   String get displayName => ingredientName ?? '#$ingredientId';

@@ -12,3 +12,14 @@ String errorText(Object e, [String fallback = '操作失败，请稍后重试'])
   }
   return fallback;
 }
+
+/// 报错编号（原型 States：「报错编号 7f3a-91c2 · 反馈时附上它」）。
+/// 取后端 X-Trace-Id 前 8 位，格式 xxxx-xxxx；拿不到返回 null。
+String? errorIdOf(Object? e) {
+  if (e is! DioException) return null;
+  final raw = (e.requestOptions.extra['traceId'] ?? e.response?.headers.value('x-trace-id'))?.toString();
+  if (raw == null) return null;
+  final hex = raw.replaceAll(RegExp(r'[^0-9a-fA-F]'), '').toLowerCase();
+  if (hex.length < 8) return raw.isEmpty ? null : raw;
+  return '${hex.substring(0, 4)}-${hex.substring(4, 8)}';
+}

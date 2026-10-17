@@ -98,6 +98,8 @@ class FoodLogMeal {
   final int usedUpCount;
   final int partialCount;
   final bool reviewed;
+  /// 各菜封面（与 dishNames 同序；旧接口无此字段 → 空，页面退首字）。
+  final List<String?> covers;
 
   FoodLogMeal({
     this.menuId,
@@ -109,6 +111,7 @@ class FoodLogMeal {
     required this.usedUpCount,
     required this.partialCount,
     required this.reviewed,
+    this.covers = const [],
   });
 
   factory FoodLogMeal.fromJson(Map<String, dynamic> j) => FoodLogMeal(
@@ -121,6 +124,7 @@ class FoodLogMeal {
         usedUpCount: (j['usedUpCount'] as num?)?.toInt() ?? 0,
         partialCount: (j['partialCount'] as num?)?.toInt() ?? 0,
         reviewed: j['reviewed'] == true,
+        covers: ((j['covers'] ?? j['coverUrls'] ?? const []) as List).map((e) => e as String?).toList(),
       );
 }
 

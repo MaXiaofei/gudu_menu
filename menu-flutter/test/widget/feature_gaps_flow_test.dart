@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:menu_flutter/core/app_theme.dart';
 import 'package:menu_flutter/pages/ai/smart_home_sections.dart';
+import 'package:menu_flutter/widgets/skeleton.dart';
 import 'package:menu_flutter/pages/dish/detail_page.dart';
 import 'package:menu_flutter/pages/dish/list_page.dart';
 import 'package:menu_flutter/pages/pantry/detail_page.dart';
@@ -11,7 +12,6 @@ import 'package:menu_flutter/pages/pantry/list_page.dart';
 import 'package:menu_flutter/pages/pantry/manual_add_page.dart';
 import 'package:menu_flutter/services/pantry_service.dart' show fmtDate;
 import 'package:menu_flutter/widgets/error_view.dart';
-import 'package:menu_flutter/widgets/loading_empty.dart';
 import '../helpers/mock_http.dart';
 
 Widget _themed(Widget child) => MaterialApp(
@@ -239,8 +239,10 @@ void main() {
       await tester.pumpWidget(_themed(const PantryListPage()));
       await tester.pumpAndSettle();
 
-      expect(find.text('剩 1 天'), findsOneWidget);
-      expect(find.text('已过期 2 天'), findsOneWidget);
+      // 原型 Components「到期徽章」：明天/已过期为实心红
+      expect(find.text('明天到期'), findsOneWidget);
+      expect(find.text('已过期'), findsOneWidget);
+      expect(find.byKey(const ValueKey('days-left-1')), findsOneWidget);
       expect(find.byKey(const ValueKey('days-left-3')), findsNothing); // 已用完
       expect(find.byKey(const ValueKey('days-left-4')), findsNothing); // 未填
     });
@@ -388,16 +390,21 @@ void main() {
         return okResponse(null);
       });
       await tester.pumpWidget(host());
-      expect(find.byType(LoadingView), findsOneWidget); // 骨架屏
+      expect(find.byType(SkeletonBox), findsWidgets); // 骨架屏
       await tester.pumpAndSettle();
 
-      expect(find.text('临期主推'), findsOneWidget);
-      expect(find.text('豆腐 · 今天到期'), findsOneWidget);
+      // 首推大图卡：临期主推第一道（原型 Smart「今晚首推」）
+      expect(find.byKey(const ValueKey('smart-hero')), findsOneWidget);
       expect(find.text('麻婆豆腐'), findsOneWidget);
       expect(find.text('家里够 2/3 样'), findsOneWidget);
-      expect(find.text('你常做'), findsOneWidget);
+      expect(find.text('豆腐今天到期'), findsOneWidget);
+      // 快到期胶囊
+      expect(find.text('快到期的，先吃掉'), findsOneWidget);
+      expect(find.text('豆腐'), findsOneWidget);
+      expect(find.text('今天到期'), findsOneWidget);
+      expect(find.text('你家常做'), findsOneWidget);
       expect(find.text('番茄炒蛋'), findsOneWidget);
-      expect(find.text('季节鲜'), findsNothing); // 空分区隐藏
+      expect(find.byKey(const ValueKey('smart-section-seasonal')), findsNothing); // 空分区隐藏
       expect(find.text('最近做过'), findsOneWidget);
       expect(find.text('可乐鸡翅'), findsOneWidget);
       expect(find.text('今天 · 做过 3 次'), findsOneWidget);
@@ -409,9 +416,10 @@ void main() {
           : okResponse({'expiring': [], 'expiringPicks': [], 'frequent': [], 'seasonal': []}));
       await tester.pumpWidget(host());
       await tester.pumpAndSettle();
-      for (final s in ['临期主推', '你常做', '季节鲜', '最近做过']) {
-        expect(find.text(s), findsNothing);
+      for (final s in ['expiring', 'frequent', 'seasonal', 'recent']) {
+        expect(find.byKey(ValueKey('smart-section-$s')), findsNothing);
       }
+      expect(find.byKey(const ValueKey('smart-hero')), findsNothing);
       expect(find.byType(ErrorView), findsNothing);
     });
 
@@ -429,7 +437,9 @@ void main() {
       fail = false;
       await tester.tap(find.text('重试'));
       await tester.pumpAndSettle();
-      expect(find.text('你常做'), findsOneWidget);
+      // 只有你常做 → 第一道升为首推大图卡
+      expect(find.byKey(const ValueKey('smart-hero')), findsOneWidget);
+      expect(find.text('番茄炒蛋'), findsOneWidget);
     });
   });
 }

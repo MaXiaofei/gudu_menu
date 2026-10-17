@@ -5,7 +5,7 @@ import '../../services/ingredient_service.dart';
 import '../../services/pantry_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/best_before_field.dart';
-import '../../widgets/initial_avatar.dart';
+import '../../widgets/ingredient_icon.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/select_chip.dart';
 import '../../widgets/search_box.dart';
@@ -149,8 +149,8 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               const SizedBox(height: 16),
 
               if (q.isEmpty) ...[
-                // 未输入：轻提示卡 + 新建入口（一直画着，点它聚焦搜索框）
-                _emptyHint(t),
+                // 未输入：「你家常买」插画宫格（原型 PantryAdd），无记录时退提示卡
+                if (_frequent.isNotEmpty) _frequentGrid(t) else _emptyHint(t),
                 const SizedBox(height: 20),
                 Text('库存里没有？', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
                 const SizedBox(height: 8),
@@ -205,6 +205,56 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
     );
   }
 
+  /// 你家常买：家里余量里出现过的食材（最多 8 个），点一下即选中。
+  List<IngredientItem> get _frequent =>
+      _ingredients.where((i) => _levelByIng.containsKey(i.id)).take(8).toList();
+
+  Widget _frequentGrid(AppTokens t) {
+    final ts = t.textStyles;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('你家常买', style: ts.sectionLabel.copyWith(letterSpacing: 1)),
+        const SizedBox(height: AppTokens.sp8),
+        GridView.count(
+          crossAxisCount: 4,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: AppTokens.sp8,
+          crossAxisSpacing: AppTokens.sp8,
+          childAspectRatio: 0.82,
+          children: [
+            for (final i in _frequent)
+              GestureDetector(
+                onTap: () => setState(() {
+                  _selected = i;
+                  _newMode = false;
+                }),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(AppTokens.rLg),
+                    border: Border.all(
+                      color: _selected?.id == i.id ? t.primaryDeep : t.border,
+                      width: _selected?.id == i.id ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IngredientIcon(name: i.name, size: 44, background: t.bg),
+                      const SizedBox(height: AppTokens.sp6),
+                      Text(i.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: ts.caption.copyWith(color: t.title)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   /// 未输入提示卡：聚焦「先想名字」。
   Widget _emptyHint(AppTokens t) {
     return Container(
@@ -246,6 +296,8 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 9),
         child: Row(
           children: [
+            IngredientIcon(name: i.name, size: 36),
+            const SizedBox(width: AppTokens.sp10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,7 +368,6 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
 
   /// ① 底栏：下一步（未选禁用）。
   Widget _bottomBar0() {
-    final t = _t;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -324,10 +375,6 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
           child: ElevatedButton(
             onPressed: _canNext ? _goStep1 : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: t.primary,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: t.border,
-              disabledForegroundColor: Colors.white,
               // 显式有限 minimumSize：全局主题是 Size(inf,48)（全宽 CTA），
               // 本按钮在 Center（宽松约束）里会触发 "infinite width" 布局崩溃
               minimumSize: const Size(200, 48),
@@ -379,7 +426,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               // 食材头（52px 缩略图 + 名称 + 家里状态）
               Row(
                 children: [
-                  InitialAvatar(name: _name.isEmpty ? '食' : _name, size: 52),
+                  IngredientIcon(name: _name.isEmpty ? '食' : _name, size: 56),
                   const SizedBox(width: AppTokens.sp12),
                   Expanded(
                     child: Column(

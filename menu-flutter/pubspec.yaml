@@ -31,3 +31,7 @@ flutter:
     - assets/
     # 用户协议 / 隐私政策（源：仓库根 docs/legal/，修改后需同步拷贝）
     - assets/legal/
+    # 原型自绘插画（源 docs/design/prototype/img，scripts/design/gen-assets.mjs 生成）
+    - assets/ing/
+    - assets/avatar/
+    - assets/brand/

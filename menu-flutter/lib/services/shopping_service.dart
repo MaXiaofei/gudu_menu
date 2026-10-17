@@ -254,6 +254,8 @@ class ShoppingItemVO {
   final String? purchaseCategoryName;
   final int purchased;
   final String? stockStatus;
+  /// 食材插画 key（P0 契约，可空）。
+  final String? iconKey;
 
   const ShoppingItemVO({
     required this.id,
@@ -266,6 +268,7 @@ class ShoppingItemVO {
     this.purchaseCategoryName,
     required this.purchased,
     this.stockStatus,
+    this.iconKey,
   });
 
   factory ShoppingItemVO.fromJson(Map<String, dynamic> j) => ShoppingItemVO(
@@ -279,6 +282,7 @@ class ShoppingItemVO {
         purchaseCategoryName: j['purchaseCategoryName'] as String?,
         purchased: (j['purchased'] as num?)?.toInt() ?? 0,
         stockStatus: j['stockStatus'] as String?,
+        iconKey: j['iconKey'] as String?,
       );
 
   String get displayName => ingredientName ?? customName ?? '#$ingredientId';

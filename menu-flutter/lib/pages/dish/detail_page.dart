@@ -7,10 +7,15 @@ import '../../models/dish.dart';
 import '../../models/menu.dart';
 import '../../services/dish_service.dart';
 import '../../services/menu_service.dart';
+import '../../services/shopping_service.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/hero_gallery.dart';
 import '../../widgets/image_viewer.dart';
-import '../../widgets/loading_empty.dart';
+import '../../widgets/ingredient_icon.dart';
+import '../../widgets/skeleton.dart';
+import '../../widgets/step_carousel.dart';
+import '../../widgets/tone_badge.dart';
 import '../menu/cook_confirm_sheet.dart';
 
 /// 菜品详情。
@@ -75,7 +80,11 @@ class _DishDetailPageState extends State<DishDetailPage> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => CookConfirmSheet(materials: materials),
+        builder: (_) => CookConfirmSheet(
+          materials: materials,
+          dishName: _detail?.dish.name,
+          coverUrl: _detail?.dish.coverUrl,
+        ),
       );
       if (!mounted || result == null) return; // 关弹窗 = 取消
       await DishService.cookDish(
@@ -267,310 +276,277 @@ class _DishDetailPageState extends State<DishDetailPage> {
     );
   }
 
-  /// 构建可点击的缩略图（点一下弹全屏原图）。
-  /// [placeholder] 自定义占位（封面传首字占位，§10.5）；默认图片图标（辅助图位）。
-  Widget _thumbnailImage(String url,
-      {double? width,
-      double? height,
-      BoxFit fit = BoxFit.cover,
-      Widget Function(AppTokens, double?, double?)? placeholder}) {
-    final t = AppTokens.of(context);
-    final urls = ImageHelper.resolve(url);
-    Widget fallback(AppTokens tt, double? w, double? h) =>
-        (placeholder ?? _imagePlaceholder)(tt, w, h);
-    return GestureDetector(
-      onTap: () => _openViewer(url),
-      child: Image.network(
-        urls.thumbnail,
-        width: width,
-        height: height,
-        fit: fit,
-        // 加载失败/加载中统一走占位（DESIGN.md §1 禁止 spinner、§10.1 禁止空白破图）。
-        errorBuilder: (_, __, ___) => fallback(t, width, height),
-        loadingBuilder: (_, child, progress) =>
-            progress == null ? child : fallback(t, width, height),
-      ),
+  /// 用料在家状态（原型 RecipeDetail：家里有 / 家里不多 / 家里没有 + 加入采购）。
+  Widget _stockStatus(AppTokens t, DishIngredient ing) {
+    final ts = t.textStyles;
+    switch (ing.stockLevel) {
+      case 'ENOUGH':
+        return _dotLabel(t, AppTokens.success, '家里有');
+      case 'LOW':
+        return _dotLabel(t, AppTokens.warning, '家里不多');
+      default:
+        return InkWell(
+          key: ValueKey('add-shop-${ing.ingredientId}'),
+          borderRadius: BorderRadius.circular(AppTokens.rPill),
+          onTap: () => _addToShopping(ing),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: t.card,
+              border: Border.all(color: t.primarySoft),
+              borderRadius: BorderRadius.circular(AppTokens.rPill),
+            ),
+            child: Text('+ 加入采购', style: ts.sectionLabel.copyWith(color: t.primaryDeep)),
+          ),
+        );
+    }
+  }
+
+  Widget _dotLabel(AppTokens t, Color c, String label) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 7, height: 7, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+          const SizedBox(width: AppTokens.sp6),
+          Text(label, style: t.textStyles.caption),
+        ],
+      );
+
+  /// 缺的用料一键加入采购清单（新建一份含该食材的清单）。
+  Future<void> _addToShopping(DishIngredient ing) async {
+    try {
+      await ShoppingService.generateFromText(ing.displayName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已把「${ing.displayName}」加入采购清单')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('加入采购失败：${errorText(e)}')));
+      }
+    }
+  }
+
+  /// 家里够 X/Y 样（按用料档位：充足/不足算有）。
+  Coverage? get _coverage {
+    final ings = _detail?.ingredients ?? const [];
+    if (ings.isEmpty) return null;
+    final enough = ings.where((i) => i.stockLevel == 'ENOUGH' || i.stockLevel == 'LOW').length;
+    return Coverage(
+      enough: enough,
+      total: ings.length,
+      missingNames: ings
+          .where((i) => i.stockLevel != 'ENOUGH' && i.stockLevel != 'LOW')
+          .map((i) => i.displayName)
+          .toList(),
     );
   }
 
-  /// 无封面 url 时的封面占位：奶油底 + 菜名首字（与菜谱缩略图占位规则一致，DESIGN.md §10.4，不用 emoji 顶替）。
-  Widget _coverPlaceholder(AppTokens t, String name) {
-    final initial = name.trim().isNotEmpty ? name.trim().characters.first : '菜';
-    return Container(
-      width: double.infinity,
-      height: 220,
-      color: t.secondary,
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: t.textStyles.display.copyWith(
-          color: t.title.withAlpha(115), // ≈ 0.45 透明度
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  /// 图片占位：奶油色底 + 图片图标（DESIGN.md §10.2，加载中/失败都用它，禁 spinner/禁空白）。
-  Widget _imagePlaceholder(AppTokens t, double? width, double? height) {
-    final w = width ?? 80;
-    final h = height ?? 80;
-    final iconSize = (w < h ? w : h) * 0.4;
-    return Container(
-      width: width,
-      height: height,
-      color: t.secondary,
-      alignment: Alignment.center,
-      child: Icon(Icons.image_outlined,
-          color: t.caption.withValues(alpha: 0.5), size: iconSize),
-    );
-  }
+  String _difficultyText(int? d) => switch (d) {
+        null => '',
+        <= 2 => '简单',
+        3 => '中等',
+        _ => '有挑战',
+      };
 
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
-    // DESIGN.md §13：去掉「菜品详情」废话标签 AppBar；菜名移进 BackHeader（箭头行+sp8+真实名 h3）。
-    // 加载中/错误时 BackHeader 不传 title（只显箭头）。
-    return Scaffold(
+    if (_loading || _detail == null) {
+      return Scaffold(
         body: SafeArea(
-      bottom: false,
-      child: Column(
+          child: Column(
+            children: [
+              const BackHeader(),
+              Expanded(
+                child: _loading
+                    ? const SkeletonList(count: 4)
+                    : ErrorView(text: '加载详情失败', onRetry: _load),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final d = _detail!;
+    final dish = d.dish;
+    final ts = t.textStyles;
+    final cover = (dish.coverUrl ?? '').trim();
+    final stepImages = [for (final st in d.steps) ...st.imageList];
+    final gallery = [if (cover.isNotEmpty) cover, ...stepImages.take(5)];
+    final cov = _coverage;
+    final meta = [
+      if ((dish.cookTime ?? 0) + (dish.prepTime ?? 0) > 0) '${(dish.cookTime ?? 0) + (dish.prepTime ?? 0)} 分钟',
+      if (_difficultyText(dish.difficulty).isNotEmpty) _difficultyText(dish.difficulty),
+      if (dish.cookedCount > 0) '做过 ${dish.cookedCount} 次',
+    ];
+    return Scaffold(
+      backgroundColor: t.bg,
+      body: Stack(
         children: [
-          BackHeader(
-            title: _detail?.dish.name,
-            subtitle: _detail == null
-                ? null
-                : Column(
+          ListView(
+            padding: EdgeInsets.only(bottom: widget.showActions ? 104 : AppTokens.sp32),
+            children: [
+              HeroGallery(
+                urls: gallery,
+                name: dish.name,
+                height: 262,
+                onTapImage: (i) => _openViewer(gallery[i]),
+                leading: HeroIconButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  tooltip: '返回',
+                  onTap: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+              Transform.translate(
+                offset: const Offset(0, -20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: t.bg,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTokens.rXl)),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp20, AppTokens.sp16, 0),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        [
-                          if (_detail!.dish.prepTime != null)
-                            '备料 ${_detail!.dish.prepTime}分',
-                          if (_detail!.dish.cookTime != null)
-                            '烹饪 ${_detail!.dish.cookTime}分',
-                          '难度 ${_detail!.dish.difficulty ?? '-'}/5',
-                        ].join(' · '),
-                        style: t.textStyles.sm.copyWith(color: t.caption),
-                      ),
-                      // 来源（V49：自己创建/下厨房/美食杰…；导入菜谱显示来源名）
-                      if (_detail!.dish.sourceName != null &&
-                          _detail!.dish.sourceName!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text('来源：${_detail!.dish.sourceName}',
-                              style: t.textStyles.xs.copyWith(
-                                  color: t.caption.withValues(alpha: 0.8))),
-                        ),
-                    ],
-                  ),
-          ),
-          Expanded(
-            child: _loading
-                ? const LoadingView()
-                : _detail == null
-                    ? ErrorView(text: '加载详情失败', onRetry: _load) // §14.1 错误态
-                    : ListView(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // 封面（DESIGN.md §10：有 url 显示图，加载中/失败走占位；无 url 也渲染占位容器，不留白）
-                          if (_detail!.dish.coverUrl != null &&
-                              _detail!.dish.coverUrl!.isNotEmpty)
-                            _thumbnailImage(
-                              _detail!.dish.coverUrl!,
-                              width: double.infinity,
-                              height: 220,
-                              // 主视觉位占位统一首字（§10.5，与列表缩略图一致）
-                              placeholder: (t, w, h) =>
-                                  _coverPlaceholder(t, _detail!.dish.name),
-                            )
-                          else
-                            _coverPlaceholder(t, _detail!.dish.name),
-                          // 标签 + 备注（菜名/副信息已移入 BackHeader）
-                          if (_dishTags.isNotEmpty || (_detail!.dish.note ?? '').isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                  AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, 0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (_dishTags.isNotEmpty) ...[
-                                    Wrap(
-                                      spacing: AppTokens.sp8,
-                                      runSpacing: AppTokens.sp4,
-                                      children: _dishTags
-                                          .map((tag) => Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 8, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: t.primarySoft,
-                                                  borderRadius: BorderRadius.circular(
-                                                      AppTokens.rSm),
-                                                ),
-                                                child: Text(tag,
-                                                    style: t.textStyles.xs.copyWith(color: t.primary)),
-                                              ))
-                                          .toList(),
-                                    ),
-                                  ],
-                                  if ((_detail!.dish.note ?? '').isNotEmpty) ...[
-                                    const SizedBox(height: AppTokens.sp8),
-                                    Text(_detail!.dish.note!,
-                                        style: t.textStyles.sm),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          // 用料（份数 1）
-                      if (_detail!.ingredients.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                              AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp4),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('用料', style: t.textStyles.subtitle),
-                              Text('份数 $_serving · 共 ${_detail!.ingredients.length} 样',
-                                  style: t.textStyles.xs.copyWith(color: t.caption)),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: AppTokens.sp16),
-                          decoration: BoxDecoration(
-                            color: t.card,
-                            border: Border.all(color: t.border),
-                            borderRadius: BorderRadius.circular(AppTokens.rMd),
-                          ),
-                          child: Column(
-                            children: [
-                              for (final ing in _detail!.ingredients) ...[
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: AppTokens.sp12, vertical: 10),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 28, height: 28,
-                                        decoration: BoxDecoration(
-                                          color: t.primarySoft,
-                                          borderRadius: BorderRadius.circular(AppTokens.rSm),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(ing.displayName.characters.first,
-                                            style: t.textStyles.md.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w600)),
-                                      ),
-                                      const SizedBox(width: AppTokens.sp8),
-                                      Expanded(
-                                        child: Text(ing.displayName,
-                                            style: t.textStyles.sm.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                                color: t.title)),
-                                      ),
-                                      // 用量（自然单位优先：「2 个」「适量」，§16.3；与库存解耦不标档位）
-                                      Text(ing.amountText,
-                                          style: t.textStyles.sm.copyWith(
-                                              fontWeight: FontWeight.w800,
-                                              color: t.title)),
-                                    ],
-                                  ),
-                                ),
-                                if (ing != _detail!.ingredients.last)
-                                  Divider(height: 1, thickness: 1, color: t.border),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                              AppTokens.sp16, AppTokens.sp4, AppTokens.sp16, 0),
-                          child: Text('用量为 $_serving 份基准；做菜时按份数自动放大。',
-                              style: t.textStyles.xs.copyWith(color: t.caption)),
+                          Flexible(child: Text(dish.name, style: ts.h2)),
+                          if ((dish.sourceName ?? '').isNotEmpty) ...[
+                            const SizedBox(width: AppTokens.sp8),
+                            ToneBadge(dish.sourceName!, tone: BadgeTone.info),
+                          ],
+                        ],
+                      ),
+                      if (meta.isNotEmpty) ...[
+                        const SizedBox(height: AppTokens.sp6),
+                        Row(children: [
+                          Icon(Icons.schedule_rounded, size: 14, color: t.body),
+                          const SizedBox(width: AppTokens.sp4),
+                          Expanded(child: Text(meta.join(' · '), style: ts.caption)),
+                        ]),
+                      ],
+                      if (_dishTags.isNotEmpty) ...[
+                        const SizedBox(height: AppTokens.sp10),
+                        Wrap(
+                          spacing: AppTokens.sp6,
+                          runSpacing: AppTokens.sp6,
+                          children: [for (final tag in _dishTags) ToneBadge(tag, tone: BadgeTone.success)],
                         ),
                       ],
-                      const _SectionTitle('做法'),
-                      ..._detail!.steps.asMap().entries.map((entry) {
-                        final i = entry.key;
-                        final s = entry.value;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
-                          decoration: BoxDecoration(
-                              border: Border(
-                                  top: BorderSide(
-                                      color: t.border))),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('步骤 ${i + 1}', style: TextStyle(color: t.title, fontWeight: FontWeight.w700)),
-                              const SizedBox(height: AppTokens.sp8),
-                              Text(s.text, style: TextStyle(color: t.body)),
-                              if (s.imageList.isNotEmpty) ...[
-                                const SizedBox(height: AppTokens.sp8),
-                                Wrap(
-                                  spacing: AppTokens.sp8,
-                                  runSpacing: AppTokens.sp8,
-                                  children: s.imageList
-                                      .map((img) => _thumbnailImage(
-                                            img,
-                                            width: 80,
-                                            height: 80,
-                                          ))
-                                      .toList(),
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      }),
-                      const SizedBox(height: AppTokens.sp16),
-                      if (widget.showActions)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: AppTokens.sp16, vertical: AppTokens.sp12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // 单菜直做：不必先建食集（G1）
-                              ElevatedButton(
-                                key: const Key('dish-cook-now'),
-                                onPressed: _cooking ? null : _cookNow,
-                                child: Text(_cooking ? '准备中…' : '现在就做'),
-                              ),
-                              const SizedBox(height: AppTokens.sp8),
-                              OutlinedButton(
-                                onPressed: _adding ? null : _addToMenu,
-                                child: _adding
-                                    ? SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: t.primary))
-                                    : const Text('加到食集'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: AppTokens.sp24),
+                      if ((dish.note ?? '').isNotEmpty) ...[
+                        const SizedBox(height: AppTokens.sp12),
+                        Text(dish.note!, maxLines: 4, overflow: TextOverflow.ellipsis, style: ts.body),
+                      ],
+                      if (d.ingredients.isNotEmpty) ...[
+                        const SizedBox(height: AppTokens.sp20),
+                        _ingredientCard(t, d.ingredients, cov),
+                      ],
                     ],
                   ),
+                ),
+              ),
+              if (d.steps.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppTokens.sp16, 0, AppTokens.sp16, AppTokens.sp12),
+                  child: Text('步骤 · ${d.steps.length} 步', style: ts.subtitle),
+                ),
+                StepCarousel(
+                  dishName: dish.name,
+                  steps: [
+                    for (final st in d.steps)
+                      (text: st.text, image: st.imageList.isEmpty ? null : st.imageList.first),
+                  ],
+                  onTapImage: (i) => _openViewer(d.steps[i].imageList.first),
+                ),
+              ],
+            ],
+          ),
+          if (widget.showActions)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(
+                    AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, AppTokens.sp12 + MediaQuery.of(context).padding.bottom),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  border: Border(top: BorderSide(color: t.border)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: OutlinedButton.icon(
+                        onPressed: _adding ? null : _addToMenu,
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: Text(_adding ? '加入中…' : '加入食集'),
+                      ),
+                    ),
+                    const SizedBox(width: AppTokens.sp12),
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton.icon(
+                        key: const Key('dish-cook-now'),
+                        onPressed: _cooking ? null : _cookNow,
+                        icon: const Icon(Icons.local_fire_department_rounded, size: 18),
+                        label: Text(_cooking ? '准备中…' : '现在就做'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ], // Column children
-        ), // Column
-      ), // SafeArea
-    ); // Scaffold
+        ],
+      ),
+    );
   }
-}
 
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTokens.of(context);
-    return Padding(
-        padding: const EdgeInsets.all(AppTokens.sp16),
-        child: Text(text,
-            style: t.textStyles.subtitle),
-      );
+  Widget _ingredientCard(AppTokens t, List<DishIngredient> ings, Coverage? cov) {
+    final ts = t.textStyles;
+    final badge = ToneBadge.coverage(cov);
+    return Container(
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(AppTokens.rLg),
+        border: Border.all(color: t.border),
+        boxShadow: t.elevationSm,
+      ),
+      padding: const EdgeInsets.fromLTRB(AppTokens.sp12, AppTokens.sp12, AppTokens.sp12, AppTokens.sp4),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('用料', style: ts.lg)),
+              if (badge != null) badge,
+            ],
+          ),
+          const SizedBox(height: AppTokens.sp8),
+          for (final ing in ings) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppTokens.sp8),
+              child: Row(
+                children: [
+                  IngredientIcon(name: ing.displayName, iconKey: ing.iconKey, size: 40),
+                  const SizedBox(width: AppTokens.sp12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(ing.displayName, style: ts.cardTitle.copyWith(color: t.title)),
+                        if (ing.amountText.isNotEmpty) Text(ing.amountText, style: ts.caption),
+                      ],
+                    ),
+                  ),
+                  _stockStatus(t, ing),
+                ],
+              ),
+            ),
+            if (ing != ings.last) Divider(height: 1, color: t.border),
+          ],
+        ],
+      ),
+    );
   }
 }

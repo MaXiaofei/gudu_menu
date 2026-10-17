@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
 import '../../core/constants.dart';
 import '../../core/error_text.dart';
@@ -23,6 +24,18 @@ class _FeedbackPageState extends State<FeedbackPage> {
   final _contact = TextEditingController();
   final List<File> _images = [];
   bool _submitting = false;
+
+  /// 反馈类型（原型 Feedback 四宫格；后端 type 字段上线前随 clientInfo 带上）。
+  static const _types = [
+    ('出错了', Icons.error_outline_rounded, 'bug'),
+    ('想要功能', Icons.lightbulb_outline_rounded, 'feature'),
+    ('菜谱有误', Icons.menu_book_outlined, 'recipe'),
+    ('其他', Icons.more_horiz_rounded, 'other'),
+  ];
+  int _type = 0;
+
+  /// 附带设备型号、App 版本和最近一次报错编号（默认开）。
+  bool _attachDiag = true;
 
   @override
   void dispose() {
@@ -65,7 +78,13 @@ class _FeedbackPageState extends State<FeedbackPage> {
         content: content,
         contact: _contact.text.trim(),
         images: urls,
-        clientInfo: 'flutter/${Platform.operatingSystem} v${AppConstants.appVersion}',
+        type: _types[_type].$3,
+        errorId: _attachDiag ? ApiClient.lastErrorId : null,
+        clientInfo: [
+          'type=${_types[_type].$3}',
+          if (_attachDiag) 'flutter/${Platform.operatingSystem} v${AppConstants.appVersion}',
+          if (_attachDiag && ApiClient.lastErrorId != null) 'errorId=${ApiClient.lastErrorId}',
+        ].join(' · '),
       );
       if (!mounted) return;
       _snack('感谢反馈，我们会尽快处理');
@@ -92,8 +111,35 @@ class _FeedbackPageState extends State<FeedbackPage> {
               child: ListView(
                 padding: const EdgeInsets.all(AppTokens.sp16),
                 children: [
-                  Text('遇到问题或有想法，告诉我们', style: ts.caption.copyWith(color: t.caption)),
-                  const SizedBox(height: AppTokens.sp12),
+                  Text('是关于什么的', style: ts.sectionLabel),
+                  const SizedBox(height: AppTokens.sp8),
+                  Row(children: [
+                    for (var i = 0; i < _types.length; i++) ...[
+                      if (i > 0) const SizedBox(width: AppTokens.sp8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _type = i),
+                          child: Container(
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: _type == i ? t.secondary : t.card,
+                              border: Border.all(color: _type == i ? t.primaryDeep : t.border, width: _type == i ? 1.5 : 1),
+                              borderRadius: BorderRadius.circular(AppTokens.rMd),
+                            ),
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(_types[i].$2, color: _type == i ? t.primaryDeep : t.body),
+                              const SizedBox(height: AppTokens.sp4),
+                              Text(_types[i].$1,
+                                  style: ts.caption.copyWith(
+                                      color: _type == i ? t.title : t.body,
+                                      fontWeight: _type == i ? FontWeight.w700 : FontWeight.w400)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ]),
+                  const SizedBox(height: AppTokens.sp16),
                   TextField(
                     key: const Key('feedback-content'),
                     controller: _content,
@@ -127,12 +173,37 @@ class _FeedbackPageState extends State<FeedbackPage> {
                             decoration: BoxDecoration(
                               color: t.card,
                               border: Border.all(color: t.border),
-                              borderRadius: BorderRadius.circular(AppTokens.rSm),
+                              borderRadius: BorderRadius.circular(AppTokens.rMd),
                             ),
-                            child: Icon(Icons.add_photo_alternate_outlined, color: t.caption),
+                            child: Icon(Icons.add_photo_alternate_outlined, color: t.body),
                           ),
                         ),
                     ],
+                  ),
+                  const SizedBox(height: AppTokens.sp16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: AppTokens.sp4),
+                    decoration: BoxDecoration(
+                      color: t.card,
+                      border: Border.all(color: t.border),
+                      borderRadius: BorderRadius.circular(AppTokens.rMd),
+                    ),
+                    child: Row(children: [
+                      Expanded(
+                        child: Text(
+                          ApiClient.lastErrorId == null
+                              ? '附带设备型号和 App 版本，帮我们更快定位'
+                              : '附带设备型号、App 版本和报错编号 ${ApiClient.lastErrorId}',
+                          style: ts.caption,
+                        ),
+                      ),
+                      Switch(
+                        key: const Key('feedback-attach'),
+                        value: _attachDiag,
+                        activeTrackColor: t.primaryDeep,
+                        onChanged: (v) => setState(() => _attachDiag = v),
+                      ),
+                    ]),
                   ),
                 ],
               ),

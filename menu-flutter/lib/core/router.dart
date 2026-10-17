@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../pages/notice/notices_page.dart';
 import '../pages/pantry/list_page.dart';
 import '../pages/pantry/detail_page.dart';
 import '../pages/pantry/manual_add_page.dart';
@@ -205,6 +206,10 @@ GoRouter createRouter(AuthStore auth) {
       GoRoute(
           path: '/about',
           builder: (_, __) => const AboutPage()),
+      // 消息与提醒（智荐页右上角铃铛进入）
+      GoRoute(
+          path: '/notices',
+          builder: (_, __) => const NoticesPage()),
       // 家庭成员（我的 tab 进入）
       GoRoute(
           path: '/members',

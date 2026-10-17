@@ -17,12 +17,19 @@ class FeedbackService {
     String? contact,
     List<String> images = const [],
     String? clientInfo,
+    /// 反馈类型 bug/feature/recipe/other（后端字段 P3 上线前忽略，同时写入 clientInfo）。
+    String? type,
+    /// 报错编号（短 traceId，xxxx-xxxx）。
+    String? errorId,
   }) async {
     final data = await ApiClient.instance.post('/feedback', body: {
       'content': content,
       if (contact != null && contact.isNotEmpty) 'contact': contact,
       if (images.isNotEmpty) 'images': images.take(maxImages).toList(),
-      if (clientInfo != null && clientInfo.isNotEmpty) 'clientInfo': clientInfo,
+      if (clientInfo != null && clientInfo.isNotEmpty)
+        'clientInfo': clientInfo.length > 200 ? clientInfo.substring(0, 200) : clientInfo,
+      if (type != null) 'type': type,
+      if (errorId != null) 'errorId': errorId,
     });
     return (data as num?)?.toInt() ?? 0;
   }

@@ -322,6 +322,8 @@ class CookMaterialItem {
   final String level;
   /// 是否调料（采购品类=调味料，默认"用了一些"）。
   final bool isCondiment;
+  /// 食材插画 key（P0 契约，可空）。
+  final String? iconKey;
 
   const CookMaterialItem({
     required this.ingredientId,
@@ -329,6 +331,7 @@ class CookMaterialItem {
     required this.usageTexts,
     required this.level,
     required this.isCondiment,
+    this.iconKey,
   });
 
   factory CookMaterialItem.fromJson(Map<String, dynamic> j) => CookMaterialItem(
@@ -339,6 +342,7 @@ class CookMaterialItem {
             .toList(),
         level: j['level'] as String? ?? 'NONE',
         isCondiment: j['isCondiment'] as bool? ?? false,
+        iconKey: j['iconKey'] as String?,
       );
 }
 

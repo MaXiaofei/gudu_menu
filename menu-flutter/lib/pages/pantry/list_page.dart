@@ -5,13 +5,16 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
 import '../../services/pantry_service.dart';
-import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
-import '../../widgets/initial_avatar.dart';
+import '../../widgets/illustration.dart';
+import '../../widgets/ingredient_icon.dart';
 import '../../widgets/loading_empty.dart';
-import '../../widgets/select_chip.dart';
 import '../../widgets/search_box.dart';
-import '../../widgets/status_chip.dart';
+import '../../widgets/select_chip.dart';
+import '../../widgets/skeleton.dart';
+import '../../widgets/stat_grid.dart';
+import '../../widgets/tone_badge.dart';
+import 'pantry_widgets.dart';
 
 /// 库存主页（分页版，对齐 44829 批次 pantry-page.html 定稿）。
 ///
@@ -27,9 +30,6 @@ class PantryListPage extends StatefulWidget {
 }
 
 class _PantryListPageState extends State<PantryListPage> {
-  /// 主题 token 缓存。
-  AppTokens get _t => AppTokens.of(context);
-
   static const _pageSize = 10; // DESIGN.md §12.2：列表分页统一 10 条/页
 
   final _searchCtrl = TextEditingController();
@@ -72,6 +72,12 @@ class _PantryListPageState extends State<PantryListPage> {
   bool _searchLoading = false;
 
   bool get _searching => _query.isNotEmpty;
+
+  /// 先吃这些（3 天内到期，原型 Pantry）。
+  List<ExpiringItem> _expiring = const [];
+
+  /// 顶部四格统计（/pantry/summary，旧后端本地聚合降级）。
+  PantrySummary? _summary;
 
   /// 库存总数（三档相加）。
   int get _totalCount =>
@@ -118,8 +124,17 @@ class _PantryListPageState extends State<PantryListPage> {
           PantryService.listGroupedPage(level: StockLevel.low, pageNum: 1, pageSize: _pageSize),
           PantryService.listGroupedPage(level: StockLevel.enough, pageNum: 1, pageSize: _pageSize),
         ]);
+        // 统计与临期各自失败不影响列表
+        final extra = await Future.wait<Object?>([
+          PantryService.summary().then<Object?>((v) => v, onError: (_) => null),
+          PantryService.listExpiring(days: 3).then<Object?>((v) => v, onError: (_) => null),
+        ]);
         if (!mounted) return;
         setState(() {
+          _summary = extra[0] as PantrySummary?;
+          _expiring = ((extra[1] as List<ExpiringItem>?) ?? const [])
+              .where((e) => e.level != StockLevel.none)
+              .toList();
           _grouped = results[0];
           _items[StockLevel.none]!..clear()..addAll(results[0].items);
           _items[StockLevel.low]!..clear()..addAll(results[1].items);
@@ -199,35 +214,49 @@ class _PantryListPageState extends State<PantryListPage> {
   @override
   Widget build(BuildContext context) {
     final t = AppTokens.of(context);
+    final ts = t.textStyles;
     return Scaffold(
-      // DESIGN.md §13：Tab 主页无标题，顶部用 ActionBar 放操作（批量添加图标右对齐）。
-      // 状态栏由 ActionBar 内置 AnnotatedRegion 控制（奶油底+深色字）。
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'pantry-add',
+        backgroundColor: t.primaryDeep,
+        foregroundColor: t.card,
+        shape: const StadiumBorder(),
+        onPressed: () async {
+          await context.push('/pantry/add');
+          _load();
+        },
+        icon: const Icon(Icons.add_rounded),
+        label: Text('入库', style: ts.cardTitle.copyWith(color: t.card)),
+      ),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            ActionBar(
-              action: Row(
-                mainAxisSize: MainAxisSize.min,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, 0),
+              child: Row(
                 children: [
-                  // 「入库」：统一入库弹窗（采购/朋友送/旧库存补登），放「去采购」左侧
-                  _topButton(
-                    label: '入库',
-                    filled: false,
-                    onTap: () async {
-                      await context.push('/pantry/add');
-                      _load(); // 手动添加后刷新
-                    },
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('我家余量', style: ts.h2),
+                        if (_grouped != null) Text('共 ${_statTotal()} 样', style: ts.caption),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: AppTokens.sp8),
-                  // 「去采购」：主操作（采购闭环），右对齐独占一行（原型定稿）
-                  _topButton(
-                    label: '去采购',
-                    filled: true,
-                    onTap: () async {
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12),
+                      shape: const StadiumBorder(),
+                    ),
+                    onPressed: () async {
                       await context.push('/shopping');
                       _load(); // 采购勾选会回写库存，返回后刷新
                     },
+                    icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                    label: const Text('去采购'),
                   ),
                 ],
               ),
@@ -235,24 +264,30 @@ class _PantryListPageState extends State<PantryListPage> {
             _buildSearchBox(t),
             Expanded(
               child: _loading
-                  ? const LoadingView()
+                  ? const SkeletonList(count: 6, thumb: 44)
                   : _error != null
-                      ? ErrorView(text: '加载失败', onRetry: _load) // §14.1：错误态用 ErrorView
+                      ? ErrorView(text: '加载失败', onRetry: _load)
                       : RefreshIndicator(
                           onRefresh: _load,
                           child: _searching
                               ? _buildSearchBody(t)
                               : _totalCount == 0
-                                  ? Column(children: [
-                                      // 空数据也展示档位筛选条（计数 0，结构可见）
-                                      if (_grouped != null) _buildFilterChips(t, _grouped!),
-                                      Expanded(
-                                        child: ListView(
-                                          children: const [
-                                            SizedBox(height: 120),
-                                            Center(child: EmptyView(text: '暂无库存')),
-                                          ],
+                                  ? ListView(children: [
+                                      if (_grouped != null)
+                                        Padding(
+                                          padding: const EdgeInsets.all(AppTokens.sp16),
+                                          child: _buildFilterChips(t, _grouped!),
                                         ),
+                                      const SizedBox(height: 40),
+                                      EmptyView(
+                                        text: '冰箱里还是空的',
+                                        subtitle: '记下家里有什么，智荐才知道先帮你用掉哪些',
+                                        illustration: const StateIllustration.fridge(),
+                                        actionLabel: '手动添加',
+                                        onAction: () async {
+                                          await context.push('/pantry/add');
+                                          _load();
+                                        },
                                       ),
                                     ])
                                   : _buildBody(t),
@@ -264,29 +299,70 @@ class _PantryListPageState extends State<PantryListPage> {
     );
   }
 
-  /// 顶栏按钮（2026-08-17 与筛选 chip 同款语言）：次按钮白底细边框深棕字、
-  /// 主按钮深棕实底白字，8px 圆角，11px/w700。
-  Widget _topButton({
-    required String label,
-    required bool filled,
-    required VoidCallback onTap,
-  }) {
-    final t = AppTokens.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 5),
-        decoration: BoxDecoration(
-          color: filled ? t.title : t.card,
-          border: filled ? null : Border.all(color: t.border),
-          borderRadius: BorderRadius.circular(AppTokens.rSm),
-        ),
-        child: Text(
-          label,
-          style: t.textStyles.sectionLabel.copyWith(
-            color: filled ? Colors.white : t.body,
-          ),
-        ),
+  int _statTotal() {
+    final s = _summary;
+    return s != null && s.total > 0 ? s.total : _totalCount;
+  }
+
+  /// 顶部四格：充足 / 不足 / 用完 / 3 天内到期（点前三格切筛选）。
+  Widget _buildStats(AppTokens t) {
+    final g = _grouped!;
+    final s = _summary;
+    final useSummary = s != null && s.total > 0;
+    return StatGrid(items: [
+      StatItem('${useSummary ? s.enough : g.enough}', '充足',
+          tone: StatTone.success, onTap: () => setState(() => _filter = 'enough')),
+      StatItem('${useSummary ? s.low : g.low}', '不足',
+          tone: StatTone.warning, onTap: () => setState(() => _filter = 'low')),
+      StatItem('${useSummary ? s.out : g.none}', '用完',
+          tone: StatTone.error, onTap: () => setState(() => _filter = 'none')),
+      StatItem('${useSummary ? s.expiring3d : _expiring.length}', '3 天内到期', tone: StatTone.dark),
+    ]);
+  }
+
+  /// 先吃这些：临期食材行（红/黄到期徽章）。
+  Widget _buildExpiring(AppTokens t) {
+    final ts = t.textStyles;
+    return Container(
+      margin: const EdgeInsets.only(top: AppTokens.sp16),
+      padding: const EdgeInsets.all(AppTokens.sp12),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(AppTokens.rLg),
+        border: Border.all(color: AppTokens.errorBg),
+        boxShadow: t.elevationSm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTokens.error, shape: BoxShape.circle)),
+            const SizedBox(width: AppTokens.sp6),
+            Text('先吃这些', style: ts.sectionLabel.copyWith(color: AppTokens.errorText)),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => context.go('/ai-recommend'),
+              child: Text('看看能做什么 ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),
+            ),
+          ]),
+          const SizedBox(height: AppTokens.sp4),
+          for (final e in _expiring.take(4))
+            InkWell(
+              onTap: () async {
+                await context.push('/pantry/${e.ingredientId}');
+                _load();
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppTokens.sp6),
+                child: Row(children: [
+                  IngredientIcon(name: e.ingredientName, size: 40),
+                  const SizedBox(width: AppTokens.sp12),
+                  Expanded(child: Text(e.ingredientName, style: ts.cardTitle.copyWith(color: t.title))),
+                  ToneBadge.expiry(e.daysLeft) ?? ToneBadge(e.daysText),
+                ]),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -294,7 +370,7 @@ class _PantryListPageState extends State<PantryListPage> {
   /// 搜索框：统一 SearchBox（⌕ 放大镜 + 输入 + ✕ 清除，输入即搜 300ms 防抖，§11.1.2）。
   Widget _buildSearchBox(AppTokens t) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, AppTokens.sp10, 14, 0),
+      padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, 0),
       child: SearchBox(
         controller: _searchCtrl,
         focusNode: _searchFocus,
@@ -312,11 +388,14 @@ class _PantryListPageState extends State<PantryListPage> {
     final showLow = f == 'all' || f == 'low';
     final showEnough = f == 'all' || f == 'enough';
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+      padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, 96),
       children: [
-        // 筛选条（全部 + 用完/不足/充足 三档，替代三色汇总条，原型 pantry-page 定稿）
+        _buildStats(t),
+        if (_expiring.isNotEmpty && f == 'all') _buildExpiring(t),
+        const SizedBox(height: AppTokens.sp16),
+        // 筛选条（全部 + 用完/不足/充足 三档）
         _buildFilterChips(t, g),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppTokens.sp4),
         // 分组列表：标题计数用汇总总数（不随加载变化），组尾「加载更多」
         if (showNone && g.none > 0)
           _buildSection(t, StockLevel.none, '用完', AppTokens.error, g.none),
@@ -367,15 +446,16 @@ class _PantryListPageState extends State<PantryListPage> {
 
   /// 筛选条：全部 / 缺 / 低 / 够（带计数）。选中实心，未选白底描边。
   Widget _buildFilterChips(AppTokens t, PantryGrouped g) {
-    return Row(
+    return Wrap(
+      spacing: 0,
       children: [
         _chip(t, 'all', '全部', _totalCount, null),
         const SizedBox(width: 6),
-        _chip(t, 'none', '用完', g.none, AppTokens.error),
+        _chip(t, 'none', '用完', g.none, AppTokens.errorText),
         const SizedBox(width: 6),
-        _chip(t, 'low', '不足', g.low, AppTokens.warning),
+        _chip(t, 'low', '不足', g.low, AppTokens.warningText),
         const SizedBox(width: 6),
-        _chip(t, 'enough', '充足', g.enough, AppTokens.success),
+        _chip(t, 'enough', '充足', g.enough, AppTokens.successText),
       ],
     );
   }
@@ -394,9 +474,12 @@ class _PantryListPageState extends State<PantryListPage> {
 
   Widget _buildSectionTitle(AppTokens t, String text, Color color) {
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 4),
-      child: Text(text,
-          style: t.textStyles.micro.copyWith(color: color, letterSpacing: 1)),
+      padding: const EdgeInsets.only(top: AppTokens.sp16, bottom: AppTokens.sp8),
+      child: Row(children: [
+        Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: AppTokens.sp6),
+        Text(text, style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+      ]),
     );
   }
 
@@ -414,118 +497,29 @@ class _PantryListPageState extends State<PantryListPage> {
     );
   }
 
-  /// 组尾加载更多胶囊：白底 + 本组色描边/文字，加载中禁用。
-  Widget _buildLoadMore(AppTokens t, String level, Color color, int remain) {
-    final loading = _loadingMore[level]!;
-    return Center(
-      child: GestureDetector(
-        onTap: loading ? null : () => _loadMore(level),
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-          decoration: BoxDecoration(
-            color: t.card,
-            border: Border.all(color: color.withAlpha(60)),
-            borderRadius: BorderRadius.circular(AppTokens.rPill),
-          ),
-          child: Text(
-            loading ? '加载中…' : '加载更多 · 还有 $remain 项',
-            style: t.textStyles.tiny.copyWith(
-              color: loading ? t.caption : color,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildLoadMore(AppTokens t, String level, Color color, int remain) => LoadMorePill(
+        remain: remain,
+        loading: _loadingMore[level]!,
+        color: color,
+        onTap: () => _loadMore(level),
+      );
 
-  /// 搜索底部加载更多（与分组胶囊同款，灰描边）。
-  Widget _buildSearchLoadMore(AppTokens t, int remain) {
-    return Center(
-      child: GestureDetector(
-        onTap: _searchLoading ? null : _loadMoreSearch,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-          decoration: BoxDecoration(
-            color: t.card,
-            border: Border.all(color: t.border),
-            borderRadius: BorderRadius.circular(AppTokens.rPill),
-          ),
-          child: Text(
-            _searchLoading ? '加载中…' : '加载更多 · 还有 $remain 项',
-            style: t.textStyles.tiny.copyWith(
-              color: _searchLoading ? t.caption : t.caption,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildSearchLoadMore(AppTokens t, int remain) =>
+      LoadMorePill(remain: remain, loading: _searchLoading, onTap: _loadMoreSearch);
 
-  /// 单行：食材名 + 上次变动 + 档位文字 + 进入箭头（点行进详情改档位）。
-  Widget _buildRow(AppTokens t, PantryGroupedItem item) {
-    final color = stockColor(item.level);
-    final hasSource = item.sourceLabel.isNotEmpty;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 4),
-      elevation: 0,
-      color: t.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
-        side: BorderSide(color: color.withAlpha(40)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppTokens.rMd),
+  Widget _buildRow(AppTokens t, PantryGroupedItem item) => PantryRow(
+        item: item,
         onTap: () async {
           await context.push('/pantry/${item.ingredientId}');
           _load(); // 详情页改档位后刷新
         },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              // 食材前置缩略图：无图走首字色块占位（DESIGN.md §10.4）
-              InitialAvatar(name: item.displayName, size: 40),
-              const SizedBox(width: AppTokens.sp12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item.displayName,
-                        style: t.textStyles.cardTitle.copyWith(color: t.title)),
-                    const SizedBox(height: 2),
-                    Text(
-                      hasSource
-                          ? '${item.sourceLabel} ${item.sourceSub}'
-                          : (item.level == 'NONE' ? '本来就没有' : '无变动记录'),
-                      style: t.textStyles.tiny.copyWith(
-                        color: hasSource && item.sourceLabel == '手动' ? _t.primary : t.caption,
-                        fontWeight: hasSource && item.sourceLabel == '手动' ? FontWeight.w700 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // 保质期剩余天数徽章（已用完的不提示）
-              if (item.daysLeft != null && item.level != StockLevel.none) ...[
-                StatusChip(
-                  key: ValueKey('days-left-${item.ingredientId}'),
-                  label: daysLeftLabel(item.daysLeft!),
-                  color: expiryColor(t, item.daysLeft!),
-                ),
-                const SizedBox(width: AppTokens.sp6),
-              ],
-              Text(item.levelLabel,
-                  style: t.textStyles.sm.copyWith(color: color, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 6),
-              Icon(Icons.chevron_right, size: 18, color: t.caption),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+        onLevel: (lv) async {
+          try {
+            await PantryService.setLevel(item.ingredientId, lv);
+            _load();
+          } catch (_) {
+            // request 已 toast
+          }
+        },
+      );
 }
