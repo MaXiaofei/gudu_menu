@@ -92,6 +92,20 @@ public class MybatisCookedDishRecordRepository implements CookedDishRecordReposi
     }
 
     @Override
+    public List<com.gudu.xsd.modules.cookbook.domain.model.CookedDishEntry> entriesBetween(LocalDateTime from,
+                                                                                       LocalDateTime to) {
+        if (from == null || to == null) return List.of();
+        return mapper.selectList(new QueryWrapper<CookingRecord>()
+                        .select("dish_id", "member_id", "serving_factor", "cooked_at")
+                        .isNotNull("dish_id").ge("cooked_at", from).lt("cooked_at", to)
+                        .orderByAsc("cooked_at").orderByAsc("id"))
+                .stream()
+                .map(r -> new com.gudu.xsd.modules.cookbook.domain.model.CookedDishEntry(r.getDishId(),
+                        r.getMemberId(), r.getServingFactor(), r.getCookedAt()))
+                .toList();
+    }
+
+    @Override
     public Map<Long, LastCooked> lastCookedOf(Collection<Long> dishIds) {
         List<Long> ids = dishIds == null ? List.of() : dishIds.stream().filter(Objects::nonNull).distinct().toList();
         if (ids.isEmpty()) return Map.of();

@@ -30,6 +30,10 @@ public interface CookedDishRecordRepository {
     /** [from, to) 内做了几顿饭：同一次做菜事件（eventId）算一顿，无 eventId 的历史记录每条算一顿。 */
     long countOccasions(java.time.LocalDateTime from, java.time.LocalDateTime to);
 
+    /** [from, to) 内的做菜记录（按时间升序；dish 为空的不含）。 */
+    List<com.gudu.xsd.modules.cookbook.domain.model.CookedDishEntry> entriesBetween(
+            java.time.LocalDateTime from, java.time.LocalDateTime to);
+
     /** 每道菜最近一次做菜记录（不限成员；无记录的菜不含）。 */
     Map<Long, LastCooked> lastCookedOf(Collection<Long> dishIds);
 
