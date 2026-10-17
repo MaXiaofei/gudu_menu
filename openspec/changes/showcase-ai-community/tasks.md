@@ -13,6 +13,7 @@
 - [x] 0.8 用户评审 design.md 与原型
 
 ## S1 Agent 只读
+- [ ] 1.0 模型网关：按能力路由（CHAT/TOOLS/VISION）+ 降级链 + 后台配置与热切换（默认 DeepSeek；key 加密存储）；后台「模型网关」页
 - [ ] 1.1 `AiClient` 支持 tools / function calling（DeepSeek；GLM 降级）+ 单测
 - [ ] 1.2 `agent` 上下文四层骨架；ToolRegistry；只读工具 6 个
 - [ ] 1.3 SSE 事件协议（token / tool_start / tool_end / card / done）

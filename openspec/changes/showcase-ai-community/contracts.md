@@ -148,3 +148,30 @@ type NutritionReport = { member: MemberLite & { profile: string }; range: { from
 ## 5. 跟做模式
 
 纯客户端：步骤计时解析（「8 分钟」「3:00」「半小时」→ 秒）；问咕嘟复用 `POST /agent/sessions/{id}/messages`，带 `context: { page: "cook_mode", dishId, step }`。
+
+## 6. 模型网关（后台配置与切换）
+
+- 所有模型调用（Agent 对话/工具调用、餐程排布、文案生成、拍照识别、营养补全等）统一经 `ModelGateway`，按**能力**路由：`CHAT`、`TOOLS`、`VISION`。
+- 默认：CHAT / TOOLS → DeepSeek `deepseek-chat`（key 取环境变量 `DEEPSEEK_API_KEY` 作为初始种子）；降级链 → GLM → Mock（规则）。VISION 默认 Mock（DeepSeek 公开 API 无视觉模型），后台可配任意 OpenAI 兼容多模态模型。
+- 供应商 key 入库 AES-GCM 加密（密钥取环境变量 `GUDU_SECRET_KEY`，缺失时只允许环境变量来源的 key），接口只返回掩码；切换即时生效（Redis 广播失效本地缓存），每次切换写审计日志。
+- 迁移编号：**V73 ai_gateway**（B1 组）。
+
+| 方法 | 路径 | 请求 | 响应 data |
+|---|---|---|---|
+| GET | `/admin/ai/gateway` | — | `{ providers: Provider[], routes: Route[] }` |
+| POST | `/admin/ai/gateway/providers` | `{ name, baseUrl, apiKey, enabled, models: Model[] }` | `Provider` |
+| PUT | `/admin/ai/gateway/providers/{id}` | 同上（`apiKey` 留空 = 不修改） | `Provider` |
+| DELETE | `/admin/ai/gateway/providers/{id}` | — | `{}`（被路由引用时 409） |
+| POST | `/admin/ai/gateway/providers/{id}/test` | `{ model, capability }` | `{ ok, latencyMs, error: string\|null, sample: string\|null }` |
+| PUT | `/admin/ai/gateway/routes/{capability}` | `{ primary: { providerId, model }, fallbacks: { providerId, model }[], timeoutMs, maxRetries }` | `Route` |
+| GET | `/admin/ai/gateway/usage` | `range=today\|7d` | `{ byRoute: { capability, provider, model, calls, failRate, p95Ms, costFen }[] }` |
+
+```ts
+type Provider = { providerId: number; name: string; type: "OPENAI_COMPATIBLE" | "MOCK"; baseUrl: string;
+  apiKeyMasked: string | null; keySource: "DB" | "ENV" | "NONE"; enabled: boolean; models: Model[];
+  health: { ok: boolean; latencyMs: number | null; checkedAt: string | null } }
+type Model = { model: string; capabilities: ("CHAT"|"TOOLS"|"VISION")[];
+  inputPricePerMTokFen: number; outputPricePerMTokFen: number }
+type Route = { capability: "CHAT"|"TOOLS"|"VISION"; primary: { providerId; model };
+  fallbacks: { providerId; model }[]; timeoutMs: number; maxRetries: number; updatedAt: string; updatedBy: string }
+```
