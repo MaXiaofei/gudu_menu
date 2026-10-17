@@ -76,8 +76,14 @@ export interface UsageRow {
   costFen: number
 }
 
-export function getGateway() {
-  return request<{ providers: Provider[]; routes: GatewayRoute[] }>({ url: '/admin/ai/gateway', method: 'get' })
+/** 后端枚举返回大写（DISABLED），界面选项用小写 */
+export function normalizeRoute<T extends { thinking: string }>(r: T): T {
+  return { ...r, thinking: String(r.thinking || 'disabled').toLowerCase() as Thinking }
+}
+
+export async function getGateway() {
+  const d = await request<{ providers: Provider[]; routes: GatewayRoute[] }>({ url: '/admin/ai/gateway', method: 'get' })
+  return { ...d, routes: (d.routes ?? []).map(normalizeRoute) }
 }
 
 export function createProvider(body: ProviderBody) {
@@ -103,7 +109,7 @@ export function testProvider(id: number, body: { model: string; capability: Capa
 }
 
 export function saveRoute(capability: Capability, body: Pick<GatewayRoute, 'primary' | 'fallbacks' | 'timeoutMs' | 'maxRetries' | 'thinking'>) {
-  return request<GatewayRoute>({ url: `/admin/ai/gateway/routes/${capability}`, method: 'put', data: body })
+  return request<GatewayRoute>({ url: `/admin/ai/gateway/routes/${capability}`, method: 'put', data: body }).then(normalizeRoute)
 }
 
 export function getGatewayUsage(range: 'today' | '7d') {
