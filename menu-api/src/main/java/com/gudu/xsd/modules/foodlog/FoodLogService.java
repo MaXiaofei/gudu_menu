@@ -156,7 +156,7 @@ public class FoodLogService {
                 .map(r -> dishNames.getOrDefault(r.getDishId(), "菜 #" + r.getDishId()))
                 .toList();
         return new Meal(menuId, name == null ? "单菜直做" : name, first.getCookedAt(),
-                group.size(), null, names, memo.usedUp().size(), memo.partial().size(), reviewed);
+                group.size(), null, names, memo.usedUp().size(), memo.partial().size(), reviewed, first.getId());
     }
 
     private boolean matchFilter(Meal m, String meal, String source, Boolean reviewed) {
@@ -302,7 +302,7 @@ public class FoodLogService {
                     .map(id -> ingNames.getOrDefault(id, "食材 #" + id)).toList();
             boolean reviewed = reviewedMenuIds(List.of(menuId)).contains(menuId);
             return new DetailVO(menuId, "食集已删除", recs.get(0).getCookedAt(), null,
-                    dishes, usedUp, partial, reviewed);
+                    dishes, usedUp, partial, reviewed, recs.get(0).getId());
         }
         List<MenuDish> mds = menuDishMapper.selectList(
                 new QueryWrapper<MenuDish>().eq("menu_id", menuId).orderByAsc("id"));
@@ -322,7 +322,7 @@ public class FoodLogService {
         boolean reviewed = reviewedMenuIds(List.of(menuId)).contains(menuId);
         LocalDateTime cookedAt = recs.isEmpty() ? null : recs.get(0).getCookedAt();
         return new DetailVO(menuId, menu.getName(), cookedAt, menu.getServingCount(),
-                dishes, usedUp, partial, reviewed);
+                dishes, usedUp, partial, reviewed, recs.isEmpty() ? null : recs.get(0).getId());
     }
 
     // ===================== 内部辅助 =====================
@@ -399,9 +399,19 @@ public class FoodLogService {
     /** 响应结构对齐 §12.3：records/total/current/size；records=时间轴分页列表。 */
     public record MonthVO(Summary summary, List<Meal> records, int total, int current, int size) {}
 
+    /**
+     * 一顿饭。foodLogId = 这顿饭的代表做菜记录 id（cooking_record.id），厨房圈「从食记分享」用
+     * （POST /community/posts 的 fromFoodLogId）；单菜直做没有食集 id，只能靠它定位。
+     */
     public record Meal(Long menuId, String name, LocalDateTime cookedAt, int dishCount,
                        Integer servingCount, List<String> dishNames,
-                       int usedUpCount, int partialCount, boolean reviewed) {}
+                       int usedUpCount, int partialCount, boolean reviewed, Long foodLogId) {
+
+        public Meal(Long menuId, String name, LocalDateTime cookedAt, int dishCount, Integer servingCount,
+                    List<String> dishNames, int usedUpCount, int partialCount, boolean reviewed) {
+            this(menuId, name, cookedAt, dishCount, servingCount, dishNames, usedUpCount, partialCount, reviewed, null);
+        }
+    }
 
     public record ByDishVO(int totalKinds, List<Item> items) {}
 
@@ -410,9 +420,16 @@ public class FoodLogService {
 
     public record YearVO(int year, int[] monthCounts) {}
 
+    /** 食记详情；foodLogId 同 {@link Meal#foodLogId()}（无做菜记录时为空）。 */
     public record DetailVO(Long menuId, String name, LocalDateTime cookedAt, Integer servingCount,
                            List<DishItem> dishes, List<String> usedUp, List<String> partial,
-                           boolean reviewed) {}
+                           boolean reviewed, Long foodLogId) {
+
+        public DetailVO(Long menuId, String name, LocalDateTime cookedAt, Integer servingCount,
+                        List<DishItem> dishes, List<String> usedUp, List<String> partial, boolean reviewed) {
+            this(menuId, name, cookedAt, servingCount, dishes, usedUp, partial, reviewed, null);
+        }
+    }
 
     public record DishItem(Long dishId, String dishName, BigDecimal servingFactor, String note) {}
 }

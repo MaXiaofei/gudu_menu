@@ -174,3 +174,21 @@ DELETE inn FROM ingredient_nutrition inn
   LEFT JOIN ingredient i ON i.id = inn.ingredient_id
   WHERE i.id IS NULL OR i.name LIKE 'E2E%';
 DELETE FROM ingredient WHERE name LIKE 'E2E%';
+
+-- ============================================================
+-- [community] 厨房圈（V71）E2E 兜底清理（GuduE2ECommunityTest 可重复跑）：
+-- E2E 帖子标题统一 'E2E' 前缀；E2E 成员（phone 1390000%）上面已删，这里按孤儿清理其关系行。
+-- 唯一约束表（reaction / follow / copy / report / checkin / appeal / ban）全部覆盖。
+-- ============================================================
+DELETE FROM community_post WHERE title LIKE 'E2E%';
+DELETE pt FROM community_post_topic pt LEFT JOIN community_post p ON p.id = pt.post_id WHERE p.id IS NULL;
+DELETE c FROM community_comment c LEFT JOIN community_post p ON p.id = c.post_id WHERE p.id IS NULL;
+DELETE r FROM community_reaction r LEFT JOIN community_post p ON p.id = r.post_id WHERE p.id IS NULL;
+DELETE cp FROM community_copy cp LEFT JOIN community_post p ON p.id = cp.post_id WHERE p.id IS NULL;
+DELETE rp FROM community_report rp LEFT JOIN community_post p ON p.id = rp.post_id WHERE p.id IS NULL;
+DELETE ck FROM community_topic_checkin ck LEFT JOIN community_post p ON p.id = ck.post_id WHERE p.id IS NULL;
+DELETE ap FROM community_appeal ap LEFT JOIN community_post p ON p.id = ap.post_id WHERE p.id IS NULL;
+DELETE ml FROM community_moderation_log ml LEFT JOIN community_post p ON p.id = ml.post_id WHERE p.id IS NULL;
+DELETE f FROM community_follow f LEFT JOIN member a ON a.id = f.follower_id LEFT JOIN member b ON b.id = f.followee_id
+  WHERE a.id IS NULL OR b.id IS NULL;
+DELETE bn FROM community_ban bn LEFT JOIN member m ON m.id = bn.user_id WHERE m.id IS NULL;

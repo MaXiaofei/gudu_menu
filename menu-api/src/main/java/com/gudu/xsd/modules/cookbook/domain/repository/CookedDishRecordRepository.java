@@ -32,4 +32,10 @@ public interface CookedDishRecordRepository {
 
     /** 每道菜最近一次做菜记录（不限成员；无记录的菜不含）。 */
     Map<Long, LastCooked> lastCookedOf(Collection<Long> dishIds);
+
+    /** 与该记录同一顿饭的全部记录（同 eventId；无 eventId 时同食集同时间；都没有则只有它自己），按 id 升序。 */
+    List<com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef> sameMealRefs(Long id);
+
+    /** 按 id 取记录的只读引用（不存在返回空）。 */
+    java.util.Optional<com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef> refOf(Long id);
 }

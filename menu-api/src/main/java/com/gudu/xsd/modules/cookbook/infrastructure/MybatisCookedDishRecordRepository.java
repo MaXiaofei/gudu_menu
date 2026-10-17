@@ -131,4 +131,29 @@ public class MybatisCookedDishRecordRepository implements CookedDishRecordReposi
         if (v instanceof Timestamp ts) return ts.toLocalDateTime();
         return null;
     }
+
+    @Override
+    public java.util.Optional<com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef> refOf(Long id) {
+        if (id == null) return java.util.Optional.empty();
+        return java.util.Optional.ofNullable(mapper.selectById(id)).map(r ->
+                new com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef(r.getId(), r.getMemberId(),
+                        r.getDishId(), r.getCookedAt()));
+    }
+
+    @Override
+    public List<com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef> sameMealRefs(Long id) {
+        CookingRecord r = id == null ? null : mapper.selectById(id);
+        if (r == null) return List.of();
+        QueryWrapper<CookingRecord> w = new QueryWrapper<>();
+        if (r.getEventId() != null) {
+            w.eq("event_id", r.getEventId());
+        } else if (r.getMenuId() != null) {
+            w.eq("menu_id", r.getMenuId()).eq("cooked_at", r.getCookedAt());
+        } else {
+            w.eq("id", r.getId());
+        }
+        return mapper.selectList(w.orderByAsc("id")).stream()
+                .map(x -> new com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef(x.getId(), x.getMemberId(),
+                        x.getDishId(), x.getCookedAt())).toList();
+    }
 }
