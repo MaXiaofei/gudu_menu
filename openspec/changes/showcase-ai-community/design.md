@@ -62,6 +62,8 @@ Client ──SSE──► AgentController
 
 ### 2.2 接口
 
+> 字段级契约见 [contracts.md](./contracts.md)，前后端并行开发以它为准。
+
 - `POST /agent/sessions` → `{sessionId}`；`GET /agent/sessions`（最近会话）
 - `POST /agent/sessions/{id}/messages`（`text` 或 `audioFileId`）→ SSE
 - `POST /agent/actions/{id}/confirm`、`POST /agent/actions/{id}/cancel`
@@ -86,6 +88,7 @@ Client ──SSE──► AgentController
 
 ## 5. 一周餐程与营养报告（`mealplan` 上下文）
 
+- 一周 = **周一至周日**；默认生成下周一到周日（当天为周一时生成本周）；话题挑战周期同样按周一至周日。
 - 输入约束：日期范围、每天几餐、人份、成员档案（高血压限钠、高血脂限脂、宝宝辅食需有软烂/无盐版本）、预算、工作日烹饪时长上限、优先消耗临期。
 - 生成：规则先过滤候选菜（忌口、档案禁忌、时长）→ LLM 排布（荤素搭配、不重样、临期优先）→ 规则校验（营养阈值、重复度）→ 不通过的天回炉，最多 2 轮 → 输出草稿，可逐格「换一道」，确认后批量生成食集与合并采购清单。
 - 营养报告：按食记聚合周/月摄入（能量、蛋白、脂肪、钠、膳食纤维），成员维度对照档案阈值给出超标提醒和替换建议；雷达图 + 周趋势。

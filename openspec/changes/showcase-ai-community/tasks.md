@@ -10,7 +10,7 @@
 - [x] 0.5 后台原型：AdminAgentTrace、AdminAgentEval、AdminCommunity
 - [x] 0.6 技术架构总览 Architecture.html（面试讲解用）
 - [x] 0.7 index.html / all.html 收录新页面；全部页面零坏链、零外链
-- [ ] 0.8 用户评审 design.md 与原型
+- [x] 0.8 用户评审 design.md 与原型
 
 ## S1 Agent 只读
 - [ ] 1.1 `AiClient` 支持 tools / function calling（DeepSeek；GLM 降级）+ 单测
