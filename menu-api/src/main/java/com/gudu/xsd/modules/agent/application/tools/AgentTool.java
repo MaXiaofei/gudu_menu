@@ -20,4 +20,12 @@ public interface AgentTool {
     ToolDef definition();
 
     ToolOutcome run(ToolContext ctx, Map<String, Object> args);
+
+    /**
+     * 执行前规整模型给的参数（如把放错层级的约束挪回 filters）。调用链与评测记录的是规整后的参数，
+     * 即实际执行的参数。默认原样返回。
+     */
+    default Map<String, Object> normalize(Map<String, Object> args) {
+        return args;
+    }
 }

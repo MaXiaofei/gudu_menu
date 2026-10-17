@@ -12,6 +12,7 @@ import com.gudu.xsd.modules.agent.domain.model.ToolCallRecord;
 import com.gudu.xsd.modules.agent.domain.model.TraceSpan;
 import com.gudu.xsd.modules.agent.domain.model.TraceStatus;
 import com.gudu.xsd.modules.agent.domain.port.Kitchen;
+import com.gudu.xsd.modules.agent.domain.service.ActionClaimGuard;
 import com.gudu.xsd.modules.agent.domain.service.DishMentionGuard;
 import com.gudu.xsd.modules.agent.domain.service.PhoneMasker;
 import com.gudu.xsd.modules.agent.domain.service.PlainReply;
@@ -161,6 +162,7 @@ public class AgentOrchestrator {
             out = ToolOutcome.fail("工具暂时不可用（" + env.toolErrors().get(call.name()) + "），请如实告诉用户稍后再试");
         } else {
             try {
+                args = tool.normalize(args);
                 out = tool.run(ctx, args);
             } catch (RuntimeException e) {
                 log.warn("工具 {} 执行失败 trace={}: {}", call.name(), req.traceId(), e.getMessage());
@@ -270,6 +272,7 @@ public class AgentOrchestrator {
         turn.span(SpanType.GUARD, "guard.output", g0, true, Map.of("length", reply.length()),
                 Map.of("phoneMasked", masked.count()), 0, BigDecimal.ZERO);
         observeDishMentions(req, turn, reply);
+        observeActionClaims(turn, reply);
         for (int i = 0; i < reply.length(); i += TOKEN_CHUNK) {
             if (turn.firstTokenMs == null) turn.firstTokenMs = System.currentTimeMillis() - turn.start;
             sink.send("token", Map.of("text", reply.substring(i, Math.min(reply.length(), i + TOKEN_CHUNK))));
@@ -299,6 +302,17 @@ public class AgentOrchestrator {
             }
         } catch (RuntimeException e) {
             log.debug("菜名一致性观测失败: {}", e.getMessage());
+        }
+    }
+
+    /** 回复声称已生成卡片 / 已加好 / 已撤销，但本轮没有任何动作：记一条 guard span（不拦截，先观测）。 */
+    private static void observeActionClaims(Turn turn, String reply) {
+        long g0 = System.currentTimeMillis();
+        String claim = ActionClaimGuard.claimWithoutAction(reply, turn.actions.size(),
+                turn.tools.stream().filter(ToolCallRecord::ok).map(ToolCallRecord::name).toList());
+        if (claim != null) {
+            turn.span(SpanType.GUARD, "guard.action_claim", g0, false, Map.of("actions", 0),
+                    Map.of("claim", claim, "blocked", false), 0, BigDecimal.ZERO);
         }
     }
 

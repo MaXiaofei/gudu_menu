@@ -2,6 +2,7 @@ package com.gudu.xsd.modules.agent.application.tools;
 
 import com.gudu.xsd.modules.agent.domain.port.Kitchen.DishInfo;
 import com.gudu.xsd.modules.agent.domain.port.Kitchen.DishQuery;
+import com.gudu.xsd.modules.agent.domain.service.IngredientSynonyms;
 import com.gudu.xsd.modules.agent.domain.service.ProfileConstraintPolicy;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ToolDef;
 
@@ -50,6 +51,31 @@ public class SearchRecipesTool implements AgentTool {
                         "ingredients", stringArray("想用掉的食材名"),
                         "filters", filters,
                         "limit", prop("integer", "返回条数，默认 3，最多 8"))));
+    }
+
+    /** 约束键放错层级（与 query 同级）时挪回 filters；检索词做同义归一（西蓝花→西兰花、洋芋→土豆）。 */
+    @Override
+    public Map<String, Object> normalize(Map<String, Object> args) {
+        Map<String, Object> out = new LinkedHashMap<>(args);
+        Map<String, Object> filters = new LinkedHashMap<>(map(args, "filters"));
+        for (String k : List.of("tags", "excludeTags", "forMembers", "maxMinutes")) {
+            Object top = out.remove(k);
+            if (top == null) continue;
+            Object inner = filters.get(k);
+            if (inner == null) {
+                filters.put(k, top);
+            } else if (inner instanceof List<?> a && top instanceof List<?> b) {
+                Set<Object> merged = new LinkedHashSet<>(a);
+                merged.addAll(b);
+                filters.put(k, List.copyOf(merged));
+            }
+        }
+        if (!filters.isEmpty()) out.put("filters", filters);
+        if (out.get("query") instanceof String q) out.put("query", IngredientSynonyms.canonical(q));
+        if (out.get("ingredients") instanceof List<?> ings) {
+            out.put("ingredients", ings.stream().map(x -> IngredientSynonyms.canonical(String.valueOf(x))).distinct().toList());
+        }
+        return out;
     }
 
     @Override

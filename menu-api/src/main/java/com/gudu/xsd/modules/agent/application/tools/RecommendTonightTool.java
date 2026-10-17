@@ -36,6 +36,17 @@ public class RecommendTonightTool implements AgentTool {
                         "forMembers", stringArray("给谁吃（成员名）"))));
     }
 
+    /** 模型照 search_recipes 的习惯把 forMembers 放进 filters 时挪回顶层，避免约束丢失。 */
+    @Override
+    public Map<String, Object> normalize(Map<String, Object> args) {
+        if (args.get("forMembers") != null || !(args.get("filters") instanceof Map<?, ?> f) || f.get("forMembers") == null) {
+            return args;
+        }
+        Map<String, Object> out = new java.util.LinkedHashMap<>(args);
+        out.put("forMembers", f.get("forMembers"));
+        return out;
+    }
+
     @Override
     public ToolOutcome run(ToolContext ctx, Map<String, Object> args) {
         ProfileConstraintPolicy.Constraint forced = forcedConstraint(ctx, strings(args, "forMembers"));

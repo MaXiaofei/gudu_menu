@@ -1,5 +1,4 @@
 package com.gudu.xsd.modules.agent.application.assess;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gudu.xsd.modules.agent.application.ActionDesk;
 import com.gudu.xsd.modules.agent.application.AgentEventSink;
@@ -20,6 +19,7 @@ import com.gudu.xsd.modules.agent.domain.model.assess.AssessMetrics;
 import com.gudu.xsd.modules.agent.domain.model.assess.CaseOutcome;
 import com.gudu.xsd.modules.agent.domain.model.assess.RunOutcome;
 import com.gudu.xsd.modules.agent.domain.port.Kitchen.MemberInfo;
+import com.gudu.xsd.modules.agent.domain.service.ActionClaimGuard;
 import com.gudu.xsd.modules.agent.domain.service.ArgMatcher;
 import com.gudu.xsd.modules.agent.domain.service.AssessScoring;
 import com.gudu.xsd.modules.agent.domain.service.ToolSequenceMatcher;
@@ -150,6 +150,7 @@ public class AssessRunner {
         List<PendingAction> created = new ArrayList<>();
         List<String> replies = new ArrayList<>();
         List<String> fails = new ArrayList<>();
+        List<String> claims = new ArrayList<>();
         StringBuilder dialogue = new StringBuilder();
         boolean degraded = false;
         boolean compliant = true;
@@ -230,6 +231,9 @@ public class AssessRunner {
                     fails.add("写工具 " + t.name() + " 未生成待确认卡片");
                 }
             }
+            String claim = ActionClaimGuard.claimWithoutAction(r.text(), r.actions().size(),
+                    r.tools().stream().filter(ToolCallRecord::ok).map(ToolCallRecord::name).toList());
+            if (claim != null) claims.add(claim);
             cards.addAll(r.cards());
             created.addAll(r.actions());
             replies.add(r.text());
@@ -272,7 +276,7 @@ public class AssessRunner {
         List<String> must = strs(rubric.get("must"));
         List<String> mustNot = strs(rubric.get("mustNot"));
         LlmJudge.Verdict v = judge == null ? LlmJudge.Verdict.skipped(must.size())
-                : judge.judge(dialogue.toString(), String.join("\n", replies), describe(calls, created), must, mustNot);
+                : judge.judge(dialogue.toString(), String.join("\n", replies), describe(calls, created, cards), must, mustNot);
         if (v.mustNotHit()) fails.addAll(v.reasons());
 
         RunOutcome outcome = new RunOutcome(tr.selectionOk(), tr.argsMatched(), tr.argsTotal(), compliant, v.judged(),
@@ -288,6 +292,8 @@ public class AssessRunner {
         detail.put("mustHit", v.mustHit());
         detail.put("mustTotal", v.mustTotal());
         detail.put("mustNotHit", v.mustNotHit());
+        detail.put("mustFlags", v.mustFlags());
+        detail.put("mustNotFlags", v.mustNotFlags());
         detail.put("actualTools", outcome.actualTools());
         detail.put("actualCalls", calls.stream().map(x -> Map.of("name", x.name(), "args", x.args())).toList());
         detail.put("reply", String.join("\n", replies));
@@ -298,6 +304,7 @@ public class AssessRunner {
         detail.put("ms", ms);
         detail.put("budgetExceeded", over);
         detail.put("failReasons", fails);
+        if (!claims.isEmpty()) detail.put("claimWithoutAction", claims);
         if (!v.reasons().isEmpty()) detail.put("judgeNotes", v.reasons());
         Run run = new Run();
         run.outcome = outcome;
@@ -341,8 +348,28 @@ public class AssessRunner {
     private boolean checkActions(Map<String, Object> ex, List<PendingAction> created, InMemoryActionStore store,
                                  FixtureKitchen kitchen, Map<String, Object> baseline, int agentWrites,
                                  List<String> replies, List<String> fails) {
+        List<Map<String, Object>> alternatives = list(ex.get("anyOf"));
+        if (!alternatives.isEmpty()) {
+            // 多种合格形态任一满足即可；都不满足时报第一种形态的失败原因
+            List<String> firstFails = null;
+            for (Map<String, Object> alt : alternatives) {
+                List<String> f = new ArrayList<>();
+                if (checkActions(alt, created, store, kitchen, baseline, agentWrites, replies, f)) return true;
+                if (firstFails == null) firstFails = f;
+            }
+            fails.add("动作：" + alternatives.size() + " 种期望形态都不满足");
+            fails.addAll(firstFails);
+            return false;
+        }
         boolean ok = true;
         for (Map<String, Object> p : list(ex.get("pending"))) {
+            List<String> merged = strs(p.get("merged"));
+            if (!merged.isEmpty()) {
+                // 合并卡：一张卡同时承载多个写操作。当前编排每个写工具各出一张卡、没有合并卡，这一形态如实判不满足
+                ok = false;
+                fails.add("待确认卡片：期望 1 张合并卡 " + merged + "（当前编排不产出合并卡）");
+                continue;
+            }
             String tool = str(p.get("tool"));
             long n = created.stream().filter(a -> a.tool().equals(tool)).count();
             boolean good = p.get("count") == null ? n >= 1 : n == ((Number) p.get("count")).longValue();
@@ -562,7 +589,9 @@ public class AssessRunner {
         return out;
     }
 
-    private String describe(List<ToolSequenceMatcher.Call> calls, List<PendingAction> created) {
+    /** 给裁判看的工具与卡片：调用参数、卡片里的菜 / 食材名、待确认卡片标题（judge-v2 起含卡片内容，否则「菜名来自卡片」类要点无从判断）。 */
+    private String describe(List<ToolSequenceMatcher.Call> calls, List<PendingAction> created,
+                            List<Map<String, Object>> cards) {
         StringBuilder sb = new StringBuilder();
         for (ToolSequenceMatcher.Call c : calls) {
             try {
@@ -571,7 +600,26 @@ public class AssessRunner {
                 sb.append("- 调用 ").append(c.name()).append('\n');
             }
         }
-        for (PendingAction a : created) sb.append("- 待确认卡片：").append(a.title()).append('\n');
+        for (Map<String, Object> c : cards) {
+            List<String> names = new ArrayList<>();
+            if (c.get("items") instanceof Collection<?> col) {
+                for (Object it : col) names.add(it instanceof Map<?, ?> m ? str(m.get("name")) : str(it));
+            } else if (c.get("name") != null) {
+                names.add(str(c.get("name")));
+            }
+            sb.append("- 卡片 ").append(str(c.get("type"))).append("：").append(String.join("、", names)).append('\n');
+        }
+        for (PendingAction a : created) {
+            sb.append("- 待确认卡片：").append(a.title());
+            List<String> items = new ArrayList<>();
+            for (Map<String, Object> it : list(a.preview().get("items"))) {
+                items.add(str(it.get("name")) + (it.get("amount") == null ? "" : " " + it.get("amount") + str(it.get("unit"))));
+            }
+            if (!items.isEmpty()) sb.append("（卡片内容：").append(String.join("、", items)).append("）");
+            List<String> skipped = strs(a.preview().get("alreadyInList"));
+            if (!skipped.isEmpty()) sb.append("（已在采购单、服务端未重复添加：").append(String.join("、", skipped)).append("）");
+            sb.append('\n');
+        }
         return sb.length() == 0 ? "（没有调用工具）" : sb.toString();
     }
 

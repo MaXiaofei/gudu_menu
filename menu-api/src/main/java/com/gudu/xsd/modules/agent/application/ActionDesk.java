@@ -119,9 +119,8 @@ public class ActionDesk {
 
             @Override
             public PendingAction undo(String ref) {
-                List<PendingAction> done = sessionActions().stream()
-                        .filter(a -> a.status() == ActionStatus.DONE && a.undoToken() != null)
-                        .filter(a -> matches(a, ref)).toList();
+                List<PendingAction> done = pick(sessionActions().stream()
+                        .filter(a -> a.status() == ActionStatus.DONE && a.undoToken() != null).toList(), ref);
                 if (done.isEmpty()) throw new DomainException("没有可以撤销的操作");
                 PendingAction target = done.get(done.size() - 1);
                 PendingAction r = ActionDesk.this.undo(memberId, target.undoToken());
@@ -131,9 +130,10 @@ public class ActionDesk {
             @Override
             public List<PendingAction> cancel(String ref) {
                 List<PendingAction> out = new ArrayList<>();
-                for (PendingAction a : sessionActions()) {
-                    if (a.status() == ActionStatus.PENDING && matches(a, ref)
-                            && store.transition(a.actionId(), ActionStatus.PENDING, ActionStatus.CANCELLED)) {
+                List<PendingAction> pending = pick(sessionActions().stream()
+                        .filter(a -> a.status() == ActionStatus.PENDING).toList(), ref);
+                for (PendingAction a : pending) {
+                    if (store.transition(a.actionId(), ActionStatus.PENDING, ActionStatus.CANCELLED)) {
                         out.add(a.withStatus(ActionStatus.CANCELLED));
                     }
                 }
@@ -145,6 +145,55 @@ public class ActionDesk {
     private static boolean matches(PendingAction a, String ref) {
         return ref == null || ref.isBlank() || a.actionId().equals(ref.trim()) || a.title().contains(ref.trim())
                 || a.tool().equals(ref.trim());
+    }
+
+    /**
+     * 按引用挑动作：先精确（空 = 全部、id、标题包含、工具名）；模型常把描述写成「mark_cooked 麻婆豆腐」
+     * 「把凉拌菠菜加到今晚的饭」这类，精确不中时按词命中（工具名或标题/参数里出现的词）取得分最高者；
+     * 仍不中但只有一个候选时就是它（用户说「撤销」时会话里只有这一件可撤）。
+     */
+    static List<PendingAction> pick(List<PendingAction> candidates, String ref) {
+        List<PendingAction> exact = candidates.stream().filter(a -> matches(a, ref)).toList();
+        if (!exact.isEmpty()) return exact;
+        int best = 0;
+        List<PendingAction> top = new ArrayList<>();
+        for (PendingAction a : candidates) {
+            int score = ref.contains(a.tool()) ? 1 : 0;
+            for (String k : keywords(a)) {
+                if (k.length() >= 2 && ref.contains(k)) score++;
+            }
+            if (score > best) {
+                best = score;
+                top = new ArrayList<>(List.of(a));
+            } else if (score == best && score > 0) {
+                top.add(a);
+            }
+        }
+        if (!top.isEmpty()) return top;
+        return candidates.size() == 1 ? candidates : List.of();
+    }
+
+    /** 动作里能被用户 / 模型拿来指代它的词：菜名、食集名、采购 / 入库项名、标题里「」中的名字。 */
+    private static List<String> keywords(PendingAction a) {
+        List<String> out = new ArrayList<>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("「([^」]+)」").matcher(a.title());
+        while (m.find()) out.add(m.group(1));
+        collect(a.args(), out);
+        return out;
+    }
+
+    private static void collect(Object v, List<String> out) {
+        if (v instanceof String s) {
+            out.add(s);
+        } else if (v instanceof Map<?, ?> m) {
+            for (Map.Entry<?, ?> e : m.entrySet()) {
+                String k = String.valueOf(e.getKey());
+                if (k.startsWith("_") && !"_raw".equals(k)) continue;
+                if (List.of("dish", "dishes", "menu", "name", "items", "newMenu", "_raw").contains(k)) collect(e.getValue(), out);
+            }
+        } else if (v instanceof java.util.Collection<?> c) {
+            for (Object x : c) collect(x, out);
+        }
     }
 
     private static Map<String, Object> withAction(Map<String, Object> plan, String actionId) {
