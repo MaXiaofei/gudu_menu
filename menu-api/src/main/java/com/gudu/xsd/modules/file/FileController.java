@@ -31,6 +31,10 @@ public class FileController {
 
     private static final int THUMBNAIL_WIDTH = 400;
 
+    /** 语音（咕嘟语音输入）：允许的扩展名与大小上限（≈60 秒）。 */
+    static final List<String> AUDIO_EXTS = List.of(".mp3", ".aac", ".m4a", ".wav");
+    static final long AUDIO_MAX_BYTES = 2L * 1024 * 1024;
+
     @Value("${gudu.upload-dir:uploads}")
     private String uploadDir;
 
@@ -38,6 +42,9 @@ public class FileController {
     public R<Map<String, String>> upload(@RequestParam("file") MultipartFile file) throws Exception {
         String original = (file.getOriginalFilename() == null) ? "file" : file.getOriginalFilename();
         String ext = original.contains(".") ? original.substring(original.lastIndexOf(".")).toLowerCase() : ".jpg";
+        if (AUDIO_EXTS.contains(ext)) {
+            return R.ok(saveAudio(file, original, ext));
+        }
         // 安全收窄扩展名
         if (!List.of(".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp").contains(ext)) {
             ext = ".jpg";
@@ -72,6 +79,20 @@ public class FileController {
                 "thumbnailUrl", prefix + thumbSub + "/" + baseName,
                 "name", original
         ));
+    }
+
+    /** 语音：≤ 2MB，存 audio/{YYYYMMDD}/，不生成缩略图；时长由客户端限制在 60 秒内。 */
+    private Map<String, String> saveAudio(MultipartFile file, String original, String ext) throws Exception {
+        if (file.getSize() > AUDIO_MAX_BYTES) {
+            throw new com.gudu.xsd.common.BizException("语音不能超过 2MB（约 60 秒）");
+        }
+        String day = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        String sub = "audio/" + day;
+        File dir = new File(uploadDir, sub).getAbsoluteFile();
+        ensureDir(dir);
+        String baseName = System.currentTimeMillis() + ext;
+        Files.copy(file.getInputStream(), new File(dir, baseName).toPath());
+        return Map.of("url", "/gudu/uploads/" + sub + "/" + baseName, "name", original, "type", "audio");
     }
 
     private void ensureDir(File dir) {

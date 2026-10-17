@@ -62,6 +62,13 @@ public class CookingRecordAppService {
         return repository.sameMealRefs(recordId);
     }
 
+    /** 撤销做菜记录（咕嘟「撤销做完回写」）。 */
+    @Transactional(rollbackFor = Exception.class)
+    public void revoke(Collection<Long> recordIds) {
+        if (recordIds == null || recordIds.isEmpty()) return;
+        repository.deleteByIds(recordIds);
+    }
+
     /** 某次做菜事件写入的记录 id。 */
     public List<Long> recordIdsOf(String eventId) {
         return repository.idsByEventId(eventId);

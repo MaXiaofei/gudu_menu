@@ -13,6 +13,8 @@ public interface CookedDishRecordRepository {
 
     void save(CookedDishRecord record);
 
+    void deleteByIds(Collection<Long> ids);
+
     boolean existsByEventId(String eventId);
 
     /** 某次做菜事件写入的记录 id（插入顺序）。 */

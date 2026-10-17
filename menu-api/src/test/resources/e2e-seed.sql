@@ -179,6 +179,8 @@ DELETE FROM ingredient WHERE name LIKE 'E2E%';
 -- [community] 厨房圈（V71）E2E 兜底清理（GuduE2ECommunityTest 可重复跑）：
 -- E2E 帖子标题统一 'E2E' 前缀；E2E 成员（phone 1390000%）上面已删，这里按孤儿清理其关系行。
 -- 唯一约束表（reaction / follow / copy / report / checkin / appeal / ban）全部覆盖。
+-- =====================================================
+
 -- ============================================================
 DELETE FROM community_post WHERE title LIKE 'E2E%';
 DELETE pt FROM community_post_topic pt LEFT JOIN community_post p ON p.id = pt.post_id WHERE p.id IS NULL;
@@ -209,3 +211,22 @@ DELETE s FROM ingredient_stock s LEFT JOIN ingredient i ON i.id = s.ingredient_i
   WHERE i.id IS NULL OR i.name LIKE 'E2E%';
 DELETE l FROM stock_log l LEFT JOIN ingredient i ON i.id = l.ingredient_id
   WHERE i.id IS NULL OR i.name LIKE 'E2E%';
+=======
+-- [agent] 咕嘟 Agent / 模型网关（V70 / V73）E2E 自建数据清理：
+-- 会话标题、评测用例 id、评测运行版本号、网关供应商名均以 E2E 开头；动作在 Redis（5 分钟 TTL）无需清。
+-- 表不存在时（V70/V73 未执行）以下语句会报错 → 先执行迁移再跑 E2E。
+-- ============================================================
+DELETE c FROM agent_eval_case c JOIN agent_trace t ON t.id = c.from_trace_id
+  JOIN agent_session s ON s.id = t.session_id WHERE s.title LIKE 'E2E%';
+DELETE sp FROM agent_span sp JOIN agent_trace t ON t.id = sp.trace_id
+  JOIN agent_session s ON s.id = t.session_id WHERE s.title LIKE 'E2E%';
+DELETE t FROM agent_trace t JOIN agent_session s ON s.id = t.session_id WHERE s.title LIKE 'E2E%';
+DELETE m FROM agent_message m JOIN agent_session s ON s.id = m.session_id WHERE s.title LIKE 'E2E%';
+DELETE FROM agent_session WHERE title LIKE 'E2E%';
+DELETE FROM agent_eval_case WHERE case_id LIKE 'E2E%';
+DELETE FROM agent_eval_run WHERE prompt_version LIKE 'E2E%';
+DELETE pm FROM ai_provider_model pm JOIN ai_provider p ON p.id = pm.provider_id WHERE p.name LIKE 'E2E%';
+DELETE FROM ai_provider WHERE name LIKE 'E2E%';
+-- 咕嘟越权用例专用的非管理员登录账号（密码 chef123；上面已按 phone LIKE '1390000%' 清理，这里幂等重建）
+INSERT INTO member(name, phone, password_hash, is_admin, role_tags, health_profile, deleted)
+VALUES ('E2E咕嘟访客', '13900000088', '$2a$10$8fMxXFI3W4XzBun3fNpUIuXT4dN9CRvHcw6K7edMJU78705ETwVrK', 0, '34', '{}', 0);

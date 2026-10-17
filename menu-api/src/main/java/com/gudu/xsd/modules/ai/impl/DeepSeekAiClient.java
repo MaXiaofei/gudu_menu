@@ -24,7 +24,7 @@ public class DeepSeekAiClient extends OpenAiCompatibleClient {
     @Value("${gudu.ai.deepseek.base-url:https://api.deepseek.com/v1}")
     private String baseUrl;
 
-    @Value("${gudu.ai.deepseek.model:deepseek-chat}")
+    @Value("${gudu.ai.deepseek.model:deepseek-flash}")
     private String model;
 
     @Value("${gudu.ai.deepseek.key:}")

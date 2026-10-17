@@ -77,7 +77,7 @@ gudu:
     daily-limit: ${GUDU_AI_DAILY_LIMIT:50}
     deepseek:
       base-url: https://api.deepseek.com/v1
-      model: deepseek-chat
+      model: deepseek-flash
       # 优先 DEEPSEEK_API_KEY，回退老的 API_KEY（兼容已部署机器的 docker-compose.env）
       key: ${DEEPSEEK_API_KEY:${API_KEY:}}
     glm:
