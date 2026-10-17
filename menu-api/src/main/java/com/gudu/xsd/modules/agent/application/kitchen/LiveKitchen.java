@@ -205,10 +205,13 @@ class LiveKitchen implements Kitchen {
         Map<Long, Dish> byId = dishes.stream().collect(Collectors.toMap(Dish::getId, Function.identity(), (a, b) -> a));
         // 完整菜谱（有封面 + 有步骤）排前，顺序内保持「临期 → 常做 → 应季」
         Set<Long> withSteps = f.dishService.dishIdsWithSteps(ids);
+        // 同名菜（种子菜与导入菜重名）只留排在前面的一道，避免卡片里出现两道「清蒸鲈鱼」
+        Set<String> seenNames = new java.util.HashSet<>();
         List<Dish> ordered = ids.stream().map(byId::get).filter(Objects::nonNull)
                 .filter(d -> tagsOf(d).stream().noneMatch(excludeTags::contains))
                 .sorted(java.util.Comparator.comparing((Dish d) -> !(withSteps.contains(d.getId())
                         && d.getCoverUrl() != null && !d.getCoverUrl().isBlank())))
+                .filter(d -> seenNames.add(d.getName() == null ? "" : d.getName().trim()))
                 .limit(n).toList();
         List<Long> keep = ordered.stream().map(Dish::getId).toList();
         Map<Long, List<DishIngredient>> ing = f.dishService.ingredientsOf(keep).stream()
