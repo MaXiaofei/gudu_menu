@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/ingredient_icons.dart';
 import '../../models/member.dart';
 import '../../services/agent_service.dart';
 import '../../stores/auth_store.dart';
@@ -28,6 +29,19 @@ class _AgentHomePageState extends State<AgentHomePage> {
   List<AgentSessionItem> _sessions = const [];
   bool _loading = true;
   bool _offline = false;
+
+  bool _precached = false;
+
+  /// 快到期条与首推占位用到食材插画：首屏前预解码，避免第一次显示为空白方块。
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_precached) return;
+    _precached = true;
+    for (final k in IngredientIcons.keys) {
+      precacheImage(AssetImage(IngredientIcons.asset(k)), context);
+    }
+  }
 
   @override
   void initState() {
@@ -227,7 +241,9 @@ class _AgentHomePageState extends State<AgentHomePage> {
           children: [
             GestureDetector(
               onTap: () => context.push('/dish/${d.id}'),
-              child: DishImage(url: d.coverUrl, name: d.name, radius: 0, original: true),
+              child: (d.coverUrl ?? '').isEmpty
+                  ? _noCover(t, d.name, s)
+                  : DishImage(url: d.coverUrl, name: d.name, radius: 0, original: true),
             ),
             const DecoratedBox(
               decoration: BoxDecoration(
@@ -282,10 +298,13 @@ class _AgentHomePageState extends State<AgentHomePage> {
                       ),
                       const SizedBox(width: AppTokens.sp10),
                       OutlinedButton.icon(
+                        key: const Key('agent-tonight-swap'),
+                        // 深色渐变底上的次按钮：半透明白底 + 白字（主题默认 OutlinedButton 是白底，会把白字盖掉）
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 48),
+                          backgroundColor: AppTokens.onPhoto.withAlpha(46),
                           foregroundColor: AppTokens.onPhoto,
-                          side: const BorderSide(color: AppTokens.onPhoto),
+                          side: BorderSide(color: AppTokens.onPhoto.withAlpha(150)),
                         ),
                         onPressed: _load,
                         icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -296,6 +315,46 @@ class _AgentHomePageState extends State<AgentHomePage> {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 首推菜没有封面时：主色渐变 + 食材插画拼贴（不用巨大首字）。
+  /// 插画取菜名里能识别的食材，再补快到期食材，最多 3 个。
+  Widget _noCover(AppTokens t, String name, AgentSuggestions s) {
+    final keys = <String>[];
+    void add(String? k) {
+      if (k != null && !keys.contains(k) && keys.length < 3) keys.add(k);
+    }
+    for (final ch in IngredientIcons.keywords) {
+      if (ch.$2.any(name.contains)) add(ch.$1);
+    }
+    for (final e in s.expiring) {
+      add(IngredientIcons.resolve(iconKey: e.iconKey, name: e.name));
+    }
+    if (keys.isEmpty) add('egg');
+    return DecoratedBox(
+      key: const Key('agent-tonight-nocover'),
+      decoration: BoxDecoration(gradient: t.primaryGradient),
+      child: Align(
+        alignment: const Alignment(0.55, -0.35),
+        child: Wrap(
+          spacing: AppTokens.sp10,
+          children: [
+            for (final k in keys)
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: AppTokens.onPhoto.withAlpha(235),
+                  shape: BoxShape.circle,
+                  boxShadow: t.elevationLg,
+                ),
+                alignment: Alignment.center,
+                child: Image.asset(IngredientIcons.asset(k), width: 44, height: 44),
+              ),
           ],
         ),
       ),

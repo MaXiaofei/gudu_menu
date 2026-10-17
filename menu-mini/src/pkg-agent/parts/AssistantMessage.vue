@@ -67,7 +67,7 @@
 
       <!-- 文字 -->
       <view v-if="msg.text || msg.streaming" class="bubble">
-        <text class="txt">{{ msg.text }}</text>
+        <text class="txt"><text v-for="(p, i) in mdParts" :key="i" :class="{ b: p.bold }">{{ p.text }}</text></text>
         <text v-if="msg.streaming" class="cursor">▍</text>
       </view>
       <view v-if="msg.error" class="err">
@@ -114,6 +114,7 @@ import { toolsSeconds, type AgentMessage, type PendingAction } from '@/api/agent
 import { coverageLabel, coverageTone } from '@/api/contract'
 import { formatErrorId } from '@/utils/request'
 import { PAGES, withQuery } from '@/utils/nav'
+import { parseLiteMarkdown } from '@/utils/liteMarkdown'
 import ActionCard from './ActionCard.vue'
 import CookedCard from './CookedCard.vue'
 
@@ -130,6 +131,8 @@ defineEmits<{
   (e: 'revise', a: PendingAction, args: Record<string, unknown>): void
   (e: 'rate', m: AgentMessage, r: 1 | -1): void
 }>()
+/** 后端约定纯文本，模型偶尔带 Markdown：轻量渲染粗体 / 列表 / 标题 */
+const mdParts = computed(() => parseLiteMarkdown(props.msg.text || ''))
 
 // 进行中展开；完成后、工具多于 2 个时默认折叠
 const userToggled = ref<boolean | null>(null)
@@ -376,6 +379,9 @@ function goPlan(id: number) {
   border-radius: 4px 16px 16px 16px;
   background: var(--card);
   border: 1px solid var(--border);
+}
+.txt .b {
+  font-weight: 700;
 }
 .txt {
   font-size: var(--fs-md);

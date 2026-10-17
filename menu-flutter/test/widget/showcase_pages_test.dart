@@ -88,6 +88,25 @@ void main() {
       expect(find.text('ROUTE /profile'), findsOneWidget);
     });
 
+    testWidgets('首屏：首推菜无封面时用渐变 + 食材插画占位，「换一道」可见', (tester) async {
+      installShowcase((o) {
+        if (o.path == '/agent/suggestions') {
+          return okResponse({
+            'tonight': {'id': 1, 'name': '番茄炒蛋', 'coverUrl': null, 'minutes': 15},
+            'expiring': [{'name': '鲈鱼', 'iconKey': 'fish', 'daysLeft': 1}],
+          });
+        }
+        return okResponse({'items': [], 'nextCursor': null});
+      });
+      await pumpPage(tester, const AgentHomePage());
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('agent-tonight-nocover')), findsOneWidget);
+      expect(find.text('番'), findsNothing);
+      final swap = tester.widget<ButtonStyleButton>(find.byKey(const Key('agent-tonight-swap')));
+      expect(swap.style?.backgroundColor?.resolve({}), isNot(equals(AppTokens.onPhoto)));
+      expect(find.text('换一道'), findsOneWidget);
+    });
+
     testWidgets('首屏：接口未部署（404）显示部署中提示与默认快捷提问', (tester) async {
       installShowcase((_) => const HttpError(404));
       await pumpPage(tester, const AgentHomePage());

@@ -34,6 +34,10 @@
             </view>
             <view class="hero" data-testid="agent-hero" @click="goDish(tonight.id)">
               <ui-dish-image :src="tonight.coverUrl" :name="tonight.name" ratio="16:9" :radius="20" original>
+                <!-- 首推菜没有封面：主色渐变 + 食材插画拼贴，不用巨大首字 -->
+                <view v-if="!tonight.coverUrl" class="hero-nocover" data-testid="hero-nocover">
+                  <view v-for="k in heroIngKeys" :key="k" class="nc-ing"><image class="nc-img" :src="ingIconSrc(k)" mode="aspectFit" /></view>
+                </view>
                 <view class="hero-shade" />
                 <view class="hero-tags">
                   <text v-if="heroBadge" class="tag-red">{{ heroBadge }}</text>
@@ -130,12 +134,24 @@ import { listMembers } from '@/api/member'
 import { unreadCount } from '@/api/notification'
 import { relativeDate } from '@/utils/datetime'
 import { PAGES, withQuery } from '@/utils/nav'
+import { ingIconSrc, matchIngKey, resolveIngKey } from '@/utils/ingIcon'
 
 const DEFAULT_PROMPTS = ['冰箱里的能做什么', '给朵朵安排这周辅食', '周六爸妈来吃饭怎么安排', '拍冰箱入库']
 
 const loading = ref(true)
 const greeting = ref('')
 const tonight = ref<CDishCard | null>(null)
+/** 无封面首推的插画：菜名能识别的食材 + 快到期食材，最多 3 个 */
+const heroIngKeys = computed(() => {
+  const keys: string[] = []
+  const add = (k: string | null) => {
+    if (k && !keys.includes(k) && keys.length < 3) keys.push(k)
+  }
+  add(matchIngKey(tonight.value?.name))
+  for (const e of expiring.value) add(resolveIngKey({ iconKey: e.iconKey, name: e.name }))
+  if (!keys.length) add('egg')
+  return keys
+})
 const expiring = ref<{ name: string; iconKey: string | null; daysLeft: number }[]>([])
 const prompts = ref<string[]>(DEFAULT_PROMPTS)
 const sessions = ref<AgentSessionItem[]>([])
@@ -371,6 +387,30 @@ function goDish(id: number) {
   border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(var(--sh), 0.18);
+}
+.hero-nocover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 20rpx;
+  padding: 96rpx 40rpx 0 0;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%);
+}
+.nc-ing {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(var(--sh), 0.22);
+}
+.nc-img {
+  width: 68rpx;
+  height: 68rpx;
 }
 .hero-shade {
   position: absolute;

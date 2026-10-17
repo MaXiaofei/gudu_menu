@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/error_text.dart';
+import '../../core/lite_markdown.dart';
 import '../../models/showcase_types.dart';
 import '../../services/agent_service.dart';
 import '../../stores/member_store.dart';
@@ -219,7 +220,7 @@ class _StreamingTextState extends State<StreamingText> {
       return Text('咕嘟正在想…', style: style.copyWith(color: t.body));
     }
     return Text.rich(TextSpan(children: [
-      TextSpan(text: widget.text),
+      ...LiteMarkdown.spans(widget.text),
       if (widget.streaming)
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
