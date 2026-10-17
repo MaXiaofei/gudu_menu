@@ -174,3 +174,20 @@ DELETE inn FROM ingredient_nutrition inn
   LEFT JOIN ingredient i ON i.id = inn.ingredient_id
   WHERE i.id IS NULL OR i.name LIKE 'E2E%';
 DELETE FROM ingredient WHERE name LIKE 'E2E%';
+
+-- ============================================================
+-- [vision/mealplan] V72 拍照识别 + 一周餐程（GuduE2EVisionMealPlanTest 可重复跑）
+-- 演示成员（phone LIKE 'demo%'）的识别任务与餐程保留；其余（E2E 账号）清掉。
+-- E2E 识别入库只用「E2E视觉」前缀的新食材，余量/流水按孤儿清（食材已被上面按 E2E% 删除）。
+-- 餐程确认生成的食集 target_member_id = 发起人（非演示成员），已被上面的 menu 清理覆盖。
+-- ============================================================
+DELETE FROM vision_job WHERE member_id IS NULL
+  OR member_id NOT IN (SELECT id FROM member WHERE phone LIKE 'demo%');
+DELETE FROM meal_plan_slot WHERE draft_id NOT IN (
+  SELECT d.id FROM meal_plan_draft d JOIN member mb ON mb.id = d.member_id WHERE mb.phone LIKE 'demo%');
+DELETE FROM meal_plan_draft WHERE member_id IS NULL
+  OR member_id NOT IN (SELECT id FROM member WHERE phone LIKE 'demo%');
+DELETE s FROM ingredient_stock s LEFT JOIN ingredient i ON i.id = s.ingredient_id
+  WHERE i.id IS NULL OR i.name LIKE 'E2E%';
+DELETE l FROM stock_log l LEFT JOIN ingredient i ON i.id = l.ingredient_id
+  WHERE i.id IS NULL OR i.name LIKE 'E2E%';

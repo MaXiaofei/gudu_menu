@@ -89,6 +89,12 @@ public class CookingRecordAppService {
         return repository.countOccasions(first.atStartOfDay(), first.plusMonths(1).atStartOfDay());
     }
 
+    /** [from, to) 内全部做菜记录（营养报告；当前单家庭统计全部成员）。 */
+    public List<com.gudu.xsd.modules.cookbook.domain.model.CookedDishEntry> cookedBetween(LocalDateTime from,
+                                                                                      LocalDateTime to) {
+        return repository.entriesBetween(from, to);
+    }
+
     /** 每道菜最近一次谁做的、什么时候（菜谱列表「上次 3 天前 · 妈妈做的」）。 */
     public Map<Long, LastCooked> lastCooked(Collection<Long> dishIds) {
         return repository.lastCookedOf(dishIds);
