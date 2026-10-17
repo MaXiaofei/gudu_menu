@@ -102,6 +102,8 @@ Client ──SSE──► AgentController
 
 ## 7. Agent 可观测与评测（后台）
 
+> 评测集设计详见 [eval.md](./eval.md)。
+
 - **Trace 模型**：`agent_trace`（会话一轮）→ `agent_span`（llm / tool / guard / retrieval），记录耗时、输入输出摘要（脱敏）、tokens、成本、错误；与 `ai_call_log` 合并统计。
 - **后台页**：调用链瀑布图、按工具的成功率/P95、成本按天/按功能、护栏拦截事件、用户差评（👎）回流。
 - **评测**：评测集 `agent_eval_case`（输入 + 期望工具序列 + 期望要点）；评分 = 工具选择正确率 + 参数正确率 + LLM 裁判要点覆盖；每次改提示词/模型版本跑全集，低于基线（如工具正确率 < 90%）阻止发布；差评对话一键加入评测集。
