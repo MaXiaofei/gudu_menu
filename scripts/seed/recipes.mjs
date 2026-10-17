@@ -12,6 +12,7 @@
 //   - 图片 URL = SEED_IMAGE_BASE/dish/original/xc_<id>.jpg（缩略图同名在 /thumbnail/，由 images.py 生成、sync-images.mjs 上传）
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { connect, parseEnvArg } from './lib/db.mjs';
 import { ROOT, readEnv } from './lib/env.mjs';
 import { parseAmount, toGrams, nameCandidates, resolveIngredient, buildIndex, isWater, isHeading, cleanName, inferEffort } from './lib/parse.mjs';
@@ -40,7 +41,13 @@ const urlOf = (r) => `https://www.xiachufang.com/recipe/${r.id}/`;
 if (ONLY) recipes = recipes.filter((r) => urlOf(r) === ONLY);
 if (LIMIT) recipes = recipes.slice(0, LIMIT);
 
-const localImage = (key) => ['jpg', 'png', 'jpeg'].some((e) => existsSync(join(IMG_SRC, `${key}.${e}`)));
+// 下厨房「图片缺失」占位图（灰底 + 图片图标）的 md5：视为没有图片，避免占位图被当成封面推荐
+const PLACEHOLDER_MD5 = new Set(['c6beb1700e07e28e64218a366cb64711']);
+const isPlaceholder = (file) => PLACEHOLDER_MD5.has(createHash('md5').update(readFileSync(file)).digest('hex'));
+const localImage = (key) => ['jpg', 'png', 'jpeg'].some((e) => {
+  const f = join(IMG_SRC, `${key}.${e}`);
+  return existsSync(f) && !isPlaceholder(f);
+});
 const imageUrl = (key) => `${IMAGE_BASE}/dish/original/${key}.jpg`;
 
 const { conn, close, describe } = await connect(target);
