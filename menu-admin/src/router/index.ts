@@ -50,10 +50,34 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'AI 用量与限额', group: 'ops' },
       },
       {
+        path: 'ai-gateway',
+        name: 'AiGateway',
+        component: () => import('@/views/ai-gateway/Index.vue'),
+        meta: { title: '模型网关', group: 'ops' },
+      },
+      {
         path: 'ops',
         name: 'Ops',
         component: () => import('@/views/ops/Index.vue'),
         meta: { title: '系统健康', group: 'ops' },
+      },
+      {
+        path: 'agent-trace',
+        name: 'AgentTrace',
+        component: () => import('@/views/agent-trace/Index.vue'),
+        meta: { title: 'Agent 调用链', group: 'agent' },
+      },
+      {
+        path: 'agent-eval',
+        name: 'AgentEval',
+        component: () => import('@/views/agent-eval/Index.vue'),
+        meta: { title: 'Agent 评测', group: 'agent' },
+      },
+      {
+        path: 'community',
+        name: 'Community',
+        component: () => import('@/views/community/Index.vue'),
+        meta: { title: '社区审核', group: 'agent' },
       },
       {
         path: 'dish',

@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Brush, ArrowDown, SwitchButton, Setting, User, Apple, Food, Box, DataBoard, Notebook,
-  ChatDotRound, House, MagicStick, Odometer, Menu as MenuIcon,
+  ChatDotRound, House, MagicStick, Odometer, Menu as MenuIcon, Connection, Share, Histogram, Opportunity,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/auth'
 import { useThemeStore } from '@/store/theme'
@@ -16,11 +16,13 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const badgeStore = useBadgeStore()
 
+type MenuGroup = 'ops' | 'agent' | 'data'
+
 interface MenuEntry {
   path: string
   title: string
   icon: Component
-  group: 'ops' | 'data'
+  group: MenuGroup
   badge?: number
 }
 
@@ -33,18 +35,22 @@ const iconByPath: Record<string, Component> = {
   '/tenants': House,
   '/ai-log': MagicStick,
   '/ops': Odometer,
+  '/ai-gateway': Connection,
+  '/agent-trace': Share,
+  '/agent-eval': Histogram,
+  '/community': Opportunity,
   '/dish': Food,
   '/member': User,
   '/pantry': Box,
   '/dict': Setting,
 }
 
-// 菜单由路由表驱动：取 layout 子路由，跳过 meta.hidden（日常操作页入口隐藏）；按 meta.group 分「运营」与「内容与基础数据」
+// 菜单由路由表驱动：取 layout 子路由，跳过 meta.hidden（日常操作页入口隐藏）；按 meta.group 分「运营」「Agent 与社区」「内容与基础数据」
 const menus = computed<MenuEntry[]>(() => {
   const layoutRoute = router.options.routes.find((r) => r.path === '/')
   const children = (layoutRoute?.children ?? []) as Array<{
     path: string
-    meta?: { title?: string; hidden?: boolean; group?: 'ops' | 'data' }
+    meta?: { title?: string; hidden?: boolean; group?: MenuGroup }
   }>
   return children
     .filter((c) => !c.meta?.hidden)
@@ -53,10 +59,11 @@ const menus = computed<MenuEntry[]>(() => {
       title: c.meta?.title ?? c.path,
       icon: iconByPath[`/${c.path}`] ?? MenuIcon,
       group: c.meta?.group ?? 'data',
-      badge: c.path === 'feedback' ? badgeStore.feedbackOpen : undefined,
+      badge: c.path === 'feedback' ? badgeStore.feedbackOpen : c.path === 'community' ? badgeStore.communityPending : undefined,
     }))
 })
 const opsMenus = computed(() => menus.value.filter((m) => m.group === 'ops'))
+const agentMenus = computed(() => menus.value.filter((m) => m.group === 'agent'))
 const dataMenus = computed(() => menus.value.filter((m) => m.group === 'data'))
 
 function isActive(path: string) {
@@ -89,6 +96,20 @@ onMounted(() => {
       <nav class="nav" aria-label="后台导航">
         <router-link
           v-for="m in opsMenus"
+          :key="m.path"
+          :to="m.path"
+          class="nav-item"
+          :class="{ active: isActive(m.path) }"
+          :aria-current="isActive(m.path) ? 'page' : undefined"
+        >
+          <el-icon class="ico"><component :is="m.icon" /></el-icon>
+          <span class="lbl">{{ m.title }}</span>
+          <span v-if="m.badge" class="badge" :data-testid="`badge-${m.path.slice(1)}`">{{ m.badge > 99 ? '99+' : m.badge }}</span>
+        </router-link>
+
+        <span class="group">Agent 与社区</span>
+        <router-link
+          v-for="m in agentMenus"
           :key="m.path"
           :to="m.path"
           class="nav-item"
