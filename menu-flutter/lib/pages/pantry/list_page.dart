@@ -14,6 +14,7 @@ import '../../widgets/select_chip.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/stat_grid.dart';
 import '../../widgets/tone_badge.dart';
+import '../../widgets/me_avatar_button.dart';
 import 'pantry_widgets.dart';
 
 /// 库存主页（分页版，对齐 44829 批次 pantry-page.html 定稿）。
@@ -216,7 +217,24 @@ class _PantryListPageState extends State<PantryListPage> {
     final t = AppTokens.of(context);
     final ts = t.textStyles;
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.extended(
+            key: const Key('pantry-scan'),
+            heroTag: 'pantry-scan',
+            backgroundColor: t.card,
+            foregroundColor: t.primaryDeep,
+            shape: StadiumBorder(side: BorderSide(color: t.border)),
+            onPressed: () async {
+              await context.push('/scan');
+              _load();
+            },
+            icon: const Icon(Icons.photo_camera_outlined),
+            label: Text('拍照', style: ts.cardTitle.copyWith(color: t.primaryDeep)),
+          ),
+          const SizedBox(width: AppTokens.sp10),
+          FloatingActionButton.extended(
         heroTag: 'pantry-add',
         backgroundColor: t.primaryDeep,
         foregroundColor: t.card,
@@ -227,6 +245,8 @@ class _PantryListPageState extends State<PantryListPage> {
         },
         icon: const Icon(Icons.add_rounded),
         label: Text('入库', style: ts.cardTitle.copyWith(color: t.card)),
+      ),
+        ],
       ),
       body: SafeArea(
         bottom: false,
@@ -258,6 +278,8 @@ class _PantryListPageState extends State<PantryListPage> {
                     icon: const Icon(Icons.shopping_cart_outlined, size: 18),
                     label: const Text('去采购'),
                   ),
+                  const SizedBox(width: AppTokens.sp8),
+                  const MeAvatarButton(),
                 ],
               ),
             ),
@@ -341,7 +363,7 @@ class _PantryListPageState extends State<PantryListPage> {
             Text('先吃这些', style: ts.sectionLabel.copyWith(color: AppTokens.errorText)),
             const Spacer(),
             GestureDetector(
-              onTap: () => context.go('/ai-recommend'),
+              onTap: () => context.push('/ai-recommend'),
               child: Text('看看能做什么 ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),
             ),
           ]),

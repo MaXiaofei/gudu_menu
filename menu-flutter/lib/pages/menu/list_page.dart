@@ -6,6 +6,7 @@ import '../../models/menu.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/dish_image.dart';
 import '../../widgets/illustration.dart';
+import '../../widgets/me_avatar_button.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/select_chip.dart';
 import '../../widgets/skeleton.dart';
@@ -260,9 +261,12 @@ class _MenuListPageState extends State<MenuListPage> {
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: const Text('新食集'),
                   ),
+                  const SizedBox(width: AppTokens.sp8),
+                  const MeAvatarButton(),
                 ],
               ),
             ),
+            _weekPlanEntry(t),
             _buildStatusBar(t),
             Expanded(
               child: _firstLoading
@@ -332,6 +336,51 @@ class _MenuListPageState extends State<MenuListPage> {
   }
 
   /// 筛选行：全部/进行中/已完成（SelectChip 与库存页同款）。
+  /// AI 一周餐程入口（showcase-ai-community）：按成员档案排下周一到周日。
+  Widget _weekPlanEntry(AppTokens t) {
+    final ts = t.textStyles;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, 0),
+      child: Material(
+        color: t.highlight,
+        borderRadius: BorderRadius.circular(AppTokens.rLg),
+        child: InkWell(
+          key: const Key('menu-weekplan'),
+          borderRadius: BorderRadius.circular(AppTokens.rLg),
+          onTap: () => context.push('/mealplan'),
+          child: Container(
+            padding: const EdgeInsets.all(AppTokens.sp12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTokens.rLg),
+              border: Border.all(color: t.primary.withAlpha(90)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(color: t.primaryDeep, borderRadius: BorderRadius.circular(AppTokens.rMd)),
+                  child: Icon(Icons.calendar_month_rounded, color: t.card),
+                ),
+                const SizedBox(width: AppTokens.sp12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('让咕嘟排下周 7 天', style: ts.cardTitle.copyWith(color: t.title)),
+                      Text('按家人档案排午晚两餐，顺手用掉快到期的', style: ts.caption),
+                    ],
+                  ),
+                ),
+                Text('AI 排餐 ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatusBar(AppTokens t) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(

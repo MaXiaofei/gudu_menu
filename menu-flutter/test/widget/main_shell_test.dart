@@ -7,8 +7,7 @@ import 'package:menu_flutter/widgets/main_shell.dart';
 
 /// MainShell 5-Tab 切换测试（widget 级，不依赖设备）。
 ///
-/// 用真实 StatefulShellRoute.indexedStack 构造 5 个占位 tab，
-/// 验证：4 个普通 tab + 凸起推荐 FAB 点击后路由正确切换。
+/// showcase-ai-community 导航改版：菜谱 / 食集 / 咕嘟（凸起）/ 厨房圈 / 我家余量；「我的」不再是 Tab。
 void main() {
   testWidgets('点击各 tab → 路由正确切换', (tester) async {
     final router = GoRouter(
@@ -39,28 +38,27 @@ void main() {
 
     // 初始：菜谱 tab (index 0)
     expect(find.text('PAGE_0'), findsOneWidget);
+    expect(find.text('我的'), findsNothing, reason: '「我的」移到右上角头像，不再占 Tab');
+    expect(find.text('智荐'), findsNothing, reason: '智荐并入咕嘟首屏');
 
-    // 点"食集" → index 1
     await tester.tap(find.text('食集'));
     await tester.pumpAndSettle();
     expect(find.text('PAGE_1'), findsOneWidget);
 
-    // 点"我家余量" → index 3
-    await tester.tap(find.text('我家余量'));
-    await tester.pumpAndSettle();
-    expect(find.text('PAGE_3'), findsOneWidget);
-
-    // 点"我的" → index 4
-    await tester.tap(find.text('我的'));
-    await tester.pumpAndSettle();
-    expect(find.text('PAGE_4'), findsOneWidget);
-
-    // 点「智荐」（定稿命名）→ index 2
-    await tester.tap(find.text('智荐'));
+    // 中间凸起「咕嘟」→ index 2，带 AI 角标
+    expect(find.text('AI'), findsOneWidget);
+    await tester.tap(find.text('咕嘟'));
     await tester.pumpAndSettle();
     expect(find.text('PAGE_2'), findsOneWidget);
 
-    // 点"菜谱" → 回 index 0
+    await tester.tap(find.text('厨房圈'));
+    await tester.pumpAndSettle();
+    expect(find.text('PAGE_3'), findsOneWidget);
+
+    await tester.tap(find.text('我家余量'));
+    await tester.pumpAndSettle();
+    expect(find.text('PAGE_4'), findsOneWidget);
+
     await tester.tap(find.text('菜谱'));
     await tester.pumpAndSettle();
     expect(find.text('PAGE_0'), findsOneWidget);

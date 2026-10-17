@@ -67,7 +67,7 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           // 渐变头部：大头像 + 名字 + 当前就餐成员（点进家庭成员切换）
           Container(
-            padding: EdgeInsets.fromLTRB(AppTokens.sp16, top + AppTokens.sp24, AppTokens.sp16, AppTokens.sp24),
+            padding: EdgeInsets.fromLTRB(AppTokens.sp16, top + AppTokens.sp4, AppTokens.sp16, AppTokens.sp24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -75,7 +75,25 @@ class _ProfilePageState extends State<ProfilePage> {
                 colors: [t.primarySoft, t.bg],
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 「我的」改为二级页（主 Tab 右上角头像进入）：顶部返回
+                SizedBox(
+                  height: 44,
+                  child: Row(children: [
+                    if (Navigator.of(context).canPop())
+                      IconButton(
+                        tooltip: '返回',
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: Icon(Icons.arrow_back_rounded, color: t.title),
+                      ),
+                    Text('我的', style: ts.pageTitle),
+                  ]),
+                ),
+                const SizedBox(height: AppTokens.sp12),
+                Row(
               children: [
                 MemberAvatar(name: name, size: 68, ringColor: t.card),
                 const SizedBox(width: AppTokens.sp16),
@@ -108,6 +126,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ],
             ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(AppTokens.sp16, 0, AppTokens.sp16, AppTokens.sp32),
@@ -127,6 +147,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: AppTokens.sp16),
                 ],
                 _group(t, '家庭', [
+                  _SettingTile(
+                    key: const Key('profile-nutrition'),
+                    icon: Icons.donut_large_rounded,
+                    tone: _Tone.green,
+                    label: '营养报告',
+                    onTap: () => context.push('/nutrition'),
+                  ),
                   _SettingTile(
                     icon: Icons.people_outline,
                     tone: _Tone.orange,
@@ -299,6 +326,7 @@ class _SettingTile extends StatelessWidget {
   final VoidCallback onTap;
 
   const _SettingTile({
+    super.key,
     required this.icon,
     required this.tone,
     required this.label,

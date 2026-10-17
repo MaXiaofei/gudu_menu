@@ -10,6 +10,7 @@ import '../../services/dish_service.dart';
 import '../../services/ingredient_service.dart';
 import '../../services/menu_service.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/me_avatar_button.dart';
 import '../../widgets/action_bar.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/loading_empty.dart';
@@ -235,6 +236,8 @@ class _DishListPageState extends State<DishListPage> {
                           ),
                         ),
                       ),
+                    const SizedBox(width: AppTokens.sp8),
+                    const MeAvatarButton(),
                   ],
                 ),
               ),

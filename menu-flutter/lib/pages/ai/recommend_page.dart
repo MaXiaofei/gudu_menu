@@ -8,6 +8,7 @@ import '../../core/error_text.dart';
 import '../../stores/member_store.dart';
 import '../../models/member.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/action_bar.dart';
 import '../../widgets/member_avatar.dart';
 import 'smart_home_sections.dart';
 
@@ -118,6 +119,8 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
         bottom: false,
         child: Column(
           children: [
+            // 原「智荐」Tab 改为咕嘟首屏的二级页「全部推荐」（showcase-ai-community）
+            if (Navigator.of(context).canPop()) const BackHeader(title: '全部推荐'),
             Expanded(
               child: RefreshIndicator(
                 color: t.primary,

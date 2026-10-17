@@ -1,6 +1,19 @@
 import 'package:go_router/go_router.dart';
 
+import '../pages/agent/agent_chat_page.dart';
+import '../pages/agent/agent_home_page.dart';
+import '../pages/agent/agent_voice_page.dart';
+import '../pages/community/community_page.dart';
+import '../pages/community/post_create_page.dart';
+import '../pages/community/post_detail_page.dart';
+import '../pages/community/topic_page.dart';
+import '../pages/cook/cook_mode_page.dart';
+import '../pages/mealplan/nutrition_report_page.dart';
+import '../pages/mealplan/week_plan_page.dart';
 import '../pages/notice/notices_page.dart';
+import '../pages/vision/scan_page.dart';
+import '../pages/vision/scan_result_page.dart';
+import '../services/vision_service.dart';
 import '../pages/pantry/list_page.dart';
 import '../pages/pantry/detail_page.dart';
 import '../pages/pantry/manual_add_page.dart';
@@ -37,7 +50,8 @@ import '../widgets/main_shell.dart';
 
 /// 路由表 + 登录拦截（对应小程序 401/未登录 reLaunch 到登录页）。
 ///
-/// 结构：5 个 tab（菜谱/食集/智荐/我家余量/我的）包在 StatefulShellRoute 里，
+/// 结构：5 个 tab（菜谱/食集/咕嘟/厨房圈/我家余量）包在 StatefulShellRoute 里，
+/// 「我的」与「全部推荐（原智荐）」改为二级页（showcase-ai-community 导航改版），
 /// 由 [MainShell] 注入底部 Tab Bar；非 tab 页（详情/录入/点评等）为顶层 GoRoute，
 /// 由 tab 页 push 进入，不显示底部 bar。
 ///
@@ -65,7 +79,7 @@ GoRouter createRouter(AuthStore auth) {
           path: '/legal/privacy',
           builder: (_, __) => const LegalPage(kind: LegalKind.privacy)),
 
-      // ===== 5-Tab 主壳：菜谱 / 食集 / 推荐 / 库存 / 我的 =====
+      // ===== 5-Tab 主壳：菜谱 / 食集 / 咕嘟 / 厨房圈 / 我家余量 =====
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             MainShell(navigationShell: navigationShell),
@@ -85,22 +99,76 @@ GoRouter createRouter(AuthStore auth) {
           StatefulShellBranch(routes: [
             GoRoute(path: '/menu', builder: (_, __) => const MenuListPage()),
           ]),
-          // 2. 智荐
+          // 2. 咕嘟（Agent 首屏，原智荐并入）
           StatefulShellBranch(routes: [
-            GoRoute(path: '/ai-recommend', builder: (_, __) => const AiRecommendPage()),
+            GoRoute(path: '/agent', builder: (_, __) => const AgentHomePage()),
           ]),
-          // 3. 我家余量
+          // 3. 厨房圈
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/community', builder: (_, __) => const CommunityPage()),
+          ]),
+          // 4. 我家余量
           StatefulShellBranch(routes: [
             GoRoute(path: '/pantry', builder: (_, __) => const PantryListPage()),
-          ]),
-          // 4. 我的
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
           ]),
         ],
       ),
 
       // ===== 非 tab 页（push 进入，无底部 bar） =====
+      // 我的（各主 Tab 右上角头像进入）与全部推荐（原智荐 Tab）
+      GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+      GoRoute(path: '/ai-recommend', builder: (_, __) => const AiRecommendPage()),
+      // 咕嘟：对话（extra {text?, sessionId?}）/ 语音
+      GoRoute(
+        path: '/agent/chat',
+        builder: (_, s) {
+          final e = s.extra is Map ? s.extra as Map : const {};
+          return AgentChatPage(initialText: e['text'] as String?, sessionId: e['sessionId'] as String?);
+        },
+      ),
+      GoRoute(path: '/agent/voice', builder: (_, __) => const AgentVoicePage()),
+      // 厨房圈：发布（extra PostDraftSeed）/ 详情 / 话题
+      GoRoute(
+        path: '/community/create',
+        builder: (_, s) => PostCreatePage(seed: s.extra is PostDraftSeed ? s.extra as PostDraftSeed : const PostDraftSeed()),
+      ),
+      GoRoute(
+        path: '/community/post/:id',
+        builder: (_, s) => PostDetailPage(postId: int.parse(s.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: '/community/topic/:id',
+        builder: (_, s) => TopicPage(topicId: int.parse(s.pathParameters['id']!)),
+      ),
+      // 拍照识别（?mode=fridge|receipt|recipe）→ 结果确认（extra {job, photo}）
+      GoRoute(
+        path: '/scan',
+        builder: (_, s) => ScanPage(
+          initialMode: VisionMode.values.firstWhere((m) => m.name == s.uri.queryParameters['mode'],
+              orElse: () => VisionMode.fridge),
+        ),
+      ),
+      GoRoute(
+        path: '/scan/result',
+        builder: (_, s) {
+          final e = s.extra as Map;
+          return ScanResultPage(job: e['job'] as VisionJob, photoPath: e['photo'] as String?);
+        },
+      ),
+      // 一周餐程（?draftId= 打开已有草稿）/ 营养报告（?memberId=）
+      GoRoute(
+        path: '/mealplan',
+        builder: (_, s) => WeekPlanPage(draftId: int.tryParse(s.uri.queryParameters['draftId'] ?? '')),
+      ),
+      GoRoute(
+        path: '/nutrition',
+        builder: (_, s) => NutritionReportPage(memberId: int.tryParse(s.uri.queryParameters['memberId'] ?? '')),
+      ),
+      // 跟做模式（菜谱详情进入；返回 true = 做好了，详情页接着打开做完确认）
+      GoRoute(
+        path: '/dish/:id/cook-mode',
+        builder: (_, s) => CookModePage(dishId: int.parse(s.pathParameters['id']!)),
+      ),
       // 菜品详情 + 点评
       GoRoute(
         path: '/dish/:id/review',

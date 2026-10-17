@@ -16,6 +16,7 @@ import '../../widgets/ingredient_icon.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/step_carousel.dart';
 import '../../widgets/tone_badge.dart';
+import '../cook/cook_mode_page.dart';
 import '../menu/cook_confirm_sheet.dart';
 
 /// 菜品详情。
@@ -113,6 +114,14 @@ class _DishDetailPageState extends State<DishDetailPage> {
     } finally {
       if (mounted) setState(() => _cooking = false);
     }
+  }
+
+  /// 跟做模式：大字步骤 + 计时器；最后一步「做好了」返回 true → 接着打开做完确认。
+  Future<void> _openCookMode() async {
+    final done = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => CookModePage(dishId: widget.id, detail: _detail)),
+    );
+    if (done == true && mounted) await _cookNow();
   }
 
   /// 打开全屏图片查看器（加载原图）。
@@ -449,7 +458,16 @@ class _DishDetailPageState extends State<DishDetailPage> {
               if (d.steps.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(AppTokens.sp16, 0, AppTokens.sp16, AppTokens.sp12),
-                  child: Text('步骤 · ${d.steps.length} 步', style: ts.subtitle),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text('步骤 · ${d.steps.length} 步', style: ts.subtitle)),
+                      InkWell(
+                        key: const Key('dish-cook-mode-link'),
+                        onTap: _openCookMode,
+                        child: Text('跟做模式 ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
                 ),
                 StepCarousel(
                   dishName: dish.name,
@@ -484,7 +502,17 @@ class _DishDetailPageState extends State<DishDetailPage> {
                         label: Text(_adding ? '加入中…' : '加入食集'),
                       ),
                     ),
-                    const SizedBox(width: AppTokens.sp12),
+                    if (_detail?.steps.isNotEmpty ?? false) ...[
+                      const SizedBox(width: AppTokens.sp8),
+                      OutlinedButton.icon(
+                        key: const Key('dish-cook-mode'),
+                        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12)),
+                        onPressed: _openCookMode,
+                        icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+                        label: const Text('跟做'),
+                      ),
+                    ],
+                    const SizedBox(width: AppTokens.sp8),
                     Expanded(
                       flex: 3,
                       child: ElevatedButton.icon(

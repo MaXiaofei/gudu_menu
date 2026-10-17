@@ -76,6 +76,8 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('关于小食单'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('关于小食单'));
     await tester.pumpAndSettle();
     expect(find.byType(AboutPage), findsOneWidget);
