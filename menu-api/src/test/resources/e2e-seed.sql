@@ -211,7 +211,7 @@ DELETE s FROM ingredient_stock s LEFT JOIN ingredient i ON i.id = s.ingredient_i
   WHERE i.id IS NULL OR i.name LIKE 'E2E%';
 DELETE l FROM stock_log l LEFT JOIN ingredient i ON i.id = l.ingredient_id
   WHERE i.id IS NULL OR i.name LIKE 'E2E%';
-=======
+-- ============================================================
 -- [agent] 咕嘟 Agent / 模型网关（V70 / V73）E2E 自建数据清理：
 -- 会话标题、评测用例 id、评测运行版本号、网关供应商名均以 E2E 开头；动作在 Redis（5 分钟 TTL）无需清。
 -- 表不存在时（V70/V73 未执行）以下语句会报错 → 先执行迁移再跑 E2E。
