@@ -20,6 +20,7 @@ export interface ShoppingItem {
   purchaseUnitName?: string | null
   stockStatus?: string | null // RED_NONE / YELLOW_SHORT / GREEN_ENOUGH / null=手动加
   purchased?: number
+  iconKey?: string | null
 }
 
 /** 采购清单详情。 */

@@ -41,11 +41,11 @@ function onClick() {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-pill);
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   font-weight: 700;
 }
 .caret {
-  font-size: 9px;
+  font-size: var(--fs-tiny);
 }
 .is-loading {
   color: var(--caption) !important;

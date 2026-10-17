@@ -154,6 +154,12 @@
       }
     },
     {
+      "path": "pages/notice/Index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/profile/Theme",
       "style": {
         "navigationStyle": "custom"

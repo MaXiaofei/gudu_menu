@@ -5,6 +5,17 @@
     <ui-back-header title="主题外观" subtitle="切换后全站即时生效，下次打开保持" />
 
     <view class="body">
+      <!-- 实时预览（随皮肤即时变化） -->
+      <view class="preview" data-testid="theme-preview">
+        <text class="pv-label">预览</text>
+        <ui-dish-row name="滑蛋虾仁" right="做过 12 次" coverage-label="家里够 3/3 样" coverage-tone="full" :chips="['10 分钟']" sub="上次 3 天前" :size="64" />
+        <view class="pv-ings">
+          <ui-ing-icon v-for="k in ['shrimp', 'egg', 'scallion']" :key="k" :icon-key="k" :size="36" />
+          <text class="pv-ings-txt">用料插画底色也跟着换</text>
+        </view>
+        <view class="pv-btn"><text class="pv-btn-txt">现在就做</text></view>
+      </view>
+
       <view
         v-for="opt in options"
         :key="opt.name"
@@ -120,5 +131,44 @@ function pick(name: ThemeName) {
   height: 10px;
   border-radius: 50%;
   background: var(--primary);
+}
+.preview {
+  padding: var(--sp-16);
+  border-radius: var(--r-xl);
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  margin-bottom: var(--sp-16);
+  box-shadow: 0 6px 18px rgba(var(--sh), 0.08);
+}
+.pv-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--body);
+  letter-spacing: 1px;
+}
+.pv-ings {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+}
+.pv-ings-txt {
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.pv-btn {
+  height: 48px;
+  border-radius: var(--r-md);
+  background: var(--primary-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pv-btn-txt {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--on-primary);
 }
 </style>

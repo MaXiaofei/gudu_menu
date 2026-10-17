@@ -2,18 +2,19 @@
 import { onLaunch, onShow } from "@dcloudio/uni-app";
 import { silentLogin } from "@/api/auth";
 import { initTheme, applyTabBar } from "@/utils/theme";
+import { hasConsent } from "@/utils/consent";
 onShow(() => applyTabBar());
 onLaunch(async () => {
   initTheme();
   const token = uni.getStorageSync("token");
   const loggedOut = uni.getStorageSync("logged_out");
   if (!token) {
-    if (loggedOut) {
-      // 主动退出过的用户：不自动静默登录，进登录页自己选
+    if (loggedOut || !hasConsent()) {
+      // 主动退出过 / 尚未勾选协议：不发起任何登录（含 wx.login），进登录页先同意协议
       uni.reLaunch({ url: "/pages/login/Login" });
       return;
     }
-    // 新用户零门槛：wx.login 静默登录（无感），失败才进账号登录页
+    // 已同意协议的老用户：wx.login 静默登录（无感），失败才进账号登录页
     const ok = await silentLogin();
     if (!ok) {
       uni.reLaunch({ url: "/pages/login/Login" });

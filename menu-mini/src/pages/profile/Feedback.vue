@@ -2,7 +2,7 @@
   <page-meta :page-style="gdThemeStyle" />
   <!-- 意见反馈（录入页：只有返回箭头）：POST /feedback，最多 3 张图 -->
   <view class="page">
-    <ui-back-header />
+    <ui-back-header title="意见反馈" />
 
     <view v-if="done" class="done" data-testid="feedback-done">
       <view class="done-badge"><text class="done-tick">✓</text></view>
@@ -13,7 +13,22 @@
 
     <template v-else>
       <view class="body">
-        <text class="sec-label">遇到的问题或建议</text>
+        <text class="sec-label">是关于什么的</text>
+        <view class="types">
+          <view
+            v-for="t in TYPES"
+            :key="t.key"
+            class="type"
+            :class="{ on: type === t.key }"
+            :data-testid="'fb-type-' + t.key"
+            @click="type = t.key"
+          >
+            <ui-icon :name="t.icon" :size="22" :tone="type === t.key ? 'primary' : 'dark'" />
+            <text class="type-txt">{{ t.label }}</text>
+          </view>
+        </view>
+
+        <text class="sec-label">说说看</text>
         <view class="card">
           <textarea
             v-model="content"
@@ -48,6 +63,10 @@
             data-testid="feedback-contact"
           />
         </view>
+        <view class="attach" @click="attach = !attach">
+          <view class="attach-box" :class="{ on: attach }"><ui-icon v-if="attach" name="check" tone="white" :size="12" /></view>
+          <text class="attach-txt">附带设备型号、App 版本<template v-if="errorId">和报错编号 {{ errorId }}</template>，帮我们更快定位</text>
+        </view>
         <text v-if="error" class="err" data-testid="feedback-error">{{ error }}</text>
       </view>
 
@@ -62,6 +81,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { lastErrorId } from '@/utils/request'
 import { submitFeedback } from '@/api/feedback'
 import { chooseImages, uploadImage } from '@/api/upload'
 import {
@@ -77,6 +98,21 @@ const uploading = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const done = ref(false)
+
+// 反馈类型（后端 type 字段 P3 上线前也写进 clientInfo，信息不丢）
+const TYPES = [
+  { key: 'bug', label: '出错了', icon: 'bug' },
+  { key: 'feature', label: '想要功能', icon: 'bulb' },
+  { key: 'recipe', label: '菜谱有误', icon: 'book' },
+  { key: 'other', label: '其他', icon: 'message' },
+]
+const type = ref('bug')
+const attach = ref(true)
+const errorId = ref('')
+onLoad((o) => {
+  errorId.value = (o?.errorId && decodeURIComponent(String(o.errorId))) || lastErrorId()
+  if (o?.type && TYPES.some((t) => t.key === o.type)) type.value = String(o.type)
+})
 
 const contentLen = computed(() => charLen(content.value.trim()))
 
@@ -99,14 +135,17 @@ async function addImages() {
 }
 
 function clientInfo(): string {
+  const label = TYPES.find((t) => t.key === type.value)?.label || ''
+  const head = [label && `类型:${label}`, attach.value && errorId.value ? `报错:${errorId.value}` : ''].filter(Boolean)
+  if (!attach.value) return head.join(' / ')
   try {
     const s = uni.getSystemInfoSync()
-    return [`v${APP_VERSION}`, s.uniPlatform || s.platform, s.model, s.system, s.version ? `wx${s.version}` : '']
+    return [...head, `v${APP_VERSION}`, s.uniPlatform || s.platform, s.model, s.system, s.version ? `wx${s.version}` : '']
       .filter(Boolean)
       .join(' / ')
       .slice(0, 200)
   } catch {
-    return `v${APP_VERSION}`
+    return [...head, `v${APP_VERSION}`].join(' / ')
   }
 }
 
@@ -120,7 +159,7 @@ async function submit() {
   if (error.value) return
   submitting.value = true
   try {
-    await submitFeedback({ ...payload, clientInfo: clientInfo() })
+    await submitFeedback({ ...payload, clientInfo: clientInfo(), type: type.value, errorId: attach.value ? errorId.value : '' })
     done.value = true
   } catch (e: any) {
     error.value = e?.message || '提交失败，请稍后再试'
@@ -263,5 +302,59 @@ function goBack() {
 .done-btn {
   margin-top: var(--sp-16);
   width: 160px;
+}
+.types {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-8);
+}
+.type {
+  height: 72px;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.type.on {
+  border: 2px solid var(--primary-deep);
+  background: var(--highlight);
+}
+.type-txt {
+  font-size: var(--fs-sm);
+  color: var(--title);
+}
+.type.on .type-txt {
+  font-weight: 700;
+}
+.attach {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-8);
+  margin-top: var(--sp-12);
+}
+.attach-box {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid var(--body);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.attach-box.on {
+  background: var(--primary-deep);
+  border-color: var(--primary-deep);
+}
+.attach-txt {
+  flex: 1;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--body);
 }
 </style>

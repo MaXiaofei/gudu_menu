@@ -105,6 +105,7 @@ export interface CookMaterial {
   usageTexts?: string[]
   level?: string | null // ENOUGH / LOW / NONE
   isCondiment?: boolean
+  iconKey?: string | null
 }
 
 /** 做菜用材聚合（不落库）：GET /menu/{id}/cook-materials。 */

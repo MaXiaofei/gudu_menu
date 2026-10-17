@@ -114,7 +114,7 @@ function goBack() {
   padding: 0 14px;
 }
 .back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
@@ -123,7 +123,7 @@ function goBack() {
 .title {
   flex: 1;
   text-align: center;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
 }
@@ -136,7 +136,7 @@ function goBack() {
 .field { margin-top: 14px; }
 .field-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--body);
   margin-bottom: 6px;
@@ -147,13 +147,13 @@ function goBack() {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: 10px 12px;
-  font-size: 14px;
+  font-size: var(--fs-md);
   color: var(--title);
 }
 .custom-ipt { margin-top: 8px; }
 .sec-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--body);
   margin: 16px 0 8px;
@@ -165,9 +165,9 @@ function goBack() {
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--body);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
-.cat.on { background: var(--primary); border-color: var(--primary); color: #FFFFFF; font-weight: 700; }
+.cat.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 700; }
 .bottom {
   padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
   background: var(--card);

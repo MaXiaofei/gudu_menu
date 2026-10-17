@@ -13,3 +13,6 @@ declare module 'uview-plus' {
   const uviewPlus: Plugin
   export default uviewPlus
 }
+
+// uni-app 编译期注入的平台标识（vite define）；单测环境为 undefined
+declare const process: { env: { UNI_PLATFORM?: string; [k: string]: string | undefined } }

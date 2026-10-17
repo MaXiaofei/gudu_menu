@@ -9,6 +9,7 @@ export interface PrepItem {
   dishCount?: number
   dishNames?: string[]
   status: string // PENDING / READY / THAWING / MARINATING
+  iconKey?: string | null
 }
 
 export interface MenuPrep {

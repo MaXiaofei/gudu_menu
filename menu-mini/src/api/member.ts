@@ -46,3 +46,19 @@ export function updateMe(p: { name?: string; avatarUrl?: string }): Promise<void
   if (p.avatarUrl) data.avatarUrl = p.avatarUrl
   return request({ url: '/member/me', method: 'PUT', data })
 }
+
+/** 「我的」统计（P0 契约 GET /me/stats）；旧后端无此接口返回 null（页面隐藏或回退本地聚合）。 */
+export interface MeStats {
+  cookedThisMonth: number
+  familyDishes: number
+  savedFromWaste: number
+}
+
+export async function meStats(): Promise<MeStats | null> {
+  try {
+    const r = await request<MeStats>({ url: '/me/stats', method: 'GET', silent: true })
+    return r && typeof r.cookedThisMonth === 'number' ? r : null
+  } catch {
+    return null
+  }
+}

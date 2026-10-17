@@ -16,7 +16,7 @@ test.describe('H5 登录页', () => {
 
     // 品牌 + slogan + 欢迎语（用 class 定位，避免 getByText 对 uni-text 失效）
     await expect(page.locator('.brand')).toContainText('小食单')
-    await expect(page.locator('.slogan')).toContainText('家的味道')
+    await expect(page.locator('.slogan')).toContainText('今晚就吃什么')
     await expect(page.locator('.welcome')).toContainText('欢迎回来')
 
     // 2 个输入框（用户名 text + 密码 password）

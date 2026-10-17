@@ -47,7 +47,7 @@ function goBack() {
   align-items: center;
 }
 .bh-arrow {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
@@ -67,12 +67,12 @@ function goBack() {
   gap: 2px;
 }
 .bh-title {
-  font-size: 18px;
+  font-size: var(--fs-subtitle);
   font-weight: 700;
   color: var(--title);
 }
 .bh-subtitle {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--caption);
 }
 </style>

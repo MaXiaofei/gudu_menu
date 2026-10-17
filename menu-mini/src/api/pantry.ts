@@ -13,6 +13,9 @@ export interface PantryGroupedItem {
   lastChange?: LastChange | null
   bestBefore?: string | null // YYYY-MM-DD
   daysLeft?: number | null // 今天到期=0，已过期为负
+  iconKey?: string | null
+  /** 采购品类名（插画兜底；旧后端缺省） */
+  categoryName?: string | null
 }
 
 export interface PantryGrouped {
@@ -133,6 +136,30 @@ export interface ExpiringItem {
   level: string
   bestBefore: string
   daysLeft: number
+  iconKey?: string | null
+}
+
+/** 余量统计（P0 契约 GET /pantry/summary）。 */
+export interface PantrySummary {
+  enough: number
+  low: number
+  out: number
+  expiring3d: number
+  byCategory: { categoryId: number; name: string; count: number }[]
+}
+
+/**
+ * GET /pantry/summary；旧后端无此接口时回退为 grouped.summary + expiring 聚合（byCategory 为空）。
+ */
+export async function pantrySummary(): Promise<PantrySummary> {
+  try {
+    const r = await request<PantrySummary>({ url: '/pantry/summary', method: 'GET', silent: true })
+    if (r && typeof r.enough === 'number') return { ...r, byCategory: r.byCategory ?? [] }
+  } catch {
+    /* 回退 */
+  }
+  const [g, exp] = await Promise.all([listGroupedPage({ pageNum: 1, pageSize: 1 }), listExpiring(3).catch(() => [])])
+  return { enough: g.summary.enough, low: g.summary.low, out: g.summary.none, expiring3d: exp.length, byCategory: [] }
 }
 
 /** 临期列表：GET /pantry/expiring?days=3（daysLeft 升序，含已过期）。 */

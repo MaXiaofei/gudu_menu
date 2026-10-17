@@ -2,12 +2,35 @@
 // 本地 H5 调试可临时改 '/gudu' 走 vite proxy。
 export { BASE } from '@/config/env'
 import { BASE as BASE_URL } from '@/config/env'
+import { hasConsent } from './consent'
 
 /** 默认请求超时（毫秒），调用方可通过 opt.timeout 覆盖。 */
 export const REQUEST_TIMEOUT = 15000
 export const MSG_NETWORK = '网络异常，请检查网络'
 export const MSG_TOO_FREQUENT = '操作太频繁，请稍后再试'
 
+
+/**
+ * 报错编号（prototype-ui-rollout 三态规范）：后端每个请求回 X-Trace-Id，
+ * 请求失败时记下来，错误态与意见反馈展示/附带「7f3a-91c2」形式的短编号。
+ */
+let lastTraceId = ''
+
+function traceOf(res: any): string {
+  const h = res?.header || {}
+  return String(h['X-Trace-Id'] || h['x-trace-id'] || h['X-TRACE-ID'] || '')
+}
+
+/** 完整 traceId → 短编号（前 8 位，4-4 分组）。 */
+export function formatErrorId(traceId?: string | null): string {
+  const t = (traceId || '').replace(/[^0-9a-zA-Z]/g, '').toLowerCase().slice(0, 8)
+  return t.length >= 8 ? `${t.slice(0, 4)}-${t.slice(4, 8)}` : t
+}
+
+/** 最近一次失败请求的短报错编号（无则空串）。 */
+export function lastErrorId(): string {
+  return formatErrorId(lastTraceId)
+}
 
 export function getToken(): string {
   return uni.getStorageSync('token') || ''
@@ -20,6 +43,7 @@ export function getToken(): string {
 let reloginPromise: Promise<boolean> | null = null
 
 async function trySilentRelogin(): Promise<boolean> {
+  if (!hasConsent()) return false // 未同意协议：不发起 wx.login
   if (!reloginPromise) {
     reloginPromise = (async () => {
       try {
@@ -64,8 +88,11 @@ function cleanData(data: unknown): unknown {
 }
 
 export async function request<T = any>(
-  opt: UniApp.RequestOptions & { guestKey?: string; _retried?: boolean },
+  opt: UniApp.RequestOptions & { guestKey?: string; _retried?: boolean; /** 失败不弹 toast（可降级的探测性接口用） */ silent?: boolean },
 ): Promise<T> {
+  const toast = (title: string) => {
+    if (!opt.silent) uni.showToast({ title, icon: 'none' })
+  }
   let res: any
   try {
     res = await uni.request({
@@ -82,14 +109,17 @@ export async function request<T = any>(
     })
   } catch {
     // 断网 / 超时 / DNS 失败：uni.request 直接 reject
-    uni.showToast({ title: MSG_NETWORK, icon: 'none' })
+    lastTraceId = ''
+    toast(MSG_NETWORK)
     throw new Error(MSG_NETWORK)
   }
+  const traceId = traceOf(res)
   const body = res?.data // 后端统一 R{code,msg,data}（限流/权限也走 HTTP 200 + R.code）
+  if (!body || typeof body !== 'object' || body.code !== 0) lastTraceId = traceId
   if (!body || typeof body !== 'object') {
     // 网关层返回的非 R 响应（如 nginx 429/502 HTML 页）
     const msg = res?.statusCode === 429 ? MSG_TOO_FREQUENT : MSG_NETWORK
-    uni.showToast({ title: msg, icon: 'none' })
+    toast(msg)
     throw new Error(msg)
   }
   if (body.code === 401) {
@@ -109,17 +139,17 @@ export async function request<T = any>(
     throw new Error('未登录')
   }
   if (body.code === 429) {
-    uni.showToast({ title: MSG_TOO_FREQUENT, icon: 'none' })
+    toast(MSG_TOO_FREQUENT)
     throw new Error(body.msg || MSG_TOO_FREQUENT)
   }
   if (body.code === 403) {
     // 无权限：展示服务端原因（如「无权操作该家庭数据」），不清 token
     const msg = body.msg || '无权限访问'
-    uni.showToast({ title: msg, icon: 'none' })
+    toast(msg)
     throw new Error(msg)
   }
   if (body.code !== 0) {
-    uni.showToast({ title: body.msg || '请求失败', icon: 'none' })
+    toast(body.msg || '请求失败')
     throw new Error(body.msg)
   }
   return body.data as T

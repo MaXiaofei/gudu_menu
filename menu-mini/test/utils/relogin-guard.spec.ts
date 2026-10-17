@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { request } from '@/utils/request'
 import { __testUni } from '../setup'
+import { setConsent } from '@/utils/consent'
 
 // 登录体系兼容性（V50 整改不改坏账号密码登录）：
 // 1) 账号密码用户 401 → 不静默重登，直接踢登录页（原行为）
@@ -9,6 +10,7 @@ import { __testUni } from '../setup'
 describe('登录兼容性', () => {
   beforeEach(() => {
     __testUni.resetStorage()
+    setConsent()
     vi.mocked(__testUni.mocks.reLaunch).mockClear()
     ;(globalThis as any).uni.login = vi.fn(({ success }: any) => success({ code: 'fresh-code' }))
   })

@@ -15,6 +15,9 @@ export interface Dish {
   categoryNames?: string[]
   tagNames?: string[]
   cookedCount?: number
+  /** 最近一次做（prototype-ui-rollout P0 契约；旧后端缺省） */
+  lastCookedAt?: string | null
+  lastCookedBy?: { memberId: number; name: string; avatarUrl?: string | null } | null
   /** 本家余量对用料的覆盖（未登录 null；旧后端缺省 undefined）。 */
   coverage?: Coverage | null
 }
@@ -31,10 +34,17 @@ export interface DishCard {
   dishId: number
   name: string
   coverImage: string | null
+  /** 与 coverImage 同值（P0 统一字段；读取用 cardCover()） */
+  coverUrl?: string | null
   cookMinutes: number | null
   difficulty: number | null
   cookedCount: number
   coverage: Coverage | null
+}
+
+/** 菜卡封面：优先 coverUrl，旧后端回退 coverImage。 */
+export function cardCover(c: { coverUrl?: string | null; coverImage?: string | null }): string {
+  return c.coverUrl || c.coverImage || ''
 }
 
 /** 「家里够 X/Y 样」；coverage 为空或无非调料用料时返回空串（前端隐藏）。 */
@@ -63,6 +73,7 @@ export interface DishIngredient {
   ingredientName?: string | null
   amount?: number | null
   unitName?: string | null
+  iconKey?: string | null
 }
 
 export interface DishDetail {

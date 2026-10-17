@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import { hasConsent } from '@/utils/consent'
 
 /** 微信登录：POST /auth/wx-login {code} → {token, nickname}（新 openid 自动建号）。 */
 export function wxLogin(code: string): Promise<{ token: string; nickname: string }> {
@@ -21,6 +22,7 @@ export function wxCode(): Promise<string> {
 
 /** 静默登录：wx.login → wx-login → 存 token。新用户零操作。 */
 export async function silentLogin(): Promise<{ token: string; nickname: string } | null> {
+  if (!hasConsent()) return null // 合规：未勾选协议不调用 wx.login
   try {
     const code = await wxCode()
     const r = await wxLogin(code)

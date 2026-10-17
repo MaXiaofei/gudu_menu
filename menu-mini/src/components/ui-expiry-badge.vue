@@ -19,7 +19,7 @@ const level = computed(() => expiryLevel(props.daysLeft))
   padding: 1px var(--sp-6);
   border-radius: var(--r-pill);
   border: 1px solid currentColor;
-  font-size: var(--fs-micro);
+  font-size: var(--fs-tiny);
   font-weight: 800;
   line-height: 1.5;
 }

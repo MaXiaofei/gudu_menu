@@ -117,14 +117,14 @@ async function copyAgain() {
   padding: 0 14px;
 }
 .back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
   padding: 4px 8px;
 }
 .more {
-  font-size: 20px;
+  font-size: var(--fs-h3);
   color: var(--caption);
   padding: 4px 6px;
 }
@@ -141,12 +141,12 @@ async function copyAgain() {
   padding: 8px 0 16px;
 }
 .head-name {
-  font-size: 18px;
+  font-size: var(--fs-subtitle);
   font-weight: 800;
   color: var(--title);
 }
 .head-sub {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--caption);
 }
 .review-box {
@@ -166,11 +166,11 @@ async function copyAgain() {
   gap: 4px;
 }
 .review-title {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--body);
 }
 .review-dishes {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--title);
   display: -webkit-box;
@@ -185,13 +185,13 @@ async function copyAgain() {
   padding: 7px 10px;
 }
 .review-btn-txt {
-  color: #FFFFFF;
-  font-size: 11px;
+  color: var(--on-primary);
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 .sec-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--caption);
   letter-spacing: 1px;
@@ -206,12 +206,12 @@ async function copyAgain() {
   gap: 4px;
 }
 .use-line {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--body);
   line-height: 1.5;
 }
 .use-none {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--caption);
 }
 .callout {
@@ -219,7 +219,7 @@ async function copyAgain() {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: 10px 12px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--body);
   line-height: 1.5;
   margin-top: 8px;
@@ -234,7 +234,7 @@ async function copyAgain() {
 }
 .bottom-hint {
   text-align: center;
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   color: var(--caption);
 }
 </style>

@@ -16,8 +16,8 @@ defineProps<{
 .chip {
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  color: #FFFFFF;
-  font-size: 10px;
+  color: var(--on-primary);
+  font-size: var(--fs-tiny);
   font-weight: 700;
   line-height: 1.5;
 }

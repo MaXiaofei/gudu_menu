@@ -201,13 +201,13 @@ async function save() {
 .badge {
   padding: 3px 10px;
   border-radius: var(--r-pill);
-  color: #FFFFFF;
-  font-size: 10px;
+  color: var(--on-primary);
+  font-size: var(--fs-tiny);
   font-weight: 800;
 }
 .q-line {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--body);
   margin: 20px 0 10px;
 }
@@ -278,13 +278,13 @@ async function save() {
   background: var(--primary);
 }
 .lcard-title {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 800;
   color: var(--title);
   margin-right: 8px;
 }
 .lcard-desc {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--caption);
 }
 .callout {
@@ -292,7 +292,7 @@ async function save() {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: 10px 12px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--body);
   line-height: 1.5;
   margin-top: 4px;
@@ -304,14 +304,14 @@ async function save() {
   margin-top: 20px;
 }
 .sec-label {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--caption);
   letter-spacing: 1px;
   display: block;
 }
 .log-meta {
-  font-size: 9px;
+  font-size: var(--fs-tiny);
   color: var(--accent);
 }
 .log-box {
@@ -322,7 +322,7 @@ async function save() {
   margin-top: 8px;
 }
 .log-none {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--caption);
   padding: 4px 0;
 }
@@ -336,13 +336,13 @@ async function save() {
   flex-shrink: 0;
   padding: 1px 6px;
   border-radius: 4px;
-  font-size: 9px;
+  font-size: var(--fs-tiny);
   font-weight: 800;
 }
 .log-text {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--body);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -350,7 +350,7 @@ async function save() {
 }
 .log-time {
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: var(--fs-tiny);
   color: var(--caption);
 }
 .bottom {

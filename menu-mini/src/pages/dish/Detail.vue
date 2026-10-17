@@ -1,171 +1,118 @@
 <template>
   <page-meta :page-style="gdThemeStyle" />
   <view class="page">
-    <!-- 顶栏：箭头 + 菜名 + 副信息（§13.2） -->
-    <ui-back-header>
-      <template #subtitle>
-        <view v-if="detail" class="head-sub">
-          <text class="sub-line">备料 {{ detail.dish.prepTime ?? '-' }}分 · 烹饪 {{ detail.dish.cookTime ?? '-' }}分 · 难度 {{ detail.dish.difficulty ?? '-' }}/5</text>
-          <text v-if="detail.dish.sourceName" class="sub-line">来源：{{ detail.dish.sourceName }}</text>
-        </view>
-      </template>
-    </ui-back-header>
-
-    <ui-state v-if="loading" mode="loading" />
-    <ui-state v-else-if="!detail" mode="error" text="加载详情失败" :retry="true" @retry="load(dishId)" />
+    <ui-state v-if="loading" mode="loading" skeleton="hero" />
+    <view v-else-if="!detail" class="err-wrap">
+      <ui-back-header />
+      <ui-state mode="error" text="菜谱没加载出来" :retry="true" @retry="load(dishId)" />
+    </view>
     <template v-else>
       <scroll-view scroll-y class="body">
-        <!-- 封面（220px；点击全屏；无图首字占位，§10.5） -->
-        <view class="cover-wrap" @click="previewCover">
-          <image v-if="coverUrl" class="cover" :src="coverUrl" mode="aspectFill" @error="coverFailed = true" />
-          <view v-else class="cover cover-ph">
-            <text class="cover-ph-txt">{{ initial }}</text>
+        <!-- 主图（满宽 280，叠返回 / 分享） -->
+        <ui-hero-gallery :images="heroImages" :name="detail.dish.name" :height="280" @preview="previewHero">
+          <view class="float-row" :style="{ top: floatTop + 'px' }">
+            <view class="fbtn" aria-label="返回" @click="goBack"><ui-icon name="back" :size="20" /></view>
+            <!-- #ifdef MP-WEIXIN -->
+            <button class="fbtn share" open-type="share" aria-label="分享"><ui-icon name="share" :size="18" /></button>
+            <!-- #endif -->
+          </view>
+        </ui-hero-gallery>
+
+        <view class="sheet">
+          <view class="title-row">
+            <text class="title">{{ detail.dish.name }}</text>
+            <text v-if="detail.dish.sourceName" class="src-tag">公共库</text>
+            <text v-else class="src-tag mine">我家的</text>
+          </view>
+          <view class="meta">
+            <text v-if="totalMinutes" class="meta-it">{{ totalMinutes }} 分钟</text>
+            <text v-if="diffLabel" class="meta-it">{{ diffLabel }}</text>
+            <text v-if="detail.dish.cookedCount" class="meta-it">做过 {{ detail.dish.cookedCount }} 次</text>
+          </view>
+          <view v-if="relNames.length" class="chips">
+            <text v-for="n in relNames" :key="n" class="chip">{{ n }}</text>
+          </view>
+          <text v-if="detail.dish.sourceName" class="from">来源：{{ detail.dish.sourceName }} · 可加入我家后修改</text>
+
+          <ingredient-card
+            :ingredients="detail.ingredients"
+            :stock="stock"
+            :bought="bought"
+            @buy="addToShopping"
+          />
+
+          <view v-if="detail.dish.note" class="card note-card">
+            <text class="card-title">小贴士</text>
+            <text class="note">{{ detail.dish.note }}</text>
           </view>
         </view>
 
-        <!-- 标签区 -->
-        <view v-if="relNames.length || detail.dish.note" class="tags-wrap">
-          <view v-if="relNames.length" class="tags">
-            <view v-for="n in relNames" :key="n" class="tag">{{ n }}</view>
+        <!-- 步骤：横滑卡 -->
+        <view v-if="detail.steps.length" class="steps">
+          <view class="steps-head">
+            <text class="card-title">步骤 · {{ detail.steps.length }} 步</text>
           </view>
-          <text v-if="detail.dish.note" class="note">{{ detail.dish.note }}</text>
-        </view>
-
-        <!-- 用料 -->
-        <view v-if="detail.ingredients.length" class="section">
-          <view class="sec-head">
-            <text class="sec-title">用料</text>
-            <text class="sec-meta">份数 1 · 共 {{ detail.ingredients.length }} 样</text>
-          </view>
-          <view class="ing-card">
-            <view v-for="(ing, i) in detail.ingredients" :key="ing.ingredientId">
-              <view class="ing-row">
-                <view class="ing-initial"><text class="ing-initial-txt">{{ ingInitial(ing) }}</text></view>
-                <text class="ing-name">{{ ing.ingredientName || `#${ing.ingredientId}` }}</text>
-                <text class="ing-amount">{{ amountText(ing) }}</text>
-              </view>
-              <view v-if="i < detail.ingredients.length - 1" class="divider" />
-            </view>
-          </view>
-          <text class="ing-note">用量为 1 份基准；做菜时按份数自动放大。</text>
-        </view>
-
-        <!-- 做法 -->
-        <view v-if="detail.steps.length" class="section">
-          <view class="sec-title sec-title-alone">做法</view>
-          <view v-for="(s, i) in detail.steps" :key="i" class="step">
-            <view class="step-head">
-              <view class="step-no"><text class="step-no-txt">{{ i + 1 }}</text></view>
-              <text class="step-title">步骤 {{ i + 1 }}</text>
-            </view>
-            <text v-if="s.text" class="step-text">{{ s.text }}</text>
-            <view v-if="stepThumbs(s).length" class="step-imgs">
-              <image
-                v-for="(img, j) in stepThumbs(s)"
-                :key="j"
-                class="step-img"
-                :src="img"
-                mode="aspectFill"
-                lazy-load
-                @click="previewStep(s, j)"
-              />
+          <ui-step-carousel :steps="detail.steps" :card-width="232" @preview="previewStep" />
+          <view class="step-list">
+            <view v-for="(s, i) in detail.steps" :key="i" class="step">
+              <text class="step-no">{{ i + 1 }}</text>
+              <text class="step-text">{{ s.text }}</text>
             </view>
           </view>
         </view>
 
-        <view style="height: 88px" />
+        <view style="height: 96px" />
       </scroll-view>
 
-      <!-- 底部：加到食集（食集内查看 showActions=0 时隐藏） -->
       <view v-if="showActions" class="bottom">
-        <button class="btn-ghost btn-cook" :disabled="cookLoading" data-testid="cook-now" @click="onCookNow">
+        <button class="btn-add" :disabled="sheetRef?.busy" @click="sheetRef?.open()">+ 加入食集</button>
+        <button class="btn-cook" :disabled="cookLoading" data-testid="cook-now" @click="onCookNow">
           {{ cookLoading ? '加载中…' : '现在就做' }}
-        </button>
-        <button class="btn-add" :disabled="adding" @click="onAddToMenu">
-          {{ adding ? '处理中…' : '加到食集' }}
         </button>
       </view>
 
-      <!-- 单菜直做确认（GET /cook/dish/{id}/materials → POST /cook/dish/{id}） -->
       <ui-cook-sheet
         v-if="cookVisible"
         :items="cookItems"
         :submitting="cookSubmitting"
         :done="cookDone"
         :result-sub="detail.dish.name"
+        :cover="detail.dish.coverUrl"
+        show-servings
+        allow-note
         @submit="onCookSubmit"
         @close="closeCook"
         @foodlog="goFoodlog"
       />
 
-      <!-- 加到食集：选择近期食集（半屏弹层） -->
-      <view v-if="sheetVisible" class="mask" @click="sheetVisible = false">
-        <view class="sheet" @click.stop>
-          <view class="sheet-title">加到哪个食集？</view>
-          <scroll-view scroll-y class="sheet-list">
-            <view v-for="m in recentMenus" :key="m.id" class="sheet-row" @click="pickMenu(m.id)">
-              <view class="sheet-row-main">
-                <text class="sheet-row-name">{{ m.name }}</text>
-                <text class="sheet-row-sub">{{ menuSub(m) }}</text>
-              </view>
-              <text class="sheet-row-arrow">›</text>
-            </view>
-            <view class="sheet-row" @click="pickMenu(-1)">
-              <view class="sheet-row-main">
-                <text class="sheet-row-name new">＋ 新建食集</text>
-              </view>
-            </view>
-          </scroll-view>
-        </view>
-      </view>
-
-      <!-- 新建食集：输入弹窗（预填菜名） -->
-      <view v-if="dialogVisible" class="mask" @click="dialogVisible = false">
-        <view class="dialog" @click.stop>
-          <text class="dialog-title">新建食集</text>
-          <input
-            v-model="newMenuName"
-            class="dialog-ipt"
-            placeholder="食集名（如：今晚的饭）"
-            placeholder-class="ph"
-            :focus="dialogVisible"
-            @confirm="confirmCreateMenu"
-          />
-          <view class="dialog-actions">
-            <text class="dialog-btn" @click="dialogVisible = false">取消</text>
-            <text class="dialog-btn primary" @click="confirmCreateMenu">确定</text>
-          </view>
-        </view>
-      </view>
+      <add-to-menu-sheet ref="sheetRef" :dish-id="detail.dish.id" :dish-name="detail.dish.name" />
     </template>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import { dishDetail, amountText, type DishDetail } from '@/api/dish'
-import { listMenus, createMenu, addDishToMenu, type Menu } from '@/api/menu'
-import { thumbOf, toAbsolute, thumbList, originalList } from '@/utils/image'
-import { isFromToday, mdHm } from '@/utils/datetime'
+import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
+import { dishDetail, type DishDetail, type DishIngredient } from '@/api/dish'
+import { toAbsolute, originalList } from '@/utils/image'
+import { navInset } from '@/utils/token'
 import { dishCookMaterials, cookDish } from '@/api/cook'
+import { listGroupedAll, type PantryGroupedItem } from '@/api/pantry'
+import { listShopping, createEmptyList, addCustomItem } from '@/api/shopping'
 import type { CookMaterial } from '@/api/menu'
+import AddToMenuSheet from './parts/AddToMenuSheet.vue'
+import IngredientCard from './parts/IngredientCard.vue'
 
+const nav = navInset()
+const floatTop = nav - 40
 const loading = ref(true)
 const detail = ref<DishDetail | null>(null)
 const showActions = ref(true)
-const adding = ref(false)
-const coverFailed = ref(false)
-
-// 加到食集弹层
-const sheetVisible = ref(false)
-const recentMenus = ref<Menu[]>([])
-const dialogVisible = ref(false)
-const newMenuName = ref('')
-
 const dishId = ref(0)
+const stock = ref<Record<number, PantryGroupedItem>>({})
+const bought = ref<Record<number, boolean>>({})
+const sheetRef = ref<InstanceType<typeof AddToMenuSheet> | null>(null)
 
-// 单菜直做
 const cookVisible = ref(false)
 const cookLoading = ref(false)
 const cookSubmitting = ref(false)
@@ -173,11 +120,16 @@ const cookDone = ref(false)
 const cookItems = ref<CookMaterial[]>([])
 
 onLoad((options) => {
-  const id = Number(options?.id || 0)
-  dishId.value = id
+  dishId.value = Number(options?.id || 0)
   if (options?.showActions === '0') showActions.value = false
-  load(id)
+  load(dishId.value)
 })
+
+onShareAppMessage(() => ({
+  title: detail.value?.dish.name || '咕嘟小食单',
+  path: `/pages/dish/Detail?id=${dishId.value}`,
+  imageUrl: toAbsolute(detail.value?.dish.coverUrl) || undefined,
+}))
 
 async function load(id: number) {
   loading.value = true
@@ -187,46 +139,60 @@ async function load(id: number) {
     detail.value = null
   }
   loading.value = false
+  // 余量状态是增强信息：失败不影响详情
+  listGroupedAll()
+    .then((g) => {
+      const m: Record<number, PantryGroupedItem> = {}
+      for (const it of g.items || []) m[it.ingredientId] = it
+      stock.value = m
+    })
+    .catch(() => {})
 }
 
-const initial = computed(() => {
-  const n = detail.value?.dish.name || ''
-  return [...n][0] || '菜'
+const heroImages = computed(() => {
+  const d = detail.value
+  if (!d) return []
+  const stepImgs = d.steps.flatMap((s) => (s.images || '').split(',').filter(Boolean))
+  return [d.dish.coverUrl, ...stepImgs].filter(Boolean).slice(0, 6) as string[]
+})
+const totalMinutes = computed(() => (detail.value?.dish.prepTime ?? 0) + (detail.value?.dish.cookTime ?? 0))
+const diffLabel = computed(() => {
+  const d = detail.value?.dish.difficulty
+  if (!d) return ''
+  return d <= 2 ? '简单' : d <= 3 ? '中等' : '有挑战'
 })
 const relNames = computed(() => {
   const d = detail.value?.dish
   if (!d) return []
-  return [...(d.cuisineNames ?? []), ...(d.categoryNames ?? []), ...(d.tagNames ?? [])]
+  return [...(d.cuisineNames ?? []), ...(d.categoryNames ?? []), ...(d.tagNames ?? [])].slice(0, 6)
 })
-const coverUrl = computed(() =>
-  coverFailed.value ? '' : thumbOf(detail.value?.dish.coverUrl),
-)
 
-function ingInitial(ing: { ingredientName?: string | null; ingredientId: number }): string {
-  const n = (ing.ingredientName || '').trim()
-  return [...n][0] || '食'
-}
-function menuSub(m: Menu): string {
-  const parts: string[] = []
-  if (m.createTime) parts.push(mdHm(m.createTime))
-  parts.push(`份数 ${m.servingCount ?? 1}`)
-  parts.push(m.status === 'DONE' ? '已完成' : '进行中')
-  return parts.join(' · ')
-}
-function stepThumbs(s: { images?: string | null }): string[] {
-  return thumbList(s.images)
+async function addToShopping(ing: DishIngredient) {
+  if (bought.value[ing.ingredientId] || !ing.ingredientName) return
+  try {
+    const r = await listShopping(1, 1)
+    const listId = r.records[0]?.id || (await createEmptyList())
+    await addCustomItem({ listId, name: ing.ingredientName })
+    bought.value = { ...bought.value, [ing.ingredientId]: true }
+    uni.showToast({ title: `已加入采购清单`, icon: 'none' })
+  } catch {
+    // request.ts 已提示
+  }
 }
 
-function previewCover() {
-  const url = toAbsolute(detail.value?.dish.coverUrl)
-  if (url) uni.previewImage({ urls: [url] })
+function goBack() {
+  if (getCurrentPages().length > 1) uni.navigateBack()
+  else uni.switchTab({ url: '/pages/dish/List' })
 }
-function previewStep(s: { images?: string | null }, index: number) {
-  const urls = originalList(s.images)
-  if (urls.length) uni.previewImage({ urls, current: urls[index] })
+function previewHero(i: number) {
+  const urls = heroImages.value.map((u) => toAbsolute(u))
+  if (urls.length) uni.previewImage({ urls, current: urls[i] })
+}
+function previewStep(p: { step: number }) {
+  const urls = originalList(detail.value?.steps[p.step]?.images)
+  if (urls.length) uni.previewImage({ urls, current: urls[0] })
 }
 
-// ---- 现在就做（单菜直做：确认用料 → 写食记 + 回写我家余量） ----
 async function onCookNow() {
   if (cookLoading.value || !dishId.value) return
   cookLoading.value = true
@@ -240,10 +206,10 @@ async function onCookNow() {
     cookLoading.value = false
   }
 }
-async function onCookSubmit(p: { usedUp: number[]; partiallyUsed: number[] }) {
+async function onCookSubmit(p: { usedUp: number[]; partiallyUsed: number[]; servings?: number; note?: string }) {
   cookSubmitting.value = true
   try {
-    await cookDish(dishId.value, { servings: 1, usedUp: p.usedUp, partiallyUsed: p.partiallyUsed })
+    await cookDish(dishId.value, { servings: p.servings ?? 1, usedUp: p.usedUp, partiallyUsed: p.partiallyUsed, note: p.note })
     cookDone.value = true
     uni.showToast({ title: '已记到食记', icon: 'none' })
   } catch {
@@ -260,60 +226,6 @@ function goFoodlog() {
   closeCook()
   uni.navigateTo({ url: '/pages/foodlog/Index' })
 }
-
-// ---- 加到食集（对齐 APP：只列今天 0 点及以后创建的食集） ----
-async function onAddToMenu() {
-  if (adding.value) return
-  adding.value = true
-  try {
-    const r = await listMenus(1, 50)
-    recentMenus.value = r.records.filter((m) => isFromToday(m.createTime))
-    if (!recentMenus.value.length) {
-      openCreateDialog()
-    } else {
-      sheetVisible.value = true
-    }
-  } catch {
-    uni.showToast({ title: '加入食集失败', icon: 'none' })
-  } finally {
-    adding.value = false
-  }
-}
-
-function openCreateDialog() {
-  newMenuName.value = detail.value?.dish.name || ''
-  dialogVisible.value = true
-}
-
-async function pickMenu(menuId: number) {
-  if (menuId === -1) {
-    sheetVisible.value = false
-    openCreateDialog()
-    return
-  }
-  const d = detail.value?.dish
-  if (!d) return
-  try {
-    await addDishToMenu(menuId, d.id, d.name)
-    sheetVisible.value = false
-    uni.showToast({ title: `已加入食集「${recentMenus.value.find((m) => m.id === menuId)?.name ?? ''}」`, icon: 'none' })
-  } catch {
-    uni.showToast({ title: '加入食集失败', icon: 'none' })
-  }
-}
-
-async function confirmCreateMenu() {
-  const d = detail.value?.dish
-  if (!d) return
-  const name = (newMenuName.value.trim() || d.name)
-  try {
-    await createMenu(name, [d.id])
-    dialogVisible.value = false
-    uni.showToast({ title: `已加入新食集「${name}」`, icon: 'none' })
-  } catch {
-    uni.showToast({ title: '加入食集失败', icon: 'none' })
-  }
-}
 </script>
 
 <style scoped>
@@ -327,303 +239,194 @@ async function confirmCreateMenu() {
   flex: 1;
   min-height: 0;
 }
-.head-sub {
+.float-row {
+  position: absolute;
+  left: var(--space-lg);
+  right: var(--space-lg);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  justify-content: space-between;
 }
-.sub-line {
-  font-size: 12px;
-  color: var(--caption);
-}
-/* 封面 */
-.cover-wrap {
-  width: 100%;
-  height: 220px;
-  background: var(--secondary);
-}
-.cover {
-  width: 100%;
-  height: 100%;
-}
-.cover-ph {
+.fbtn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
-.cover-ph-txt {
-  font-size: 64px;
+.fbtn.share {
+  margin: 0;
+  padding: 0;
+  line-height: 36px;
+}
+.fbtn-ic {
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
-  opacity: 0.45;
+  line-height: 1;
 }
-/* 标签 */
-.tags-wrap {
-  padding: 12px 16px 0;
+.fbtn-ic.sm {
+  font-size: var(--fs-lg);
+}
+.sheet {
+  position: relative;
+  margin-top: -24px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--bg);
+  padding: var(--space-xl) var(--space-lg) 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-md);
 }
-.tags {
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.title {
+  font-size: var(--fs-h2);
+  font-weight: 700;
+  color: var(--title);
+}
+.src-tag {
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--info-soft);
+  color: var(--info-deep);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.src-tag.mine {
+  background: var(--primary-soft);
+  color: var(--title);
+}
+.meta {
+  display: flex;
+  gap: var(--space-md);
+}
+.meta-it {
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
-.tag {
+.chip {
   padding: 3px 10px;
-  border-radius: var(--r-pill);
-  background: var(--primary-soft);
-  color: var(--title);
-  font-size: 11px;
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success-deep);
+  font-size: var(--fs-xs);
+  font-weight: 700;
 }
-.note {
-  font-size: 12px;
+.from {
+  font-size: var(--fs-sm);
   color: var(--body);
 }
-/* 分区 */
-.section {
-  padding: 16px 16px 0;
-}
-.sec-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.sec-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--title);
-}
-.sec-title-alone {
-  margin-bottom: 8px;
-}
-.sec-meta {
-  font-size: 11px;
-  color: var(--caption);
-}
-/* 用料 */
-.ing-card {
+.card {
   background: var(--card);
-  border-radius: var(--r-md);
-  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  box-shadow: 0 2px 10px rgba(var(--sh), 0.08);
 }
-.ing-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-}
-.ing-initial {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--r-sm);
-  background: var(--primary-soft);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.ing-initial-txt {
-  font-size: 13px;
-  color: var(--primary-deep);
-  font-weight: 600;
-}
-.ing-name {
-  flex: 1;
-  font-size: 12px;
+.card-title {
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
 }
-.ing-amount {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--title);
-}
-.divider {
-  height: 1px;
-  background: var(--border);
-  margin-left: 48px;
-}
-.ing-note {
-  display: block;
-  padding: 4px 0 0;
-  font-size: 10px;
-  color: var(--caption);
-}
-/* 步骤 */
-.step {
-  border-top: 1px solid var(--border);
-  padding: 12px 0;
-}
-.step:first-of-type {
-  border-top: none;
-}
-.step-head {
+.note-card {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.note {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--body);
+}
+.steps {
+  margin-top: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.steps-head {
+  padding: 0 var(--space-lg);
+}
+.step-list {
+  padding: 0 var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.step {
+  display: flex;
+  gap: var(--space-md);
 }
 .step-no {
   width: 22px;
   height: 22px;
-  border-radius: 50%;
-  background: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  line-height: 22px;
+  text-align: center;
+  border-radius: var(--radius-pill);
+  background: var(--primary-soft);
+  color: var(--title);
+  font-size: var(--fs-sm);
+  font-weight: 700;
   flex-shrink: 0;
 }
-.step-no-txt {
-  color: #FFFFFF;
-  font-size: 11px;
-  font-weight: 700;
-}
-.step-title {
-  font-size: 13px;
-  font-weight: 700;
+.step-text {
+  flex: 1;
+  font-size: var(--fs-md);
+  line-height: 1.6;
   color: var(--title);
 }
-.step-text {
-  font-size: 13px;
-  color: var(--body);
-  line-height: 1.6;
-}
-.step-imgs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-.step-img {
-  width: 80px;
-  height: 80px;
-  border-radius: var(--r-sm);
-  background: var(--secondary);
-}
-/* 底部按钮 */
 .bottom {
-  padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg) calc(var(--space-md) + env(safe-area-inset-bottom));
   background: var(--card);
   border-top: 1px solid var(--border);
-  display: flex;
-  gap: var(--sp-10);
 }
+.btn-add,
 .btn-cook {
-  flex: 1;
+  height: 48px;
+  line-height: 48px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  margin: 0;
 }
 .btn-add {
-  flex: 2;
-  background: var(--success);
-  color: #FFFFFF;
-  border-radius: var(--r-md);
-  font-size: 15px;
-  font-weight: 700;
-  padding: 13px 0;
-}
-.btn-add[disabled] {
-  background: var(--border);
-  color: rgba(255, 255, 255, 0.85);
-}
-/* 弹层 */
-.mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 100;
-  display: flex;
-  align-items: flex-end;
-}
-.sheet {
-  width: 100%;
-  background: var(--card);
-  border-radius: var(--r-xl) var(--r-xl) 0 0;
-  padding: 14px 0 calc(12px + env(safe-area-inset-bottom));
-}
-.sheet-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--title);
-  padding: 0 18px 10px;
-}
-.sheet-list {
-  max-height: 50vh;
-}
-.sheet-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 18px;
-}
-.sheet-row-main {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.sheet-row-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--title);
-}
-.sheet-row-name.new {
-  color: var(--primary);
-}
-.sheet-row-sub {
-  font-size: 11px;
-  color: var(--caption);
-}
-.sheet-row-arrow {
-  color: var(--caption);
-  font-size: 16px;
-  font-weight: 700;
-}
-/* 对话框 */
-.dialog-mask-center {
-  align-items: center;
-  justify-content: center;
-}
-.dialog {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 78vw;
   background: var(--card);
-  border-radius: var(--r-lg);
-  padding: 20px 18px 12px;
-  z-index: 110;
-}
-.dialog-title {
-  font-size: 16px;
-  font-weight: 700;
+  border: 1px solid var(--border);
   color: var(--title);
 }
-.dialog-ipt {
-  margin-top: 14px;
-  border-bottom: 1px solid var(--border);
-  padding: 8px 2px;
-  font-size: 14px;
-  color: var(--title);
+.btn-cook {
+  flex: 1.6;
+  background: var(--primary-deep);
+  color: var(--on-primary);
+  box-shadow: 0 4px 12px rgba(var(--sh), 0.3);
 }
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 18px;
-  margin-top: 10px;
+.btn-add::after,
+.btn-cook::after {
+  border: none;
 }
-.dialog-btn {
-  font-size: 14px;
-  color: var(--caption);
-  padding: 6px 4px;
+.btn-cook[disabled] {
+  background: var(--primary-soft);
+  color: var(--on-primary);
 }
-.dialog-btn.primary {
-  color: var(--primary);
-  font-weight: 700;
-}
-.ph {
-  color: var(--caption);
+.err-wrap {
+  min-height: 100vh;
 }
 </style>
