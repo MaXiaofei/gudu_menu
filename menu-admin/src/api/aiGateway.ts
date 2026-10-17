@@ -17,8 +17,16 @@ export interface GatewayModel {
   model: string
   capabilities: Capability[]
   price: ModelPrice
-  /** 如 "Mon-Fri 09-12,14-18 Asia/Shanghai"；null = 不分峰谷 */
-  peakHours: string | null
+  /** null = 不分峰谷 */
+  peakHours: PeakHours | null
+}
+
+/** 峰谷计价：ranges 为高峰时段（如 "09:00-12:00"），空闲价 = 高峰价 × offPeakRatio */
+export interface PeakHours {
+  timezone: string
+  weekdaysOnly: boolean
+  ranges: string[]
+  offPeakRatio: number
 }
 
 export interface Provider {

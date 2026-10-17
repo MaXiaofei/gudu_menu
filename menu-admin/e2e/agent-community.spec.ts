@@ -238,7 +238,7 @@ test.describe('Agent 与社区', () => {
 })
 
 test.describe('模型网关', () => {
-  const flash = { model: 'deepseek-flash', capabilities: ['CHAT', 'TOOLS', 'VISION'], price: { inputCacheHitFen: 20, inputFen: 100, outputFen: 400 }, peakHours: 'Mon-Fri 09-12,14-18 Asia/Shanghai' }
+  const flash = { model: 'deepseek-flash', capabilities: ['CHAT', 'TOOLS', 'VISION'], price: { inputCacheHitFen: 20, inputFen: 100, outputFen: 400 }, peakHours: { timezone: 'Asia/Shanghai', weekdaysOnly: true, ranges: ['09:00-12:00', '14:00-18:00'], offPeakRatio: 0.5 } }
   const providers = [
     { providerId: 1, name: 'DeepSeek', type: 'OPENAI_COMPATIBLE', baseUrl: 'https://api.deepseek.com', apiKeyMasked: 'sk-****a1b2', keySource: 'ENV', enabled: true, models: [flash, { ...flash, model: 'deepseek-v4-pro', capabilities: ['CHAT', 'TOOLS'] }], health: { ok: true, latencyMs: 320, checkedAt: null } },
     { providerId: 9, name: '规则兜底', type: 'MOCK', baseUrl: '', apiKeyMasked: null, keySource: 'NONE', enabled: true, models: [{ model: 'mock', capabilities: ['CHAT', 'TOOLS', 'VISION'], price: { inputCacheHitFen: 0, inputFen: 0, outputFen: 0 }, peakHours: null }], health: { ok: true, latencyMs: 1, checkedAt: null } },
@@ -266,7 +266,7 @@ test.describe('模型网关', () => {
     await page.goto('/ai-gateway')
     await expect(page.getByTestId('providers')).toContainText('sk-****a1b2')
     await expect(page.getByTestId('providers')).toContainText('环境变量')
-    await expect(page.getByTestId('providers')).toContainText('高峰时段：工作日 9–12、14–18，空闲半价')
+    await expect(page.getByTestId('providers')).toContainText('高峰时段：工作日 09:00–12:00、14:00–18:00，空闲半价')
     await expect(page.getByTestId('usage')).toContainText('1,284')
 
     // VISION 只列带视觉能力的模型（v4-pro 不出现）

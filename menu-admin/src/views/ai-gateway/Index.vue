@@ -503,7 +503,7 @@ onMounted(() => {
               <el-input v-model="m.outputPrice" />
             </el-form-item>
           </div>
-          <el-form-item label="高峰时段（留空 = 不分峰谷）">
+          <el-form-item label="高峰时段（留空 = 不分峰谷）" :error="perrors[`models.${i}.peakHours`]">
             <el-input v-model="m.peakHours" :placeholder="DEFAULT_PEAK_HOURS">
               <template #append><el-button @click="m.peakHours = DEFAULT_PEAK_HOURS">DeepSeek 默认</el-button></template>
             </el-input>

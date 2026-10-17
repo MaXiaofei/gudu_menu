@@ -1,4 +1,4 @@
-import type { Capability, GatewayModel, Provider, RouteTarget, Thinking } from '@/api/aiGateway'
+import type { Capability, GatewayModel, PeakHours, Provider, RouteTarget, Thinking } from '@/api/aiGateway'
 
 // 模型网关：供应商表单校验、降级链排序、key 掩码展示、路由候选（纯函数）
 
@@ -67,6 +67,7 @@ export function validateProvider(d: ProviderDraft, opts: { editing: boolean }): 
     else if (seen.has(name)) e[`models.${i}.model`] = '模型名重复'
     else seen.add(name)
     if (!m.capabilities?.length) e[`models.${i}.capabilities`] = '至少选择一个能力'
+    if (m.peakHours?.trim() && !parsePeakHours(m.peakHours)) e[`models.${i}.peakHours`] = '格式如：Mon-Fri 09:00-12:00,14:00-18:00 Asia/Shanghai'
     for (const k of ['cacheHitPrice', 'inputPrice', 'outputPrice'] as const) {
       if (!PRICE_RE.test(String(m[k] ?? '').trim())) e[`models.${i}.${k}`] = '单价需为非负数，最多两位小数'
     }
@@ -94,7 +95,7 @@ export function toModelBody(m: ModelDraft): GatewayModel {
       inputFen: yuanToFen(m.inputPrice),
       outputFen: yuanToFen(m.outputPrice),
     },
-    peakHours: m.peakHours?.trim() || null,
+    peakHours: parsePeakHours(m.peakHours),
   }
 }
 
@@ -105,18 +106,38 @@ export function toModelDraft(m: GatewayModel): ModelDraft {
     cacheHitPrice: fenToYuanStr(m.price?.inputCacheHitFen),
     inputPrice: fenToYuanStr(m.price?.inputFen),
     outputPrice: fenToYuanStr(m.price?.outputFen),
-    peakHours: m.peakHours ?? '',
+    peakHours: formatPeakHours(m.peakHours),
   }
 }
 
-export const DEFAULT_PEAK_HOURS = 'Mon-Fri 09-12,14-18 Asia/Shanghai'
+/** 表单里的峰谷写法：「[Mon-Fri ]HH:MM-HH:MM,HH:MM-HH:MM 时区」，空闲价固定为高峰价的一半。 */
+export const DEFAULT_PEAK_HOURS = 'Mon-Fri 09:00-12:00,14:00-18:00 Asia/Shanghai'
 
-/** 峰谷说明：只认 DeepSeek 的默认写法，其余原样显示。 */
-export function peakHoursText(peak: string | null | undefined): string {
-  const s = (peak ?? '').trim()
-  if (!s) return '不分峰谷'
-  if (s === DEFAULT_PEAK_HOURS) return '高峰时段：工作日 9–12、14–18，空闲半价'
-  return `高峰时段：${s}，空闲半价`
+const RANGE_RE = /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/
+
+export function parsePeakHours(s: string | null | undefined): PeakHours | null {
+  const parts = (s ?? '').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return null
+  const weekdaysOnly = parts[0] === 'Mon-Fri'
+  if (weekdaysOnly) parts.shift()
+  if (parts.length !== 2) return null
+  const ranges = parts[0].split(',')
+  if (!ranges.every((r) => RANGE_RE.test(r))) return null
+  return { timezone: parts[1], weekdaysOnly, ranges, offPeakRatio: 0.5 }
+}
+
+export function formatPeakHours(p: PeakHours | null | undefined): string {
+  if (!p?.ranges?.length) return ''
+  return `${p.weekdaysOnly ? 'Mon-Fri ' : ''}${p.ranges.join(',')} ${p.timezone}`
+}
+
+/** 峰谷说明，如「高峰时段：工作日 09:00–12:00、14:00–18:00，空闲 5 折」。 */
+export function peakHoursText(peak: PeakHours | string | null | undefined): string {
+  const p = typeof peak === 'string' ? parsePeakHours(peak) : peak
+  if (!p?.ranges?.length) return typeof peak === 'string' && peak.trim() ? '高峰时段格式有误' : '不分峰谷'
+  const ratio = Math.round((p.offPeakRatio ?? 0.5) * 10)
+  const off = ratio === 5 ? '空闲半价' : `空闲 ${ratio} 折`
+  return `高峰时段：${p.weekdaysOnly ? '工作日 ' : ''}${p.ranges.map((r) => r.replace('-', '–')).join('、')}，${off}`
 }
 
 /** 单价展示：分 → 「¥2 / ¥8」形式的元（每百万 token）。 */

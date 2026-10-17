@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Provider } from '@/api/aiGateway'
 import {
-  candidatesFor, ensureMasked, isValidBaseUrl, keyDisplay, moveItem, peakHoursText, priceText, reorder, targetSupports,
+  candidatesFor, ensureMasked, formatPeakHours, isValidBaseUrl, keyDisplay, moveItem, parsePeakHours, peakHoursText, priceText, reorder, targetSupports,
   toModelBody, toModelDraft, validateProvider, validateRoute, DEFAULT_PEAK_HOURS, type ModelDraft, type ProviderDraft,
 } from './aiGateway'
 
@@ -52,7 +52,13 @@ describe('供应商表单校验', () => {
     const body = toModelBody(md({ model: ' glm-4v ', capabilities: ['VISION', 'CHAT'], cacheHitPrice: '0.5', inputPrice: '2.5', outputPrice: '10', peakHours: ' ' }))
     expect(body).toEqual({ model: 'glm-4v', capabilities: ['CHAT', 'VISION'], price: { inputCacheHitFen: 50, inputFen: 250, outputFen: 1000 }, peakHours: null })
     expect(toModelDraft(body)).toMatchObject({ cacheHitPrice: '0.5', inputPrice: '2.5', outputPrice: '10', peakHours: '' })
-    expect(peakHoursText(DEFAULT_PEAK_HOURS)).toBe('高峰时段：工作日 9–12、14–18，空闲半价')
+    expect(peakHoursText(DEFAULT_PEAK_HOURS)).toBe('高峰时段：工作日 09:00–12:00、14:00–18:00，空闲半价')
+    const obj = { timezone: 'Asia/Shanghai', weekdaysOnly: true, ranges: ['09:00-12:00', '14:00-18:00'], offPeakRatio: 0.5 }
+    expect(peakHoursText(obj)).toBe('高峰时段：工作日 09:00–12:00、14:00–18:00，空闲半价')
+    expect(parsePeakHours(DEFAULT_PEAK_HOURS)).toEqual(obj)
+    expect(formatPeakHours(obj)).toBe(DEFAULT_PEAK_HOURS)
+    expect(parsePeakHours('9-12 Asia/Shanghai')).toBeNull()
+    expect(validateProvider({ name: 'x', baseUrl: 'https://a.b', apiKey: 'k', enabled: true, models: [md({ peakHours: '早上' })] }, { editing: false })['models.0.peakHours']).toBeTruthy()
     expect(peakHoursText(null)).toBe('不分峰谷')
     expect(priceText(400)).toBe('¥4')
     expect(priceText(20)).toBe('¥0.2')
@@ -85,8 +91,8 @@ const prov = (o: Partial<Provider>): Provider => ({
   providerId: 1, name: 'DeepSeek', type: 'OPENAI_COMPATIBLE', baseUrl: 'https://api.deepseek.com/v1',
   apiKeyMasked: 'sk-****a1b2', keySource: 'ENV', enabled: true,
   models: [
-    { model: 'deepseek-flash', capabilities: ['CHAT', 'TOOLS', 'VISION'], price: { inputCacheHitFen: 20, inputFen: 100, outputFen: 400 }, peakHours: DEFAULT_PEAK_HOURS },
-    { model: 'deepseek-v4-pro', capabilities: ['CHAT', 'TOOLS'], price: { inputCacheHitFen: 90, inputFen: 450, outputFen: 1800 }, peakHours: DEFAULT_PEAK_HOURS },
+    { model: 'deepseek-flash', capabilities: ['CHAT', 'TOOLS', 'VISION'], price: { inputCacheHitFen: 20, inputFen: 100, outputFen: 400 }, peakHours: parsePeakHours(DEFAULT_PEAK_HOURS) },
+    { model: 'deepseek-v4-pro', capabilities: ['CHAT', 'TOOLS'], price: { inputCacheHitFen: 90, inputFen: 450, outputFen: 1800 }, peakHours: parsePeakHours(DEFAULT_PEAK_HOURS) },
   ],
   health: { ok: true, latencyMs: 320, checkedAt: null }, ...o,
 })
