@@ -9,6 +9,8 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
+// 1x1 png
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
 const ok = (data: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 0, msg: 'ok', data }) })
 
 function trend(days: number, zero = false) {
@@ -41,12 +43,16 @@ test.describe('运营仪表盘', () => {
     })
 
     await page.goto('/home')
-    await expect(page.getByTestId('kpi-total-members')).toContainText('1,234')
-    await expect(page.getByTestId('kpi-total-members')).toContainText('成员数')
-    await expect(page.getByTestId('kpi-total-cookRecords')).toContainText('10,000')
-    await expect(page.getByTestId('kpi-total-feedbackOpen')).toContainText('3')
-    await expect(page.getByTestId('kpi-7d-aiCostYuan')).toContainText('¥3.46')
-    await expect(page.getByTestId('kpi-7d-activeMembers')).toContainText('40')
+    await expect(page.getByTestId('kpi-members')).toContainText('1,234')
+    await expect(page.getByTestId('kpi-members')).toContainText('成员档案')
+    await expect(page.getByTestId('kpi-members')).toContainText('菜谱 789 道')
+    await expect(page.getByTestId('kpi-accounts')).toContainText('近 7 天 +5')
+    await expect(page.getByTestId('kpi-cookRecords')).toContainText('累计 10,000 次')
+    await expect(page.getByTestId('todo-feedback')).toContainText('3')
+    await expect(page.getByTestId('kpi-aiCostYuan')).toContainText('¥3.46')
+    await expect(page.getByTestId('kpi-activeMembers')).toContainText('40')
+    // 侧栏角标与仪表盘同源（totals.feedbackOpen）
+    await expect(page.getByTestId('badge-feedback')).toHaveText('3')
     await expect(page.getByTestId('dash-trend-chart').locator('canvas')).toBeVisible()
     expect(query).toContain('days=14')
 
@@ -64,7 +70,7 @@ test.describe('运营仪表盘', () => {
       trend: trend(14),
     }))
     await page.goto('/home')
-    await page.getByTestId('kpi-total-feedbackOpen').click()
+    await page.getByTestId('todo-feedback').click()
     await expect(page).toHaveURL(/\/feedback$/)
   })
 
@@ -97,6 +103,59 @@ test.describe('运营仪表盘', () => {
     await expect(page.getByTestId('dash-error')).toBeVisible()
     await expect(page.getByTestId('dash-error')).toContainText('统计服务异常')
     await page.getByRole('button', { name: '重试' }).click()
-    await expect(page.getByTestId('kpi-total-members')).toContainText('9')
+    await expect(page.getByTestId('kpi-members')).toContainText('9')
+  })
+
+  test('最常做的菜显示真实封面 + 待处理（缺营养 / 新反馈）+ 切换天数', async ({ page }) => {
+    const statQueries: string[] = []
+    await page.route(/\/gudu\//, (route) => route.fulfill(ok({})))
+    await page.route(/\/gudu\/uploads\//, (route) => route.fulfill({ status: 200, contentType: 'image/png', body: PNG }))
+    await page.route(/\/gudu\/ops\/stats/, (route) => {
+      statQueries.push(new URL(route.request().url()).search)
+      return route.fulfill(ok({
+        totals: { members: 5, accounts: 4, dishes: 300, cookRecords: 40, feedbackOpen: 1 },
+        last7d: { newAccounts: 0, activeMembers: 3, cookRecords: 6, aiCalls: 9, aiCostYuan: 0.5 },
+        trend: trend(14),
+      }))
+    })
+    await page.route(/\/gudu\/dish\/search/, (route) => route.fulfill(ok({
+      records: [
+        { id: 1, name: '清蒸鲈鱼', coverUrl: '/gudu/uploads/original/luyu.jpg', cookedCount: 4 },
+        { id: 2, name: '滑蛋虾仁', coverUrl: '/gudu/uploads/original/xiaren.jpg', cookedCount: 12 },
+        { id: 3, name: '没图的菜', coverUrl: null, cookedCount: 1 },
+      ],
+      total: 3,
+    })))
+    await page.route(/\/gudu\/ingredient/, (route) => route.fulfill(ok({
+      records: [
+        { id: 1, name: '鲈鱼', purchaseCategoryId: 1, nutrition: {} },
+        { id: 2, name: '番茄', purchaseCategoryId: 1, nutrition: { calorie: 19 } },
+        { id: 3, name: '抽纸', purchaseCategoryId: 2, nutrition: {}, edible: false },
+      ],
+      total: 3,
+    })))
+    await page.route(/\/gudu\/feedback/, (route) => route.fulfill(ok({
+      records: [{ id: 9, memberId: 3, memberName: '小王', content: '放进余量没反应', status: 'NEW', createTime: '2026-10-16T10:00:00', images: [], contact: null, clientInfo: null }],
+      total: 1,
+    })))
+
+    await page.goto('/home')
+    const top = page.getByTestId('dash-top-dishes')
+    await expect(top).toBeVisible()
+    await expect(page.getByText('最常做的菜')).toBeVisible()
+    // 按做过次数倒序：滑蛋虾仁(12) 排第一；封面取缩略图
+    await expect(top.locator('.top-name').first()).toHaveText('滑蛋虾仁')
+    await expect(top.locator('img').first()).toHaveAttribute('src', '/gudu/uploads/thumbnail/xiaren.jpg')
+    await expect(top).toContainText('做了 12 次')
+    // 没图回退首字
+    await expect(top.getByTestId('dish-thumb-initial')).toHaveText('没')
+
+    await expect(page.getByTestId('todo-nutrition')).toContainText('1') // 抽纸非食用不计
+    await expect(page.getByTestId('todo-nutrition')).toContainText('鲈鱼')
+    await expect(page.getByTestId('todo-feedback')).toContainText('小王')
+    await expect(page.getByTestId('todo-library')).toContainText('待接入')
+
+    await page.getByRole('button', { name: '30 天' }).click()
+    await expect.poll(() => statQueries.at(-1)).toContain('days=30')
   })
 })

@@ -38,6 +38,10 @@ describe('useThemeStore', () => {
       expect(style.getPropertyValue('--el-color-primary')).toBe('#7A9A5B')
       expect(style.getPropertyValue('--yh-sidebar')).toBe('#648449')
       expect(style.getPropertyValue('--yh-bg')).toBe('#F7F5EE')
+      // 新页面用到的 secondary / accent / highlight 也随皮肤切换
+      expect(style.getPropertyValue('--yh-secondary')).toBe('#E8E4D5')
+      expect(style.getPropertyValue('--yh-accent')).toBe('#6B8A4D')
+      expect(style.getPropertyValue('--yh-highlight')).toBe('#FBF9EC')
       expect(el.getAttribute('data-theme')).toBe('matcha')
       expect(store.current).toBe('matcha')
       expect(localStorage.getItem('gudu-theme')).toBe('matcha')

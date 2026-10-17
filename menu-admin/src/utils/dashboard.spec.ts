@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { OpsStats } from '@/api/ops'
 import { getTheme } from '@/styles/themes'
 import {
-  buildLast7dTiles,
-  buildTotalTiles,
+  buildKpiCards,
   buildTrendOption,
   formatCount,
   formatYuan,
@@ -35,22 +34,27 @@ describe('格式化', () => {
 })
 
 describe('KPI 卡片映射', () => {
-  it('累计 5 项：成员/账号/菜谱/做菜记录/待处理反馈，反馈 >0 标红并可跳转', () => {
-    const tiles = buildTotalTiles(stats)
-    expect(tiles.map((t) => t.label)).toEqual(['成员数', '账号数', '菜谱数', '做菜记录', '待处理反馈'])
-    expect(tiles[0].value).toBe('1,234')
-    const fb = tiles.find((t) => t.key === 'feedbackOpen')!
-    expect(fb.alert).toBe(true)
-    expect(fb.to).toBe('/feedback')
+  it('5 张卡：累计账号/成员档案/近 7 天活跃/近 7 天做饭/近 7 天 AI 成本', () => {
+    const cards = buildKpiCards(stats)
+    expect(cards.map((c) => c.label)).toEqual(['累计账号', '成员档案', '近 7 天活跃成员', '近 7 天做饭记录', '近 7 天 AI 成本'])
+    expect(cards[1].value).toBe('1,234')
+    expect(cards[1].hint).toBe('菜谱 789 道')
+    expect(cards[3].hint).toBe('累计 10,000 次')
   })
-  it('待处理反馈为 0 → 不标红', () => {
-    const tiles = buildTotalTiles({ ...stats, totals: { ...stats.totals, feedbackOpen: 0 } })
-    expect(tiles.find((t) => t.key === 'feedbackOpen')!.alert).toBe(false)
+  it('新增账号 >0 → 说明行绿色；=0 → 普通色', () => {
+    expect(buildKpiCards(stats)[0]).toMatchObject({ hint: '近 7 天 +5', hintTone: 'ok' })
+    const zero = buildKpiCards({ ...stats, last7d: { ...stats.last7d, newAccounts: 0 } })
+    expect(zero[0].hintTone).toBe('muted')
   })
-  it('近 7 天 5 项，AI 费用格式化为元', () => {
-    const tiles = buildLast7dTiles(stats)
-    expect(tiles.map((t) => t.label)).toEqual(['新增账号', '活跃成员', '做菜', 'AI 调用', 'AI 费用'])
-    expect(tiles.find((t) => t.key === 'aiCostYuan')!.value).toBe('¥3.46')
+  it('AI 成本格式化为元并可跳转 AI 用量页', () => {
+    const ai = buildKpiCards(stats).find((c) => c.key === 'aiCostYuan')!
+    expect(ai.value).toBe('¥3.46')
+    expect(ai.hint).toBe('调用 120 次')
+    expect(ai.to).toBe('/ai-log')
+  })
+  it('接口缺字段 → 显示 -，不抛错', () => {
+    const cards = buildKpiCards({} as OpsStats)
+    expect(cards[0].value).toBe('-')
   })
 })
 

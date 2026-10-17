@@ -57,6 +57,12 @@ export interface DishSearchRow {
   cookTime?: number
   difficulty?: number
   coverUrl?: string
+  /** 做过次数（聚合字段，sort=cooked 时按它倒序） */
+  cookedCount?: number
+  /** 来源：IMPORT / MANUAL …；sourceName 如「下厨房」 */
+  source?: string | null
+  sourceName?: string | null
+  createTime?: string
   [key: string]: unknown
 }
 
@@ -72,6 +78,10 @@ export interface DishSearchParams {
   categoryIds?: number[]
   maxMinutes?: number
   maxDifficulty?: number
+  /** 用到这些食材的菜谱 */
+  ingredientIds?: number[]
+  /** cooked=做过最多；缺省=创建时间倒序 */
+  sort?: 'cooked' | 'coverage'
   pageNum?: number
   pageSize?: number
 }
@@ -85,7 +95,8 @@ export function getDishDetail(id: number) {
 }
 
 export function searchDishes(params: DishSearchParams) {
-  return request<Page<DishSearchRow>>({ url: '/dish/search', method: 'get', params })
+  // 数组参数按 ingredientIds=1&ingredientIds=2 传（Spring List 绑定），不带 []
+  return request<Page<DishSearchRow>>({ url: '/dish/search', method: 'get', params, paramsSerializer: { indexes: null } })
 }
 
 export function updateDish(data: DishSaveDTO & { dish: { id: number } & DishSaveDTO['dish'] }) {

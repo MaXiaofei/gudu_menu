@@ -7,8 +7,9 @@ export interface KpiTile {
   key: string
   label: string
   value: string
-  /** 需要提醒（如待处理反馈 > 0） */
-  alert?: boolean
+  /** 卡片下方一行说明（如「近 7 天 +5」） */
+  hint?: string
+  hintTone?: 'ok' | 'warn' | 'err' | 'muted'
   /** 点击跳转路由 */
   to?: string
 }
@@ -25,31 +26,29 @@ export function formatYuan(n: number | null | undefined): string {
   return Number.isFinite(v) ? `¥${v.toFixed(2)}` : '-'
 }
 
-export function buildTotalTiles(stats: OpsStats): KpiTile[] {
-  const t = stats.totals
+/** 仪表盘顶部 5 张指标卡（原型 AdminDashboard）：累计 + 近 7 天混排，说明行给出对比口径。 */
+export function buildKpiCards(stats: OpsStats): KpiTile[] {
+  const t = stats.totals ?? ({} as OpsStats['totals'])
+  const l = stats.last7d ?? ({} as OpsStats['last7d'])
+  const newAcc = Number(l.newAccounts ?? 0)
   return [
-    { key: 'members', label: '成员数', value: formatCount(t?.members) },
-    { key: 'accounts', label: '账号数', value: formatCount(t?.accounts) },
-    { key: 'dishes', label: '菜谱数', value: formatCount(t?.dishes) },
-    { key: 'cookRecords', label: '做菜记录', value: formatCount(t?.cookRecords) },
     {
-      key: 'feedbackOpen',
-      label: '待处理反馈',
-      value: formatCount(t?.feedbackOpen),
-      alert: (t?.feedbackOpen ?? 0) > 0,
-      to: '/feedback',
+      key: 'accounts',
+      label: '累计账号',
+      value: formatCount(t.accounts),
+      hint: `近 7 天 +${formatCount(newAcc)}`,
+      hintTone: newAcc > 0 ? 'ok' : 'muted',
     },
-  ]
-}
-
-export function buildLast7dTiles(stats: OpsStats): KpiTile[] {
-  const l = stats.last7d
-  return [
-    { key: 'newAccounts', label: '新增账号', value: formatCount(l?.newAccounts) },
-    { key: 'activeMembers', label: '活跃成员', value: formatCount(l?.activeMembers) },
-    { key: 'cookRecords', label: '做菜', value: formatCount(l?.cookRecords) },
-    { key: 'aiCalls', label: 'AI 调用', value: formatCount(l?.aiCalls), to: '/ai-log' },
-    { key: 'aiCostYuan', label: 'AI 费用', value: formatYuan(l?.aiCostYuan), to: '/ai-log' },
+    { key: 'members', label: '成员档案', value: formatCount(t.members), hint: `菜谱 ${formatCount(t.dishes)} 道` },
+    { key: 'activeMembers', label: '近 7 天活跃成员', value: formatCount(l.activeMembers), hint: '有登录或做饭记录' },
+    { key: 'cookRecords', label: '近 7 天做饭记录', value: formatCount(l.cookRecords), hint: `累计 ${formatCount(t.cookRecords)} 次` },
+    {
+      key: 'aiCostYuan',
+      label: '近 7 天 AI 成本',
+      value: formatYuan(l.aiCostYuan),
+      hint: `调用 ${formatCount(l.aiCalls)} 次`,
+      to: '/ai-log',
+    },
   ]
 }
 

@@ -18,6 +18,7 @@ import { listIngredients, type Ingredient } from '@/api/ingredient'
 import { upload } from '@/api/upload'
 import type { UploadAjaxError } from 'element-plus/es/components/upload/src/ajax'
 import Pagination from '@/components/Pagination.vue'
+import DishThumb from '@/components/DishThumb.vue'
 
 // ===== 字典/选项 =====
 const cuisineOptions = ref<DictItem[]>([])
@@ -260,7 +261,14 @@ function onCoverSuccess(resp: { url: string }) {
     </div>
 
     <el-table v-loading="loading" :data="list" border>
-      <el-table-column label="名称" prop="name" min-width="160" />
+      <el-table-column label="菜谱" min-width="220">
+        <template #default="{ row }">
+          <div class="dish-cell">
+            <DishThumb :src="row.coverUrl" :name="row.name" :size="44" />
+            <b>{{ row.name }}</b>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="准备(分)" prop="prepTime" width="100" />
       <el-table-column label="烹饪(分)" prop="cookTime" width="100" />
       <el-table-column label="难度" prop="difficulty" width="80" />
@@ -385,6 +393,12 @@ function onCoverSuccess(resp: { url: string }) {
 </template>
 
 <style scoped>
+.dish-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--yh-title);
+}
 .page {
   background: var(--yh-panel, #fff);
   padding: 16px;

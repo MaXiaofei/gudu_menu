@@ -17,12 +17,27 @@
   --yh-body: #6E5C49;
   --yh-caption: #9C8C7A;
   --yh-primary-soft: #F6D9BE;
+  --yh-primary-deep: #D17A3C;
+  --yh-secondary: #FBF0DD;
+  --yh-accent: #B8762E;
+  --yh-highlight: #FFF7EC;
+  --yh-on-primary: #FFFFFF;
+  --yh-shadow-rgb: 169, 101, 30;
   /* 功能色：两套主题共享（tokens.json color.semantic） */
   --yh-success: #4FAE6E;
   --yh-warning: #E5A938;
   --yh-warning-deep: #B8762E;
   --yh-error: #DB5A4E;
   --yh-info: #4FA0D0;
+  /* 彩色浅底上的文字档（tokens.json semantic.*Deep 再加深，保证 ≥4.5:1） */
+  --yh-success-soft: #F0F8EE;
+  --yh-success-text: #2F7347;
+  --yh-warning-soft: #FFF7EC;
+  --yh-warning-text: #8A5A22;
+  --yh-error-soft: #FBD9D5;
+  --yh-error-text: #9A2E22;
+  --yh-info-soft: #E8F3FA;
+  --yh-info-text: #2F6A8C;
   --el-border-radius-base: 10px;
   --el-font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -55,4 +70,113 @@ body {
   margin-right: 7px;
   vertical-align: middle;
   border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ===== 后台通用视觉（对齐 docs/design/prototype/admin.css；颜色全部走 --yh-* 变量，随皮肤切换） ===== */
+.yh-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1360px;
+}
+.yh-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.yh-head h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--yh-title);
+}
+.yh-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--yh-body);
+}
+.yh-card {
+  background: var(--yh-panel);
+  border: 1px solid var(--yh-border);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 2px 10px rgba(var(--yh-shadow-rgb), 0.08);
+}
+.yh-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--yh-title);
+}
+.yh-muted {
+  font-size: 12px;
+  color: var(--yh-body);
+}
+.yh-link {
+  color: var(--yh-accent);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.yh-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.yh-tag.ok { background: var(--yh-success-soft); color: var(--yh-success-text); }
+.yh-tag.warn { background: var(--yh-warning-soft); color: var(--yh-warning-text); border: 1px solid var(--yh-primary-soft); }
+.yh-tag.err { background: var(--yh-error-soft); color: var(--yh-error-text); }
+.yh-tag.info { background: var(--yh-info-soft); color: var(--yh-info-text); }
+.yh-tag.mute { background: var(--yh-bg); color: var(--yh-body); border: 1px solid var(--yh-border); }
+/* 分段筛选（深色选中，同原型 .seg） */
+.yh-seg {
+  display: inline-flex;
+  border: 1px solid var(--yh-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--yh-panel);
+}
+.yh-seg button {
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--yh-body);
+  cursor: pointer;
+  font-family: inherit;
+}
+.yh-seg button.on {
+  background: var(--yh-title);
+  color: var(--yh-panel);
+  font-weight: 700;
+}
+.yh-seg button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* 主按钮底色用 primaryDeep：primary 上白字对比度不足（奶油 2.44:1），与原型/三端 CTA 规范一致 */
+.el-button--primary {
+  --el-button-bg-color: var(--yh-primary-deep);
+  --el-button-border-color: var(--yh-primary-deep);
+  --el-button-hover-bg-color: color-mix(in srgb, var(--yh-primary-deep) 88%, white);
+  --el-button-hover-border-color: color-mix(in srgb, var(--yh-primary-deep) 88%, white);
+  --el-button-active-bg-color: color-mix(in srgb, var(--yh-primary-deep) 85%, black);
+  --el-button-active-border-color: color-mix(in srgb, var(--yh-primary-deep) 85%, black);
+  --el-button-text-color: var(--yh-on-primary);
+  --el-button-hover-text-color: var(--yh-on-primary);
+}
+.el-button--primary.is-link,
+.el-button--primary.is-text {
+  --el-button-text-color: var(--yh-accent);
+  --el-button-hover-link-text-color: var(--yh-primary-deep);
+}
+.el-pagination.is-background .el-pager li.is-active {
+  background-color: var(--yh-primary-deep);
+  color: var(--yh-on-primary);
 }

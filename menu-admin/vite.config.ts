@@ -23,6 +23,10 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    // 允许读取仓库级设计源（docs/design/ingredient-icons.json，食材插画规则单一来源）
+    fs: {
+      allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../docs/design', import.meta.url))],
+    },
     proxy: {
       '/gudu': {
         target: 'http://localhost:8080',

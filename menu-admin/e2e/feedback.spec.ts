@@ -49,40 +49,53 @@ test.describe('意见反馈管理', () => {
     })
 
     await page.goto('/feedback')
-    await expect(page.getByText('采购清单希望能导出图片')).toBeVisible()
-    await expect(page.getByText('小王')).toBeVisible()
-    await expect(page.getByText('#4')).toBeVisible() // 无昵称回退显示成员 ID
-    await expect(page.getByText('wx:wang')).toBeVisible()
-    await expect(page.getByText('mp-weixin 1.2.0 iPhone')).toBeVisible()
-    await expect(page.getByText('2026-10-15 10:20')).toBeVisible()
+    const table = page.getByTestId('fb-table')
+    const detail = page.getByTestId('fb-detail')
+    await expect(table.getByText('采购清单希望能导出图片')).toBeVisible()
+    await expect(table.getByText('小王 · 附 2 张截图')).toBeVisible()
+    await expect(table.getByText('#4')).toBeVisible() // 无昵称回退显示成员 ID
+    await expect(table.getByText('小程序')).toBeVisible() // 由 clientInfo 推断来源端
     expect(listQueries[0]).toContain('status=NEW')
     expect(listQueries[0]).toContain('pageNum=1')
 
-    // 缩略图 → 大图预览
-    const thumbs = page.locator('.thumb img')
+    // 默认选中第一条，右侧详情展示联系方式 / 设备 / 时间
+    await expect(detail).toContainText('#FB-11')
+    await expect(detail).toContainText('2026-10-15 10:20')
+    await expect(detail).toContainText('wx:wang')
+    await expect(detail).toContainText('mp-weixin 1.2.0 iPhone')
+    // 回复用户接口未上线：按钮置灰
+    await expect(detail.getByRole('button', { name: '回复用户' })).toBeDisabled()
+
+    // 截图 → 大图预览
+    const thumbs = detail.locator('.thumb img')
     await expect(thumbs).toHaveCount(2)
     await thumbs.first().click()
     await expect(page.locator('.el-image-viewer__wrapper')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.locator('.el-image-viewer__wrapper')).toHaveCount(0)
 
+    // 点第二条 → 详情切换
+    await table.getByText('菜谱搜索很好用').click()
+    await expect(detail).toContainText('#FB-12')
+    await expect(detail).toContainText('未留')
+    await table.getByText('采购清单希望能导出图片').click()
+
     // 标记已处理 → PUT 后从待处理列表移除
-    const row = page.locator('.el-table__row', { hasText: '采购清单希望能导出图片' })
-    await row.getByRole('button', { name: '标记已处理' }).click()
+    await detail.getByRole('button', { name: '标记已处理' }).click()
     await expect(page.getByText('已标记为已处理')).toBeVisible()
     expect(puts[0]).toEqual({ url: '/gudu/feedback/11/status', body: { status: 'DONE' } })
-    await expect(page.getByText('采购清单希望能导出图片')).toHaveCount(0)
+    await expect(table.getByText('采购清单希望能导出图片')).toHaveCount(0)
 
     // 切到「已处理」→ 可重新打开
     await page.getByTestId('fb-status-filter').getByText('已处理').click()
-    await expect(page.getByText('采购清单希望能导出图片')).toBeVisible()
+    await expect(table.getByText('采购清单希望能导出图片')).toBeVisible()
     expect(listQueries.at(-1)).toContain('status=DONE')
-    await page.locator('.el-table__row', { hasText: '采购清单' }).getByRole('button', { name: '重新打开' }).click()
+    await detail.getByRole('button', { name: '重新打开' }).click()
     expect(puts[1]).toEqual({ url: '/gudu/feedback/11/status', body: { status: 'NEW' } })
 
     // 切到「全部」→ 不带 status
     await page.getByTestId('fb-status-filter').getByText('全部').click()
-    await expect(page.getByText('菜谱搜索很好用')).toBeVisible()
+    await expect(table.getByText('菜谱搜索很好用')).toBeVisible()
     expect(listQueries.at(-1)).not.toContain('status=')
   })
 
@@ -106,9 +119,9 @@ test.describe('意见反馈管理', () => {
       }))
     })
     await page.goto('/feedback')
-    await expect(page.getByText('第1页的反馈')).toBeVisible()
+    await expect(page.getByTestId('fb-table').getByText('第1页的反馈')).toBeVisible()
     await page.locator('.el-pager li', { hasText: '2' }).click()
-    await expect(page.getByText('第2页的反馈')).toBeVisible()
+    await expect(page.getByTestId('fb-table').getByText('第2页的反馈')).toBeVisible()
     expect(queries.at(-1)).toContain('pageNum=2')
     expect(queries.at(-1)).toContain('pageSize=15')
   })
