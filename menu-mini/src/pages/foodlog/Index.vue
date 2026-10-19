@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 顶栏：返回 + 时间胶囊（含步进）+ 月|年切换 -->
     <view class="top" :style="{ paddingTop: sb + 'px' }">
@@ -14,43 +15,36 @@
       </view>
     </view>
 
-    <!-- 统计卡 -->
-    <view class="stat-card">
-      <view class="stat-row">
-        <view class="stat">
-          <text class="stat-num">{{ summary.meals }}</text>
-          <text class="stat-label">顿饭</text>
-        </view>
-        <view class="stat">
-          <text class="stat-num">{{ summary.dishes }}</text>
-          <text class="stat-label">道菜</text>
-        </view>
-        <view class="stat">
-          <text class="stat-num">{{ summary.cookDays }}</text>
-          <text class="stat-label">做饭天数</text>
-        </view>
-      </view>
+    <!-- 统计（prototype CookLog） -->
+    <view class="stats">
+      <ui-stat-grid :items="statItems" />
       <view v-if="topDishes.length" class="top-line">
-        {{ yearMode ? '全年' : '本月' }}最常：{{ topDishes.join(' · ') }}
+        <ui-thumb-stack :items="topDishes.map((n) => ({ name: n, cover: coverByName[n] }))" :size="28" />
+        <text class="top-txt">{{ yearMode ? '全年' : '本月' }}最常做：{{ topDishes.join(' · ') }}</text>
       </view>
     </view>
 
-    <!-- Tab -->
-    <view class="tabs">
-      <view class="tab" :class="{ on: tab === 'timeline' }" @click="tab = 'timeline'">时间轴</view>
-      <view class="tab" :class="{ on: tab === 'byDish' }" @click="switchByDish">按菜汇总</view>
+    <view class="tabs-wrap">
+      <ui-segment :model-value="tab" :items="[{ key: 'timeline', label: '时间轴' }, { key: 'byDish', label: '按菜汇总' }]" @update:model-value="onTab" />
     </view>
 
     <!-- 时间轴 -->
     <scroll-view v-if="tab === 'timeline'" scroll-y class="body" @scrolltolower="loadMore">
       <view
         v-for="r in records"
-        :key="r.menuId ?? r.cookedAt"
+        :key="r.menuId ?? r.cookedAt ?? undefined"
         class="tl-row"
         @click="goDetail(r)"
       >
         <view class="tl-dot" />
         <view class="tl-main">
+          <ui-dish-collage
+            v-if="(r.dishNames ?? []).some((n) => coverByName[n])"
+            class="tl-cover"
+            :items="(r.dishNames ?? []).map((n) => ({ name: n, cover: coverByName[n] }))"
+            :height="120"
+            :radius="12"
+          />
           <view class="tl-head">
             <text class="tl-name">{{ r.name || '一顿饭' }}</text>
             <text class="tl-time">{{ mdHm(r.cookedAt) }}</text>
@@ -63,7 +57,14 @@
           </view>
         </view>
       </view>
-      <ui-state v-if="!loading && !records.length" mode="empty" :text="`${yearMode ? '本年' : '本月'}还没有做菜记录`" />
+      <ui-state v-if="loading && !records.length" mode="loading" />
+      <ui-state
+        v-else-if="!records.length"
+        mode="empty"
+        :text="`${yearMode ? '今年' : '这个月'}还没有做饭记录`"
+        hint="做完一道菜点「记一笔」，这里会自动记下来"
+        :illus="['rice', 'egg', 'tomato']"
+      />
       <view v-if="records.length && !hasMore && total >= 10" class="footer">共 {{ total }} 顿</view>
       <view style="height: 24px" />
     </scroll-view>
@@ -72,6 +73,7 @@
     <scroll-view v-else scroll-y class="body">
       <view v-if="byDish.length" class="hint-bar">本月做过 {{ totalKinds }} 种菜 · 按次数排序，点一行看全部记录</view>
       <view v-for="d in byDish" :key="d.dishId" class="dish-row" @click="backToTimeline">
+        <ui-dish-image :src="coverById[d.dishId]" :name="d.dishName" :width="44" :height="44" :radius="10" />
         <text class="dish-name">{{ d.dishName || `#${d.dishId}` }}</text>
         <text class="dish-count">{{ d.count }} 次</text>
         <text class="dish-last">{{ lastCooked(d.lastCookedAt) }}</text>
@@ -86,6 +88,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { foodLogMonth, foodLogByDish, type FoodLogMeal, type FoodLogSummary, type FoodLogByDish } from '@/api/foodlog'
+import { recentCooked } from '@/api/recommend'
 import { mdHm } from '@/utils/datetime'
 import { navInset } from '@/utils/token'
 
@@ -107,6 +110,34 @@ const totalKinds = ref(0)
 const byDishLoading = ref(false)
 
 const topDishes = computed(() => summary.value.topDishes ?? [])
+const statItems = computed(() => [
+  { value: summary.value.meals, label: '顿饭', tone: 'plain' as const },
+  { value: summary.value.dishes, label: '道菜', tone: 'plain' as const },
+  { value: summary.value.cookDays, label: '做饭天数', tone: 'success' as const },
+])
+
+// 食记接口不带封面：用「最近做过」按菜名 / 菜 id 补图（取不到退首字占位）
+const coverByName = ref<Record<string, string>>({})
+const coverById = ref<Record<number, string>>({})
+recentCooked(30)
+  .then((list) => {
+    const n: Record<string, string> = {}
+    const i: Record<number, string> = {}
+    list.forEach((r) => {
+      if (r.coverImage) {
+        n[r.name] = r.coverImage
+        i[r.dishId] = r.coverImage
+      }
+    })
+    coverByName.value = n
+    coverById.value = i
+  })
+  .catch(() => {})
+
+function onTab(k: string) {
+  if (k === 'byDish') switchByDish()
+  else tab.value = 'timeline'
+}
 
 function startOfMonth(): Date {
   const now = new Date()
@@ -215,7 +246,7 @@ function lastCooked(s?: string | null): string {
   padding-right: 14px;
 }
 .back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
@@ -228,7 +259,7 @@ function lastCooked(s?: string | null): string {
   gap: 6px;
 }
 .step {
-  font-size: 18px;
+  font-size: var(--fs-subtitle);
   color: var(--title);
   font-weight: 700;
   padding: 2px 6px;
@@ -245,68 +276,15 @@ function lastCooked(s?: string | null): string {
 .seg-item {
   padding: 4px 12px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--body);
 }
 .seg-item.on {
   background: var(--primary-deep);
-  color: #FFFFFF;
+  color: var(--on-primary);
 }
 /* 统计卡 */
-.stat-card {
-  margin: 10px 14px 0;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-deep));
-  padding: 14px 16px;
-}
-.stat-row {
-  display: flex;
-}
-.stat {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-.stat-num {
-  color: #FFFFFF;
-  font-size: 22px;
-  font-weight: 800;
-}
-.stat-label {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 11px;
-}
-.top-line {
-  margin-top: 10px;
-  background: rgba(255, 255, 255, 0.24);
-  border-radius: var(--r-sm);
-  padding: 6px 10px;
-  color: #FFFFFF;
-  font-size: 11px;
-}
-/* Tab */
-.tabs {
-  display: flex;
-  gap: 8px;
-  padding: 12px 14px 8px;
-}
-.tab {
-  padding: 6px 14px;
-  border-radius: var(--r-pill);
-  background: var(--card);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--body);
-}
-.tab.on {
-  background: var(--title);
-  border-color: var(--title);
-  color: #FFFFFF;
-  font-weight: 700;
-}
 .body {
   flex: 1;
   min-height: 0;
@@ -319,9 +297,10 @@ function lastCooked(s?: string | null): string {
   gap: 10px;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 10px 12px;
-  margin-bottom: 6px;
+  border-radius: var(--r-lg);
+  padding: var(--sp-12);
+  margin-bottom: var(--sp-10);
+  box-shadow: 0 2px 10px rgba(var(--sh), 0.06);
 }
 .tl-dot {
   width: 8px;
@@ -345,7 +324,7 @@ function lastCooked(s?: string | null): string {
 }
 .tl-name {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--title);
   overflow: hidden;
@@ -353,12 +332,12 @@ function lastCooked(s?: string | null): string {
   white-space: nowrap;
 }
 .tl-time {
-  font-size: 10px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
 }
 .tl-sub {
-  font-size: 10px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -369,22 +348,24 @@ function lastCooked(s?: string | null): string {
   margin-top: 1px;
 }
 .tl-tag {
-  font-size: 9px;
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
-.tl-tag.red { color: var(--error); }
-.tl-tag.yellow { color: var(--warning-text); }
-.tl-tag.green { color: var(--success); }
+.tl-tag.red { background: var(--error-soft); color: var(--error-deep); }
+.tl-tag.yellow { background: var(--warning-soft); color: var(--warning-deep); }
+.tl-tag.green { background: var(--success-soft); color: var(--success-deep); }
 .footer {
   padding: 12px 0;
   text-align: center;
-  font-size: 12px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
 }
 /* 按菜 */
 .hint-bar {
-  font-size: 10px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
   margin: 2px 2px 8px;
 }
 .dish-row {
@@ -394,27 +375,49 @@ function lastCooked(s?: string | null): string {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: 10px 12px;
-  margin-bottom: 6px;
+  padding: var(--sp-10) var(--sp-12);
+  margin-bottom: var(--sp-8);
 }
 .dish-name {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--title);
 }
 .dish-count {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--primary);
   font-weight: 700;
 }
 .dish-last {
-  font-size: 10px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
 }
 .dish-star {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--primary);
   font-weight: 700;
+}
+.stats {
+  padding: var(--sp-8) var(--sp-16) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-10);
+}
+.top-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+}
+.top-txt {
+  flex: 1;
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.tabs-wrap {
+  padding: var(--sp-12) var(--sp-16);
+}
+.tl-cover {
+  margin-bottom: var(--sp-8);
 }
 </style>

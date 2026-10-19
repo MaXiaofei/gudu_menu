@@ -17,6 +17,10 @@ module.exports = async function loginSuite(mini, r) {
 
   await inputs[0].input('admin')
   await inputs[1].input('admin123')
+  // 协议勾选（未勾选不可登录）
+  const agree = await page.$('.agree-box')
+  r.log('协议勾选框渲染', !!agree)
+  if (agree) await agree.tap()
   await (await page.$('.login-btn')).tap()
   await sleep(3000)
 

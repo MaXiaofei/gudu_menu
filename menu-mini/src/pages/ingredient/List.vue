@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 食材库列表：搜索（回车）+ 分类筛选 + 分页 -->
   <view class="page">
     <ui-back-header>
@@ -144,8 +145,8 @@ function goEdit(i: IngredientRow) {
   padding: 5px 12px;
   border-radius: var(--r-pill);
   background: var(--primary);
-  color: #FFFFFF;
-  font-size: 10px;
+  color: var(--on-primary);
+  font-size: var(--fs-tiny);
   font-weight: 700;
 }
 .search-row { padding: 4px 14px 8px; }
@@ -158,9 +159,9 @@ function goEdit(i: IngredientRow) {
   border-radius: var(--r-md);
   padding: 0 12px;
 }
-.search-ico { color: var(--caption); font-size: 14px; }
-.search-ipt { flex: 1; font-size: 12px; color: var(--title); padding: 9px 0; }
-.search-clear { color: var(--caption); font-size: 13px; padding: 4px; }
+.search-ico { color: var(--caption); font-size: var(--fs-md); }
+.search-ipt { flex: 1; font-size: var(--fs-sm); color: var(--title); padding: 9px 0; }
+.search-clear { color: var(--caption); font-size: var(--fs-md); padding: 4px; }
 .ph { color: var(--caption); }
 .chip-bar { white-space: nowrap; }
 .chip-row { display: inline-flex; gap: 6px; padding: 0 14px 8px; }
@@ -171,9 +172,9 @@ function goEdit(i: IngredientRow) {
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--body);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
-.chip.on { background: var(--title); border-color: var(--title); color: #FFFFFF; }
+.chip.on { background: var(--title); border-color: var(--title); color: var(--on-primary); }
 .body { flex: 1; min-height: 0; padding: 0 14px; box-sizing: border-box; }
 .row {
   display: flex;
@@ -187,21 +188,21 @@ function goEdit(i: IngredientRow) {
 }
 .row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .row-name-line { display: flex; align-items: center; gap: 6px; }
-.row-name { font-size: 13px; font-weight: 700; color: var(--title); }
+.row-name { font-size: var(--fs-md); font-weight: 700; color: var(--title); }
 .row-cat {
   padding: 1px 6px;
   border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--caption);
-  font-size: 9px;
+  font-size: var(--fs-tiny);
 }
-.row-sub { font-size: 10px; color: var(--caption); }
-.arrow { color: var(--caption); font-size: 16px; font-weight: 700; }
-.footer { padding: 16px 0; text-align: center; font-size: 12px; color: var(--caption); }
+.row-sub { font-size: var(--fs-tiny); color: var(--caption); }
+.arrow { color: var(--caption); font-size: var(--fs-lg); font-weight: 700; }
+.footer { padding: 16px 0; text-align: center; font-size: var(--fs-sm); color: var(--caption); }
 .foot-note {
   padding: 8px 0 calc(10px + env(safe-area-inset-bottom));
   text-align: center;
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   color: var(--caption);
 }
 </style>

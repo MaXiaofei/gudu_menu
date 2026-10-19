@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:menu_flutter/core/app_theme.dart';
 import 'package:menu_flutter/pages/pantry/manual_add_page.dart';
-import 'package:menu_flutter/widgets/initial_avatar.dart';
+import 'package:menu_flutter/widgets/ingredient_icon.dart';
 import '../helpers/mock_http.dart';
 
 /// 给 widget 测试注入 AppTokens 主题。
@@ -53,12 +53,13 @@ void main() {
     // 头说明（功能说明文案保留）
     expect(find.text('朋友送 / 赠品 / 之前忘记登的旧库存，记一笔进来'), findsOneWidget);
 
-    // 未输入：提示卡 + 新建入口常驻，不显示库里已有
-    expect(find.text('输入名称，会显示库里已有的食材'), findsOneWidget);
+    // 未输入：「你家常买」插画宫格（家里余量出现过的食材）+ 新建入口常驻（原型 PantryAdd）
+    expect(find.text('你家常买'), findsOneWidget);
+    expect(find.byType(IngredientIcon), findsWidgets);
     expect(find.text('库存里没有？'), findsOneWidget);
     expect(find.text('+ 新建食材并入库'), findsOneWidget);
-    expect(find.text('苹果'), findsNothing);
-    expect(find.text('大米'), findsNothing);
+    // 常买宫格里出现家里有过的食材（如苹果），点一下即可选中
+    expect(find.text('大米'), findsOneWidget);
 
     // 下一步：未选时禁用
     final nextBtn = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
@@ -95,8 +96,8 @@ void main() {
     await tester.tap(find.byType(ElevatedButton));
     await tester.pump();
 
-    // 食材头：缩略图 + 家里状态
-    expect(find.byType(InitialAvatar), findsOneWidget);
+    // 食材头：食材插画 + 家里状态
+    expect(find.byType(IngredientIcon), findsOneWidget);
     expect(find.text('家里：用完 · 入库记一笔'), findsOneWidget);
 
     // 档位：新文案 + 充足默认 / 不足=一点点

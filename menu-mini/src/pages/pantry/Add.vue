@@ -1,8 +1,10 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 录入页：只有返回箭头（§13.1） -->
     <view class="top" :style="{ paddingTop: sb + 'px' }">
-      <text class="back" @click="goBack">‹</text>
+      <view class="back" aria-label="返回" @click="goBack"><ui-icon name="back" :size="22" /></view>
+      <text class="page-title">放进余量</text>
     </view>
 
     <scroll-view scroll-y class="body">
@@ -26,10 +28,22 @@
       <!-- ===== 步骤① 选食材 ===== -->
       <template v-if="step === 0">
         <!-- 未输入：提示卡 + 新建入口常驻 -->
-        <view v-if="!q" class="empty-hint">
-          <view class="empty-ico"><text class="empty-ico-txt">⌕</text></view>
-          <text class="empty-line">输入名称，会显示库里已有的食材</text>
-        </view>
+        <template v-if="!q">
+          <template v-if="frequent.length">
+            <text class="sec-label">你家常买</text>
+            <view class="freq" data-testid="freq-grid">
+              <view v-for="f in frequent" :key="f.ingredientId" class="freq-it" @click="quickPick(f)">
+                <ui-ing-icon :icon-key="f.iconKey" :name="f.ingredientName" :category="f.categoryName" :size="48" />
+                <text class="freq-name">{{ f.ingredientName }}</text>
+                <text class="freq-lv" :class="'lv-' + f.level">{{ f.level === 'NONE' ? '用完了' : f.level === 'LOW' ? '不太够' : '还有' }}</text>
+              </view>
+            </view>
+          </template>
+          <view v-else class="empty-hint">
+            <ui-ing-icon icon-key="egg" :size="56" />
+            <text class="empty-line">输入名称，会显示库里已有的食材</text>
+          </view>
+        </template>
 
         <template v-else>
           <!-- 库里已有（输入后才出现） -->
@@ -37,6 +51,7 @@
             <text class="sec-label">库里已有</text>
             <view class="sheet">
               <view v-for="i in matches" :key="i.id" class="ing-row" @click="pick(i)">
+                <ui-ing-icon :name="i.name" :size="36" />
                 <view class="ing-main">
                   <text class="ing-name">{{ i.name }}</text>
                   <text v-if="levelText(i.id)" class="ing-home">{{ levelText(i.id) }}</text>
@@ -60,7 +75,7 @@
       <!-- ===== 步骤② 定档位 + 来源 ===== -->
       <template v-if="step === 1">
         <view class="food-head">
-          <ui-avatar :name="name || '食'" :size="52" :fallback="'食'" />
+          <ui-ing-icon :name="name" :size="64" />
           <view class="food-info">
             <text class="food-name">{{ name }}</text>
             <text class="food-sub">{{ stockSub }}</text>
@@ -78,6 +93,19 @@
             <text class="lcard-sub">一点点</text>
           </view>
         </view>
+
+        <text class="sec-label">保质期（选填）</text>
+        <view class="bb-row">
+          <picker mode="date" :value="bestBefore || today" :start="today" class="bb-picker" @change="onBestBefore">
+            <view class="bb-field" data-testid="best-before">
+              <text v-if="bestBefore" class="bb-val">{{ mdLabel(bestBefore) }} 前吃完</text>
+              <text v-else class="bb-ph">不记保质期</text>
+              <text class="bb-arrow">›</text>
+            </view>
+          </picker>
+          <text v-if="bestBefore" class="bb-clear" @click="bestBefore = ''">清除</text>
+        </view>
+        <text v-if="suggestedDays" class="bb-hint">按品类建议 {{ suggestedDays }} 天，已帮你预填</text>
 
         <text class="sec-label">来源备注</text>
         <view class="src-chips">
@@ -107,7 +135,8 @@
 import { ref, computed, nextTick } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { listAllIngredients, type IngredientItem } from '@/api/ingredient'
-import { listGroupedAll, pantryManualAdd, type PantryGrouped } from '@/api/pantry'
+import { listGroupedAll, pantryManualAdd, shelfLifeDays, type PantryGroupedItem } from '@/api/pantry'
+import { addDays, mdLabel, ymd } from '@/utils/freshness'
 import { navInset } from '@/utils/token'
 
 const sb = navInset()
@@ -121,12 +150,27 @@ const newName = ref('')
 
 const ingredients = ref<IngredientItem[]>([])
 const levelByIng = ref<Record<number, string>>({})
+const groupedItems = ref<PantryGroupedItem[]>([])
+const LV_ORDER: Record<string, number> = { NONE: 0, LOW: 1, ENOUGH: 2 }
+/** 你家常买：家里记过的食材，用完/不足的排前面（最多 8 个）。 */
+const frequent = computed(() =>
+  [...groupedItems.value].sort((a, b) => (LV_ORDER[a.level] ?? 3) - (LV_ORDER[b.level] ?? 3)).slice(0, 8),
+)
 const loading = ref(true)
 
 const level = ref('ENOUGH')
 const sourceNote = ref('朋友送')
 const sourceOptions = ['朋友送', '赠品', '旧库存补登', '其他']
 const saving = ref(false)
+
+// 保质期：选中已有食材后按品类建议预填（今天 + suggestedDays）
+const today = ymd(new Date())
+const bestBefore = ref('')
+const suggestedDays = ref<number | null>(null)
+
+function onBestBefore(e: any) {
+  bestBefore.value = e?.detail?.value || ''
+}
 
 onLoad(async () => {
   autoFocus.value = true
@@ -136,6 +180,7 @@ onLoad(async () => {
     const map: Record<number, string> = {}
     grouped.items.forEach((it) => (map[it.ingredientId] = it.level))
     levelByIng.value = map
+    groupedItems.value = grouped.items
   } catch {}
   loading.value = false
 })
@@ -174,6 +219,14 @@ function levelText(id: number): string {
   return `家里：${lv === 'ENOUGH' ? '充足' : lv === 'LOW' ? '不足' : '用完'}`
 }
 
+/** 常买宫格：一键选中并进入定档位。 */
+function quickPick(f: PantryGroupedItem) {
+  kw.value = f.ingredientName || ''
+  selected.value = { id: f.ingredientId, name: f.ingredientName || '' }
+  newMode.value = false
+  next()
+}
+
 function pick(i: IngredientItem) {
   selected.value = i
   newMode.value = false
@@ -191,8 +244,18 @@ function onNewTile() {
   newName.value = q.value
 }
 
-function next() {
+async function next() {
   step.value = 1
+  bestBefore.value = ''
+  suggestedDays.value = null
+  const id = selected.value?.id
+  if (id) {
+    const d = await shelfLifeDays(id)
+    if (d && selected.value?.id === id) {
+      suggestedDays.value = d
+      bestBefore.value = addDays(d)
+    }
+  }
 }
 
 function goBack() {
@@ -215,6 +278,7 @@ async function submit() {
       name: selected.value ? undefined : name.value,
       level: level.value,
       sourceNote: sourceNote.value,
+      bestBefore: bestBefore.value || undefined,
     })
     uni.showToast({ title: '已入库', icon: 'none' })
     setTimeout(() => uni.navigateBack(), 400)
@@ -234,14 +298,17 @@ async function submit() {
   background: var(--bg);
 }
 .top {
-  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 0 6px var(--sp-8);
 }
 .back {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--title);
-  padding: 4px 10px;
-  line-height: 1.2;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .body {
   flex: 1;
@@ -251,8 +318,8 @@ async function submit() {
 }
 .hint-line {
   display: block;
-  font-size: 11px;
-  color: var(--caption);
+  font-size: var(--fs-xs);
+  color: var(--body);
 }
 .search-box {
   display: flex;
@@ -265,21 +332,21 @@ async function submit() {
   margin-top: 12px;
 }
 .search-ico {
-  color: var(--caption);
-  font-size: 14px;
+  color: var(--body);
+  font-size: var(--fs-md);
 }
 .search-ipt {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--title);
   padding: 9px 0;
 }
 .search-clear {
-  color: var(--caption);
-  font-size: 13px;
+  color: var(--body);
+  font-size: var(--fs-md);
   padding: 4px;
 }
-.ph { color: var(--caption); }
+.ph { color: var(--body); }
 /* 未输入提示卡 */
 .empty-hint {
   background: var(--card);
@@ -303,17 +370,17 @@ async function submit() {
 }
 .empty-ico-txt {
   color: var(--primary-deep);
-  font-size: 15px;
+  font-size: var(--fs-lg);
 }
 .empty-line {
-  font-size: 12px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
 }
 .sec-label {
   display: block;
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   font-weight: 800;
-  color: var(--caption);
+  color: var(--body);
   letter-spacing: 1px;
   margin: 16px 0 8px;
 }
@@ -340,27 +407,27 @@ async function submit() {
   gap: 2px;
 }
 .ing-name {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--title);
 }
 .ing-home {
-  font-size: 9px;
-  color: var(--caption);
+  font-size: var(--fs-tiny);
+  color: var(--body);
 }
 .pick {
   padding: 4px 11px;
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
   background: var(--bg);
-  color: var(--caption);
-  font-size: 10px;
+  color: var(--body);
+  font-size: var(--fs-tiny);
   font-weight: 800;
 }
 .pick.on {
   background: var(--primary);
   border-color: var(--primary);
-  color: #FFFFFF;
+  color: var(--on-primary);
 }
 /* 新建虚线卡 */
 .dashed {
@@ -372,13 +439,13 @@ async function submit() {
   gap: 2px;
 }
 .dashed-title {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   color: var(--primary);
 }
 .dashed-sub {
-  font-size: 10px;
-  color: var(--caption);
+  font-size: var(--fs-tiny);
+  color: var(--body);
 }
 /* 步骤② */
 .food-head {
@@ -392,17 +459,17 @@ async function submit() {
   gap: 2px;
 }
 .food-name {
-  font-size: 18px;
+  font-size: var(--fs-subtitle);
   font-weight: 800;
   color: var(--title);
 }
 .food-sub {
-  font-size: 10px;
-  color: var(--caption);
+  font-size: var(--fs-tiny);
+  color: var(--body);
 }
 .q-line {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--body);
   margin: 16px 0 8px;
 }
@@ -425,13 +492,13 @@ async function submit() {
   border: 2px solid var(--primary);
 }
 .lcard-title {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 800;
   color: var(--title);
 }
 .lcard-sub {
-  font-size: 9px;
-  color: var(--caption);
+  font-size: var(--fs-tiny);
+  color: var(--body);
 }
 .src-chips {
   display: flex;
@@ -444,13 +511,56 @@ async function submit() {
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--body);
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   font-weight: 800;
 }
 .src-chip.on {
   background: var(--primary);
   border-color: var(--primary);
-  color: #FFFFFF;
+  color: var(--on-primary);
+}
+/* 保质期 */
+.bb-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+}
+.bb-picker {
+  flex: 1;
+}
+.bb-field {
+  display: flex;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-10) var(--sp-12);
+}
+.bb-val {
+  flex: 1;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--title);
+}
+.bb-ph {
+  flex: 1;
+  font-size: var(--fs-md);
+  color: var(--body);
+}
+.bb-arrow {
+  color: var(--body);
+  font-size: var(--fs-lg);
+}
+.bb-clear {
+  font-size: var(--fs-sm);
+  color: var(--body);
+  padding: var(--sp-4);
+}
+.bb-hint {
+  display: block;
+  margin-top: var(--sp-6);
+  font-size: var(--fs-xs);
+  color: var(--body);
 }
 /* 底部 */
 .bottom {
@@ -463,4 +573,35 @@ async function submit() {
 .wide {
   min-width: 200px;
 }
+.page-title {
+  font-size: var(--fs-subtitle);
+  font-weight: 700;
+  color: var(--title);
+}
+.freq {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-8);
+}
+.freq-it {
+  padding: var(--sp-10) 0;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.freq-name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--title);
+}
+.freq-lv {
+  font-size: var(--fs-tiny);
+  color: var(--body);
+}
+.freq-lv.lv-NONE { color: var(--error-deep); }
+.freq-lv.lv-LOW { color: var(--warning-deep); }
 </style>

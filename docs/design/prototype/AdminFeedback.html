@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>意见反馈 · 咕嘟小食单原型</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <span class="brand"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg>小食单后台</span>
+    <a href="AdminDashboard.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">仪表盘</span></a>
+    <a href="AdminLibrary.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h5v17H6a2 2 0 0 0-2 2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v17h5a2 2 0 0 1 2 2z"/></svg><span class="lbl">公共菜谱库</span><span class="badge">12</span></a>
+    <a href="AdminNutrition.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21c-5 0-8-4-8-9 0-4 3-6 5-6 1.5 0 2.2.6 3 .6s1.5-.6 3-.6c2 0 5 2 5 6 0 5-3 9-8 9z"/><path d="M12 6c0-2 1-3 3-3"/></svg><span class="lbl">食材与营养</span><span class="badge">37</span></a>
+    <a href="AdminFeedback.html" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/></svg><span class="lbl">意见反馈</span><span class="badge">3</span></a>
+    <a href="AdminTenants.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg><span class="lbl">账号与家庭</span></a>
+    <a href="AdminAi.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span class="lbl">AI 用量与限额</span></a>
+    <a href="AdminOps.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span class="lbl">系统健康</span></a>
+    <span class="group">Agent 与社区</span>
+    <a href="AdminAgentTrace.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h7"/><path d="M8 12h9"/><path d="M12 18h8"/><circle cx="4" cy="6" r="0.5"/></svg><span class="lbl">Agent 调用链</span></a>
+    <a href="AdminAgentEval.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L5 19a1.5 1.5 0 0 0 1.3 2h11.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7.5 15h9"/></svg><span class="lbl">Agent 评测</span></a>
+    <a href="AdminCommunity.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span class="lbl">社区审核</span><span class="badge">12</span></a>
+    <span class="group">基础数据</span>
+    <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="lbl">字典与标签</span></a>
+    <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg><span class="lbl">单位换算</span></a>
+    <span class="foot"><img src="img/extra/avatar-admin.svg" alt=""><span style="display:flex;flex-direction:column;gap:2px"><b>admin</b><span style="font-size:11px;opacity:.85">超级管理员</span></span></span>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div><h1>意见反馈</h1><div class="sub">处理后会在用户的「消息」里通知对方</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="seg"><span class="on">待处理 3</span><span>处理中 2</span><span>已解决 58</span><span>全部</span></div>
+      <select class="input" aria-label="类型"><option>全部类型</option><option>出错了</option><option>想要功能</option><option>菜谱有误</option></select>
+      <select class="input" aria-label="端"><option>全部端</option><option>App</option><option>小程序</option><option>H5</option></select>
+    </div>
+
+    <div class="row">
+      <div class="card" style="flex: 2 1 420px; min-width: 0; padding: 6px 8px">
+        <div class="tablewrap">
+          <table style="min-width: 480px">
+            <thead><tr><th>内容</th><th>类型</th><th>端</th><th>时间</th></tr></thead>
+            <tbody>
+              <tr style="background: var(--highlight)"><td><span class="cell"><img class="av lg" src="img/avatar/xiaowang.svg" alt=""><span class="wrap" style="white-space:normal"><b>勾选买到的东西后点「放进余量」没反应</b><div class="muted">小王 · 附 1 张截图</div></span><img class="thumb" src="img/extra/feedback-shot.jpg" alt="截图" style="width:32px;height:44px;border-radius:6px;object-position:top;border:1px solid var(--border)"></span></td><td><span class="tag err">出错了</span></td><td>小程序</td><td class="muted">10 分钟前</td></tr>
+              <tr><td><span class="cell"><img class="av lg" src="img/avatar/linlin.svg" alt=""><span style="white-space:normal"><b>希望能按冰箱 / 冷冻分区显示</b><div class="muted">林林</div></span></span></td><td><span class="tag info">想要功能</span></td><td>App</td><td class="muted">3 小时前</td></tr>
+              <tr><td><span class="cell"><img class="av lg" src="img/extra/avatar-default.svg" alt=""><span style="white-space:normal"><b>「红烧肉」第 3 步糖的用量写成了 300 克</b><div class="muted">用户 2201 · 关联菜谱</div></span><img class="thumb" src="img/dish/hongshao-rou.jpg" alt="" style="width:40px;height:40px"></span></td><td><span class="tag warn">菜谱有误</span></td><td>App</td><td class="muted">昨天</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="flex: 3 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap">
+          <div class="cell" style="align-items:flex-start"><img class="av lg" src="img/avatar/xiaowang.svg" alt=""><div><div style="font-size: 18px; font-weight: 700">勾选买到的东西后点「放进余量」没反应</div><div class="muted">#FB-1043 · 小王 · 小王家的厨房 · 10-16 22:31</div></div></div>
+          <span class="tag err">出错了</span>
+        </div>
+        <div style="font-size: 14px; line-height: 1.7">采购清单勾选买到的东西以后，点「放进余量」没反应，要退出重进才行。</div>
+        <div style="display: flex; gap: 10px">
+          <a href="img/extra/feedback-shot.jpg" style="position:relative;display:block;width:132px;height:240px;border-radius:12px;overflow:hidden;border:1px solid var(--border);box-shadow:0 2px 10px rgba(169,101,30,.12)"><img src="img/extra/feedback-shot.jpg" alt="用户截图：采购清单" style="width:100%;height:100%;object-fit:cover;object-position:top;display:block"><span style="position:absolute;left:6px;bottom:6px;padding:2px 8px;border-radius:999px;background:rgba(40,26,16,.7);color:#fff;font-size:11px">截图 1 · 点开大图</span></a>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; padding: 12px; border-radius: 12px; background: var(--bg); font-size: 13px">
+          <span><span class="muted">设备</span><br>iPhone 15 · iOS 18.2</span>
+          <span><span class="muted">版本</span><br>小程序 1.0.0</span>
+          <span><span class="muted">报错编号</span><br><span class="mono">7f3a-91c2</span> <a href="AdminOps.html">查日志</a></span>
+          <span><span class="muted">联系方式</span><br>未留</span>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span class="label">回复用户（会出现在对方的消息里）</span>
+          <textarea class="input" style="height: 88px; padding: 10px 12px; resize: vertical">已定位到问题，会在下个版本修复，感谢告诉我们。</textarea>
+        </label>
+        <div class="toolbar" style="justify-content: flex-end"><button class="btn">标记处理中</button><button class="btn">转为需求</button><button class="btn primary">回复并标记已解决</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

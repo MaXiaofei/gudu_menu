@@ -20,4 +20,7 @@ public class SysDict {
     private String name;
 
     private Integer sort;
+
+    /** 默认保质天数（V64，仅 purchase_category 使用；可空=未配置）。 */
+    private Integer shelfLifeDays;
 }

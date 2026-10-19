@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 朋友点菜落地页：分享卡片/小程序码进入，免登录（token 凭证） -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">
@@ -10,6 +11,13 @@
       <ui-state mode="empty" :text="error" hint="请让发起人重新分享邀请" />
     </view>
     <scroll-view v-else scroll-y class="page-body">
+      <view class="hero-card">
+        <ui-avatar-stack v-if="together.members.length" :items="together.members.map((m) => ({ name: m.nickname }))" :size="30" />
+        <text class="hero-title">一起点菜</text>
+        <text class="hero-sub">{{ together.members.length }} 人已加入 · 已点 {{ together.dishes.length }} 道</text>
+        <text class="privacy">你只能看到菜名和点菜的人。对方家里的余量、价格和地址都不会给你看。</text>
+      </view>
+
       <!-- 我的身份 -->
       <view class="me-row">
         <text class="me-label">我是</text>
@@ -23,9 +31,12 @@
         <view class="add-btn" @click="quickAddCustom"><text class="add-btn-txt">加</text></view>
       </view>
       <view v-if="results.length" class="results">
-        <view v-for="d in results" :key="d.id" class="result-row" @click="addDish(d)">
-          <text class="result-name">{{ d.name }}</text>
-          <text class="result-add">＋ 加这道</text>
+        <view v-for="d in results" :key="d.id" class="result-card" @click="addDish(d)">
+          <ui-dish-image :src="d.coverUrl" :name="d.name" ratio="4:3" :radius="12" />
+          <view class="result-foot">
+            <text class="result-name">{{ d.name }}</text>
+            <text class="result-add">＋ 点这道</text>
+          </view>
         </view>
       </view>
 
@@ -33,6 +44,7 @@
       <text class="sec-label">大家点的（{{ together.dishes.length }} 道）</text>
       <view class="list-card">
         <view v-for="d in together.dishes" :key="d.id" class="dish-row">
+          <ui-member-avatar :name="d.addedByNickname || '友'" :size="28" />
           <view class="dish-main">
             <text class="dish-name">{{ d.dishName || '自定义菜' }}</text>
             <text class="dish-by">{{ d.addedByNickname || '朋友' }} 点的</text>
@@ -46,7 +58,7 @@
       <text class="sec-label">一起吃 · {{ together.members.length }} 人</text>
       <view class="member-chips">
         <view v-for="(m, i) in together.members" :key="i" class="member-chip">
-          <view class="member-avatar"><text class="member-avatar-txt">{{ (m.nickname || '友')[0] }}</text></view>
+          <ui-member-avatar :name="m.nickname || '友'" :size="28" />
           <text class="member-name">{{ m.nickname || '朋友' }}</text>
         </view>
       </view>
@@ -202,7 +214,7 @@ async function removeDish(d: TogetherDish) {
   padding: 0 16px;
 }
 .title {
-  font-size: 17px;
+  font-size: var(--fs-subtitle);
   font-weight: 800;
   color: var(--title);
 }
@@ -218,19 +230,19 @@ async function removeDish(d: TogetherDish) {
   gap: 10px;
   margin: 10px 0 4px;
 }
-.me-label { font-size: 12px; color: var(--body); }
+.me-label { font-size: var(--fs-sm); color: var(--body); }
 .me-ipt {
   flex: 1;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--title);
 }
 .sec-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--caption);
   letter-spacing: 1px;
@@ -243,7 +255,7 @@ async function removeDish(d: TogetherDish) {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--title);
 }
 .add-btn {
@@ -254,7 +266,7 @@ async function removeDish(d: TogetherDish) {
   align-items: center;
   justify-content: center;
 }
-.add-btn-txt { color: #FFFFFF; font-size: 15px; font-weight: 800; }
+.add-btn-txt { color: var(--on-primary); font-size: var(--fs-lg); font-weight: 800; }
 .results { margin-top: 8px; }
 .result-row {
   display: flex;
@@ -266,8 +278,8 @@ async function removeDish(d: TogetherDish) {
   padding: 9px 12px;
   margin-bottom: 4px;
 }
-.result-name { font-size: 13px; font-weight: 700; color: var(--title); }
-.result-add { font-size: 11px; color: var(--primary); font-weight: 700; }
+.result-name { font-size: var(--fs-md); font-weight: 700; color: var(--title); }
+.result-add { font-size: var(--fs-xs); color: var(--primary); font-weight: 700; }
 .list-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -282,10 +294,10 @@ async function removeDish(d: TogetherDish) {
 }
 .dish-row + .dish-row { border-top: 1px solid var(--bg); }
 .dish-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.dish-name { font-size: 13px; font-weight: 700; color: var(--title); }
-.dish-by { font-size: 10px; color: var(--caption); }
-.dish-del { color: var(--caption); font-size: 13px; padding: 2px 4px; }
-.list-none { padding: 14px 0; text-align: center; font-size: 11px; color: var(--caption); }
+.dish-name { font-size: var(--fs-md); font-weight: 700; color: var(--title); }
+.dish-by { font-size: var(--fs-tiny); color: var(--caption); }
+.dish-del { color: var(--caption); font-size: var(--fs-md); padding: 2px 4px; }
+.list-none { padding: 14px 0; text-align: center; font-size: var(--fs-xs); color: var(--caption); }
 .member-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .member-chip {
   display: flex;
@@ -305,7 +317,53 @@ async function removeDish(d: TogetherDish) {
   align-items: center;
   justify-content: center;
 }
-.member-avatar-txt { font-size: 12px; font-weight: 700; color: var(--primary-deep); }
-.member-name { font-size: 12px; font-weight: 700; color: var(--title); }
+.member-avatar-txt { font-size: var(--fs-sm); font-weight: 700; color: var(--primary-deep); }
+.member-name { font-size: var(--fs-sm); font-weight: 700; color: var(--title); }
 .ph { color: var(--caption); }
+.hero-card {
+  margin-top: var(--sp-8);
+  padding: var(--sp-16);
+  border-radius: var(--r-xl);
+  background: linear-gradient(135deg, var(--primary-soft), var(--secondary));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hero-title {
+  font-size: var(--fs-h3);
+  font-weight: 800;
+  color: var(--title);
+}
+.hero-sub {
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.privacy {
+  margin-top: 4px;
+  padding: var(--sp-8) var(--sp-10);
+  border-radius: var(--r-md);
+  background: var(--card);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--body);
+}
+.results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-10);
+}
+.result-card {
+  border-radius: var(--r-lg);
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: var(--sp-8);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.result-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 </style>

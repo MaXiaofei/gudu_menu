@@ -10,6 +10,7 @@ spring:
     redis:
       host: gudu-redis
       port: 6379
+      password: ${REDIS_PASSWORD:}   # 与 compose 中 gudu-redis --requirepass 同源（.env REDIS_PASSWORD）
 
 gudu:
   upload-dir: /app/uploads/prod
@@ -17,7 +18,7 @@ gudu:
     provider: ${GUDU_AI_PROVIDER:deepseek}
     deepseek:
       base-url: https://api.deepseek.com/v1
-      model: deepseek-chat
+      model: deepseek-flash
       key: ${DEEPSEEK_API_KEY:${API_KEY:}}   # 兼容：优先 DEEPSEEK_API_KEY，回退 API_KEY
     glm:
       base-url: https://open.bigmodel.cn/api/paas/v4

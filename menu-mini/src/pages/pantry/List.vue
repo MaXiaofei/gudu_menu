@@ -1,94 +1,107 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
-    <ui-action-bar>
-      <view class="top-btn ghost" @click="goAdd">入库</view>
-      <view class="top-btn fill" @click="goShopping">去采购</view>
-    </ui-action-bar>
-
-    <!-- 搜索框（输入即搜，300ms 防抖） -->
-    <view class="search-row">
-      <view class="search-box">
-        <text class="search-ico">⌕</text>
-        <input v-model="kwInput" class="search-ipt" placeholder="搜库存" placeholder-class="ph" @input="onInput" />
-        <text v-if="kwInput" class="search-clear" @click="clearKw">✕</text>
+    <ui-tab-header title="我家余量" :sub="`我家的厨房 · ${totalCount} 样`">
+      <view class="shop-btn" data-testid="go-shopping" @click="goShopping">
+        <ui-icon name="cart" :size="16" />
+        <text class="shop-txt">采购</text>
       </view>
-    </view>
+      <ui-me-avatar />
+    </ui-tab-header>
 
-    <!-- 筛选条（搜索态隐藏） -->
-    <view v-if="!searching" class="chips">
-      <view class="chip all" :class="{ on: filter === 'all' }" @click="filter = 'all'">全部 {{ totalCount }}</view>
-      <view class="chip none" :class="{ on: filter === 'none' }" @click="filter = 'none'">用完 {{ summary.none }}</view>
-      <view class="chip low" :class="{ on: filter === 'low' }" @click="filter = 'low'">不足 {{ summary.low }}</view>
-      <view class="chip enough" :class="{ on: filter === 'enough' }" @click="filter = 'enough'">充足 {{ summary.enough }}</view>
-    </view>
+    <ui-offline-bar />
+    <scroll-view class="body" scroll-y @scrolltolower="searching && loadMoreSearch()">
+      <view class="pad">
+        <ui-stat-grid :items="stats" @tap="onStatTap" />
 
-    <ui-state v-if="loading && first" mode="loading" />
-
-    <!-- 搜索态：结果平铺（服务端已按档位排序）+ 分页 -->
-    <scroll-view v-else-if="searching" scroll-y class="body" @scrolltolower="loadMoreSearch">
-      <view class="found">找到 {{ searchTotal }} 个</view>
-      <view v-if="!searchItems.length" class="no-hit">搜不到「{{ searchingKw }}」</view>
-      <view
-        v-for="it in searchItems"
-        :key="it.ingredientId"
-        class="row"
-        :style="{ borderColor: stockColor(it.level) + '26' }"
-        @click="goDetail(it)"
-      >
-        <ui-avatar :name="it.ingredientName" :size="40" />
-        <view class="info">
-          <text class="name">{{ it.ingredientName || `#${it.ingredientId}` }}</text>
-          <text class="sub">{{ subText(it) }}</text>
+        <view class="search-box">
+          <ui-icon name="search" :size="16" />
+          <input v-model="kwInput" class="search-ipt" placeholder="搜家里的食材" placeholder-class="ph" @input="onInput" />
+          <text v-if="kwInput" class="search-clear" @click="clearKw">✕</text>
         </view>
-        <text class="lvl" :style="{ color: stockColor(it.level) }">{{ stockLabel(it.level) }}</text>
-        <text class="arrow">›</text>
-      </view>
-      <ui-load-more
-        v-if="searchItems.length && searchRemain > 0"
-        :remain="searchRemain"
-        :loading="searchLoadingMore"
-        @more="loadMoreSearch"
-      />
-    </scroll-view>
 
-    <!-- 分组态：三组独立分页（组标题计数=汇总总数，不随加载变化） -->
-    <scroll-view v-else class="body" scroll-y>
-      <template v-for="sec in sections" :key="sec.key">
-        <view class="sec-title" :style="{ color: sec.color }">{{ sec.label }} · {{ sec.total }}</view>
-        <view
-          v-for="it in items[sec.key]"
-          :key="it.ingredientId"
-          class="row"
-          :style="{ borderColor: stockColor(it.level) + '26' }"
-          @click="goDetail(it)"
-        >
-          <ui-avatar :name="it.ingredientName" :size="40" />
-          <view class="info">
-            <text class="name">{{ it.ingredientName || `#${it.ingredientId}` }}</text>
-            <text class="sub">{{ subText(it) }}</text>
+        <view v-if="!searching" class="chips">
+          <view class="chip" :class="{ on: filter === 'all' }" @click="filter = 'all'">全部 {{ totalCount }}</view>
+          <view class="chip" :class="{ on: filter === 'none' }" @click="filter = 'none'">用完 {{ summary.none }}</view>
+          <view class="chip" :class="{ on: filter === 'low' }" @click="filter = 'low'">不足 {{ summary.low }}</view>
+          <view class="chip" :class="{ on: filter === 'enough' }" @click="filter = 'enough'">充足 {{ summary.enough }}</view>
+        </view>
+      </view>
+
+      <ui-state v-if="loading && first" mode="loading" />
+
+      <view v-else-if="searching" class="pad list">
+        <view class="found">找到 {{ searchTotal }} 个</view>
+        <view v-if="!searchItems.length" class="no-hit">家里没有「{{ searchingKw }}」</view>
+        <stock-row v-for="it in searchItems" :key="it.ingredientId" :item="it" :sub="subText(it)" @open="goDetail(it)" @level="(v) => changeLevel(it, v)" />
+        <ui-load-more v-if="searchItems.length && searchRemain > 0" :remain="searchRemain" :loading="searchLoadingMore" @more="loadMoreSearch" />
+      </view>
+
+      <view v-else class="pad list">
+        <!-- 先吃这些（3 天内到期） -->
+        <template v-if="filter === 'all' && expiring.length">
+          <view class="sec-head"><text class="dot-red" /><text class="sec-title">先吃这些</text></view>
+          <view class="eat-first" data-testid="eat-first">
+            <view v-for="e in expiring" :key="e.ingredientId" class="eat-row" @click="goDetail(e)">
+              <ui-ing-icon :icon-key="e.iconKey" :name="e.ingredientName" :size="40" />
+              <view class="info">
+                <text class="name">{{ e.ingredientName }}</text>
+                <text class="sub">{{ e.bestBefore ? `${mdLabel(e.bestBefore)}到期` : '' }}</text>
+              </view>
+              <ui-expiry-badge :days-left="e.daysLeft" />
+            </view>
+            <view v-if="pick" class="pick" @click="goDish(pick.dishId)">
+              <ui-dish-image :src="cardCover(pick)" :name="pick.name" :width="44" :height="44" :radius="10" />
+              <view class="info">
+                <text class="pick-name">今晚做「{{ pick.name }}」，刚好用掉</text>
+                <text class="sub">{{ pickSub }}</text>
+              </view>
+              <ui-icon name="chevron" :size="16" />
+            </view>
           </view>
-          <text class="lvl" :style="{ color: stockColor(it.level) }">{{ stockLabel(it.level) }}</text>
-          <text class="arrow">›</text>
-        </view>
-        <ui-load-more
-          v-if="remain(sec.key) > 0"
-          :remain="remain(sec.key)"
-          :color="sec.color"
-          :loading="loadingMore[sec.key]"
-          @more="loadMore(sec.key)"
+        </template>
+
+        <template v-for="sec in sections" :key="sec.key">
+          <view v-if="items[sec.key].length" class="sec-head">
+            <text class="sec-title">{{ sec.label }}</text>
+            <text class="sec-count">{{ sec.total }}</text>
+          </view>
+          <stock-row v-for="it in items[sec.key]" :key="it.ingredientId" :item="it" :sub="subText(it)" @open="goDetail(it)" @level="(v) => changeLevel(it, v)" />
+          <ui-load-more v-if="remain(sec.key) > 0" :remain="remain(sec.key)" :loading="loadingMore[sec.key]" @more="loadMore(sec.key)" />
+        </template>
+        <ui-state
+          v-if="totalCount === 0"
+          mode="empty"
+          text="冰箱里还是空的"
+          hint="记下家里有什么，智荐才知道先帮你用掉哪些"
+          action-text="手动添加"
+          :illus="['egg', 'tomato', 'milk']"
+          @action="goAdd"
         />
-      </template>
-      <ui-state v-if="totalCount === 0" mode="empty" text="暂无库存" />
-      <view style="height: 24px" />
+      </view>
+      <view style="height: 96px" />
     </scroll-view>
+
+    <view class="fab fab-scan" data-testid="fab-scan" @click="goScan">
+      <ui-icon name="camera" tone="primary" :size="18" />
+      <text class="fab-scan-txt">拍照</text>
+    </view>
+    <view class="fab" data-testid="fab-add" @click="goAdd">
+      <ui-icon name="plus" tone="white" :size="18" />
+      <text class="fab-txt">入库</text>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { PAGES } from '@/utils/nav'
 import { ref, reactive, computed } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
-import { listGroupedPage, sourceLabel, sourceSub, type PantryGroupedItem } from '@/api/pantry'
-import { stockColor, stockLabel } from '@/utils/token'
+import { listGroupedPage, listExpiring, pantrySummary, setPantryLevel, sourceLabel, sourceSub, type PantryGroupedItem, type ExpiringItem, type PantrySummary } from '@/api/pantry'
+import { recommendHome } from '@/api/recommend'
+import { cardCover, coverageText, type DishCard } from '@/api/dish'
+import StockRow from './parts/StockRow.vue'
+import { mdLabel } from '@/utils/freshness'
 
 const kwInput = ref('')
 const searchingKw = ref('')
@@ -101,9 +114,9 @@ const totalCount = computed(() => summary.enough + summary.low + summary.none)
 // 三组定义（筛选态过滤显示）
 const sections = computed(() => {
   const defs = [
-    { key: 'NONE', tag: 'none', label: '用完', color: '#DB5A4E', total: summary.none },
-    { key: 'LOW', tag: 'low', label: '不足', color: '#B8860B', total: summary.low },
-    { key: 'ENOUGH', tag: 'enough', label: '充足', color: '#4FAE6E', total: summary.enough },
+    { key: 'NONE', tag: 'none', label: '用完了', total: summary.none },
+    { key: 'LOW', tag: 'low', label: '不太够', total: summary.low },
+    { key: 'ENOUGH', tag: 'enough', label: '充足', total: summary.enough },
   ]
   return defs.filter((d) => filter.value === 'all' || filter.value === d.tag)
 })
@@ -125,7 +138,51 @@ const first = ref(true)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let reloadToken = 0
 
-onShow(() => reload())
+const expiring = ref<ExpiringItem[]>([])
+const pick = ref<DishCard | null>(null)
+const sum = ref<PantrySummary | null>(null)
+const stats = computed(() => [
+  { value: summary.enough, label: '充足', tone: 'success' as const },
+  { value: summary.low, label: '不足', tone: 'warning' as const },
+  { value: summary.none, label: '用完', tone: 'error' as const },
+  { value: sum.value?.expiring3d ?? expiring.value.length, label: '3 天内到期', tone: 'dark' as const },
+])
+const pickSub = computed(() => {
+  const p = pick.value
+  if (!p) return ''
+  return [coverageText(p.coverage), p.cookMinutes ? `${p.cookMinutes} 分钟` : ''].filter(Boolean).join(' · ')
+})
+
+/** 增强信息（临期、关联菜、统计）：失败不影响列表。 */
+function loadExtras() {
+  listExpiring(3).then((r) => (expiring.value = r)).catch(() => (expiring.value = []))
+  pantrySummary().then((r) => (sum.value = r)).catch(() => {})
+  recommendHome().then((h) => (pick.value = h.expiringPicks[0] || null)).catch(() => {})
+}
+
+function onStatTap(i: number) {
+  filter.value = ['enough', 'low', 'none', 'all'][i]
+}
+
+async function changeLevel(it: PantryGroupedItem, level: string) {
+  const prev = it.level
+  it.level = level // 乐观更新
+  try {
+    await setPantryLevel(it.ingredientId, level)
+    reload()
+  } catch {
+    it.level = prev
+  }
+}
+
+function goDish(id: number) {
+  uni.navigateTo({ url: `/pages/dish/Detail?id=${id}` })
+}
+
+onShow(() => {
+  reload()
+  loadExtras()
+})
 onPullDownRefresh(async () => {
   await reload()
   uni.stopPullDownRefresh()
@@ -215,9 +272,14 @@ function subText(it: PantryGroupedItem): string {
   return `${label} ${sourceSub(it)}`.trim()
 }
 
-function goDetail(it: PantryGroupedItem) {
+function goDetail(it: { ingredientId: number }) {
   uni.navigateTo({ url: `/pages/pantry/Detail?id=${it.ingredientId}` })
 }
+/** 拍冰箱 / 小票批量入库（pkg-ai/Scan）。 */
+function goScan() {
+  uni.navigateTo({ url: PAGES.scan })
+}
+
 function goAdd() {
   uni.navigateTo({ url: '/pages/pantry/Add' })
 }
@@ -233,104 +295,115 @@ function goShopping() {
   flex-direction: column;
   background: var(--bg);
 }
-.top-btn {
-  padding: 5px 12px;
-  border-radius: var(--r-sm);
-  font-size: 10px;
-  font-weight: 700;
-}
-.ghost {
-  color: var(--primary);
-  border: 1.5px solid var(--primary);
-}
-.fill {
-  color: #FFFFFF;
-  background: var(--primary);
-}
-.search-row {
-  padding: 8px 14px 0;
-}
-.search-box {
+.shop-btn {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 0 10px;
 }
-.search-ico {
-  color: var(--caption);
-  font-size: 14px;
-}
-.search-ipt {
-  flex: 1;
-  font-size: 12px;
+.shop-txt {
+  font-size: var(--fs-sm);
+  font-weight: 700;
   color: var(--title);
-  padding: 9px 0;
 }
-.search-clear {
-  color: var(--caption);
-  font-size: 13px;
-  padding: 4px;
-}
-.ph { color: var(--caption); }
-.chips {
-  display: flex;
-  gap: 6px;
-  padding: 10px 14px 8px;
-}
-.chip {
-  padding: 6px 12px;
-  border-radius: var(--r-sm);
-  background: var(--card);
-  border: 1px solid var(--border);
-  font-size: 10px;
-  font-weight: 800;
-}
-.chip.all { color: var(--body); }
-.chip.none { color: var(--error); }
-.chip.low { color: var(--warning-text); }
-.chip.enough { color: var(--success); }
-/* 2026-08-18 与 APP SelectChip 统一：选中一律深棕实底白字；三色语义保留在未选文字 */
-.chip.on { background: var(--title); border-color: var(--title); color: #FFFFFF; }
 .body {
   flex: 1;
   min-height: 0;
-  padding: 0 12px;
-  box-sizing: border-box;
 }
-.found {
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--caption);
-  letter-spacing: 1px;
-  margin: 12px 2px 8px;
+.pad {
+  padding: 0 var(--space-lg);
 }
-.no-hit {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 18px;
-  text-align: center;
-  font-size: 11px;
-  color: var(--caption);
-}
-.sec-title {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  margin: 10px 2px 4px;
-}
-.row {
+.search-box {
+  margin-top: var(--space-md);
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: 8px 12px;
-  margin-bottom: 4px;
+  padding: 0 var(--space-md);
+}
+.search-ipt {
+  flex: 1;
+  font-size: var(--fs-md);
+  color: var(--title);
+}
+.ph {
+  color: var(--caption);
+}
+.search-clear {
+  color: var(--body);
+  font-size: var(--fs-md);
+  padding: 4px;
+}
+.chips {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+}
+.chip {
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--body);
+  font-size: var(--fs-sm);
+}
+.chip.on {
+  background: var(--title);
+  border-color: var(--title);
+  color: var(--on-primary);
+  font-weight: 700;
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.sec-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-md);
+}
+.sec-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--title);
+}
+.sec-count {
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.dot-red {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--error);
+}
+.eat-first {
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  border: 1px solid var(--error-soft);
+  overflow: hidden;
+}
+.eat-row,
+.pick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+.eat-row + .eat-row {
+  border-top: 1px solid var(--border);
+}
+.pick {
+  background: var(--highlight);
+  border-top: 1px solid var(--border);
 }
 .info {
   flex: 1;
@@ -340,21 +413,57 @@ function goShopping() {
   gap: 2px;
 }
 .name {
-  font-size: 13px;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--title);
+}
+.pick-name {
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--title);
 }
 .sub {
-  font-size: 9px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
 }
-.lvl {
-  font-size: 11px;
-  font-weight: 800;
+.found {
+  font-size: var(--fs-sm);
+  color: var(--body);
 }
-.arrow {
-  color: var(--caption);
-  font-size: 14px;
+.no-hit {
+  padding: var(--space-xl) 0;
+  text-align: center;
+  font-size: var(--fs-md);
+  color: var(--body);
+}
+.fab {
+  position: fixed;
+  right: var(--space-lg);
+  bottom: calc(var(--window-bottom, 0px) + var(--space-lg) + env(safe-area-inset-bottom));
+  height: 48px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-deep);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 6px 18px rgba(var(--sh), 0.35);
+  z-index: 10;
+}
+.fab-scan {
+  right: 124px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(var(--sh), 0.16);
+}
+.fab-scan-txt {
+  color: var(--accent);
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+.fab-txt {
+  color: var(--on-primary);
+  font-size: var(--fs-md);
   font-weight: 700;
 }
 </style>

@@ -3,6 +3,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
 import '../../services/food_log_service.dart';
+import '../../widgets/dish_image.dart';
+import '../../widgets/illustration.dart';
+import '../../widgets/stat_grid.dart';
+import '../../widgets/tone_badge.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/time_select.dart';
 
@@ -247,45 +251,23 @@ class _FoodLogPageState extends State<FoodLogPage> {
 
   Widget _buildSummaryCard() {
     final s = _monthData?.summary;
-    final meals = s?.meals ?? 0;
-    final dishes = s?.dishes ?? 0;
-    final cookDays = s?.cookDays ?? 0;
     final top = s?.topDishes ?? const <String>[];
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [_t.primary, _t.primaryDeep]),
-        borderRadius: BorderRadius.all(Radius.circular(14)),
-      ),
+    final scope = _yearMode ? '全年' : '本月';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          _stat('$meals', '顿饭'),
-          _stat('$dishes', '道菜'),
-          _stat('$cookDays', '做饭天数'),
+        StatGrid(items: [
+          StatItem('${s?.meals ?? 0}', '$scope做饭', tone: StatTone.dark),
+          StatItem('${s?.dishes ?? 0}', '做过的菜'),
+          StatItem('${s?.cookDays ?? 0}', '做饭天数', tone: StatTone.success),
         ]),
         if (top.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 9),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Text('${_yearMode ? '全年' : '本月'}最常：${top.join(' · ')}',
-                  style: _t.textStyles.chip.copyWith(color: Colors.white)),
-            ),
+            padding: const EdgeInsets.only(top: AppTokens.sp8),
+            child: Text('$scope最常做：${top.join(' · ')}', style: _t.textStyles.caption),
           ),
       ]),
     );
-  }
-
-  Widget _stat(String value, String label) {
-    return Column(children: [
-      Text(value, style: _t.textStyles.subtitle.copyWith(color: Colors.white)),
-      Text(label, style: _t.textStyles.micro.copyWith(color: Colors.white.withValues(alpha: .9))),
-    ]);
   }
 
   Widget _buildTabBar() {
@@ -324,7 +306,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
     if (_tab == 'byDish') {
       final items = byDish?.items ?? const <FoodLogDishItem>[];
       return ListView(
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
+        padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp6, AppTokens.sp16, AppTokens.sp24),
         children: [
           if (byDish != null)
             Container(
@@ -339,7 +321,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
             ),
           const SizedBox(height: 6),
           if (items.isEmpty)
-            const Padding(padding: EdgeInsets.only(top: 80), child: EmptyView(text: '本月还没有做菜记录'))
+            const Padding(padding: EdgeInsets.only(top: 60), child: EmptyView(text: '本月还没有做菜记录', subtitle: '做完饭记一笔，余量会跟着更新', illustration: StateIllustration(keys: ['rice', 'egg', 'fish'])))
           else
             ...items.map((it) => _byDishRow(it)),
         ],
@@ -350,10 +332,10 @@ class _FoodLogPageState extends State<FoodLogPage> {
       onRefresh: _load,
       child: ListView(
         controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
+        padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp6, AppTokens.sp16, AppTokens.sp24),
         children: [
           if (meals.isEmpty)
-            const Padding(padding: EdgeInsets.only(top: 80), child: EmptyView(text: '本月还没有做菜记录'))
+            const Padding(padding: EdgeInsets.only(top: 60), child: EmptyView(text: '本月还没有做菜记录', subtitle: '做完饭记一笔，余量会跟着更新', illustration: StateIllustration(keys: ['rice', 'egg', 'fish'])))
           else ...[
             ...meals.map((m) => _timelineRow(m)),
             if (_loadingMore)
@@ -372,78 +354,63 @@ class _FoodLogPageState extends State<FoodLogPage> {
   }
 
   Widget _timelineRow(FoodLogMeal m) {
+    final ts = _t.textStyles;
     final time = m.cookedAt == null
         ? ''
         : '${m.cookedAt!.month}/${m.cookedAt!.day} ${m.cookedAt!.hour.toString().padLeft(2, '0')}:${m.cookedAt!.minute.toString().padLeft(2, '0')}';
-    return InkWell(
-      onTap: m.menuId == null
-          ? null
-          : () async {
-              await context.push('/food-log/detail?menuId=${m.menuId}');
-              _load();
-            },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: _t.border))),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // 时间轴圆点 + 线
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Column(children: [
-              Container(
-                  width: 8, height: 8,
-                  decoration: BoxDecoration(
-                      color: _t.primary, shape: BoxShape.circle)),
-            ]),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(
-                  child: Text(m.name,
-                      style: _t.textStyles.md.copyWith(color: _t.title, fontWeight: FontWeight.w800)),
-                ),
-                Text(time, style: _t.textStyles.sm.copyWith(color: _t.caption)),
-              ]),
-              Text(
-                '${m.dishCount} 道菜${m.servingCount != null ? ' · ${m.servingCount} 人份' : ''} · ${m.dishNames.join('/')}',
-                style: _t.textStyles.sm.copyWith(color: _t.body),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (m.usedUpCount > 0 || m.partialCount > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(children: [
-                    if (m.usedUpCount > 0)
-                      _tag('用完 ${m.usedUpCount} 样', AppTokens.error),
-                    if (m.partialCount > 0) ...[
-                      const SizedBox(width: 4),
-                      _tag('用了一些 ${m.partialCount} 样', AppTokens.warning),
-                    ],
-                    if (m.reviewed) ...[
-                      const SizedBox(width: 4),
-                      _tag('已评价', AppTokens.success),
-                    ],
-                  ]),
-                ),
-            ]),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _tag(String text, Color color) {
+    final firstCover = m.covers.isNotEmpty ? m.covers.first : null;
+    final firstName = m.dishNames.isNotEmpty ? m.dishNames.first : m.name;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      margin: const EdgeInsets.only(bottom: AppTokens.sp10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .12),
-        borderRadius: BorderRadius.circular(5),
+        color: _t.card,
+        borderRadius: BorderRadius.circular(AppTokens.rLg),
+        border: Border.all(color: _t.border),
       ),
-      child: Text(text, style: _t.textStyles.chip.copyWith(color: color)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTokens.rLg),
+        onTap: m.menuId == null
+            ? null
+            : () async {
+                await context.push('/food-log/detail?menuId=${m.menuId}');
+                _load();
+              },
+        child: Padding(
+          padding: const EdgeInsets.all(AppTokens.sp12),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            DishImage.square(url: firstCover, name: firstName, size: 64),
+            const SizedBox(width: AppTokens.sp12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text(m.name, style: ts.cardTitle.copyWith(color: _t.title))),
+                  Text(time, style: ts.caption),
+                ]),
+                const SizedBox(height: 2),
+                Text(
+                  '${m.dishCount} 道菜${m.servingCount != null ? ' · ${m.servingCount} 人份' : ''} · ${m.dishNames.join('、')}',
+                  style: ts.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (m.usedUpCount > 0 || m.partialCount > 0 || m.reviewed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppTokens.sp6),
+                    child: Wrap(spacing: AppTokens.sp4, runSpacing: AppTokens.sp4, children: [
+                      if (m.usedUpCount > 0) ToneBadge('用完 ${m.usedUpCount} 样', tone: BadgeTone.error),
+                      if (m.partialCount > 0) ToneBadge('用了一些 ${m.partialCount} 样', tone: BadgeTone.warning),
+                      if (m.reviewed) const ToneBadge('已评价', tone: BadgeTone.success),
+                    ]),
+                  ),
+              ]),
+            ),
+            if (m.covers.length > 1) ...[
+              const SizedBox(width: AppTokens.sp8),
+              DishCircleStack(urls: m.covers.sublist(1), names: m.dishNames.skip(1).toList(), size: 28, max: 2),
+            ],
+          ]),
+        ),
+      ),
     );
   }
 

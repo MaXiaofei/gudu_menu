@@ -166,10 +166,16 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
             if (!ingIds.isEmpty()) {
-                Map<Long, String> nameMap = ingredientMapper.selectBatchIds(ingIds).stream()
+                List<Ingredient> ingRows = ingredientMapper.selectBatchIds(ingIds);
+                Map<Long, String> nameMap = ingRows.stream()
                         .collect(Collectors.toMap(Ingredient::getId, Ingredient::getName));
+                Map<Long, String> iconMap = new java.util.HashMap<>();
+                for (Ingredient ing : ingRows) {
+                    if (ing.getIconKey() != null) iconMap.put(ing.getId(), ing.getIconKey());
+                }
                 for (DishIngredient di : ingredients) {
                     di.setIngredientName(nameMap.get(di.getIngredientId()));
+                    di.setIconKey(iconMap.get(di.getIngredientId()));
                 }
             }
         }
@@ -220,6 +226,111 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
 
     /** 多维搜索分页：keyword + 菜系/标签/分类 + 最大耗时 + 最大难度（营养上限筛选 V1 强化）。 */
     public IPage<Dish> search(DishSearchDTO q) {
+        Long curMember = currentDinerId();
+        QueryWrapper<Dish> w = buildSearchWrapper(q, curMember);
+        boolean sortByCooked = "cooked".equalsIgnoreCase(q.getSort()) && curMember != null;
+
+        // 无营养约束：原 SQL 分页。
+        Map<Long, BigDecimal> limits = q.getNutritionLimits();
+        if (limits == null || limits.isEmpty()) {
+            Page<Dish> page = new Page<>(q.getPageNum(), q.getPageSize());
+            IPage<Dish> result = page(page, w);
+            fillRelNames(result.getRecords());
+            fillCookedCount(result.getRecords(), curMember);
+            if (sortByCooked) {
+                result.getRecords().sort(Comparator.comparingInt(Dish::getCookedCount).reversed());
+            }
+            return result;
+        }
+
+        // 有营养约束：先取候选池（按 NUTRITION_CANDIDATE_CAP 截断），内存算营养二次过滤后手动分页。
+        List<Dish> filtered = filterByNutrition(list(w.last("LIMIT " + NUTRITION_CANDIDATE_CAP)), limits);
+
+        int total = filtered.size();
+        int from = Math.min((int) ((q.getPageNum() - 1) * q.getPageSize()), total);
+        int to = Math.min(from + q.getPageSize(), total);
+        List<Dish> pageRecords = from < to ? filtered.subList(from, to) : Collections.emptyList();
+
+        Page<Dish> page = new Page<>(q.getPageNum(), q.getPageSize());
+        page.setTotal(total);
+        page.setRecords(pageRecords);
+        fillRelNames(pageRecords);
+        fillCookedCount(pageRecords, curMember);
+        return page;
+    }
+
+    /**
+     * 搜索候选池（sort=coverage 用：覆盖率需在全量候选上排序后再分页）。
+     * 条件同 {@link #search}，最多 {@link #NUTRITION_CANDIDATE_CAP} 条，含营养二次过滤；不回填展示字段。
+     */
+    public List<Dish> searchPool(DishSearchDTO q) {
+        QueryWrapper<Dish> w = buildSearchWrapper(q, currentDinerId());
+        List<Dish> pool = list(w.last("LIMIT " + NUTRITION_CANDIDATE_CAP));
+        Map<Long, BigDecimal> limits = q.getNutritionLimits();
+        return limits == null || limits.isEmpty() ? pool : filterByNutrition(pool, limits);
+    }
+
+    /** 回填列表展示字段（菜系/分类/标签名 + 当前就餐成员做过次数），与 search 一致。 */
+    public void decorateCards(List<Dish> dishes) {
+        fillRelNames(dishes);
+        fillCookedCount(dishes, currentDinerId());
+    }
+
+    /**
+     * 家庭菜谱数（「我的」统计）：排除批量导入的公共库内容（source_name=下厨房）。
+     * multi-tenant-family 落地后改为 family_id = 当前家庭。
+     */
+    public long countFamilyDishes() {
+        return count(new QueryWrapper<Dish>().and(w -> w.isNull("source_name").or().ne("source_name", PUBLIC_IMPORT_SOURCE)));
+    }
+
+    /** 批量导入的公共库来源名（recipe-content-seed）。 */
+    public static final String PUBLIC_IMPORT_SOURCE = "下厨房";
+
+    /** 批量取多道菜的用料（一次查询；覆盖率/做菜确认用）。 */
+    public List<DishIngredient> ingredientsOf(Collection<Long> dishIds) {
+        List<Long> ids = dishIds == null ? List.of()
+                : dishIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return List.of();
+        return dishIngMapper.selectList(new QueryWrapper<DishIngredient>().in("dish_id", ids));
+    }
+
+    /** 用到任一指定食材的菜 id（临期主推/季节鲜用；未删除的菜由调用方 listByIds 再过滤）。 */
+    public List<Long> dishIdsUsingIngredients(Collection<Long> ingredientIds) {
+        List<Long> ids = ingredientIds == null ? List.of()
+                : ingredientIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return List.of();
+        return dishIngMapper.selectList(new QueryWrapper<DishIngredient>()
+                        .select("DISTINCT dish_id").in("ingredient_id", ids))
+                .stream().map(DishIngredient::getDishId).filter(Objects::nonNull).distinct().toList();
+    }
+
+    /** 有做法步骤的菜 id（首推只推「有封面 + 有步骤」的完整菜谱用）。 */
+    public java.util.Set<Long> dishIdsWithSteps(Collection<Long> dishIds) {
+        List<Long> ids = dishIds == null ? List.of() : dishIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return java.util.Set.of();
+        return stepMapper.selectList(new QueryWrapper<DishStep>().select("DISTINCT dish_id").in("dish_id", ids))
+                .stream().map(DishStep::getDishId).filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /** 当前就餐成员（session.currentMemberId；未登录 null）。 */
+    private Long currentDinerId() {
+        try {
+            return cn.dev33.satoken.stp.StpUtil.getSession().getLong("currentMemberId");
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private List<Dish> filterByNutrition(List<Dish> candidates, Map<Long, BigDecimal> limits) {
+        return candidates.stream()
+                .filter(d -> withinNutritionLimits(d.getId(), limits))
+                .collect(Collectors.toList());
+    }
+
+    /** 搜索条件（search / searchPool 共用）。 */
+    private QueryWrapper<Dish> buildSearchWrapper(DishSearchDTO q, Long curMember) {
         QueryWrapper<Dish> w = new QueryWrapper<>();
         if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
             w.like("name", q.getKeyword());
@@ -239,10 +350,6 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             w.eq("source", q.getSource());
         }
         // 做过/收藏筛选（需要当前就餐成员）
-        Long curMember = null;
-        try {
-            curMember = cn.dev33.satoken.stp.StpUtil.getSession().getLong("currentMemberId");
-        } catch (Exception ignored) {}
         if (Boolean.TRUE.equals(q.getDone()) && curMember != null) {
             w.exists("SELECT 1 FROM cooking_record cr WHERE cr.dish_id = dish.id AND cr.member_id = " + curMember);
         }
@@ -262,40 +369,9 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                     "GROUP BY di.dish_id HAVING COUNT(DISTINCT di.ingredient_id) = " + ingCount);
         }
 
-        // 排序：缺省=创建时间倒序。cooked=做过最多（回填后当前页内存倒序）。
+        // 排序：缺省=创建时间倒序。cooked=做过最多（回填后当前页内存倒序）；coverage 由 DishCoverageAppService 处理。
         w.orderByDesc("create_time");
-        boolean sortByCooked = "cooked".equalsIgnoreCase(q.getSort()) && curMember != null;
-
-        // 无营养约束：原 SQL 分页。
-        Map<Long, BigDecimal> limits = q.getNutritionLimits();
-        if (limits == null || limits.isEmpty()) {
-            Page<Dish> page = new Page<>(q.getPageNum(), q.getPageSize());
-            IPage<Dish> result = page(page, w);
-            fillRelNames(result.getRecords());
-            fillCookedCount(result.getRecords(), curMember);
-            if (sortByCooked) {
-                result.getRecords().sort(Comparator.comparingInt(Dish::getCookedCount).reversed());
-            }
-            return result;
-        }
-
-        // 有营养约束：先取候选池（按 NUTRITION_CANDIDATE_CAP 截断），内存算营养二次过滤后手动分页。
-        List<Dish> candidates = list(w.last("LIMIT " + NUTRITION_CANDIDATE_CAP));
-        List<Dish> filtered = candidates.stream()
-                .filter(d -> withinNutritionLimits(d.getId(), limits))
-                .collect(Collectors.toList());
-
-        int total = filtered.size();
-        int from = Math.min((int) ((q.getPageNum() - 1) * q.getPageSize()), total);
-        int to = Math.min(from + q.getPageSize(), total);
-        List<Dish> pageRecords = from < to ? filtered.subList(from, to) : Collections.emptyList();
-
-        Page<Dish> page = new Page<>(q.getPageNum(), q.getPageSize());
-        page.setTotal(total);
-        page.setRecords(pageRecords);
-        fillRelNames(pageRecords);
-        fillCookedCount(pageRecords, curMember);
-        return page;
+        return w;
     }
 
     /** 批量填充菜品的菜系/分类/标签名（一次查 dish_dict + sys_dict，避免 N+1）。 */

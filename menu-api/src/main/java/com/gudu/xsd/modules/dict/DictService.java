@@ -17,6 +17,12 @@ public class DictService extends ServiceImpl<DictMapper, SysDict> {
         return list(new QueryWrapper<SysDict>().eq("dict_group", group).orderByAsc("sort"));
     }
 
+    /** 某 group 下指定名称的字典 id 集合（如 purchase_category/调味料 → 调料判定）。 */
+    public java.util.Set<Long> idsByName(String group, String name) {
+        return list(new QueryWrapper<SysDict>().eq("dict_group", group).eq("name", name)).stream()
+                .map(SysDict::getId).collect(java.util.stream.Collectors.toSet());
+    }
+
     /** 分页查某 group 字典（后台管理）。按 sort 升序。 */
     public IPage<SysDict> pageByGroup(String group, PageQuery q) {
         return page(new Page<>(q.getPageNum(), q.getPageSize()),

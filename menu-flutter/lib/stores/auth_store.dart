@@ -43,6 +43,13 @@ class AuthStore extends ChangeNotifier {
     }
   }
 
+  /// 个人资料改昵称后同步（我的页头卡即时刷新）。
+  void updateNickname(String name) {
+    if (nickname == name) return;
+    nickname = name;
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     _token = '';
     nickname = '';

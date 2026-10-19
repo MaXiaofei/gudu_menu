@@ -17,6 +17,13 @@ class Dish {
   final List<String> tagNames;
   /// 做过次数（按当前就餐成员统计，search 时回填，缺省 0）。
   final int cookedCount;
+  /// 本家余量覆盖（「家里够 X/Y 样」，search 登录时回填；未登录/旧接口为 null）。
+  final Coverage? coverage;
+  /// 最近一次做的时间（prototype-ui-rollout P0 契约；旧接口为 null）。
+  final DateTime? lastCookedAt;
+  /// 最近一次谁做的（成员名；旧接口为 null）。
+  final String? lastCookedBy;
+  final String? lastCookedByAvatar;
 
   const Dish({
     required this.id,
@@ -32,6 +39,10 @@ class Dish {
     this.categoryNames = const [],
     this.tagNames = const [],
     this.cookedCount = 0,
+    this.coverage,
+    this.lastCookedAt,
+    this.lastCookedBy,
+    this.lastCookedByAvatar,
   });
 
   factory Dish.fromJson(Map<String, dynamic> j) => Dish(
@@ -55,6 +66,78 @@ class Dish {
         tagNames:
             (j['tagNames'] as List?)?.map((e) => e.toString()).toList() ?? const [],
         cookedCount: (j['cookedCount'] as num?)?.toInt() ?? 0,
+        coverage: j['coverage'] is Map
+            ? Coverage.fromJson(j['coverage'] as Map<String, dynamic>)
+            : null,
+        lastCookedAt: j['lastCookedAt'] is String ? DateTime.tryParse(j['lastCookedAt'] as String) : null,
+        lastCookedBy: j['lastCookedBy'] is Map ? (j['lastCookedBy']['name'] as String?) : null,
+        lastCookedByAvatar: j['lastCookedBy'] is Map ? (j['lastCookedBy']['avatarUrl'] as String?) : null,
+      );
+}
+
+/// 本家余量对一道菜用料的覆盖（api-contract §0 Coverage；调料不计入）。
+class Coverage {
+  /// 档位为 ENOUGH 或 LOW 的用料数。
+  final int enough;
+  /// 非调料用料总数。
+  final int total;
+  /// 家里没有（档位 NONE 或未建档）的用料名。
+  final List<String> missingNames;
+
+  const Coverage({
+    required this.enough,
+    required this.total,
+    this.missingNames = const [],
+  });
+
+  factory Coverage.fromJson(Map<String, dynamic> j) => Coverage(
+        enough: (j['enough'] as num?)?.toInt() ?? 0,
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        missingNames: ((j['missing'] ?? const []) as List)
+            .whereType<Map>()
+            .map((e) => (e['name'] ?? '').toString())
+            .where((s) => s.isNotEmpty)
+            .toList(),
+      );
+
+  /// 全部用料家里都有。
+  bool get isFull => total > 0 && enough >= total;
+
+  /// 「家里够 X/Y 样」；无可计用料（全是调料）返回空串。
+  String get label => total <= 0 ? '' : '家里够 $enough/$total 样';
+}
+
+/// 菜卡（api-contract §0 DishCard：智荐各分区用）。
+class DishCard {
+  final int dishId;
+  final String name;
+  final String? coverImage;
+  final int? cookMinutes;
+  final int? difficulty;
+  final int cookedCount;
+  final Coverage? coverage;
+
+  const DishCard({
+    required this.dishId,
+    required this.name,
+    this.coverImage,
+    this.cookMinutes,
+    this.difficulty,
+    this.cookedCount = 0,
+    this.coverage,
+  });
+
+  factory DishCard.fromJson(Map<String, dynamic> j) => DishCard(
+        dishId: (j['dishId'] as num).toInt(),
+        name: (j['name'] ?? '') as String,
+        // P0 契约：coverUrl 优先，兼容旧字段 coverImage
+        coverImage: (j['coverUrl'] ?? j['coverImage']) as String?,
+        cookMinutes: (j['cookMinutes'] as num?)?.toInt(),
+        difficulty: (j['difficulty'] as num?)?.toInt(),
+        cookedCount: (j['cookedCount'] as num?)?.toInt() ?? 0,
+        coverage: j['coverage'] is Map
+            ? Coverage.fromJson(j['coverage'] as Map<String, dynamic>)
+            : null,
       );
 }
 
@@ -108,6 +191,8 @@ class DishIngredient {
   final String? unitName;
   /// 库存档位 ENOUGH/LOW/NONE（家里：充足/不足/用完；后端批量回填）。
   final String? stockLevel;
+  /// 食材插画 key（P0 契约，可空 → 客户端按名称/品类兜底）。
+  final String? iconKey;
 
   const DishIngredient({
     required this.ingredientId,
@@ -115,6 +200,7 @@ class DishIngredient {
     this.amount,
     this.unitName,
     this.stockLevel,
+    this.iconKey,
   });
 
   factory DishIngredient.fromJson(Map<String, dynamic> j) => DishIngredient(
@@ -123,6 +209,7 @@ class DishIngredient {
         amount: (j['amount'] as num?)?.toDouble(),
         unitName: j['unitName'] as String?,
         stockLevel: j['stockLevel'] as String?,
+        iconKey: j['iconKey'] as String?,
       );
 
   String get displayName => ingredientName ?? '#$ingredientId';

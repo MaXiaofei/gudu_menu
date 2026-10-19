@@ -13,6 +13,11 @@ class AppConstants {
     defaultValue: 'https://imxf.cloud/gudu',
   );
 
+  /// App 版本号（展示用，「关于小食单」页）。
+  /// 未引入 package_info_plus（避免新增原生插件依赖），此处与 pubspec.yaml `version`
+  /// 的语义版本手工保持一致——test/core/app_version_test.dart 会校验两者相等。
+  static const String appVersion = '1.0.0';
+
   /// SharedPreferences key：登录 token（对应小程序 uni.setStorageSync('token')）。
   static const String tokenKey = 'token';
 

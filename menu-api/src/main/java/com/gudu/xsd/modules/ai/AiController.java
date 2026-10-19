@@ -1,5 +1,7 @@
 package com.gudu.xsd.modules.ai;
 
+import com.gudu.xsd.common.security.AiRateLimited;
+import com.gudu.xsd.common.security.RequireAdmin;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gudu.xsd.common.PageQuery;
 import com.gudu.xsd.common.R;
@@ -35,6 +37,7 @@ public class AiController {
 
     /** 营养补全：按食材名返回 per100g 6 项指标（可选 ingredientId 落库到该食材）。 */
     @PostMapping("/nutrition/fill")
+    @AiRateLimited
     @MpPerm("ai.use")
     public R<NutritionFillResponse> fillNutrition(@RequestBody NutritionFillRequest req) {
         return R.ok(svc.fillNutrition(req));
@@ -50,6 +53,7 @@ public class AiController {
     }
 
     @PostMapping("/menu/recommend")
+    @AiRateLimited
     @MpPerm("ai.use")
     public R<List<MenuCandidate>> recommendMenu(@RequestBody MenuRecommendRequest req) {
         return R.ok(svc.recommendMenu(req));
@@ -57,15 +61,17 @@ public class AiController {
 
     /** 菜品/一餐营养估算：文字描述 → AI 估算该餐总营养（V2 方案2，纯文本）。 */
     @PostMapping("/dish/estimate")
+    @AiRateLimited
     @MpPerm("ai.use")
     public R<DishEstimateResponse> estimateDish(@RequestBody DishEstimateRequest req) {
         return R.ok(svc.estimateDish(req));
     }
 
-    // ---------------- provider 运行时切换（管理后台用，登录态即可，无 @MpPerm） ----------------
+    // ---------------- provider 运行时切换（管理后台用，仅平台超管） ----------------
 
     /** 查询当前 AI provider + 各 provider 就绪状态（key 是否已配）。 */
     @GetMapping("/provider")
+    @RequireAdmin
     public R<AiProviderInfo> provider() {
         String current = router.currentProvider();
         List<AiProviderInfo.ProviderState> ready = AiClientRouter.PROVIDERS.stream()
@@ -76,6 +82,7 @@ public class AiController {
 
     /** 运行时切换 AI provider，写 Redis 立即生效，重启不丢。非法值抛 BizException。 */
     @PutMapping("/provider")
+    @RequireAdmin
     public R<String> switchProvider(@RequestBody Map<String, String> body) {
         String provider = body.get("provider");
         return R.ok(router.switchProvider(provider));
@@ -88,6 +95,7 @@ public class AiController {
      * 支持按 scene（nutrition_fill/menu_recommend/dish_estimate）和 status（ok/fail）筛选。
      */
     @GetMapping("/call-log")
+    @RequireAdmin
     public R<IPage<AiCallLog>> callLog(PageQuery q,
                                        @RequestParam(required = false) String scene,
                                        @RequestParam(required = false) String status) {
@@ -99,6 +107,7 @@ public class AiController {
      * 可选 days 参数限定统计天数（默认 7 天）。
      */
     @GetMapping("/usage")
+    @RequireAdmin
     public R<List<Map<String, Object>>> usage(@RequestParam(defaultValue = "7") int days) {
         return R.ok(callLogSvc.usage(days));
     }

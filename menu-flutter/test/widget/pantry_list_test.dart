@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 
 import 'package:menu_flutter/core/app_theme.dart';
 import 'package:menu_flutter/pages/pantry/list_page.dart';
-import 'package:menu_flutter/widgets/initial_avatar.dart';
+import 'package:menu_flutter/widgets/ingredient_icon.dart';
 import '../helpers/mock_http.dart';
 
 /// 给 widget 测试注入 AppTokens 主题。
@@ -121,13 +121,14 @@ void main() {
     expect(find.text('大米'), findsOneWidget);
     expect(find.text('苹果'), findsOneWidget);
 
-    // 行前置缩略图（首字占位）
-    expect(find.byType(InitialAvatar), findsNWidgets(5));
+    // 行前置食材插画（原型 Pantry）
+    expect(find.byType(IngredientIcon), findsNWidgets(5));
 
-    // 右上角「入库」「去采购」，无右下 FAB
+    // 右上「去采购」，右下「拍照」+「入库」悬浮按钮（原型 Pantry；拍照识别入口 showcase-ai-community）
     expect(find.text('入库'), findsOneWidget);
+    expect(find.text('拍照'), findsOneWidget);
     expect(find.text('去采购'), findsOneWidget);
-    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.byType(FloatingActionButton), findsNWidgets(2));
 
     // 手动来源标签
     expect(find.textContaining('手动'), findsOneWidget);

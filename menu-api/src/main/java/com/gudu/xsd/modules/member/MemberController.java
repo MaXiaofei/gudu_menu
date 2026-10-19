@@ -2,9 +2,11 @@ package com.gudu.xsd.modules.member;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.PageQuery;
 import com.gudu.xsd.common.R;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -20,20 +22,52 @@ public class MemberController {
 
     private final MemberService svc;
     private final MpPermissionService permSvc;
+    private final AdminChecker adminChecker;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     // ========== Mifflin-St Jeor BMR 常量 ==========
     private static final double MALE_BMR_CONST = 5;
     private static final double FEMALE_BMR_CONST = -161;
 
+    /**
+     * 成员列表：平台超管（后台）看全部；App 侧普通成员只看本家成员档案（排除超管账号、E2E 测试成员、
+     * 未建档的纯登录账号），见 {@link MemberService#household}。
+     */
     @GetMapping
     public R<IPage<Member>> list(PageQuery q) {
-        return R.ok(svc.page(q));
+        Long me = loginIdOrNull();
+        if (me == null || adminChecker.isAdmin(me)) return R.ok(svc.page(q));
+        java.util.List<Member> all = svc.household(me);
+        long size = q.getPageSize();
+        long from = Math.min(all.size(), (long) (q.getPageNum() - 1) * size);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Member> page =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(q.getPageNum(), size, all.size());
+        page.setRecords(all.subList((int) from, (int) Math.min(all.size(), from + size)));
+        return R.ok(page);
     }
 
-    /** 切换当前就餐成员（存 Sa-Token session）。 */
+    private static Long loginIdOrNull() {
+        try {
+            return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+        } catch (RuntimeException e) { // 无 Sa-Token 上下文（如非 Web 线程）按未登录处理
+            return null;
+        }
+    }
+
+    /**
+     * 切换当前就餐成员（存 Sa-Token session）。
+     * 仅能切到本人或纯成员档案（宝宝/老人等无账号成员）；超管可切任意成员。
+     * 注：功能权限按登录账号判定，就餐成员只决定「谁在吃」。
+     */
     @PostMapping("/current")
     public R<?> setCurrent(@RequestParam Long memberId) {
+        long caller = StpUtil.getLoginIdAsLong();
+        if (memberId != caller && !adminChecker.isAdmin(caller)) {
+            Member target = svc.getById(memberId);
+            if (!AdminChecker.isProfileOnly(target)) {
+                throw BizException.forbidden("只能切换为本人或家庭成员档案");
+            }
+        }
         StpUtil.getSession().set("currentMemberId", memberId);
         return R.ok(null);
     }
@@ -56,35 +90,62 @@ public class MemberController {
         return R.ok(MpPermissionService.allPermLabels());
     }
 
+    /** 新增成员。非超管只能建纯成员档案（账号/权限字段被忽略）。 */
     @PostMapping
-    public R<?> add(@RequestBody Member m) {
-        applyPassword(m);
+    public R<?> add(@RequestBody @Valid MemberSaveRequest req) {
+        boolean admin = adminChecker.isAdmin(StpUtil.getLoginIdAsLong());
+        Member m = toEntity(req, admin);
+        m.setId(null);
         svc.save(m);
         return R.ok(m.getId());
     }
 
+    /** 编辑成员。超管可改任意成员全部字段；其他人只能改本人或纯成员档案的档案字段。 */
     @PutMapping
-    public R<?> update(@RequestBody Member m) {
-        applyPassword(m);
-        svc.updateById(m);
+    public R<?> update(@RequestBody @Valid MemberSaveRequest req) {
+        if (req.getId() == null) throw new BizException("缺少成员 id");
+        long caller = StpUtil.getLoginIdAsLong();
+        boolean admin = adminChecker.isAdmin(caller);
+        if (!admin && req.getId() != caller && !AdminChecker.isProfileOnly(svc.getById(req.getId()))) {
+            throw BizException.forbidden("只能编辑本人或家庭成员档案");
+        }
+        svc.updateById(toEntity(req, admin));
+        return R.ok(null);
+    }
+
+    /** 删除成员。超管可删任意成员（除本人）；其他人只能删纯成员档案。 */
+    @DeleteMapping("/{id}")
+    public R<?> del(@PathVariable Long id) {
+        long caller = StpUtil.getLoginIdAsLong();
+        if (id == caller) throw BizException.forbidden("不能删除自己");
+        if (!adminChecker.isAdmin(caller) && !AdminChecker.isProfileOnly(svc.getById(id))) {
+            throw BizException.forbidden("只能删除家庭成员档案");
+        }
+        svc.removeById(id);
         return R.ok(null);
     }
 
     /**
-     * 把表单传入的明文 password( transient )加密为 passwordHash。
-     * 留空则不动现有哈希(编辑时不改密码场景)。
+     * 入参 → 实体：只拷白名单字段；非超管丢弃账号与权限字段。
+     * 未拷字段保持 null，updateById 按非空字段更新，不会覆盖现有值。
      */
-    private void applyPassword(Member m) {
-        if (m.getPassword() != null && !m.getPassword().isBlank()) {
-            m.setPasswordHash(passwordEncoder.encode(m.getPassword()));
+    private Member toEntity(MemberSaveRequest req, boolean admin) {
+        Member m = new Member();
+        m.setId(req.getId());
+        m.setName(req.getName());
+        m.setHealthProfile(req.getHealthProfile());
+        m.setGoal(req.getGoal());
+        m.setActivityLevel(req.getActivityLevel());
+        if (admin) {
+            m.setPhone(req.getPhone());
+            m.setIsAdmin(req.getIsAdmin());
+            m.setRoleTags(req.getRoleTags());
+            m.setMpPermissions(req.getMpPermissions());
+            if (req.getPassword() != null && !req.getPassword().isBlank()) {
+                m.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+            }
         }
-        m.setPassword(null);
-    }
-
-    @DeleteMapping("/{id}")
-    public R<?> del(@PathVariable Long id) {
-        svc.removeById(id);
-        return R.ok(null);
+        return m;
     }
 
     /**

@@ -56,21 +56,94 @@ for s in $SERVICES; do
   docker compose $PROJECT_OPT -f "$COMPOSE_FILE" build "$s"
 done
 
-# 2. 增量迁移（V42+，幂等 SQL）——仅 menu-api 部署时执行，先于 API 重启
-#    背景：MySQL 官方镜像 /docker-entrypoint-initdb.d 只在空库首启执行一次，
-#    存量库的后续迁移靠这里补（V42 起全部幂等：IF NOT EXISTS / information_schema 判断）。
+# 2. 增量迁移（登记表 schema_migration_log，V63 建表）——仅 menu-api 部署时执行，先于 API 重启
+#    背景：MySQL 官方镜像 /docker-entrypoint-initdb.d 只在空库首启执行一次（跑全部 V*.sql），
+#    存量库的后续迁移靠这里补。过去每次部署重跑 V42+ 全部 SQL（S12：V61/V62 非幂等清数据），
+#    现改为按「文件名」登记 + sha256 校验：
+#      - 登记表为空（存量库首次启用 / 新空库 initdb 刚跑完全部文件）→ 一次性登记现有全部文件，不执行；
+#      - 未登记文件 → 执行后登记（V01~V41 仅登记不执行：只应由 initdb 在空库首启时执行）；
+#      - 已登记且 checksum 一致 → 跳过；checksum 不一致 → 报错中止部署（已执行的迁移禁止改，请新增 V 文件）。
+#    以文件名为键：仓库存在同号文件（V43/V45/V50 各两份），互不冲突。
 #    密码从容器内 MYSQL_ROOT_PASSWORD 环境变量取，不落盘。
+mysql_gudu() {
+  # SQL 从 stdin 读入；-N -B 输出无表头、tab 分隔，便于脚本解析
+  docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-mysql \
+    sh -c 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" gudu' 2> >(grep -v 'Using a password' >&2)
+}
+file_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
 if echo "$SERVICES" | grep -qw menu-api; then
-  echo "→ 执行增量迁移（V42+）..."
-  for f in menu-api/sql/V*.sql; do
-    [ -f "$f" ] || continue
-    # 只跑 V42 及之后的迁移（V42 起全部幂等；V01~V41 由 initdb 在空库首启执行，勿重复跑）
-    v=$(basename "$f" | sed -E 's/^V([0-9]+)_.*/\1/')
-    [ "$v" -ge 42 ] 2>/dev/null || continue
-    echo "  apply $(basename "$f")"
-    docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-mysql \
-      sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" gudu' < "$f"
+  echo "→ 迁移登记检查（schema_migration_log）..."
+  SQL_DIR="menu-api/sql"
+  LOG_DDL="$SQL_DIR/V63__schema_migration_log.sql"
+
+  # 2.0 先确保登记表存在（V63 幂等 CREATE TABLE IF NOT EXISTS）
+  mysql_gudu < "$LOG_DDL"
+
+  # 迁移文件清单（版本号自然排序；文件名只允许安全字符，防拼 SQL 出错）
+  MIGRATIONS=$(printf '%s\n' "$SQL_DIR"/V*.sql | xargs -n1 basename | sort -V)
+  for name in $MIGRATIONS; do
+    if ! [[ "$name" =~ ^V[0-9]+__[A-Za-z0-9_]+\.sql$ ]]; then
+      echo "❌ 非法迁移文件名: $name（仅允许 V<数字>__<字母数字下划线>.sql）"
+      exit 1
+    fi
   done
+
+  LOG_COUNT=$(echo "SELECT COUNT(*) FROM schema_migration_log;" | mysql_gudu)
+  if [ "$LOG_COUNT" = "0" ]; then
+    # 2.1 一次性登记：存量库首次启用（V42~V62 已被历次部署执行过），
+    #     或新空库（initdb 首启已执行全部文件，含 V63）。两种情况都只登记、不执行。
+    echo "  ⚠️  登记表为空 → 一次性登记现有全部迁移文件（不执行）。"
+    echo "     若本次部署同时带有【尚未在本库执行过】的新迁移，请登记后手动执行该文件并核对。"
+    {
+      echo "INSERT IGNORE INTO schema_migration_log(filename, checksum) VALUES"
+      first=1
+      for name in $MIGRATIONS; do
+        sum=$(file_sha256 "$SQL_DIR/$name")
+        if [ $first -eq 1 ]; then first=0; else echo ","; fi
+        printf "('%s','%s')" "$name" "$sum"
+      done
+      echo ";"
+    } | mysql_gudu
+    echo "  已登记 $(echo "$MIGRATIONS" | wc -l | tr -d ' ') 个文件"
+  else
+    # 2.2 增量：仅执行未登记文件；已登记校验 checksum
+    REGISTERED=$(echo "SELECT filename, checksum FROM schema_migration_log;" | mysql_gudu)
+    applied=0
+    for name in $MIGRATIONS; do
+      sum=$(file_sha256 "$SQL_DIR/$name")
+      reg_sum=$(echo "$REGISTERED" | awk -F'\t' -v f="$name" '$1==f {print $2}')
+      if [ -n "$reg_sum" ]; then
+        if [ "$reg_sum" != "$sum" ]; then
+          echo "❌ 迁移文件 $name 已执行过但内容被修改（checksum 不一致），中止部署。"
+          echo "   已登记: $reg_sum"
+          echo "   当前:   $sum"
+          echo "   已执行的迁移禁止修改，请改为新增 V 文件；确属注释类改动可人工核对后："
+          echo "   UPDATE schema_migration_log SET checksum='<当前>' WHERE filename='$name';"
+          exit 1
+        fi
+        continue
+      fi
+      v=$(echo "$name" | sed -E 's/^V([0-9]+)__.*/\1/')
+      if [ "$((10#$v))" -lt 42 ]; then
+        # V01~V41 只由 initdb 在空库首启执行，这里仅补登记
+        echo "  register-only $name（V<42 由 initdb 负责）"
+      else
+        echo "  apply $name"
+        mysql_gudu < "$SQL_DIR/$name"
+        applied=$((applied + 1))
+      fi
+      printf "INSERT INTO schema_migration_log(filename, checksum) VALUES ('%s','%s');\n" "$name" "$sum" \
+        | mysql_gudu
+    done
+    echo "  本次执行 $applied 个新迁移"
+  fi
 fi
 
 # 2.5 向量库扩展确保（幂等）：pgvector 容器存在但 vector 扩展缺失时

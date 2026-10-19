@@ -43,7 +43,7 @@ void main() {
     await tester.pumpWidget(_themed(const DishDetailPage(id: 1)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('加到食集'));
+    await tester.tap(find.text('加入食集'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -85,7 +85,7 @@ void main() {
     await tester.pumpWidget(_themed(const DishDetailPage(id: 1)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('加到食集'));
+    await tester.tap(find.text('加入食集'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 

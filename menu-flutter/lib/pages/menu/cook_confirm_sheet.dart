@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/app_theme.dart';
 import '../../services/dish_service.dart';
 import '../../services/pantry_service.dart';
+import '../../widgets/dish_image.dart';
+import '../../widgets/ingredient_icon.dart';
 
 /// 确认弹窗的结果（提交用材）。
 class CookConfirmResult {
@@ -28,7 +30,10 @@ class CookConfirmResult {
 /// 底部：「跳过，不更新库存」（继续完成，不改库存）/「确认已做完」。
 class CookConfirmSheet extends StatefulWidget {
   final CookMaterials materials;
-  const CookConfirmSheet({super.key, required this.materials});
+  /// 原型 CookSheet 头部：成品图 + 「XX 做好了」（单菜直做传入；整集做可空）。
+  final String? dishName;
+  final String? coverUrl;
+  const CookConfirmSheet({super.key, required this.materials, this.dishName, this.coverUrl});
 
   @override
   State<CookConfirmSheet> createState() => _CookConfirmSheetState();
@@ -59,9 +64,9 @@ class _CookConfirmSheetState extends State<CookConfirmSheet> {
       initialChildSize: 0.85,
       maxChildSize: 0.95,
       builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
@@ -69,11 +74,21 @@ class _CookConfirmSheetState extends State<CookConfirmSheet> {
             Container(width: 36, height: 4, decoration: BoxDecoration(
               color: t.border, borderRadius: BorderRadius.circular(2))),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('这顿饭用了什么', style: t.textStyles.pageTitle),
-                const SizedBox(height: 4),
-                Text(_subtitle(items), style: t.textStyles.sm.copyWith(color: t.caption)),
+              padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp16, AppTokens.sp16, AppTokens.sp4),
+              child: Row(children: [
+                if (widget.dishName != null) ...[
+                  DishImage.square(url: widget.coverUrl, name: widget.dishName!, size: 56),
+                  const SizedBox(width: AppTokens.sp12),
+                ],
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (widget.dishName != null)
+                      Text('${widget.dishName}做好了', style: t.textStyles.sectionLabel.copyWith(color: AppTokens.successText)),
+                    Text('这顿饭用了什么', style: t.textStyles.subtitle),
+                    const SizedBox(height: 2),
+                    Text(_subtitle(items), style: t.textStyles.caption),
+                  ]),
+                ),
               ]),
             ),
             Expanded(
@@ -87,16 +102,15 @@ class _CookConfirmSheetState extends State<CookConfirmSheet> {
                   for (final it in items) _itemRow(t, it),
                   // 说明
                   Container(
-                    margin: const EdgeInsets.only(top: 12),
-                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(top: AppTokens.sp12),
+                    padding: const EdgeInsets.all(AppTokens.sp12),
                     decoration: BoxDecoration(
-                      color: t.highlight,
-                      border: Border.all(color: t.border),
-                      borderRadius: BorderRadius.circular(AppTokens.rSm),
+                      color: AppTokens.infoBg,
+                      borderRadius: BorderRadius.circular(AppTokens.rMd),
                     ),
                     child: Text(
                       '食材默认「用完了」，调料默认「用了一些」（降一档）。点一下就能改。没有库存的食材也不拦着你做饭。',
-                      style: t.textStyles.sectionLabel.copyWith(color: t.body, height: 1.5),
+                      style: t.textStyles.caption.copyWith(color: AppTokens.infoText, height: 1.5),
                     ),
                   ),
                 ],
@@ -112,11 +126,7 @@ class _CookConfirmSheetState extends State<CookConfirmSheet> {
               child: Row(children: [
                 Expanded(
                   child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: t.primary, width: 1.5),
-                      foregroundColor: t.primary,
-                      minimumSize: const Size.fromHeight(48),
-                    ),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     onPressed: () => Navigator.pop(context,
                         CookConfirmResult(usedUp: const [], partiallyUsed: const [], skipped: true)),
                     child: const Text('跳过，不更新库存'),
@@ -126,11 +136,7 @@ class _CookConfirmSheetState extends State<CookConfirmSheet> {
                 Expanded(
                   flex: 1,
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: t.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(48),
-                    ),
+                    style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     onPressed: () {
                       final usedUp = <int>[];
                       final partiallyUsed = <int>[];
@@ -159,68 +165,87 @@ class _CookConfirmSheetState extends State<CookConfirmSheet> {
   }
 
   Widget _itemRow(AppTokens t, CookMaterialItem it) {
+    final ts = t.textStyles;
     final sel = _selection[it.ingredientId] ?? 0;
+    final name = it.ingredientName ?? '食材#${it.ingredientId}';
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: AppTokens.sp12),
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.border))),
-      child: Row(children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(it.ingredientName ?? '食材#${it.ingredientId}',
-                style: t.textStyles.md.copyWith(color: t.title, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 2),
-            // V55 去单位：用量原文（如「番茄炒蛋 2个」），不再显示克数
-            Text(
-              it.usageTexts.isEmpty
-                  ? '家里：${StockLevel.label(it.level)}'
-                  : '家里：${StockLevel.label(it.level)} · ${it.usageTexts.join(' + ')}',
-              style: t.textStyles.sm.copyWith(color: t.caption),
-            ),
-          ]),
-        ),
-        // 三态 chips
-        for (int i = 0; i < 3; i++)
-          Padding(
-            padding: const EdgeInsets.only(left: 6),
-            child: GestureDetector(
-              onTap: () => setState(() => _selection[it.ingredientId] = i),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: sel == i ? (_colors[i] ?? t.primary) : t.card,
-                  border: Border.all(color: sel == i ? (_colors[i] ?? t.primary) : t.border),
-                  borderRadius: BorderRadius.circular(AppTokens.rPill),
-                ),
-                child: Text(
-                  _labels[i],
-                  style: t.textStyles.sm.copyWith(
-                    color: sel == i ? Colors.white : t.caption,
-                    fontWeight: sel == i ? FontWeight.w700 : FontWeight.normal,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          IngredientIcon(name: name, iconKey: it.iconKey, size: 40, depleted: it.level == StockLevel.none),
+          const SizedBox(width: AppTokens.sp12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: ts.cardTitle.copyWith(color: t.title)),
+              const SizedBox(height: 2),
+              // V55 去单位：用量原文（如「番茄炒蛋 2个」），不再显示克数
+              Text(
+                it.usageTexts.isEmpty
+                    ? '家里：${StockLevel.label(it.level)}'
+                    : '家里：${StockLevel.label(it.level)} · ${it.usageTexts.join(' + ')}',
+                style: ts.caption,
+              ),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: AppTokens.sp8),
+        // 三态分段：用完了 / 用了一些 / 这次没用
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: t.border),
+            borderRadius: BorderRadius.circular(AppTokens.rSm),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Row(children: [
+            for (int i = 0; i < 3; i++)
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _selection[it.ingredientId] = i),
+                  child: Container(
+                    height: 36,
+                    alignment: Alignment.center,
+                    color: sel == i ? (_colors[i] ?? t.title) : t.card,
+                    child: Text(
+                      _labels[i],
+                      style: ts.caption.copyWith(
+                        color: sel == i ? AppTokens.onPhoto : t.body,
+                        fontWeight: sel == i ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+          ]),
+        ),
       ]),
     );
   }
 }
 
-/// 做菜完成结果（V42，对齐 cooking-deduct-modal ②）：成功头 + 库存已更新明细 + 返回食集。
-/// 完成结果：成功头 + 库存已更新明细 + 统一评价入口（去 /menu/:id/review）+ 返回食集。
+/// 做菜完成结果（V42，对齐 cooking-deduct-modal ②）：成功头 + 库存已更新明细 + 返回。
+///
+/// 两种来源共用：
+/// - 整集做菜：传 [menuId] → 评价入口去 /menu/:id/review，按钮「返回食集」；
+/// - 单菜直做（G1）：[menuId] 为 null、传 [dishId] → 评价入口去 /dish/:id/review，按钮「完成」。
 class CookResultSheet extends StatelessWidget {
-  final int menuId;
+  final int? menuId;
+  final int? dishId;
   final List<CookMaterialItem> items;
   final List<int> usedUp;
   final List<int> partiallyUsed;
 
   const CookResultSheet({
     super.key,
-    required this.menuId,
+    this.menuId,
+    this.dishId,
     required this.items,
     required this.usedUp,
     required this.partiallyUsed,
-  });
+  }) : assert(menuId != null || dishId != null);
+
+  bool get _isMenu => menuId != null;
 
   @override
   Widget build(BuildContext context) {
@@ -230,9 +255,9 @@ class CookResultSheet extends StatelessWidget {
     final partialItems =
         partiallyUsed.map((id) => byId[id]).whereType<CookMaterialItem>().toList();
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -247,12 +272,16 @@ class CookResultSheet extends StatelessWidget {
               Container(
                 width: 56, height: 56,
                 decoration: const BoxDecoration(color: AppTokens.success, shape: BoxShape.circle),
-                child: const Icon(Icons.check, color: Colors.white, size: 32),
+                child: Icon(Icons.check, color: t.card, size: 32),
               ),
               const SizedBox(height: 12),
-              Text('做好了，库存已更新', style: t.textStyles.subtitle),
+              Text(
+                  usedItems.isEmpty && partialItems.isEmpty
+                      ? '做好了，已记入食记'
+                      : '做好了，库存已更新',
+                  style: t.textStyles.subtitle),
               const SizedBox(height: 4),
-              Text('食集 → 已完成', style: t.textStyles.sm.copyWith(color: AppTokens.success, fontWeight: FontWeight.w700)),
+              Text(_isMenu ? '食集 → 已完成' : '已记入食记', style: t.textStyles.sm.copyWith(color: AppTokens.success, fontWeight: FontWeight.w700)),
               const SizedBox(height: 18),
 
               // 库存已更新
@@ -288,13 +317,14 @@ class CookResultSheet extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text('这顿饭的菜 · 吃完别忘了评价',
+                    child: Text(_isMenu ? '这顿饭的菜 · 吃完别忘了评价' : '吃完别忘了评价这道菜',
                         style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
                   ),
                   GestureDetector(
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/menu/$menuId/review');
+                      context.push(
+                          _isMenu ? '/menu/$menuId/review' : '/dish/$dishId/review');
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -304,7 +334,7 @@ class CookResultSheet extends StatelessWidget {
                       ),
                       child: Text('去评价 ›',
                           style: t.textStyles.sm.copyWith(
-                              color: Colors.white, fontWeight: FontWeight.w800)),
+                              color: t.card, fontWeight: FontWeight.w800)),
                     ),
                   ),
                 ],
@@ -317,11 +347,11 @@ class CookResultSheet extends StatelessWidget {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: t.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: t.card,
                     minimumSize: const Size.fromHeight(48),
                   ),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('返回食集'),
+                  child: Text(_isMenu ? '返回食集' : '完成'),
                 ),
               ),
             ]),
@@ -343,7 +373,7 @@ class CookResultSheet extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(AppTokens.rPill)),
-          child: Text(badge, style: t.textStyles.chip.copyWith(color: Colors.white)),
+          child: Text(badge, style: t.textStyles.chip.copyWith(color: t.card)),
         ),
       ]),
     );

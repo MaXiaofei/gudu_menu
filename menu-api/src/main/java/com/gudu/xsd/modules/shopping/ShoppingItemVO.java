@@ -17,6 +17,9 @@ public class ShoppingItemVO extends ShoppingItem {
     /** 食材名（join ingredient；手动加项取 customName）。 */
     private String ingredientName;
 
+    /** 插画 key（V68；手动加项按名称关键词推断，可空）。 */
+    private String iconKey;
+
     /** 采购品类名（join sys_dict group=purchase_category，参考分区用）。 */
     private String purchaseCategoryName;
 

@@ -35,6 +35,10 @@ public class DishIngredient {
     @TableField(exist = false)
     private String ingredientName;
 
+    /** 插画 key（非持久化，详情接口随食材名批量回填；V68）。 */
+    @TableField(exist = false)
+    private String iconKey;
+
     /** 单位名（非持久化，详情接口按 unitId 批量回填；含「适量/少许/一小把」量词单位，§16.3）。 */
     @TableField(exist = false)
     private String unitName;

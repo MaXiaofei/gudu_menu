@@ -35,6 +35,12 @@ spring:
         password: ${PGVECTOR_PASSWORD:gudu_vec_2026}
 
 gudu:
+  # 本地/测试环境：未知异常回显根因便于排查
+  expose-error-detail: ${GUDU_EXPOSE_ERROR_DETAIL:true}
   upload-dir: /tmp/gudu-test-uploads
   ai:
     provider: mock
+
+# 本地/测试环境默认不强制登录（用户决定：测试/开发环境保持放开）
+auth:
+  login-check: ${AUTH_LOGIN_CHECK:false}

@@ -4,4 +4,6 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 仅 debug：允许连本机后端 http://10.0.2.2:8080（release 不受影响） -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

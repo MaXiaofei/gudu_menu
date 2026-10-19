@@ -24,7 +24,8 @@ const ENDPOINTS: Record<EnvName, string> = {
 }
 
 /** API 基址：请求（request.ts）、图片（image.ts）、上传（upload.ts）统一引用。 */
-export const BASE = ENDPOINTS[ENV]
+// 本地 H5 调试可用 VITE_API_BASE=/gudu 走 vite 代理到本机后端；未设置时按 ENV
+export const BASE: string = import.meta.env.VITE_API_BASE || ENDPOINTS[ENV]
 
 /** 环境中文名（错误提示/日志用）。 */
 export const ENV_LABEL = ENV === 'prod' ? '生产' : '预发'

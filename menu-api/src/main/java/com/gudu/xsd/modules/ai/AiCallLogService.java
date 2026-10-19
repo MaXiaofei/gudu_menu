@@ -29,7 +29,8 @@ public class AiCallLogService {
      * 支持按 scene（nutrition_fill/menu_recommend/dish_estimate）和 status（ok/fail）筛选。
      */
     public IPage<AiCallLog> page(PageQuery q, String scene, String status) {
-        QueryWrapper<AiCallLog> w = new QueryWrapper<>();
+        // V73：网关单次尝试行（capability 非空）不计入业务场景日志
+        QueryWrapper<AiCallLog> w = new QueryWrapper<AiCallLog>().isNull("capability");
         if (scene != null && !scene.isBlank()) {
             w.eq("scene", scene);
         }
@@ -50,7 +51,7 @@ public class AiCallLogService {
      */
     public List<Map<String, Object>> usage(int days) {
         LocalDateTime since = LocalDateTime.now().minusDays(days);
-        QueryWrapper<AiCallLog> w = new QueryWrapper<>();
+        QueryWrapper<AiCallLog> w = new QueryWrapper<AiCallLog>().isNull("capability");
         w.ge("create_time", since);
         List<AiCallLog> logs = callLogMapper.selectList(w);
 

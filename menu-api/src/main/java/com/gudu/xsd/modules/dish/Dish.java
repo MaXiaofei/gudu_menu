@@ -61,4 +61,16 @@ public class Dish {
     /** 做过次数（按当前就餐成员统计 cooking_record，不入库，search 时批量回填）。 */
     @TableField(exist = false)
     private Integer cookedCount;
+
+    /** 最近一次做这道菜的时间（不入库；/dish/search 回填，无记录 null）。 */
+    @TableField(exist = false)
+    private java.time.LocalDateTime lastCookedAt;
+
+    /** 最近一次谁做的（不入库；/dish/search 回填，无记录 null）。 */
+    @TableField(exist = false)
+    private com.gudu.xsd.modules.dish.application.dto.CookerView lastCookedBy;
+
+    /** 本家余量覆盖率（不入库；登录才算，未登录 null。契约 Coverage：{enough,total,missing[]}）。 */
+    @TableField(exist = false)
+    private com.gudu.xsd.modules.pantry.application.dto.CoverageView coverage;
 }

@@ -497,8 +497,14 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         if (rows.isEmpty()) return new ArrayList<>();
         // 食材名
         List<Long> ingIds = rows.stream().map(ShoppingItem::getIngredientId).distinct().collect(Collectors.toList());
-        Map<Long, String> ingName = ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ingIds))
-                .stream().collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
+        List<Ingredient> ingRows = ingIds.stream().anyMatch(java.util.Objects::nonNull)
+                ? ingredientMapper.selectList(new QueryWrapper<Ingredient>().in("id", ingIds)) : List.of();
+        Map<Long, String> ingName = ingRows.stream()
+                .collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
+        Map<Long, String> ingIcon = new HashMap<>();
+        for (Ingredient ing : ingRows) {
+            if (ing.getIconKey() != null) ingIcon.put(ing.getId(), ing.getIconKey());
+        }
         // 档位 badge（V42）：读 ingredient_stock，映射 没有/快用完/有；无建档的项标灰（不标记）
         Map<Long, String> levelByIng = pantryService.levelMap(ingIds);
         // 品类 + 采购单位字典（一次性查两组；unit 组 V55 起不再回填 legacy unitName）
@@ -522,6 +528,8 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                 display = it.getCustomName();
             }
             vo.setIngredientName(display);
+            vo.setIconKey(it.getIngredientId() != null ? ingIcon.get(it.getIngredientId())
+                    : com.gudu.xsd.modules.nutrition.domain.service.IngredientIconPolicy.byName(it.getCustomName()));
             vo.setPurchaseCategoryName(catName.get(it.getPurchaseCategoryId()));
             vo.setPurchaseUnitName(purchaseUnitName.get(it.getPurchaseUnitId()));
             // 档位 badge：ingredientId 为空（手动加项）或没建档 → null（前端标灰「手动加」）

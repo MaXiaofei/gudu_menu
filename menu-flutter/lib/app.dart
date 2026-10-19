@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
+import 'core/app_theme.dart';
 import 'core/router.dart';
 import 'core/theme_controller.dart';
 import 'stores/auth_store.dart';
@@ -58,12 +60,16 @@ class _MenuAppState extends State<MenuApp> {
         ],
         child: AnimatedBuilder(
           animation: widget.themeController,
-          builder: (context, _) => MaterialApp.router(
-            scaffoldMessengerKey: widget.scaffoldKey,
-            title: '咕嘟小食单',
-            theme: widget.themeController.themeData,
-            routerConfig: _router,
-            debugShowCheckedModeBanner: false,
+          // 状态栏底色随主题切换（奶油/抹茶），不再写死奶油色。
+          builder: (context, _) => AnnotatedRegion<SystemUiOverlayStyle>(
+            value: brandOverlayStyle(widget.themeController.tokens),
+            child: MaterialApp.router(
+              scaffoldMessengerKey: widget.scaffoldKey,
+              title: '咕嘟小食单',
+              theme: widget.themeController.themeData,
+              routerConfig: _router,
+              debugShowCheckedModeBanner: false,
+            ),
           ),
         ),
       );

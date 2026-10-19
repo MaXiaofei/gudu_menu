@@ -170,6 +170,8 @@ class AlibabaStandardGuardTest {
             .and().arePublic()
             // 豁免：微信服务器地址验证接口须原样回显纯文本 echostr（微信协议要求，不能包 R）
             .and().doNotHaveName("wxEcho")
+            // 豁免：咕嘟对话为 SSE 事件流（contracts.md §1），协议要求返回 text/event-stream
+            .and().doNotHaveName("streamMessage")
             .should(new ArchCondition<JavaMethod>("返回统一响应 com.gudu.xsd.common.R") {
                 @Override
                 public void check(JavaMethod method, ConditionEvents events) {

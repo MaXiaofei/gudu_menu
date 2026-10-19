@@ -22,13 +22,19 @@ spring:
       timeout: 3000ms
 
 gudu:
+  # 本地/测试环境：未知异常回显根因便于排查
+  expose-error-detail: ${GUDU_EXPOSE_ERROR_DETAIL:true}
   ai:
     provider: ${GUDU_AI_PROVIDER:deepseek}
     deepseek:
       base-url: https://api.deepseek.com/v1
-      model: deepseek-chat
+      model: deepseek-flash
       key: ${DEEPSEEK_API_KEY:${API_KEY:}}   # 兼容：优先 DEEPSEEK_API_KEY，回退 API_KEY
     glm:
       base-url: https://open.bigmodel.cn/api/paas/v4
       model: glm-4-plus
       key: ${GLM_API_KEY:}
+
+# 本地/测试环境默认不强制登录（用户决定：测试/开发环境保持放开）
+auth:
+  login-check: ${AUTH_LOGIN_CHECK:false}

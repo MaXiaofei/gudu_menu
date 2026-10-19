@@ -11,6 +11,8 @@ export interface FoodLogMeal {
   usedUpCount?: number
   partialCount?: number
   reviewed?: boolean
+  /** 食记 id（「晒到厨房圈」用 fromFoodLogId） */
+  foodLogId?: number | null
 }
 
 export interface FoodLogSummary {
@@ -59,6 +61,8 @@ export interface FoodLogDetail {
   usedUp: string[]
   partial: string[]
   reviewed?: boolean
+  /** 食记 id（这顿饭的代表做菜记录），「晒到厨房圈」传 fromFoodLogId；无做菜记录为空 */
+  foodLogId?: number | null
 }
 
 export function foodLogDetail(menuId: number): Promise<FoodLogDetail> {

@@ -29,8 +29,14 @@ public class PantryGroupedVO {
     public static class Item {
         private Long ingredientId;
         private String ingredientName;
+        /** 插画 key（V68，可空：客户端退首字）。 */
+        private String iconKey;
         /** ENOUGH 充足 / LOW 快用完 / NONE 没有。 */
         private String level;
+        /** 保质期（V64，可空）。 */
+        private java.time.LocalDate bestBefore;
+        /** 剩余天数：今天到期=0，已过期为负；未记保质期 null。 */
+        private Integer daysLeft;
         /** 最近一次变动（用于列表行展示来源标签）。 */
         private LastChange lastChange;
     }

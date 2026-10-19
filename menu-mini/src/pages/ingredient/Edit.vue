@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 编辑食材：食用属性三选 + 删除 -->
   <view class="page">
     <ui-back-header :title="ing?.name" :subtitle="ing?.categoryName || '未分类'">
@@ -118,12 +119,12 @@ function confirmDelete() {
 }
 .del {
   color: var(--caption);
-  font-size: 15px;
+  font-size: var(--fs-lg);
   padding: 4px 6px;
 }
 .q-line {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--body);
   margin: 12px 0 8px;
 }
@@ -136,9 +137,9 @@ function confirmDelete() {
   border-radius: var(--r-md);
   padding: 13px 14px;
 }
-.card-label { font-size: 14px; font-weight: 800; color: var(--title); }
-.card-value { flex: 1; font-size: 11px; color: var(--caption); }
-.arrow { color: var(--caption); font-size: 16px; font-weight: 700; }
+.card-label { font-size: var(--fs-md); font-weight: 800; color: var(--title); }
+.card-value { flex: 1; font-size: var(--fs-xs); color: var(--caption); }
+.arrow { color: var(--caption); font-size: var(--fs-lg); font-weight: 700; }
 .bottom {
   padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
   background: var(--card);

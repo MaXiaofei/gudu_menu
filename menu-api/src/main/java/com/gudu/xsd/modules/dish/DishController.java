@@ -1,5 +1,6 @@
 package com.gudu.xsd.modules.dish;
 
+import com.gudu.xsd.common.security.RequireAdmin;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.R;
 import com.gudu.xsd.modules.dish.DishService.DishDetail;
@@ -25,6 +26,7 @@ public class DishController {
     private final DishQueryService querySvc;
     private final RecipeImporter recipeImporter;
     private final DishVectorService vectorSvc;
+    private final com.gudu.xsd.modules.dish.application.DishCoverageAppService coverageApp;
 
     /** 语义找菜请求：自然语言 query + 相似候选数/难度/时长过滤（均可选）。 */
     @lombok.Data
@@ -64,6 +66,7 @@ public class DishController {
 
     /** 存量菜谱向量重建（部署后建库 / 数据修复用，分批 embedding；返回成功数+首个错误）。 */
     @PostMapping("/vector/rebuild")
+    @RequireAdmin
     public R<DishVectorService.RebuildResult> rebuildVectors() {
         return R.ok(vectorSvc.rebuildAll());
     }
@@ -76,13 +79,22 @@ public class DishController {
     /** 多维搜索分页（放在 /{id} 之前，避免被路径变量吞掉）。 */
     @GetMapping("/search")
     public R<IPage<Dish>> search(DishSearchDTO q) {
-        return R.ok(svc.search(q));
+        return R.ok(coverageApp.search(q, isLogin()));
     }
 
     /** 营养筛选（POST，@RequestBody 支持 nutritionLimits JSON body；GET 无法绑 Map<Long,BigDecimal>）。 */
     @PostMapping("/search")
     public R<IPage<Dish>> searchByNutrition(@RequestBody DishSearchDTO q) {
-        return R.ok(svc.search(q));
+        return R.ok(coverageApp.search(q, isLogin()));
+    }
+
+    /** 覆盖率只对登录用户计算（游客浏览 coverage=null）。 */
+    private static boolean isLogin() {
+        try {
+            return cn.dev33.satoken.stp.StpUtil.isLogin();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @GetMapping("/{id}")

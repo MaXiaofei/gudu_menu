@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'constants.dart';
 import 'api_response.dart';
+import 'connectivity.dart';
 
 /// dio 单例：对应小程序 menu-mini/src/utils/request.ts。
 ///
@@ -23,6 +24,15 @@ class ApiClient {
   /// 业务错误/网络错误提示回调（app 注入 SnackBar）。
   void Function(String message)? onErrorToast;
 
+  /// 最近一次失败请求的报错编号（X-Trace-Id 前 8 位，xxxx-xxxx），意见反馈默认附带。
+  static String? lastErrorId;
+
+  static void _rememberError(String? traceId) {
+    if (traceId == null) return;
+    final hex = traceId.replaceAll(RegExp(r'[^0-9a-fA-F]'), '').toLowerCase();
+    lastErrorId = hex.length >= 8 ? '${hex.substring(0, 4)}-${hex.substring(4, 8)}' : traceId;
+  }
+
   void init({void Function()? onUnauthorized, void Function(String)? onErrorToast}) {
     this.onUnauthorized = onUnauthorized;
     this.onErrorToast = onErrorToast;
@@ -41,6 +51,10 @@ class ApiClient {
         handler.next(options);
       },
       onResponse: (response, handler) {
+        Connectivity.online.value = true;
+        // 报错编号：后端 TraceIdFilter 写响应头 X-Trace-Id，业务失败时随 DioException 带出
+        final traceId = response.headers.value('x-trace-id');
+        if (traceId != null) response.requestOptions.extra['traceId'] = traceId;
         final body = response.data;
         if (body is Map<String, dynamic> && body.containsKey('code')) {
           final api = ApiResponse.fromJson(body);
@@ -56,6 +70,7 @@ class ApiClient {
             return;
           }
           if (!api.ok) {
+            _rememberError(traceId);
             this.onErrorToast?.call(api.msg.isEmpty ? '请求失败' : api.msg);
             handler.reject(DioException(
               requestOptions: response.requestOptions,
@@ -69,6 +84,15 @@ class ApiClient {
         handler.next(response);
       },
       onError: (e, handler) {
+        final traceId = e.response?.headers.value('x-trace-id');
+        if (traceId != null) e.requestOptions.extra['traceId'] = traceId;
+        _rememberError(traceId);
+        if (e.response != null) {
+          Connectivity.online.value = true;
+        } else if (e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.connectionTimeout) {
+          Connectivity.online.value = false;
+        }
         // 网络层错误（拦截器主动 reject 的带 message，不重复提示）
         final msg = e.message ?? '';
         if (msg.isEmpty &&

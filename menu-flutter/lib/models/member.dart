@@ -10,12 +10,19 @@ class Member {
   /// 健康档案特殊人群标签（如 高血压/高血糖）。
   final List<String> audiences;
 
+  /// 头像（V66 member.avatar_url；空 → 默认插画头像）。
+  final String? avatarUrl;
+
   const Member({
     required this.id,
     required this.name,
     this.roleTags,
     this.audiences = const [],
+    this.avatarUrl,
   });
+
+  /// 宝宝档案（特殊人群含宝宝辅食）→ 默认头像用宝宝插画。
+  bool get isBaby => audiences.any((a) => a.contains('宝宝'));
 
   factory Member.fromJson(Map<String, dynamic> j) {
     final hp = j['healthProfile'];
@@ -31,6 +38,7 @@ class Member {
           ? j['roleTags'] as String
           : null,
       audiences: audiences,
+      avatarUrl: (j['avatarUrl'] as String?)?.trim().isNotEmpty == true ? j['avatarUrl'] as String : null,
     );
   }
 

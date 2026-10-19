@@ -1,9 +1,12 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">
       <text class="back" @click="goBack">‹</text>
       <view style="flex: 1" />
-      <text class="more">⋯</text>
+      <view v-if="detail" class="share" data-testid="share-community" @click="shareToCommunity">
+        <ui-icon name="users" tone="primary" :size="14" /><text class="share-txt">晒到厨房圈</text>
+      </view>
     </view>
 
     <ui-state v-if="loading" mode="loading" />
@@ -51,6 +54,7 @@
 </template>
 
 <script setup lang="ts">
+import { PAGES, withQuery } from '@/utils/nav'
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { foodLogDetail, copyMenu, type FoodLogDetail } from '@/api/foodlog'
@@ -101,9 +105,33 @@ async function copyAgain() {
     copying.value = false
   }
 }
+
+/** 食记一键分享：带菜名进入发布页（不带成员名与余量，kitchen-community spec）。 */
+function shareToCommunity() {
+  const d = detail.value
+  if (!d) return
+  const first = d.dishes.find((x) => x.dishId)
+  uni.navigateTo({
+    url: withQuery(PAGES.postCreate, { fromFoodLogId: d.foodLogId ?? undefined, dishId: first?.dishId ?? undefined, dishName: first?.dishName ?? undefined }),
+  })
+}
 </script>
 
 <style scoped>
+.share {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--primary-soft);
+  background: var(--highlight);
+}
+.share-txt {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--accent);
+}
 .page {
   height: 100vh;
   display: flex;
@@ -116,14 +144,14 @@ async function copyAgain() {
   padding: 0 14px;
 }
 .back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
   padding: 4px 8px;
 }
 .more {
-  font-size: 20px;
+  font-size: var(--fs-h3);
   color: var(--caption);
   padding: 4px 6px;
 }
@@ -140,12 +168,12 @@ async function copyAgain() {
   padding: 8px 0 16px;
 }
 .head-name {
-  font-size: 18px;
+  font-size: var(--fs-subtitle);
   font-weight: 800;
   color: var(--title);
 }
 .head-sub {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--caption);
 }
 .review-box {
@@ -165,11 +193,11 @@ async function copyAgain() {
   gap: 4px;
 }
 .review-title {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--body);
 }
 .review-dishes {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--title);
   display: -webkit-box;
@@ -184,13 +212,13 @@ async function copyAgain() {
   padding: 7px 10px;
 }
 .review-btn-txt {
-  color: #FFFFFF;
-  font-size: 11px;
+  color: var(--on-primary);
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 .sec-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--caption);
   letter-spacing: 1px;
@@ -205,12 +233,12 @@ async function copyAgain() {
   gap: 4px;
 }
 .use-line {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--body);
   line-height: 1.5;
 }
 .use-none {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--caption);
 }
 .callout {
@@ -218,7 +246,7 @@ async function copyAgain() {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: 10px 12px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--body);
   line-height: 1.5;
   margin-top: 8px;
@@ -233,7 +261,7 @@ async function copyAgain() {
 }
 .bottom-hint {
   text-align: center;
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   color: var(--caption);
 }
 </style>

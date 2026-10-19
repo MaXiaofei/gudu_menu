@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>隐私与账号 · 咕嘟小食单原型</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px}
+body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}
+a{color:#B8622A;text-decoration:none}
+button,input,textarea{font-family:inherit;color:inherit}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px 0 30px;font-size:15px;font-weight:600;color:#4A382A}
+.sb svg{display:block}
+.top{display:flex;align-items:center;gap:8px;padding:2px 12px 8px;min-height:52px}
+.back{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#4A382A;flex-shrink:0}
+.ttl{flex:1;font-size:17px;font-weight:700}
+.h1{font-size:24px;font-weight:700}
+.card{flex-shrink:0;background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.sec{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.muted{font-size:12px;color:#6E5C49}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px;display:block}
+.av{border-radius:999px;display:block;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}
+.stack img{border:2px solid #FFFFFF;border-radius:999px;margin-left:-8px;display:block;background:#FBF0DD}
+.stack img:first-child{margin-left:0}
+.ph-img{object-fit:cover;display:block;flex-shrink:0;background:#FBF0DD}
+.btn{height:52px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 6px 16px rgba(169,101,30,.28);cursor:pointer}
+.ghost{height:52px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.chip{padding:7px 12px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:12px;color:#6E5C49;white-space:nowrap}
+.chip.on{background:#4A382A;color:#FFFFFF;border-color:#4A382A;font-weight:700}
+.tag{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.tag.ok{background:#F0F8EE;color:#2F7347}.tag.warn{background:#FFF7EC;color:#8A5A22;border:1px solid #F6D9BE}.tag.err{background:#DB5A4E;color:#FFFFFF}.tag.info{background:#E8F3FA;color:#2F6A8C}.tag.mute{background:#F5EEE2;color:#6E5C49}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.row+.row{border-top:1px solid #F3EBDD}
+.seg{display:flex;border-radius:9px;border:1px solid #F0E6D6;overflow:hidden;font-size:12px;background:#FFFFFF;flex-shrink:0}
+.seg span{padding:6px 9px;color:#6E5C49}
+.seg .ok{background:#4FAE6E;color:#FFFFFF;font-weight:700}.seg .warn{background:#E5A938;color:#4A382A;font-weight:700}.seg .err{background:#DB5A4E;color:#FFFFFF;font-weight:700}
+.lrow{display:flex;align-items:center;gap:12px;padding:0 14px;height:52px;color:#4A382A;font-size:15px}
+.lrow+.lrow{border-top:1px solid #F3EBDD}
+.lrow .ico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lrow .val{margin-left:auto;font-size:13px;color:#6E5C49;display:flex;align-items:center;gap:4px}
+.toggle{width:46px;height:28px;border-radius:999px;background:#4FAE6E;position:relative;flex-shrink:0;margin-left:auto}
+.toggle::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:999px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.off{background:#E8DCCB}.toggle.off::after{right:auto;left:3px}
+.dot{width:8px;height:8px;border-radius:999px;background:#DB5A4E;flex-shrink:0}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:84px;background:#FFFFFF;border-top:1px solid #F0E6D6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:22px}
+.tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:#6E5C49}
+.tabbar a[aria-current]{color:#B8622A;font-weight:700}
+.tabbar .fab{justify-content:flex-end}
+.tabbar .fab span{width:50px;height:50px;margin-top:-24px;border-radius:999px;background:#D17A3C;border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(169,101,30,.4)}
+</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+</head>
+<body>
+<div class="ph">
+<div class="sb" aria-hidden="true"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0M4 7a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.5" stroke="currentColor" opacity=".45"/><rect x="2.5" y="2.5" width="15" height="7" rx="2" fill="currentColor"/><path d="M24.5 4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".45"/></svg></span></div>
+<div class="top">
+  <a href="Me.html" class="back" aria-label="返回"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></a>
+  <span class="ttl">隐私与账号</span>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 16px 24px;display:flex;flex-direction:column;gap:12px">
+  <span class="sec">协议与说明</span>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;flex-shrink:0">
+    <a href="#" style="padding:12px;border-radius:14px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;gap:10px;color:#4A382A"><span style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#FBF0DD;color:#B8622A" style="background:#FBF0DD;color:#B8622A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">用户协议</span><span style="font-size:11px;color:#6E5C49">2026-10 版</span></span></a>
+    <a href="#" style="padding:12px;border-radius:14px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;gap:10px;color:#4A382A"><span style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#FBF0DD;color:#B8622A" style="background:#FBF0DD;color:#B8622A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">隐私政策</span><span style="font-size:11px;color:#6E5C49">我们怎么保护数据</span></span></a>
+    <a href="#" style="padding:12px;border-radius:14px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;gap:10px;color:#4A382A"><span style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#E8F3FA;color:#2F6A8C" style="background:#E8F3FA;color:#2F6A8C"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">收集了哪些信息</span><span style="font-size:11px;color:#6E5C49">逐项列明用途</span></span></a>
+    <a href="#" style="padding:12px;border-radius:14px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;gap:10px;color:#4A382A"><span style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#E8F3FA;color:#2F6A8C" style="background:#E8F3FA;color:#2F6A8C"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">第三方服务清单</span><span style="font-size:11px;color:#6E5C49">微信登录 · 错误上报</span></span></a>
+  </div>
+  <span class="sec">权限与偏好</span>
+  <div class="card" style="overflow:hidden">
+    <label class="lrow" style="height:auto;min-height:56px;padding-top:10px;padding-bottom:10px"><span class="ico" style="background:#F0F8EE;color:#2F7347"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span>临期提醒</span><span style="font-size:12px;color:#6E5C49">食材到期前一天推送</span></span><span class="toggle" role="switch" aria-checked="true"></span></label>
+    <label class="lrow" style="height:auto;min-height:56px;padding-top:10px;padding-bottom:10px"><span class="ico" style="background:#F0F8EE;color:#2F7347"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span>按家里余量推荐</span><span style="font-size:12px;color:#6E5C49">关掉后智荐只按季节和热门</span></span><span class="toggle" role="switch" aria-checked="true"></span></label>
+    <label class="lrow" style="height:auto;min-height:56px;padding-top:10px;padding-bottom:10px"><span class="ico" style="background:#F5EEE2;color:#6E5C49"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span>相机与相册</span><span style="font-size:12px;color:#6E5C49">仅在拍菜谱、上传截图时使用</span></span><a href="#" style="font-size:13px;font-weight:600;white-space:nowrap">去系统设置</a></label>
+  </div>
+  <span class="sec">我的数据</span>
+  <div class="card" style="overflow:hidden">
+    <a href="#" class="lrow" style="height:auto;min-height:56px;padding-top:10px;padding-bottom:10px"><span class="ico" style="background:#FBF0DD;color:#B8622A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span>导出我的数据</span><span style="font-size:12px;color:#6E5C49">菜谱、食记、余量</span></span><span class="val"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B5A693" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span></a>
+    <a href="#" class="lrow" style="height:auto;min-height:56px;padding-top:10px;padding-bottom:10px"><span class="ico" style="background:#F5EEE2;color:#6E5C49"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/></svg></span><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span>登录设备</span></span><span class="val">2 台<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B5A693" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span></a>
+  </div>
+  <div style="padding:14px;border-radius:16px;background:#FFFFFF;border:1px solid #FBD9D5;display:flex;flex-direction:column;gap:10px;flex-shrink:0">
+    <span style="font-size:15px;font-weight:700;color:#9A2E22">注销账号</span>
+    <span style="font-size:12px;color:#6E5C49;line-height:1.6">提交后有 15 天冷静期，期间登录即可撤回。到期后删除你的账号和个人资料；你是主人的家庭需先转让给其他成员，否则会一并解散。</span>
+    <button style="align-self:flex-start;height:36px;padding:0 14px;border-radius:10px;border:1px solid #FBD9D5;background:#FFF5F3;color:#9A2E22;font-size:13px;font-weight:700">申请注销</button>
+  </div>
+  <button class="ghost" style="flex-shrink:0;height:48px">退出登录</button>
+</div>
+</div>
+</body>
+</html>

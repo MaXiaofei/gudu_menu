@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent 评测 · 咕嘟小食单原型</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <span class="brand"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg>小食单后台</span>
+    <a href="AdminDashboard.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">仪表盘</span></a>
+    <a href="AdminLibrary.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h5v17H6a2 2 0 0 0-2 2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v17h5a2 2 0 0 1 2 2z"/></svg><span class="lbl">公共菜谱库</span><span class="badge">12</span></a>
+    <a href="AdminNutrition.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21c-5 0-8-4-8-9 0-4 3-6 5-6 1.5 0 2.2.6 3 .6s1.5-.6 3-.6c2 0 5 2 5 6 0 5-3 9-8 9z"/><path d="M12 6c0-2 1-3 3-3"/></svg><span class="lbl">食材与营养</span><span class="badge">37</span></a>
+    <a href="AdminFeedback.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/></svg><span class="lbl">意见反馈</span><span class="badge">3</span></a>
+    <a href="AdminTenants.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg><span class="lbl">账号与家庭</span></a>
+    <a href="AdminAi.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span class="lbl">AI 用量与限额</span></a>
+    <a href="AdminOps.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span class="lbl">系统健康</span></a>
+    <span class="group">Agent 与社区</span>
+    <a href="AdminAgentTrace.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h7"/><path d="M8 12h9"/><path d="M12 18h8"/><circle cx="4" cy="6" r="0.5"/></svg><span class="lbl">Agent 调用链</span></a>
+    <a href="AdminAgentEval.html" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L5 19a1.5 1.5 0 0 0 1.3 2h11.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7.5 15h9"/></svg><span class="lbl">Agent 评测</span></a>
+    <a href="AdminCommunity.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span class="lbl">社区审核</span><span class="badge">12</span></a>
+    <span class="group">基础数据</span>
+    <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="lbl">字典与标签</span></a>
+    <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg><span class="lbl">单位换算</span></a>
+    <span class="foot"><img src="img/extra/avatar-admin.svg" alt=""><span style="display:flex;flex-direction:column;gap:2px"><b>admin</b><span style="font-size:11px;opacity:.85">超级管理员</span></span></span>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div><h1>Agent 评测</h1><div class="sub">改提示词或换模型后跑全量评测集；工具选择正确率低于 90% 时不允许发布</div></div>
+      <div class="toolbar"><select class="input"><option>prompt v13 · deepseek-chat</option></select><span class="muted">对比</span><select class="input"><option>v12（线上）</option></select><button class="btn primary">重新运行</button></div>
+    </div>
+
+    <div class="gate">
+      <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></span>
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+        <b style="font-size:17px;color:#9A2E22">v13 不可发布</b>
+        <span style="font-size:13px;color:var(--title)">运行 #40 · 今天 20:15 · 312 条用例 · 耗时 6 分 12 秒 · 成本 ¥3.42。工具选择正确率 <b>89.1%</b>，低于门禁 90%；<b>11 条</b>用例退化，集中在「写操作」意图。</span>
+      </div>
+      <div class="toolbar"><button class="btn">导出报告</button><button class="btn primary">查看退化用例</button></div>
+    </div>
+
+    <div class="row" style="align-items:stretch">
+      <div class="card" style="flex:2 1 300px;min-width:0;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="panel-title">评测集</span><span class="muted">最近更新 2 小时前</span></div>
+        <div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:32px">312</b><span class="muted">条用例 · 每条含输入、期望工具序列、期望要点</span></div>
+        <div class="bar" style="height:12px;gap:2px;background:transparent"><i style="width:30.77%;background:#E89150"></i><i style="width:18.59%;background:#4FAE6E"></i><i style="width:23.72%;background:#D17A3C"></i><i style="width:12.82%;background:#4FA0D0"></i><i style="width:14.10%;background:#8A7B6B"></i></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="dot" style="background:#E89150;width:10px;height:10px;border-radius:3px"></span><span style="flex:1">查菜谱</span><b>96</b></div><div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="dot" style="background:#4FAE6E;width:10px;height:10px;border-radius:3px"></span><span style="flex:1">查余量</span><b>58</b></div><div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="dot" style="background:#D17A3C;width:10px;height:10px;border-radius:3px"></span><span style="flex:1">写操作</span><b>74</b></div><div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="dot" style="background:#4FA0D0;width:10px;height:10px;border-radius:3px"></span><span style="flex:1">闲聊与拒答</span><b>40</b></div><div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="dot" style="background:#8A7B6B;width:10px;height:10px;border-radius:3px"></span><span style="flex:1">提示注入攻击</span><b>44</b></div></div>
+        <span class="muted">评分 = 工具选择（序列匹配）+ 参数正确（服务端校验器）+ 要点覆盖（LLM 裁判，抽检 10% 人工复核）</span>
+      </div>
+      <div class="card" style="flex:3 1 520px;min-width:0;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><span class="panel-title">近 10 次运行</span><span style="display:flex;gap:14px;font-size:12px;color:var(--body)"><span class="cell" style="gap:6px"><span class="dot" style="background:#D17A3C"></span>工具选择正确率</span><span class="cell" style="gap:6px"><span class="dot" style="background:#4FA0D0"></span>要点覆盖</span></span></div>
+        <svg viewBox="0 0 620 200" width="100%" role="img" aria-label="近 10 次评测工具选择正确率与要点覆盖趋势"><line x1="40" x2="604" y1="154.4" y2="154.4" stroke="#F0E6D6"/><text x="32" y="158.4" text-anchor="end" font-size="11" fill="#6E5C49">80%</text><line x1="40" x2="604" y1="110.6" y2="110.6" stroke="#F0E6D6"/><text x="32" y="114.6" text-anchor="end" font-size="11" fill="#6E5C49">85%</text><line x1="40" x2="604" y1="22.8" y2="22.8" stroke="#F0E6D6"/><text x="32" y="26.8" text-anchor="end" font-size="11" fill="#6E5C49">95%</text>
+<line x1="40" x2="604" y1="66.7" y2="66.7" stroke="#DB5A4E" stroke-dasharray="5 4"/><text x="322.0" text-anchor="middle" y="81.7" font-size="11" font-weight="700" fill="#9A2E22">发布门禁 90%</text>
+<path d="M40.0,153.6 L102.7,141.3 L165.3,136.9 L228.0,124.6 L290.7,117.6 L353.3,109.7 L416.0,105.3 L478.7,101.8 L541.3,101.8 L604.0,78.1" fill="none" stroke="#4FA0D0" stroke-width="2"/>
+<path d="M40.0,82.5 L102.7,63.2 L165.3,57.9 L228.0,48.2 L290.7,42.1 L353.3,40.3 L416.0,36.8 L478.7,35.1 L541.3,35.1 L604.0,74.6" fill="none" stroke="#D17A3C" stroke-width="2.5"/><circle cx="40.0" cy="82.5" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="102.7" cy="63.2" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="165.3" cy="57.9" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="228.0" cy="48.2" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="290.7" cy="42.1" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="353.3" cy="40.3" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="416.0" cy="36.8" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="478.7" cy="35.1" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="541.3" cy="35.1" r="3.5" fill="#fff" stroke="#D17A3C" stroke-width="2"/><circle cx="604.0" cy="74.6" r="5" fill="#DB5A4E" stroke="#fff" stroke-width="2"/><line x1="604.0" y1="80.6" x2="604.0" y2="131.6" stroke="#DB5A4E" stroke-dasharray="2 3"/><text x="598.0" y="136.9" text-anchor="end" font-size="12" font-weight="700" fill="#9A2E22">v13 · 89.1%</text><text x="40.0" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#31</text><text x="102.7" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#32</text><text x="165.3" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#33</text><text x="228.0" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#34</text><text x="290.7" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#35</text><text x="353.3" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#36</text><text x="416.0" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#37</text><text x="478.7" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#38</text><text x="541.3" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#39</text><text x="604.0" y="192" text-anchor="middle" font-size="11" fill="#6E5C49">#40</text></svg>
+        <span class="muted">v13 把回复改得更口语，要点覆盖 +2.7，但模型更倾向先回复再调工具，写操作漏调用增多。</span>
+      </div>
+    </div>
+
+    <div class="row" style="align-items:flex-start">
+      <div class="card" style="flex:3 1 560px;min-width:0;padding:6px 8px">
+        <div style="padding:12px 10px 4px" class="panel-title">版本对比</div>
+        <div class="tablewrap"><table style="min-width:560px">
+          <thead><tr><th>指标</th><th class="num">v12（线上）</th><th class="num">v13（候选）</th><th class="num">变化</th><th>门禁</th></tr></thead>
+          <tbody>
+            <tr><td><b>工具选择正确率</b></td><td class="num">93.6%</td><td class="num"><b style="color:#9A2E22">89.1%</b></td><td class="num delta-dn">−4.5</td><td><span class="tag err">低于 90%</span></td></tr>
+            <tr><td>参数正确率</td><td class="num">91.2%</td><td class="num">90.4%</td><td class="num delta-dn">−0.8</td><td><span class="tag ok">≥ 85%</span></td></tr>
+            <tr><td>要点覆盖（LLM 裁判）</td><td class="num">86.0</td><td class="num">88.7</td><td class="num delta-up">+2.7</td><td><span class="tag ok">≥ 80</span></td></tr>
+            <tr><td>注入攻击拦截率</td><td class="num">100%</td><td class="num">100%</td><td class="num">0</td><td><span class="tag ok">= 100%</span></td></tr>
+            <tr><td>平均成本 / 轮</td><td class="num">¥0.014</td><td class="num">¥0.011</td><td class="num delta-up">−21%</td><td><span class="tag mute">观察</span></td></tr>
+            <tr><td>P95 首字</td><td class="num">1.1 s</td><td class="num">0.9 s</td><td class="num delta-up">−0.2 s</td><td><span class="tag ok">≤ 1.5 s</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="card" style="flex:2 1 340px;min-width:0;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="panel-title">差评回流</span><span class="tag warn">本周 14 条待转用例</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="cell" style="align-items:flex-start"><img class="av" src="img/avatar/xiaowang.svg" alt=""><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px">「推荐了麻婆豆腐，朵朵吃不了辣。」</span><span class="muted mono">tr_8f3a21 · 21:42</span></div><button class="btn" style="height:30px">加入</button></div>
+          <div class="cell" style="align-items:flex-start"><img class="av" src="img/avatar/mama.svg" alt=""><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px">「说加进采购了，清单里没有。」</span><span class="muted mono">tr_8f2e07 · 昨天</span></div><button class="btn" style="height:30px">加入</button></div>
+          <div class="cell" style="align-items:flex-start"><img class="av" src="img/avatar/ajie.svg" alt=""><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px">「问几个鸡蛋，给我推荐了一堆菜。」</span><span class="muted mono">tr_8f1c55 · 周二</span></div><button class="btn" style="height:30px">加入</button></div>
+        </div>
+        <span class="muted">加入时自动带上原始输入和当轮工具调用，运营补充期望后进入评测集。</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding:6px 8px">
+      <div style="padding:12px 10px 4px;display:flex;justify-content:space-between;align-items:baseline"><span class="panel-title">退化用例（11）</span><div class="seg"><span class="on">全部</span><span>写操作 7</span><span>查余量 2</span><span>查菜谱 2</span></div></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>用例</th><th>输入</th><th>期望工具序列</th><th>v13 实际</th><th>差异</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">case-217</td><td>麻婆豆腐做完了，三个人吃的</td><td><span class="chip">get_recipe</span> → <span class="chip">mark_cooked</span></td><td><span class="chip">get_recipe</span> → <span class="diff-add">回复文本</span></td><td><span class="diff-del">mark_cooked</span> 漏调用</td></tr>
+          <tr><td class="mono">case-198</td><td>把周六那几道菜的材料加进采购</td><td><span class="chip">list_menus</span> → <span class="chip">add_to_shopping</span></td><td><span class="chip">add_to_shopping</span></td><td><span class="diff-del">list_menus</span> 漏调用，食材为模型编造</td></tr>
+          <tr><td class="mono">case-064</td><td>冰箱里还有几个鸡蛋</td><td><span class="chip">get_pantry</span></td><td><span class="diff-add">search_recipes</span></td><td>工具选错</td></tr>
+          <tr><td class="mono">case-131</td><td>朵朵能吃什么鱼</td><td><span class="chip">search_recipes(excludeTags=[辣])</span></td><td><span class="chip">search_recipes(excludeTags=<span class="diff-add">[]</span>)</span></td><td>参数缺忌口</td></tr>
+          <tr><td class="mono">case-240</td><td>鲈鱼明天到期，先帮我放进今晚的食集</td><td><span class="chip">list_menus</span> → <span class="chip">add_to_menu</span></td><td><span class="chip">add_to_menu(menuId=<span class="diff-add">null</span>)</span></td><td>未选定食集，确认卡缺目标</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

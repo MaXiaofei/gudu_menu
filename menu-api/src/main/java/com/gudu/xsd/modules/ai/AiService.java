@@ -70,9 +70,6 @@ public class AiService {
     private final com.gudu.xsd.modules.dish.DishVectorService dishVectorService;
     private final TasteProfileService tasteProfileService;
 
-    /** 每 member 每日 AI 调用上限（配置 gudu.ai.daily-limit，默认 50）。null/无 member 不限。 */
-    @Value("${gudu.ai.daily-limit:50}")
-    private int dailyLimit;
 
     private static final long METRIC_SUGAR = 5L;
     private static final long METRIC_CAL = 1L;
@@ -121,7 +118,6 @@ public class AiService {
         long start = System.currentTimeMillis();
         String reqJson = safeJson(req);
         // 额度护栏：有 member 维度时，校验今日调用次数（scene 无关，全 AI 接口共用额度）。
-        checkDailyLimit(req.memberId());
         try {
             // 1. 健康约束（2026-08-17 屏蔽：健康档案功能未启用，恒为空约束/无过敏）
             //    启用时恢复：读 member.healthProfile → parseConstraints/parseAllergies 传参即可。
@@ -340,30 +336,6 @@ public class AiService {
 
     private String safeJson(Object o) {
         try { return objectMapper.writeValueAsString(o); } catch (Exception e) { return null; }
-    }
-
-    /**
-     * 额度护栏：统计该 member 今日(scene 无关)AI 调用次数，超 {@link #dailyLimit} 拒绝。
-     * memberId 为 null（如营养补全/菜品估算无 member 维度）时不限制。日志查询失败不阻断主流程。
-     */
-    private void checkDailyLimit(Long memberId) {
-        if (memberId == null || dailyLimit <= 0) return;
-        try {
-            java.time.LocalDateTime todayStart =
-                    java.time.LocalDate.now().atStartOfDay();
-            Long count = aiCallLogMapper.selectCount(
-                    new QueryWrapper<AiCallLog>()
-                            .eq("member_id", memberId)
-                            .ge("create_time", todayStart));
-            if (count != null && count >= dailyLimit) {
-                throw new BizException("今日 AI 调用已达上限（" + dailyLimit + " 次），明天再试");
-            }
-        } catch (BizException e) {
-            throw e;
-        } catch (RuntimeException e) {
-            // 额度查询本身失败（DB 抖动等）不阻断，仅 warn
-            log.warn("AI 额度查询失败 memberId={} err={}", memberId, e.getMessage());
-        }
     }
 
     private void logCall(String scene, Long memberId, String req, String resp,

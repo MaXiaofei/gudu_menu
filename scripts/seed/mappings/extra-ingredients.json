@@ -1,0 +1,85 @@
+{
+ "$comment": "ingredient 表缺失、但下厨房菜谱高频出现的基础食材（按名幂等补建，无营养数据）。只补这张清单，不自动建。",
+ "items": [
+  {
+   "name": "姜",
+   "purchaseCategory": "蔬菜"
+  },
+  {
+   "name": "低筋面粉",
+   "purchaseCategory": "谷物主食"
+  },
+  {
+   "name": "高筋面粉",
+   "purchaseCategory": "谷物主食"
+  },
+  {
+   "name": "糯米粉",
+   "purchaseCategory": "谷物主食"
+  },
+  {
+   "name": "大米",
+   "purchaseCategory": "谷物主食"
+  },
+  {
+   "name": "香叶",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "桂皮",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "黑胡椒",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "五香粉",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "泡打粉",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "酵母",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "蒸鱼豉油",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "咖喱",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "可可粉",
+   "purchaseCategory": "调味料"
+  },
+  {
+   "name": "培根",
+   "purchaseCategory": "畜禽肉"
+  },
+  {
+   "name": "榨菜",
+   "purchaseCategory": "蔬菜"
+  },
+  {
+   "name": "泡菜",
+   "purchaseCategory": "蔬菜"
+  },
+  {
+   "name": "枸杞",
+   "purchaseCategory": "干菌藻"
+  },
+  {
+   "name": "奶粉",
+   "purchaseCategory": "乳制品"
+  },
+  {
+   "name": "可乐",
+   "purchaseCategory": "饮料"
+  }
+ ]
+}

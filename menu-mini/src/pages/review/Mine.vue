@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 我的评价：待评价区 + 历史评价 -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">
@@ -95,7 +96,7 @@ function goBack() {
   padding: 0 14px;
 }
 .back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
@@ -104,7 +105,7 @@ function goBack() {
 .title {
   flex: 1;
   text-align: center;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
 }
@@ -116,7 +117,7 @@ function goBack() {
 }
 .sec-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--caption);
   letter-spacing: 1px;
@@ -134,17 +135,17 @@ function goBack() {
 }
 .row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .row-name {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--title);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.row-time { font-size: 10px; color: var(--caption); }
-.row-status { font-size: 11px; color: var(--warning-text); }
-.row-go { font-size: 11px; color: var(--primary); font-weight: 700; }
-.row-stars { font-size: 11px; color: var(--primary); flex-shrink: 0; }
+.row-time { font-size: var(--fs-tiny); color: var(--caption); }
+.row-status { font-size: var(--fs-xs); color: var(--warning-text); }
+.row-go { font-size: var(--fs-xs); color: var(--primary); font-weight: 700; }
+.row-stars { font-size: var(--fs-xs); color: var(--primary); flex-shrink: 0; }
 .type-chip {
   padding: 2px 8px;
   border-radius: var(--r-sm);
@@ -152,14 +153,14 @@ function goBack() {
   border: 1px solid var(--border);
 }
 .type-chip.menu { background: var(--highlight); border-color: var(--primary-soft); }
-.type-chip-txt { font-size: 10px; color: var(--caption); }
+.type-chip-txt { font-size: var(--fs-tiny); color: var(--caption); }
 .type-chip.menu .type-chip-txt { color: var(--primary); font-weight: 700; }
 .empty {
   background: var(--card);
   border-radius: var(--r-md);
   padding: 32px 0;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--caption);
 }
 </style>

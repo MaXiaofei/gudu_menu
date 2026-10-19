@@ -24,6 +24,12 @@ describe('api/auth 接口封装', () => {
     })
   })
 
+  it('login 带 scope=admin 原样透传', async () => {
+    const dto = { username: 'admin', password: '123', scope: 'admin' as const }
+    await login(dto)
+    expect(requestFn).toHaveBeenCalledWith({ url: '/auth/login', method: 'post', data: dto })
+  })
+
   it('logout → POST /auth/logout', async () => {
     await logout()
     expect(requestFn).toHaveBeenCalledWith({
@@ -41,7 +47,7 @@ describe('api/auth 接口封装', () => {
   })
 
   it('login 返回值透传 request 结果', async () => {
-    const vo = { token: 't', nickname: 'n' }
+    const vo = { token: 't', nickname: 'n', isAdmin: true }
     requestFn.mockResolvedValue(vo)
     const r = await login({ username: 'u', password: 'p' })
     expect(r).toEqual(vo)

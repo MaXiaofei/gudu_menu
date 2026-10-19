@@ -4,7 +4,8 @@ import '../../core/app_theme.dart';
 import '../../services/ingredient_service.dart';
 import '../../services/pantry_service.dart';
 import '../../widgets/action_bar.dart';
-import '../../widgets/initial_avatar.dart';
+import '../../widgets/best_before_field.dart';
+import '../../widgets/ingredient_icon.dart';
 import '../../widgets/loading_empty.dart';
 import '../../widgets/select_chip.dart';
 import '../../widgets/search_box.dart';
@@ -46,6 +47,10 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
   String _level = StockLevel.enough; // 入库默认充足
   String _sourceNote = '朋友送';
   bool _saving = false;
+
+  // 保质期（G2）：进 ② 时按 /pantry/shelf-life 预填 今天+suggestedDays，可改可清
+  DateTime? _bestBefore;
+  String? _bestBeforeHint;
 
   static const _sourceOptions = ['朋友送', '赠品', '旧库存补登', '其他'];
 
@@ -144,8 +149,8 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               const SizedBox(height: 16),
 
               if (q.isEmpty) ...[
-                // 未输入：轻提示卡 + 新建入口（一直画着，点它聚焦搜索框）
-                _emptyHint(t),
+                // 未输入：「你家常买」插画宫格（原型 PantryAdd），无记录时退提示卡
+                if (_frequent.isNotEmpty) _frequentGrid(t) else _emptyHint(t),
                 const SizedBox(height: 20),
                 Text('库存里没有？', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
                 const SizedBox(height: 8),
@@ -200,6 +205,56 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
     );
   }
 
+  /// 你家常买：家里余量里出现过的食材（最多 8 个），点一下即选中。
+  List<IngredientItem> get _frequent =>
+      _ingredients.where((i) => _levelByIng.containsKey(i.id)).take(8).toList();
+
+  Widget _frequentGrid(AppTokens t) {
+    final ts = t.textStyles;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('你家常买', style: ts.sectionLabel.copyWith(letterSpacing: 1)),
+        const SizedBox(height: AppTokens.sp8),
+        GridView.count(
+          crossAxisCount: 4,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: AppTokens.sp8,
+          crossAxisSpacing: AppTokens.sp8,
+          childAspectRatio: 0.82,
+          children: [
+            for (final i in _frequent)
+              GestureDetector(
+                onTap: () => setState(() {
+                  _selected = i;
+                  _newMode = false;
+                }),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(AppTokens.rLg),
+                    border: Border.all(
+                      color: _selected?.id == i.id ? t.primaryDeep : t.border,
+                      width: _selected?.id == i.id ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IngredientIcon(name: i.name, size: 44, background: t.bg),
+                      const SizedBox(height: AppTokens.sp6),
+                      Text(i.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: ts.caption.copyWith(color: t.title)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   /// 未输入提示卡：聚焦「先想名字」。
   Widget _emptyHint(AppTokens t) {
     return Container(
@@ -241,6 +296,8 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12, vertical: 9),
         child: Row(
           children: [
+            IngredientIcon(name: i.name, size: 36),
+            const SizedBox(width: AppTokens.sp10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,18 +368,13 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
 
   /// ① 底栏：下一步（未选禁用）。
   Widget _bottomBar0() {
-    final t = _t;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Center(
           child: ElevatedButton(
-            onPressed: _canNext ? () => setState(() => _step = 1) : null,
+            onPressed: _canNext ? _goStep1 : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: t.primary,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: t.border,
-              disabledForegroundColor: Colors.white,
               // 显式有限 minimumSize：全局主题是 Size(inf,48)（全宽 CTA），
               // 本按钮在 Center（宽松约束）里会触发 "infinite width" 布局崩溃
               minimumSize: const Size(200, 48),
@@ -334,6 +386,31 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
         ),
       ),
     );
+  }
+
+  /// 进入 ②：按食材品类预填保质期（新建档无品类，不预填）。
+  Future<void> _goStep1() async {
+    setState(() {
+      _step = 1;
+      _bestBefore = null;
+      _bestBeforeHint = null;
+    });
+    final id = _selected?.id;
+    if (id == null) return;
+    try {
+      final days = await PantryService.shelfLife(id);
+      if (!mounted || days == null || _selected?.id != id) return;
+      final n = DateTime.now();
+      setState(() {
+        _bestBefore = DateTime(n.year, n.month, n.day).add(Duration(days: days));
+        _bestBeforeHint = '按品类建议 $days 天，可修改';
+      });
+    } catch (_) {
+      // 建议值拿不到不影响入库：提示一下，用户可手动选日期
+      if (mounted) {
+        setState(() => _bestBeforeHint = '保质期建议获取失败，可手动选择');
+      }
+    }
   }
 
   // ===== ② 定档位 + 来源 =====
@@ -349,7 +426,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
               // 食材头（52px 缩略图 + 名称 + 家里状态）
               Row(
                 children: [
-                  InitialAvatar(name: _name.isEmpty ? '食' : _name, size: 52),
+                  IngredientIcon(name: _name.isEmpty ? '食' : _name, size: 56),
                   const SizedBox(width: AppTokens.sp12),
                   Expanded(
                     child: Column(
@@ -373,6 +450,19 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
                 const SizedBox(width: 7),
                 _levelCard(StockLevel.low, '不足', '一点点'),
               ]),
+              const SizedBox(height: 14),
+
+              // 保质期（选填，G2）
+              Text('保质期', style: t.textStyles.sectionLabel.copyWith(letterSpacing: 1)),
+              const SizedBox(height: 8),
+              BestBeforeField(
+                value: _bestBefore,
+                hint: _bestBeforeHint,
+                onChanged: (d) => setState(() {
+                  _bestBefore = d;
+                  _bestBeforeHint = null;
+                }),
+              ),
               const SizedBox(height: 14),
 
               // 来源备注
@@ -472,6 +562,7 @@ class _PantryManualAddPageState extends State<PantryManualAddPage> {
         name: _selected == null ? name : null,
         level: _level,
         sourceNote: _sourceNote,
+        bestBefore: _bestBefore,
       );
       if (!mounted) return;
       Navigator.of(context).pop();

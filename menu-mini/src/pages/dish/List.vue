@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- 选菜模式顶栏（食集「+ 加菜」进入） -->
     <template v-if="selectForMenuId">
@@ -7,65 +8,60 @@
       </view>
       <view class="picker-hint">选择要加入的菜</view>
     </template>
-    <ui-action-bar v-else />
+    <ui-tab-header v-else title="菜谱">
+      <view class="fam" @click="goMembers">
+        <ui-avatar-stack :items="memberFaces" :size="22" :max="3" />
+        <text class="fam-txt">我家的厨房</text>
+      </view>
+      <ui-me-avatar />
+    </ui-tab-header>
 
-    <!-- 搜索框（回车触发） -->
+    <ui-offline-bar />
     <view class="search-row">
       <view class="search-box">
         <text class="search-ico">⌕</text>
         <input
           v-model="kwInput"
           class="search-ipt"
-          placeholder="搜菜名"
+          placeholder="搜菜名、食材"
           placeholder-class="ph"
           confirm-type="search"
           :cursor="kwInput.length"
-          cursor-color="#E89150"
           @confirm="onSearch"
         />
         <text v-if="kwInput" class="search-clear" @click="onClearKw">✕</text>
       </view>
     </view>
 
-    <!-- 分类标签条（tag 字典，单选） -->
-    <scroll-view v-if="tags.length" scroll-x class="chip-bar" :show-scrollbar="false">
+    <!-- 排序（家里够的优先 / 做得最多 / 最新） -->
+    <scroll-view scroll-x class="chip-bar" :show-scrollbar="false">
       <view class="chip-row">
+        <view class="chip" :class="{ on: sort === 'coverage' }" data-testid="sort-coverage" @click="onSort('coverage')">家里够的优先</view>
+        <view class="chip" :class="{ on: sort === 'cooked' }" @click="onSort('cooked')">做得最多</view>
+        <view class="chip" :class="{ on: sort === 'latest' }" @click="onSort('latest')">最新</view>
+        <view class="chip-sep" />
         <view
           v-for="c in [{ id: 0, name: '全部' }, ...tags]"
-          :key="c.id"
-          class="chip"
+          :key="'t' + c.id"
+          class="chip lite"
           :class="{ on: selectedTagId === c.id }"
           @click="onTag(c.id)"
         >{{ c.name }}</view>
-      </view>
-    </scroll-view>
-
-    <!-- 菜系筛选条（cuisine 字典，可与分类叠加） -->
-    <scroll-view v-if="cuisines.length" scroll-x class="chip-bar" :show-scrollbar="false">
-      <view class="chip-row">
         <view
-          v-for="c in [{ id: 0, name: '全部菜系' }, ...cuisines]"
-          :key="c.id"
-          class="chip"
+          v-for="c in cuisines"
+          :key="'c' + c.id"
+          class="chip lite"
           :class="{ on: selectedCuisineId === c.id }"
           @click="onCuisine(c.id)"
         >{{ c.name }}</view>
       </view>
     </scroll-view>
 
-    <!-- 排序行 -->
-    <view class="sort-row">
-      <text class="total">{{ total }} 道</text>
-      <view class="sort-chips">
-        <view class="schip" :class="{ on: sort === 'latest' }" @click="onSort('latest')">最新</view>
-        <view class="schip" :class="{ on: sort === 'cooked' }" @click="onSort('cooked')">做过最多</view>
-      </view>
-    </view>
-
-    <!-- 列表 -->
     <view class="list">
-      <view v-for="dish in dishes" :key="dish.id" class="swipe-wrap">
-        <!-- 左滑删除底（仅浏览模式；滑动时才可见——静止时常显会因合成层缝隙露出红边） -->
+      <!-- 首推大图卡（第一道有封面的菜） -->
+      <dish-hero v-if="hero && !selectForMenuId" :dish="hero" :sub="heroSub(hero)" @tap="onTapCard(hero)" />
+
+      <view v-for="dish in rest" :key="dish.id" class="swipe-wrap">
         <view
           v-if="!selectForMenuId"
           class="swipe-del"
@@ -74,48 +70,56 @@
         >
           <text class="swipe-del-txt">删除</text>
         </view>
-        <!-- 卡片（滑动位移） -->
         <view
-          class="card"
+          class="slide"
           :style="{ transform: `translateX(${offsets[dish.id] || 0}px)` }"
           @touchstart="onTs($event, dish.id)"
           @touchmove="onTm($event, dish.id)"
           @touchend="onTe($event, dish.id)"
-          @click="onTapCard(dish)"
         >
-          <image
-            v-if="dish.coverUrl"
-            class="cover"
-            :src="thumbOf(dish.coverUrl)"
-            mode="aspectFill"
-            lazy-load
+          <ui-dish-row
+            :name="dish.name"
+            :cover="dish.coverUrl"
+            :right="dish.cookedCount ? `做过 ${dish.cookedCount} 次` : ''"
+            :coverage-label="coverageLabel(dish)"
+            :coverage-tone="coverageLevel(dish.coverage)"
+            :chips="chipsOf(dish)"
+            :sub="rowSub(dish)"
+            @tap="onTapCard(dish)"
           />
-          <ui-avatar v-else :name="dish.name" :size="44" />
-          <view class="info">
-            <text class="name">{{ dish.name }}</text>
-            <text class="sub">{{ subText(dish) }}</text>
-          </view>
-          <text class="arrow">›</text>
         </view>
       </view>
 
-      <!-- 尾部 -->
       <view v-if="!firstLoading && dishes.length" class="footer">
         {{ hasMore ? '上拉加载更多' : '没有更多了' }}
       </view>
-      <ui-state v-if="!firstLoading && !dishes.length" mode="empty" text="暂无菜品" />
+      <ui-state
+        v-if="!firstLoading && !dishes.length"
+        mode="empty"
+        :text="keyword ? '没找到这道菜' : '还没有菜谱'"
+        :hint="keyword ? '换个说法试试，比如食材名' : '写下家里常做的菜，智荐才知道你家口味'"
+        :action-text="keyword ? '' : '写菜谱'"
+        @action="goCreate"
+      />
       <ui-state v-if="firstLoading" mode="loading" />
+    </view>
+
+    <view v-if="!selectForMenuId" class="fab" data-testid="fab-create" @click="goCreate">
+      <text class="fab-plus">＋</text><text class="fab-txt">写菜谱</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
 import { onLoad, onShow, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
-import { searchDishes, deleteDish, type Dish } from '@/api/dish'
+import { ref, computed } from 'vue'
+import { useSwipe } from '@/composables/useSwipe'
+import DishHero from './parts/DishHero.vue'
+import { searchDishes, deleteDish, coverageText, coverageLevel, type Dish, type DishSort } from '@/api/dish'
+import { listMembers } from '@/api/member'
+import { relativeDate } from '@/utils/datetime'
 import { listDict, type DictItem } from '@/api/common'
 import { addDishToMenu } from '@/api/menu'
-import { thumbOf } from '@/utils/image'
 import { navInset } from '@/utils/token'
 
 const sb = navInset()
@@ -130,7 +134,7 @@ const tags = ref<DictItem[]>([])
 const cuisines = ref<DictItem[]>([])
 const selectedTagId = ref(0)
 const selectedCuisineId = ref(0)
-const sort = ref<'latest' | 'cooked'>('latest')
+const sort = ref<DishSort>('coverage')
 
 // ---- 列表分页（DESIGN.md §12.2 每页 10 条） ----
 const dishes = ref<Dish[]>([])
@@ -140,17 +144,57 @@ const hasMore = ref(true)
 const loading = ref(false)
 const firstLoading = ref(true)
 
-// 左滑位移（dishId → px）
-const offsets = reactive<Record<number, number>>({})
-let touchStartX = 0
-let touchStartY = 0
-let touching = false
+// 左滑删除手势
+const { offsets, onTs, onTm, onTe, reset: resetSwipe } = useSwipe()
+
+const memberFaces = ref<{ name: string; tags?: string[] | null }[]>([])
 
 onLoad((options) => {
   selectForMenuId.value = options?.selectForMenuId ? Number(options.selectForMenuId) : null
   loadDicts()
   reload()
+  listMembers()
+    .then((ms) => (memberFaces.value = ms.map((m) => ({ name: m.name, tags: m.audienceTags }))))
+    .catch(() => {})
 })
+
+// 首推：首页（无关键词）第一道有封面的菜；其余进列表
+const hero = computed(() => (keyword.value || selectedTagId.value || selectedCuisineId.value ? null : dishes.value.find((d) => d.coverUrl) || null))
+const rest = computed(() => (hero.value ? dishes.value.filter((d) => d.id !== hero.value!.id) : dishes.value))
+
+function coverageLabel(d: Dish): string {
+  const t = coverageText(d.coverage)
+  const miss = d.coverage?.missing || []
+  return t && miss.length && miss.length <= 2 ? `${t} · 缺${miss.map((m) => m.name).join('、')}` : t
+}
+function minutesOf(d: Dish): number {
+  return (d.prepTime ?? 0) + (d.cookTime ?? 0)
+}
+function chipsOf(d: Dish): string[] {
+  const out: string[] = []
+  if (minutesOf(d)) out.push(`${minutesOf(d)} 分钟`)
+  const tag = (d.tagNames ?? [])[0] || (d.categoryNames ?? [])[0]
+  if (tag) out.push(tag)
+  return out
+}
+function rowSub(d: Dish): string {
+  if (d.lastCookedAt) {
+    const by = d.lastCookedBy?.name ? ` · ${d.lastCookedBy.name}做的` : ''
+    return `上次 ${relativeDate(d.lastCookedAt)}${by}`
+  }
+  return subText(d)
+}
+function heroSub(d: Dish): string {
+  return [minutesOf(d) ? `${minutesOf(d)} 分钟` : '', d.cookedCount ? `做过 ${d.cookedCount} 次` : '', d.lastCookedAt ? `上次 ${relativeDate(d.lastCookedAt)}` : '']
+    .filter(Boolean)
+    .join(' · ')
+}
+function goCreate() {
+  uni.navigateTo({ url: '/pages/dish/Create' })
+}
+function goMembers() {
+  uni.navigateTo({ url: '/pages/member/Index' })
+}
 
 // 写菜谱发布后 switchTab 无法带参 → 全局标志（storage）触发「最新」排序
 onShow(() => {
@@ -196,7 +240,7 @@ async function reload() {
   firstLoading.value = true
   dishes.value = await fetch(1)
   firstLoading.value = false
-  Object.keys(offsets).forEach((k) => delete offsets[Number(k)])
+  resetSwipe()
 }
 
 async function loadMore() {
@@ -235,7 +279,7 @@ function onCuisine(id: number) {
   selectedCuisineId.value = id
   reload()
 }
-function onSort(s: 'latest' | 'cooked') {
+function onSort(s: DishSort) {
   if (sort.value === s) return
   sort.value = s
   reload()
@@ -280,7 +324,7 @@ function confirmDelete(d: Dish) {
     title: '删除菜谱',
     content: `确定删除「${d.name}」吗？删除后不可恢复`,
     confirmText: '删除',
-    confirmColor: '#DB5A4E',
+    confirmColor: '#DB5A4E', // showModal 只收色值字面量
     success: async ({ confirm }) => {
       if (!confirm) {
         offsets[d.id] = 0
@@ -299,143 +343,121 @@ function confirmDelete(d: Dish) {
   })
 }
 
-// ---- 左滑手势 ----
-function onTs(e: TouchEvent, id: number) {
-  touchStartX = e.touches[0].clientX
-  touchStartY = e.touches[0].clientY
-  touching = true
-}
-function onTm(e: TouchEvent, id: number) {
-  if (!touching) return
-  const dx = e.touches[0].clientX - touchStartX
-  const dy = Math.abs(e.touches[0].clientY - touchStartY)
-  if (dy > 12) return // 纵向滚动让路
-  const base = offsets[id] || 0
-  offsets[id] = Math.min(0, Math.max(-72, base + dx))
-}
-function onTe(_e: TouchEvent, id: number) {
-  touching = false
-  const cur = offsets[id] || 0
-  offsets[id] = cur < -36 ? -72 : 0
-}
 </script>
 
 <style scoped>
 .page {
   min-height: 100vh;
   background: var(--bg);
+  padding-bottom: 96px;
 }
-/* 选菜模式顶栏 */
 .picker-top {
   padding: 0 6px;
 }
 .picker-back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   padding: 4px 10px;
   line-height: 1.2;
 }
 .picker-hint {
-  margin: 0 14px 4px;
-  padding: 8px 12px;
+  margin: 0 var(--space-lg) var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
   background: var(--highlight);
   border: 1px solid var(--primary-soft);
   border-radius: var(--r-sm);
   color: var(--title);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
-/* 搜索 */
-.search-row {
-  padding: 4px 14px 8px;
-}
-.search-box {
+.fam {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 4px 10px 4px 6px;
+  border-radius: var(--radius-pill);
   background: var(--card);
-  border: 1.5px solid var(--primary);
+  border: 1px solid var(--border);
+}
+.fam-txt {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--title);
+}
+.search-row {
+  padding: var(--space-xs) var(--space-lg) var(--space-sm);
+}
+.search-box {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: 0 12px;
+  padding: 0 var(--space-md);
 }
 .search-ico {
-  color: var(--caption);
-  font-size: 15px;
+  color: var(--body);
+  font-size: var(--fs-lg);
 }
 .search-ipt {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: var(--title);
-  padding: 9px 0;
 }
 .ph {
   color: var(--caption);
 }
 .search-clear {
-  color: var(--caption);
-  font-size: 13px;
+  color: var(--body);
+  font-size: var(--fs-md);
   padding: 4px;
 }
-/* 标签条 */
 .chip-bar {
   white-space: nowrap;
 }
 .chip-row {
   display: inline-flex;
-  gap: 6px;
-  padding: 0 14px 6px;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-lg) var(--space-md);
 }
 .chip {
   flex-shrink: 0;
-  padding: 5px 12px;
-  border-radius: var(--r-sm);
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--body);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .chip.on {
   background: var(--title);
   border-color: var(--title);
-  color: #FFFFFF;
-}
-/* 排序行 */
-.sort-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 16px 8px;
-}
-.total {
-  font-size: 12px;
-  color: var(--caption);
-}
-.sort-chips {
-  display: flex;
-  gap: 6px;
-}
-.schip {
-  padding: 4px 12px;
-  border-radius: var(--r-sm);
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--body);
-  font-size: 11px;
-}
-.schip.on {
-  background: var(--title);
-  border-color: var(--title);
-  color: #FFFFFF;
+  color: var(--on-primary);
   font-weight: 700;
 }
-/* 列表 */
+.chip.lite.on {
+  background: var(--primary-soft);
+  border-color: var(--primary-soft);
+  color: var(--title);
+}
+.chip-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+}
 .list {
-  padding: 0 12px 16px;
+  padding: 0 var(--space-lg) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .swipe-wrap {
   position: relative;
-  margin-bottom: 7px;
-  border-radius: var(--r-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 .swipe-del {
@@ -444,7 +466,7 @@ function onTe(_e: TouchEvent, id: number) {
   right: 0;
   bottom: 0;
   width: 72px;
-  background: #E53935;
+  background: var(--error);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -455,56 +477,38 @@ function onTe(_e: TouchEvent, id: number) {
   opacity: 1;
 }
 .swipe-del-txt {
-  color: #FFFFFF;
-  font-size: 13px;
+  color: var(--on-primary);
+  font-size: var(--fs-md);
   font-weight: 700;
 }
-.card {
+.slide {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 10px;
   transition: transform 0.15s ease-out;
 }
-.cover {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--r-md);
-  flex-shrink: 0;
-  background: var(--secondary);
-}
-.info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.name {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--title);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sub {
-  font-size: 10px;
-  color: var(--caption);
-}
-.arrow {
-  color: var(--caption);
-  font-size: 16px;
-  font-weight: 700;
-}
 .footer {
-  padding: 16px 0;
+  padding: var(--space-lg) 0;
   text-align: center;
-  font-size: 12px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.fab {
+  position: fixed;
+  right: var(--space-lg);
+  bottom: calc(var(--window-bottom, 0px) + var(--space-lg) + env(safe-area-inset-bottom));
+  height: 48px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  background: var(--title);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 6px 18px rgba(var(--sh), 0.3);
+  z-index: 10;
+}
+.fab-plus,
+.fab-txt {
+  color: var(--on-primary);
+  font-size: var(--fs-md);
+  font-weight: 700;
 }
 </style>

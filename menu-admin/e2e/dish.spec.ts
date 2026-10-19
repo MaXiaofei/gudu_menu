@@ -6,13 +6,18 @@ test.beforeEach(async ({ page, context }) => {
   await page.addInitScript(() => {
     localStorage.setItem('gudu-token', 'e2e-token')
     localStorage.setItem('gudu-nickname', 'E2E管理员')
+    localStorage.setItem('gudu-is-admin', 'true')
   })
 })
 
 test.describe('菜品管理页', () => {
   test('进入菜品页 → 渲染分页表格', async ({ page }) => {
-    // mock 菜品分页（正则匹配相对/绝对路径）
-    await page.route(/\/dish/, async (route) => {
+    // 其它 /gudu 接口兜底空（先注册，优先级低于后注册的 /gudu/dish）
+    await page.route(/\/gudu\//, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"code":0,"msg":"ok","data":{}}' })
+    })
+    // mock 菜品分页：限定 /gudu/dish 前缀，避免误拦 /assets/dish-*.js 等静态产物
+    await page.route(/\/gudu\/dish/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -31,15 +36,6 @@ test.describe('菜品管理页', () => {
         }),
       })
     })
-    // 其它 /gudu 接口兜底空
-    await page.route(/\/gudu\//, async (route) => {
-      if (route.request().url().includes('/dish')) {
-        await route.continue()
-        return
-      }
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"code":0,"msg":"ok","data":{}}' })
-    })
-
     await page.goto('/dish')
 
     // 表格渲染出菜品名
@@ -47,7 +43,7 @@ test.describe('菜品管理页', () => {
     await expect(page.getByText('黄瓜炒蛋')).toBeVisible()
   })
 
-  test('侧边栏导航含家庭成员等菜单项', async ({ page }) => {
+  test('侧边栏导航含家庭成员 / 菜谱 / 意见反馈', async ({ page }) => {
     await page.route(/\/gudu\//, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"code":0,"msg":"ok","data":{"records":[],"total":0}}' })
     })
@@ -56,6 +52,8 @@ test.describe('菜品管理页', () => {
     // 侧边栏导航文字（限定在 .sidebar 容器内，避免与首页卡片标题冲突）
     const sidebar = page.locator('.sidebar')
     await expect(sidebar.getByText('家庭成员', { exact: true })).toBeVisible()
-    await expect(sidebar.getByText('菜品', { exact: true })).toBeVisible()
+    // 2026-07 命名定稿：「菜品」→「菜谱」
+    await expect(sidebar.getByText('菜谱', { exact: true })).toBeVisible()
+    await expect(sidebar.getByText('意见反馈', { exact: true })).toBeVisible()
   })
 })

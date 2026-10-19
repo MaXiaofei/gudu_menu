@@ -39,11 +39,35 @@ class PantryService {
   }
 
   /// 设档位：PUT /pantry/{ingredientId}/level（手动修正，记 manual 流水）。
-  static Future<void> setLevel(int ingredientId, String level, {String? note}) async {
+  ///
+  /// [bestBefore] 保质期三态（api-contract §1）：
+  /// - 不传（[keepBestBefore] 默认）= 不改，body 不带该字段；
+  /// - 传 `null` = 清除保质期，body 带 `"bestBefore": null`；
+  /// - 传日期 = 设为该日期（`YYYY-MM-DD`）。
+  static Future<void> setLevel(
+    int ingredientId,
+    String level, {
+    String? note,
+    Object? bestBefore = keepBestBefore,
+  }) async {
     await ApiClient.instance.put('/pantry/$ingredientId/level', body: {
       'level': level,
       if (note != null) 'note': note,
+      if (!identical(bestBefore, keepBestBefore))
+        'bestBefore': bestBefore is DateTime ? fmtDate(bestBefore) : bestBefore,
     });
+  }
+
+  /// [setLevel] 的「不改保质期」哨兵值。
+  static const Object keepBestBefore = _Keep();
+
+  /// 默认保质天数建议：GET /pantry/shelf-life?ingredientId= → suggestedDays（可为 null）。
+  /// 录入时预填 bestBefore = 今天 + suggestedDays。
+  static Future<int?> shelfLife(int ingredientId) async {
+    final data = await ApiClient.instance
+        .get('/pantry/shelf-life', query: {'ingredientId': ingredientId});
+    if (data is Map) return (data['suggestedDays'] as num?)?.toInt();
+    return null;
   }
 
   /// 手动入库：POST /pantry/manual（选食材 → 档位默认充足 + 来源标签；新建档不用单位）。
@@ -52,13 +76,48 @@ class PantryService {
     String? name,
     String? level,
     String? sourceNote,
+    DateTime? bestBefore,
   }) async {
     await ApiClient.instance.post('/pantry/manual', body: {
       if (ingredientId != null) 'ingredientId': ingredientId,
       if (name != null) 'name': name,
       if (level != null) 'level': level,
       if (sourceNote != null) 'sourceNote': sourceNote,
+      if (bestBefore != null) 'bestBefore': fmtDate(bestBefore),
     });
+  }
+
+  /// 临期食材：GET /pantry/expiring?days=3（三档库存 best_before，按 daysLeft 升序，含已过期）。
+  /// 余量统计（P0 契约 `GET /pantry/summary`）。接口不存在（旧后端 404）时
+  /// 用 `/pantry/grouped` 汇总 + `/pantry/expiring` 本地聚合降级。
+  static Future<PantrySummary> summary() async {
+    try {
+      final data = await ApiClient.instance.get('/pantry/summary');
+      if (data is Map<String, dynamic>) return PantrySummary.fromJson(data);
+    } catch (_) {
+      // 降级：下方本地聚合（旧后端无该接口）
+    }
+    final g = await listGroupedPage(pageNum: 1, pageSize: 1);
+    var expiring = 0;
+    try {
+      expiring = (await listExpiring(days: 3)).length;
+    } catch (_) {
+      expiring = 0; // 临期接口失败不影响其余三格
+    }
+    return PantrySummary(enough: g.enough, low: g.low, out: g.none, expiring3d: expiring);
+  }
+
+  static Future<List<ExpiringItem>> listExpiring({int days = 3}) async {
+    final data = await ApiClient.instance.get(
+      '/pantry/expiring',
+      query: {'days': days},
+    );
+    if (data is List) {
+      return data
+          .map((e) => ExpiringItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
   }
 
   // ===================== admin 兼容（pantry 批次表，P5 迁移后清理） =====================
@@ -95,18 +154,6 @@ class PantryService {
     return [];
   }
 
-  /// 临期库存：GET /pantry/expiring?days=3（通知调度用）。
-  static Future<List<PantryVO>> listExpiring({int days = 3}) async {
-    final data = await ApiClient.instance.get(
-      '/pantry/expiring',
-      query: {'days': days},
-    );
-    if (data is List) {
-      return data.map((e) => PantryVO.fromJson(e as Map<String, dynamic>)).toList();
-    }
-    return [];
-  }
-
   /// 不足库存：GET /pantry/low（档位 LOW 的食材，兼容旧接口）。
   static Future<List<PantryGroupedItem>> listLow() async {
     final data = await ApiClient.instance.get('/pantry/low');
@@ -138,6 +185,48 @@ class PantryService {
     if (data is Map && data['count'] != null) return (data['count'] as num).toInt();
     return 0;
   }
+}
+
+class _Keep {
+  const _Keep();
+}
+
+/// 日期 → `YYYY-MM-DD`（api-contract 日期格式）。
+String fmtDate(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// 剩余天数文案：今天到期=0，已过期为负（api-contract §1 daysLeft）。
+String daysLeftLabel(int daysLeft) {
+  if (daysLeft < 0) return '已过期 ${-daysLeft} 天';
+  if (daysLeft == 0) return '今天到期';
+  return '剩 $daysLeft 天';
+}
+
+/// 临期项（GET /pantry/expiring、/recommend/home.expiring）。
+class ExpiringItem {
+  final int ingredientId;
+  final String ingredientName;
+  final String level;
+  final String bestBefore;
+  final int daysLeft;
+
+  const ExpiringItem({
+    required this.ingredientId,
+    required this.ingredientName,
+    required this.level,
+    required this.bestBefore,
+    required this.daysLeft,
+  });
+
+  factory ExpiringItem.fromJson(Map<String, dynamic> j) => ExpiringItem(
+        ingredientId: (j['ingredientId'] as num).toInt(),
+        ingredientName: (j['ingredientName'] ?? '') as String,
+        level: j['level'] as String? ?? 'NONE',
+        bestBefore: (j['bestBefore'] ?? '') as String,
+        daysLeft: (j['daysLeft'] as num?)?.toInt() ?? 0,
+      );
+
+  String get daysText => daysLeftLabel(daysLeft);
 }
 
 /// 库存档位常量与文案（充足/不足/用完，V42）。
@@ -265,24 +354,74 @@ class PantryGrouped {
   }
 }
 
+/// 余量统计（顶部四格：充足/不足/用完/3 天内到期）。
+class PantrySummary {
+  final int enough;
+  final int low;
+  final int out;
+  final int expiring3d;
+  final List<({int? categoryId, String name, int count})> byCategory;
+
+  const PantrySummary({
+    required this.enough,
+    required this.low,
+    required this.out,
+    required this.expiring3d,
+    this.byCategory = const [],
+  });
+
+  int get total => enough + low + out;
+
+  factory PantrySummary.fromJson(Map<String, dynamic> j) => PantrySummary(
+        enough: (j['enough'] as num?)?.toInt() ?? 0,
+        low: (j['low'] as num?)?.toInt() ?? 0,
+        out: (j['out'] as num?)?.toInt() ?? 0,
+        expiring3d: (j['expiring3d'] as num?)?.toInt() ?? 0,
+        byCategory: ((j['byCategory'] ?? const []) as List)
+            .whereType<Map>()
+            .map((e) => (
+                  categoryId: (e['categoryId'] as num?)?.toInt(),
+                  name: (e['name'] ?? '').toString(),
+                  count: (e['count'] as num?)?.toInt() ?? 0,
+                ))
+            .toList(),
+      );
+}
+
 /// 分组列表里的一项（一个食材一行，V42 档位版）。
 class PantryGroupedItem {
   final int ingredientId;
   final String? ingredientName;
   final String level; // ENOUGH / LOW / NONE
   final LastChange? lastChange;
+  /// 保质期（YYYY-MM-DD，未填为 null）。
+  final String? bestBefore;
+  /// 剩余天数（今天到期=0，已过期为负；未填保质期为 null）。
+  final int? daysLeft;
+  /// 食材插画 key（P0 契约，可空）。
+  final String? iconKey;
+  /// 采购品类名（插画兜底 + 分类 Tab；旧接口为 null）。
+  final String? categoryName;
 
   const PantryGroupedItem({
     required this.ingredientId,
     this.ingredientName,
     required this.level,
     this.lastChange,
+    this.bestBefore,
+    this.daysLeft,
+    this.iconKey,
+    this.categoryName,
   });
 
   factory PantryGroupedItem.fromJson(Map<String, dynamic> j) => PantryGroupedItem(
         ingredientId: (j['ingredientId'] as num).toInt(),
         ingredientName: j['ingredientName'] as String?,
         level: j['level'] as String? ?? StockLevel.none,
+        bestBefore: j['bestBefore'] as String?,
+        daysLeft: (j['daysLeft'] as num?)?.toInt(),
+        iconKey: j['iconKey'] as String?,
+        categoryName: (j['categoryName'] ?? j['purchaseCategoryName']) as String?,
         lastChange: j['lastChange'] == null
             ? null
             : LastChange.fromJson(j['lastChange'] as Map<String, dynamic>),
@@ -346,12 +485,16 @@ class PantryItemDetail {
   final String? ingredientName;
   final String level; // ENOUGH / LOW / NONE
   final List<StockLogEntry> changes;
+  final String? bestBefore;
+  final int? daysLeft;
 
   const PantryItemDetail({
     required this.ingredientId,
     this.ingredientName,
     required this.level,
     required this.changes,
+    this.bestBefore,
+    this.daysLeft,
   });
 
   factory PantryItemDetail.fromJson(Map<String, dynamic> j) {
@@ -360,6 +503,8 @@ class PantryItemDetail {
       ingredientId: (j['ingredientId'] as num).toInt(),
       ingredientName: j['ingredientName'] as String?,
       level: j['level'] as String? ?? StockLevel.none,
+      bestBefore: j['bestBefore'] as String?,
+      daysLeft: (j['daysLeft'] as num?)?.toInt(),
       changes: list.map((e) => StockLogEntry.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }

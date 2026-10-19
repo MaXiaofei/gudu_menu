@@ -1,0 +1,13 @@
+{
+  "name": "gudu-seed",
+  "private": true,
+  "type": "module",
+  "description": "测试环境内容填充脚本（仅 staging / local）",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "bcryptjs": "2.4.3",
+    "mysql2": "3.11.3"
+  }
+}

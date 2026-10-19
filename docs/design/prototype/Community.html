@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>厨房圈 · 咕嘟小食单原型</title>
+<style>
+
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 30px;font-size:15px;font-weight:600;letter-spacing:.2px}
+.sb i{display:flex;gap:6px;align-items:center;font-style:normal}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.scroll::-webkit-scrollbar,.hs::-webkit-scrollbar{display:none}
+.hs{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 6px}
+.hs>*{flex-shrink:0}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.sec b{font-size:18px;font-weight:700}
+.sec a{font-size:13px;color:#B8622A;font-weight:600}
+.lab{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.card{background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.ph img{display:block}
+.cover{object-fit:cover;background:#FBF0DD}
+img[src$="qingzheng-luyu.jpg"]{object-position:50% 85%}
+img[src$="huadan-xiaren.jpg"]{object-position:50% 80%}
+.t15{font-size:15px;font-weight:700}
+.t12{font-size:12px;color:#6E5C49}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap}
+.ok{background:#F0F8EE;color:#2F7347}.warn{background:#FFF7EC;color:#8A5A22}.err{background:#FDECEA;color:#9A2E22}.info{background:#E8F3FA;color:#2F6A8C}
+.plain{background:#FDFAF4;border:1px solid #F0E6D6;color:#6E5C49;font-weight:400}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px}
+.av{width:28px;height:28px;border-radius:999px;border:2px solid #FFFFFF;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}.stack>*+*{margin-left:-8px}
+.btn{height:52px;padding:0 22px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(169,101,30,.3)}
+.btn2{height:52px;padding:0 18px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.chk{width:24px;height:24px;border-radius:999px;border:2px solid #E8DCCB;background:#FFFFFF;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#FFFFFF}
+.chk.on{background:#4FAE6E;border-color:#4FAE6E}
+.seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:4px 16px 0;padding:4px;border-radius:12px;background:#FBF0DD;flex-shrink:0}
+.seg a{height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#6E5C49}
+.seg a[aria-selected="true"]{background:#FFFFFF;color:#4A382A;font-weight:700;box-shadow:0 1px 3px rgba(169,101,30,.14)}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 30px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:flex;gap:10px;align-items:center}
+nav.tab{position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:22px}
+nav.tab a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:#6E5C49}
+nav.tab a[aria-current]{font-weight:700;color:#B8622A}
+nav.tab a.fab{justify-content:flex-end}
+nav.tab .fabi{width:50px;height:50px;margin-top:-24px;border-radius:999px;background:#D17A3C;border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(169,101,30,.4)}
+
+nav.gnav{position:absolute;left:0;right:0;bottom:0;z-index:6;height:84px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:22px;box-sizing:border-box}
+nav.gnav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:#6E5C49;text-decoration:none}
+nav.gnav a[aria-current]{font-weight:700;color:#B8622A}
+nav.gnav a.fab{justify-content:flex-end}
+nav.gnav .fabi{width:54px;height:54px;margin-top:-28px;border-radius:999px;background:linear-gradient(145deg,#EE9C5C,#C96E31);border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px rgba(169,101,30,.42);position:relative}
+nav.gnav .fabi i{position:absolute;top:-2px;right:-4px;height:16px;padding:0 5px;border-radius:999px;background:#4A382A;color:#FFFFFF;font-style:normal;font-size:9px;font-weight:800;line-height:16px;border:2px solid #FFFFFF}
+.meav{width:36px;height:36px;border-radius:999px;border:2px solid #FFFFFF;box-shadow:0 2px 8px rgba(169,101,30,.18);display:block;flex-shrink:0;background:#FBF0DD}
+.hd{padding:4px 16px 10px;display:flex;align-items:center;gap:10px}
+.hd h1{margin:0;flex:1;font-size:26px;font-weight:800;letter-spacing:.5px}
+.ib{width:40px;height:40px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;color:#4A382A;box-shadow:0 2px 8px rgba(169,101,30,.08);flex-shrink:0}
+.pub{height:36px;padding:0 12px 0 9px;border-radius:999px;background:#D17A3C;color:#FFFFFF;font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px;box-shadow:0 3px 10px rgba(209,122,60,.35)}
+.me{width:40px;height:40px;border-radius:999px;border:2px solid #FFFFFF;box-shadow:0 0 0 1.5px #F6D9BE}
+.utab{display:flex;gap:22px;padding:0 16px;border-bottom:1px solid #F0E6D6;flex-shrink:0}
+.utab a{position:relative;padding:8px 0 10px;font-size:15px;color:#6E5C49}
+.utab a[aria-selected="true"]{color:#4A382A;font-weight:800;font-size:16px}
+.utab a[aria-selected="true"]::after{content:"";position:absolute;left:50%;bottom:-1px;width:20px;height:3px;margin-left:-10px;border-radius:3px;background:#E89150}
+.utab .dot{position:absolute;top:8px;right:-8px;width:6px;height:6px;border-radius:999px;background:#DB5A4E}
+.topic{position:relative;display:flex;height:132px;border-radius:18px;overflow:hidden;color:#FFFFFF;box-shadow:0 8px 22px rgba(74,56,42,.18)}
+.topic .mo{position:absolute;inset:0;display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:2px}
+.topic .mo img{width:100%;height:100%}
+.topic .sh{position:absolute;inset:0;background:linear-gradient(90deg,rgba(60,34,16,.88) 0%,rgba(60,34,16,.62) 52%,rgba(60,34,16,.05) 100%)}
+.topic .in{position:relative;padding:16px;display:flex;flex-direction:column;gap:6px;justify-content:center;width:72%}
+.topic .go{position:absolute;right:14px;bottom:14px;height:32px;padding:0 12px;border-radius:999px;background:#FFFFFF;color:#B8622A;font-size:13px;font-weight:800;display:flex;align-items:center}
+.fol{display:flex;gap:14px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.fol a{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;color:#6E5C49;width:52px}
+.fol .r{width:52px;height:52px;border-radius:999px;padding:2px;background:linear-gradient(135deg,#E89150,#F6D9BE)}
+.fol .r.seen{background:#F0E6D6}
+.fol .r img{width:100%;height:100%;border-radius:999px;border:2px solid #FFFFFF;display:block}
+.mas{display:flex;gap:10px;align-items:flex-start}
+.mas .col{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.pc{display:flex;flex-direction:column;background:#FFFFFF;border:1px solid #F0E6D6;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(169,101,30,.07)}
+.pc .im{position:relative}
+.pc .im img{width:100%;display:block}
+.pc .bd{padding:9px 10px 10px;display:flex;flex-direction:column;gap:8px}
+.pc .tt{font-size:14px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pc .au{display:flex;align-items:center;gap:6px;font-size:12px;color:#6E5C49}
+.pc .au img{width:20px;height:20px;border-radius:999px}
+.pc .au span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc .au b{display:flex;align-items:center;gap:3px;font-weight:500}
+.corner{position:absolute;left:8px;top:8px;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(255,255,255,.94);color:#4A382A;display:flex;align-items:center;gap:3px}
+.corner.hot{background:#D17A3C;color:#FFFFFF}
+.multi{position:absolute;right:8px;top:8px;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(40,26,16,.55);color:#FFFFFF}
+.liked{color:#DB5A4E}
+
+</style>
+<style>body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px;box-sizing:border-box}body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+</head>
+<body>
+<div class="ph">
+  <div class="sb" style="color:#4A382A" aria-hidden="true"><span>9:41</span><i>
+    <svg width="18" height="12" viewBox="0 0 18 12" fill="#4A382A"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#4A382A" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.5a9.5 9.5 0 0 1 13 0M4 7.3a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="#4A382A" stroke="none"/></svg>
+    <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="#4A382A" opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="1.8" fill="#4A382A"/><rect x="24" y="4" width="1.6" height="4" rx=".8" fill="#4A382A" opacity=".45"/></svg>
+  </i></div>
+  <div class="hd">
+    <h1>厨房圈</h1>
+    <a href="#" class="ib" aria-label="搜索"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg></a>
+    <a href="PostCreate.html" class="pub"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>发布</a>
+    <a href="Me.html" aria-label="我的"><img class="meav" src="img/avatar/xiaowang.svg" alt=""></a>
+  </div>
+  <div class="utab" role="tablist">
+    <a href="Community.html" role="tab" aria-selected="true">推荐</a>
+    <a href="#" role="tab">关注<span class="dot"></span></a>
+    <a href="Topic.html" role="tab">话题</a>
+    <a href="#" role="tab">同城</a>
+  </div>
+  <div class="scroll">
+  <div style="padding:14px 16px 110px;display:flex;flex-direction:column;gap:16px">
+    <a href="Topic.html" class="topic" aria-label="话题挑战：一周不重样">
+      <span class="mo"><img class="cover" src="img/dish/xiaoji-mogu.jpg" alt=""><img class="cover" src="img/dish/suanrong-xilanhua.jpg" alt=""><img class="cover" src="img/dish/tudou-niurou.jpg" alt=""></span>
+      <span class="sh"></span>
+      <span class="in">
+        <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;opacity:.92"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8M10 17h4"/></svg>本周话题挑战 · 第 3 周</span>
+        <span style="font-size:22px;font-weight:800;letter-spacing:.5px">#一周不重样</span>
+        <span style="font-size:12px;opacity:.9">2.1k 人参与 · 还剩 3 天 · 你已打卡 4 天</span>
+      </span>
+      <span class="go">去打卡</span>
+    </a>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="sec" style="margin:0"><b style="font-size:15px">关注的厨友刚更新</b><a href="#">全部 12</a></div>
+      <div class="fol"><a href="Post.html"><span class="r "><img src="img/avatar/c-chenchu.svg" alt=""></span>陈师傅</a><a href="Post.html"><span class="r "><img src="img/avatar/c-mimi.svg" alt=""></span>米米妈</a><a href="Post.html"><span class="r "><img src="img/avatar/c-tangtang.svg" alt=""></span>糖糖酱</a><a href="Post.html"><span class="r seen"><img src="img/avatar/laowang.svg" alt=""></span>老王</a><a href="Post.html"><span class="r seen"><img src="img/avatar/c-amay.svg" alt=""></span>阿May</a><a href="Post.html"><span class="r seen"><img src="img/avatar/ajie.svg" alt=""></span>阿杰</a></div>
+    </div>
+    <div class="mas"><div class="col"><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/qingzheng-luyu.jpg" alt="" style="height:214px"><span class="corner hot">照着做 128</span><span class="multi">1/3</span></span>
+      <span class="bd"><span class="tt">第一次做清蒸鲈鱼就成功了！火候和时间都记下来了</span><span class="au"><img src="img/avatar/c-tangtang.svg" alt=""><span>糖糖酱</span><b class="liked"><svg width="14" height="14" viewBox="0 0 24 24" fill="#DB5A4E" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>1.2k</b></span></span></a><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/suanla-tudousi.jpg" alt="" style="height:156px"></span>
+      <span class="bd"><span class="tt">下班 15 分钟搞定的酸辣土豆丝，脆到咔嚓响</span><span class="au"><img src="img/avatar/c-xiaoman.svg" alt=""><span>小满在做饭</span><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>432</b></span></span></a><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/youmen-daxia.jpg" alt="" style="height:196px"><span class="multi">1/4</span></span>
+      <span class="bd"><span class="tt">油焖大虾，周末犒劳一下自己</span><span class="au"><img src="img/avatar/c-amay.svg" alt=""><span>阿May的小厨房</span><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>978</b></span></span></a><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/pidan-zhou.jpg" alt="" style="height:170px"><span class="corner">#一周不重样</span></span>
+      <span class="bd"><span class="tt">一周不重样 Day 3：皮蛋瘦肉粥配葱油饼</span><span class="au"><img src="img/avatar/c-linayi.svg" alt=""><span>林阿姨家常菜</span><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>389</b></span></span></a><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/xiezi-niangao.jpg" alt="" style="height:180px"></span>
+      <span class="bd"><span class="tt">开海啦！梭子蟹炒年糕，年糕吸满蟹黄</span><span class="au"><img src="img/avatar/ajie.svg" alt=""><span>阿杰</span><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>702</b></span></span></a></div><div class="col"><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/nangua-geng.jpg" alt="" style="height:176px"><span class="corner">宝宝辅食</span></span>
+      <span class="bd"><span class="tt">1 岁半宝宝的牛奶南瓜羹，不加糖也很甜</span><span class="au"><img src="img/avatar/c-mimi.svg" alt=""><span>米米妈</span><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>856</b></span></span></a><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/hongshao-rou.jpg" alt="" style="height:230px"><span class="corner hot">照着做 562</span><span class="multi">1/6</span></span>
+      <span class="bd"><span class="tt">不放一滴水的红烧肉，跟我外婆学的</span><span class="au"><img src="img/avatar/c-chenchu.svg" alt=""><span>陈师傅</span><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>3.4k</b></span></span></a><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/mapo-doufu.jpg" alt="" style="height:164px"><span class="corner">控脂</span></span>
+      <span class="bd"><span class="tt">少油版麻婆豆腐，控脂期也能放心吃</span><span class="au"><img src="img/avatar/c-dabai.svg" alt=""><span>大白不胖</span><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>527</b></span></span></a><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/shanyao-ni.jpg" alt="" style="height:190px"><span class="corner">宝宝辅食</span></span>
+      <span class="bd"><span class="tt">蓝莓山药泥，颜值担当的宝宝点心</span><span class="au"><img src="img/avatar/c-mimi.svg" alt=""><span>米米妈</span><b class="liked"><svg width="14" height="14" viewBox="0 0 24 24" fill="#DB5A4E" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>641</b></span></span></a><a href="Post.html" class="pc"><span class="im"><img class="cover" src="img/dish/tangcu-paigu.jpg" alt="" style="height:170px"><span class="corner hot">照着做 309</span></span>
+      <span class="bd"><span class="tt">糖醋排骨的黄金比例：1 2 3 4 5</span><span class="au"><img src="img/avatar/laowang.svg" alt=""><span>老王</span><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>1.1k</b></span></span></a></div></div>
+  </div>
+  </div>
+  <nav class="gnav" aria-label="主导航">
+    <a href="Recipes.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h5v17H6a2 2 0 0 0-2 2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v17h5a2 2 0 0 1 2 2z"/></svg>菜谱</a>
+    <a href="Menus.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>食集</a>
+    <a href="Agent.html" class="fab"><span class="fabi"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16v1a7 7 0 0 1-7 7h-2a7 7 0 0 1-7-7z"/><path d="M2 12h20"/><circle cx="9" cy="7.2" r="1.5"/><circle cx="14" cy="5" r="2"/><circle cx="16.2" cy="9" r="1"/></svg><i>AI</i></span>咕嘟</a>
+    <a href="Community.html" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="16.8" cy="9.6" r="2.4"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M14.6 15.4A4.4 4.4 0 0 1 21 19.6"/></svg>厨房圈</a>
+    <a href="Pantry.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M6 10h12M9 6v1.5M9 13v3"/></svg>我家余量</a>
+  </nav>
+
+</div>
+</body>
+</html>

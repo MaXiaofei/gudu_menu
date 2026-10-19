@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -28,6 +29,12 @@ public class IngredientStock {
 
     /** ENOUGH 充足 / LOW 快用完 / NONE 没有。 */
     private String level;
+
+    /** 保质期（V64，可空）。今天到期 daysLeft=0。 */
+    private LocalDate bestBefore;
+
+    /** 开封/首次用了一些的时间（V64，可空）。 */
+    private LocalDateTime openedAt;
 
     private LocalDateTime updateTime;
 }

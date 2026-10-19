@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型导览 · 咕嘟小食单原型</title>
+<style>
+body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px;box-sizing:border-box;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif}
+a{color:#4A382A;text-decoration:none}a:hover{color:#B8622A}
+.page{width:1440px;box-sizing:border-box;padding:56px 72px 64px;background:#FDFAF4;display:flex;flex-direction:column;gap:36px;box-shadow:0 20px 60px rgba(74,56,42,.18)}
+.hero{display:grid;grid-template-columns:1fr 560px;gap:40px;align-items:center}
+.brand{display:flex;align-items:center;gap:12px}
+.brand img{width:52px;height:52px}
+.brand span{font-size:15px;font-weight:700;color:#6E5C49;letter-spacing:2px}
+h1{margin:20px 0 16px;font-size:38px;font-weight:900;line-height:1.3}
+.lead{font-size:16px;color:#6E5C49;line-height:1.7;max-width:560px}
+.meta{display:flex;align-items:center;gap:16px;margin-top:24px;flex-wrap:wrap;font-size:14px;color:#6E5C49}
+.cta{height:48px;padding:0 22px;border-radius:14px;background:#D17A3C;color:#fff!important;font-size:15px;font-weight:700;display:inline-flex;align-items:center;gap:8px;box-shadow:0 6px 16px rgba(169,101,30,.3)}
+.cta:hover{background:#C46F33}
+.pill{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.mosaic{display:grid;grid-template-columns:1.3fr 1fr 1fr;grid-template-rows:170px 170px;gap:10px}
+.mosaic div{border-radius:18px;overflow:hidden;position:relative;background:#FBF0DD}
+.mosaic div:first-child{grid-row:span 2}
+.mosaic img{width:100%;height:100%;object-fit:cover;display:block}
+.mosaic .lbl{position:absolute;left:10px;bottom:10px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.92);font-size:12px;font-weight:700;color:#4A382A}
+.float{position:absolute;right:14px;top:14px;padding:6px 10px;border-radius:10px;background:#fff;font-size:12px;font-weight:700;color:#2F7347;box-shadow:0 4px 14px rgba(74,56,42,.18)}
+.tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.tab{background:#fff;border:1px solid #F0E6D6;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.tab.hl{border:2px solid #D17A3C}
+.band{height:112px;background:#FBF0DD}
+.photos{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;gap:2px}
+.photos img{width:100%;height:100%;object-fit:cover;display:block;min-height:0}
+.photos img:first-child{grid-row:span 2}
+.ingband{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 12px;box-sizing:border-box}
+.ingband span{background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.ingband img{width:30px;height:30px}
+.meband{display:flex;align-items:center;gap:10px;padding:0 14px}.meband .avs img{width:34px;height:34px}
+.avs{display:inline-flex}.avs img{width:40px;height:40px;border-radius:999px;border:2px solid #fff;margin-left:-10px}.avs img:first-child{margin-left:0}
+.body{padding:16px 18px 20px;display:flex;flex-direction:column;gap:10px}
+.kicker{font-size:12px;font-weight:700;color:#8A5A22;letter-spacing:1px}
+.tt{font-size:20px;font-weight:700}
+.desc{font-size:13px;color:#6E5C49;line-height:1.6;min-height:42px}
+.links{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.box{background:#fff;border:1px solid #F0E6D6;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.box .hd{display:flex;align-items:center;gap:14px}
+.box .tt{font-size:18px}
+.box .row{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:14px}
+.sw{display:flex;gap:6px}.sw i{width:26px;height:26px;border-radius:8px;display:block;border:1px solid rgba(0,0,0,.05)}
+.flow{display:flex;align-items:center;gap:10px;font-size:14px;color:#6E5C49;flex-wrap:wrap;padding:18px 22px;border-radius:18px;background:#fff;border:1px solid #F0E6D6}
+.flow b{color:#4A382A;margin-right:6px}
+.step{display:inline-flex;align-items:center;gap:8px;padding:5px 14px 5px 5px;border-radius:999px;background:#FDFAF4;border:1px solid #F0E6D6;color:#4A382A;font-weight:500}
+.step img{width:30px;height:30px;border-radius:999px;object-fit:cover}
+.step img.ing{background:#FBF0DD;padding:3px;box-sizing:border-box}
+.step.end{background:#FBF0DD;border-color:#F6D9BE;color:#8A5A22;font-weight:700}
+.arrow{color:#C9B48F}
+.note{font-size:12px;color:#6E5C49}
+</style>
+</head>
+<body>
+<div class="page">
+  <section class="hero">
+    <div>
+      <div class="brand"><img src="img/extra/logo.svg" alt="咕嘟小食单"><span>咕嘟小食单 · 全端高保真原型</span></div>
+      <h1>一家人吃什么、家里剩什么、<br>买什么，在一张单子上说清楚</h1>
+      <div class="lead">覆盖 App、小程序与管理后台：菜谱、食集、咕嘟 Agent、厨房圈、我家余量五个 Tab，一句话就能查菜谱、排食集、做完回写；加上拍照识别、一周餐程、跟做模式，以及多家庭、隐私合规、Agent 可观测与评测等生产级能力。所有页面可点击跳转。</div>
+      <div class="meta">
+        <a class="cta" href="Architecture.html" style="background:#4A382A">技术架构 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="cta" href="all.html">全部画面一览 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <span>版本 2026-10 · 对应 OpenSpec 路线图 9 个 change</span>
+      </div>
+      <div class="meta" style="margin-top:14px;gap:8px">
+        <span class="pill" style="background:#FBF0DD;color:#8A5A22">现有功能</span>
+        <span class="pill" style="background:#E8F3FA;color:#2F6A8C">本轮补齐</span>
+        <span class="pill" style="background:#F0F8EE;color:#2F7347">生产级新增</span>
+        <span class="pill" style="background:#4A382A;color:#FFF7EC">AI 与社区</span>
+      </div>
+    </div>
+    <div class="mosaic">
+      <div><img src="img/dish/qingzheng-luyu.jpg" alt="清蒸鲈鱼"><span class="float">家里够 4/5 样</span><span class="lbl">清蒸鲈鱼 · 鲈鱼明天到期</span></div>
+      <div><img src="img/dish/huadan-xiaren.jpg" alt="滑蛋虾仁"><span class="lbl">滑蛋虾仁</span></div>
+      <div><img src="img/dish/hongshao-rou.jpg" alt="红烧肉"><span class="lbl">红烧肉</span></div>
+      <div><img src="img/dish/suanrong-xilanhua.jpg" alt="蒜蓉西兰花"><span class="lbl">蒜蓉西兰花</span></div>
+      <div><img src="img/dish/lianou-paigu.jpg" alt="莲藕排骨汤"><span class="lbl">莲藕排骨汤</span></div>
+    </div>
+  </section>
+
+  <section class="tabs">
+    <div class="tab">
+      <div class="band photos"><img src="img/dish/huadan-xiaren.jpg" alt=""><img src="img/dish/mapo-doufu.jpg" alt=""><img src="img/dish/kele-jichi.jpg" alt=""></div>
+      <div class="body">
+        <div class="kicker">TAB 1</div>
+        <div class="tt">菜谱</div>
+        <div class="desc">公共菜谱库 + 家庭私有，按「家里够几样」排序</div>
+        <div class="links">
+          <a href="Recipes.html">菜谱列表 · 覆盖率 →</a>
+          <a href="RecipeDetail.html">菜谱详情 · 现在就做 →</a>
+          <a href="CookSheet.html">做完确认 · 回写余量 →</a>
+          <a href="RecipeEdit.html">写菜谱 · 常用食材 →</a>
+        </div>
+      </div>
+    </div>
+    <div class="tab">
+      <div class="band photos"><img src="img/dish/qingzheng-luyu.jpg" alt=""><img src="img/dish/suanrong-xilanhua.jpg" alt=""><img src="img/dish/xihongshi-jidan-tang.jpg" alt=""></div>
+      <div class="body">
+        <div class="kicker">TAB 2</div>
+        <div class="tt">食集</div>
+        <div class="desc">一顿饭的工作区：菜 / 备菜 / 采购 / 一起吃</div>
+        <div class="links">
+          <a href="Menus.html">食集列表 →</a>
+          <a href="MenuDetail.html">食集详情 · 菜 →</a>
+          <a href="MenuPrep.html">备菜 · 共用食材 →</a>
+          <a href="MenuShop.html">采购 · 全量余量标记 →</a>
+          <a href="FriendPick.html">一起吃 · 好友点菜 →</a>
+        </div>
+      </div>
+    </div>
+    <div class="tab hl">
+      <div class="band photos"><img src="img/dish/qingzheng-luyu.jpg" alt=""><img src="img/dish/liangban-bocai.jpg" alt=""><img src="img/dish/jiachang-doufu.jpg" alt=""></div>
+      <div class="body">
+        <div class="kicker">TAB 3 · 中心 · AI</div>
+        <div class="tt">咕嘟</div>
+        <div class="desc">一句话查菜谱、排食集、做完回写；写操作先确认</div>
+        <div class="links">
+          <a href="Agent.html">咕嘟首屏 →</a>
+          <a href="AgentChat.html">对话 · 工具调用与确认卡 →</a>
+          <a href="AgentVoice.html">语音 · 做完回写 →</a>
+          <a href="Smart.html">全部推荐 →</a>
+        </div>
+      </div>
+    </div>
+    <div class="tab">
+      <div class="band photos"><img src="img/dish/kele-jichi.jpg" alt=""><img src="img/dish/tangcu-paigu.jpg" alt=""><img src="img/dish/nangua-geng.jpg" alt=""></div>
+      <div class="body">
+        <div class="kicker">TAB 4 · 社区</div>
+        <div class="tt">厨房圈</div>
+        <div class="desc">晒菜、照着做、话题挑战；食记一键分享</div>
+        <div class="links">
+          <a href="Community.html">Feed →</a>
+          <a href="Post.html">动态详情 · 照着做 →</a>
+          <a href="PostCreate.html">发布 · AI 帮写 →</a>
+          <a href="Topic.html">话题挑战 →</a>
+        </div>
+      </div>
+    </div>
+    <div class="tab">
+      <div class="band ingband"><span><img src="img/ing/fish.svg" alt=""></span><span><img src="img/ing/spinach.svg" alt=""></span><span><img src="img/ing/tofu.svg" alt=""></span><span><img src="img/ing/tomato.svg" alt=""></span><span><img src="img/ing/egg.svg" alt=""></span><span><img src="img/ing/broccoli.svg" alt=""></span><span><img src="img/ing/scallion.svg" alt=""></span><span><img src="img/ing/milk.svg" alt=""></span></div>
+      <div class="body">
+        <div class="kicker">TAB 5</div>
+        <div class="tt">我家余量</div>
+        <div class="desc">三档库存 + 保质期；拍冰箱 / 小票批量入库</div>
+        <div class="links">
+          <a href="Pantry.html">余量总览 →</a>
+          <a href="PantryAdd.html">入库 · 保质期 →</a>
+          <a href="Scan.html">拍照识别 →</a>
+          <a href="ScanResult.html">识别结果确认 →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="trio">
+    <div class="box" style="background:#FFF7EC">
+      <div class="hd"><span class="avs"><img src="img/dish/mapo-doufu.jpg" alt="" style="object-fit:cover"><img src="img/dish/qingzheng-luyu.jpg" alt="" style="object-fit:cover"></span><span class="tt">AI 做饭助手</span></div>
+      <div class="desc" style="min-height:0">按成员档案生成一周餐程并校验营养；跟做时大字步骤、语音「下一步」、多计时器。</div>
+      <div class="row">
+        <a href="WeekPlan.html">一周餐程 →</a>
+        <a href="Nutrition.html">营养报告 →</a>
+        <a href="CookMode.html">跟做模式 →</a>
+        <a href="CookLog.html">食记 →</a>
+      </div>
+    </div>
+    <div class="box">
+      <div class="hd"><span class="avs"><img src="img/avatar/xiaowang.svg" alt=""><img src="img/avatar/linlin.svg" alt=""><img src="img/avatar/mama.svg" alt=""></span><span class="tt">我的（右上角头像）</span></div>
+      <div class="desc" style="min-height:0">家庭、外观、反馈、隐私与账号、消息。</div>
+      <div class="row">
+        <a href="Me.html">我的 →</a>
+        <a href="Theme.html">主题外观 →</a>
+        <a href="Feedback.html">意见反馈 →</a>
+        <a href="Privacy.html">隐私与账号 →</a>
+        <a href="Notices.html">消息与邀请 →</a>
+      </div>
+    </div>
+    <div class="box" style="background:#4A382A;color:#FFF7EC;border-color:#4A382A">
+      <div class="hd"><img src="img/extra/logo.svg" alt="" style="width:40px;height:40px"><span class="tt">技术架构 · 面试讲解</span></div>
+      <div class="desc" style="min-height:0;color:#F2E6D6">系统总览、Agent 运行时、DDD 限界上下文、社区 Feed、质量体系。</div>
+      <div class="row">
+        <a href="Architecture.html" style="color:#FFD9B5">技术架构总览 →</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="trio">
+    <div class="box" style="background:#FFF7EC">
+      <div class="hd"><span class="avs"><img src="img/avatar/xiaowang.svg" alt=""><img src="img/avatar/laowang.svg" alt=""><img src="img/avatar/ajie.svg" alt=""></span><span class="tt">账号与家庭 · 多租户</span></div>
+      <div class="desc" style="min-height:0">一个账号可加入多个家庭并随时切换；角色分 OWNER / ADMIN / MEMBER；没有账号的家人以成员档案存在。</div>
+      <div class="row">
+        <a href="Login.html">登录 →</a>
+        <a href="FamilyOnboard.html">创建 / 加入家庭 →</a>
+        <a href="FamilySwitch.html">切换家庭 →</a>
+        <a href="FamilyMembers.html">成员与角色 →</a>
+      </div>
+    </div>
+    <div class="box">
+      <div class="hd"><img src="img/extra/avatar-admin.svg" alt="" style="width:40px;height:40px"><span class="tt">管理后台</span></div>
+      <div class="desc" style="min-height:0">运营看板、公共菜谱审核、营养数据审核、反馈、租户、AI 成本与系统健康，以及 Agent 调用链、评测与社区审核。</div>
+      <div class="row">
+        <a href="AdminDashboard.html">仪表盘 →</a>
+        <a href="AdminLibrary.html">菜谱库审核 →</a>
+        <a href="AdminNutrition.html">营养审核 →</a>
+        <a href="AdminFeedback.html">反馈 →</a>
+        <a href="AdminTenants.html">账号与家庭 →</a>
+        <a href="AdminAi.html">AI 用量 →</a>
+        <a href="AdminOps.html">系统健康 →</a>
+        <a href="AdminAgentTrace.html">Agent 调用链 →</a>
+        <a href="AdminAgentEval.html">Agent 评测 →</a>
+        <a href="AdminCommunity.html">社区审核 →</a>
+      </div>
+    </div>
+    <div class="box">
+      <div class="hd"><span class="sw"><i style="background:#E89150"></i><i style="background:#D17A3C"></i><i style="background:#FBF0DD"></i><i style="background:#7A9A5B"></i><i style="background:#E8E4D5"></i></span><span class="tt">设计系统与状态</span></div>
+      <div class="desc" style="min-height:0">皮肤由 tokens.json 生成到三端；所有页面共用加载、空、错误、限额四类状态。</div>
+      <div class="row">
+        <a href="Tokens.html">Token 与皮肤 →</a>
+        <a href="Components.html">组件与图片规范 →</a>
+        <a href="States.html">状态规范 →</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="flow">
+    <b>主链路</b>
+    <span class="step"><img src="img/dish/huadan-xiaren.jpg" alt="">菜谱</span>
+    <span class="arrow">→</span>
+    <span class="step"><img src="img/dish/qingzheng-luyu.jpg" alt="">食集</span>
+    <span class="arrow">→</span>
+    <span class="step"><img src="img/ing/broccoli.svg" alt="" class=ing>备菜 / 采购清单</span>
+    <span class="arrow">→</span>
+    <span class="step"><img src="img/dish/suanrong-xilanhua.jpg" alt="">做完确认</span>
+    <span class="arrow">→</span>
+    <span class="step"><img src="img/ing/egg.svg" alt="" class=ing>我家余量 + 食记</span>
+    <span class="arrow">→</span>
+    <span class="step end"><img src="img/ing/fish.svg" alt="" class="ing">咕嘟（临期先吃）</span>
+    <span class="arrow">→</span>
+    <span class="step"><img src="img/dish/kele-jichi.jpg" alt="">晒到厨房圈</span>
+  </section>
+  <div class="note">菜品照片取自现有公共菜谱库导入数据，仅用于本地原型演示；正式上线前需替换为有授权的图片。食材插画与头像为原型自绘。</div>
+</div>
+</body>
+</html>

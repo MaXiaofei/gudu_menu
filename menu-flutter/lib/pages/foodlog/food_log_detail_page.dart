@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/app_theme.dart';
 import '../../services/food_log_service.dart';
 import '../../widgets/loading_empty.dart';
+import '../community/post_create_page.dart';
 
 /// 食记单条详情（对齐 dailylog.html 单条详情）。
 ///
@@ -202,6 +203,22 @@ class _FoodLogDetailPageState extends State<FoodLogDetailPage> {
         const SizedBox(height: 6),
         Text('复制这 ${d.dishes.length} 道菜 + 份数到新食集，重新走一遍流程',
             style: t.textStyles.sm.copyWith(color: t.caption), textAlign: TextAlign.center),
+        const SizedBox(height: AppTokens.sp12),
+        // 晒到厨房圈（showcase-ai-community：传 fromFoodLogId，后端带入整顿饭的菜与图；不带家庭成员名与余量）
+        OutlinedButton.icon(
+          key: const Key('foodlog-share-community'),
+          onPressed: d.dishes.isEmpty
+              ? null
+              : () => context.push('/community/create',
+                  extra: PostDraftSeed(
+                    foodLogId: d.foodLogId,
+                    dishId: d.dishes.first.dishId,
+                    dishName: d.dishes.first.dishName,
+                    fromText: '${time.isEmpty ? '' : '$time '}做了 ${d.dishes.map((x) => x.dishName).join('、')}',
+                  )),
+          icon: const Icon(Icons.people_alt_outlined, size: 18),
+          label: const Text('晒到厨房圈'),
+        ),
       ],
     );
   }

@@ -1,5 +1,6 @@
 package com.gudu.xsd.modules.dict;
 
+import com.gudu.xsd.common.security.RequireAdmin;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gudu.xsd.common.PageQuery;
 import com.gudu.xsd.common.R;
@@ -29,12 +30,14 @@ public class DictController {
     }
 
     @PutMapping
+    @RequireAdmin
     public R<?> update(@RequestBody SysDict d) {
         svc.updateById(d);
         return R.ok(null);
     }
 
     @DeleteMapping("/{id}")
+    @RequireAdmin
     public R<?> del(@PathVariable Long id) {
         svc.removeById(id);
         return R.ok(null);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:menu_flutter/app.dart';
@@ -7,6 +8,7 @@ import 'package:menu_flutter/core/api_client.dart';
 import 'package:menu_flutter/core/theme_controller.dart';
 import 'package:menu_flutter/pages/dish/list_page.dart';
 import 'package:menu_flutter/pages/login_page.dart';
+import 'package:menu_flutter/pages/settings/legal_page.dart';
 import 'package:menu_flutter/stores/auth_store.dart';
 import '../helpers/mock_http.dart';
 
@@ -44,11 +46,17 @@ void main() {
     expect(find.byType(LoginPage), findsOneWidget);
     expect(find.byType(DishListPage), findsNothing);
 
-    // 2. 输入密码（用户名已预填 admin）
+    // 2. 输入用户名 + 密码（ff9b01d 起登录页不再预填 admin，避免弱口令泄露）
+    await tester.enterText(find.byType(TextField).at(0), 'admin');
     await tester.enterText(find.byType(TextField).at(1), '123456');
+    // 勾选《用户协议》《隐私政策》（G14：未勾选不能登录）
+    await tester.ensureVisible(find.byKey(const Key('login-agree')));
+    await tester.tap(find.byKey(const Key('login-agree')));
+    await tester.pump();
     await tester.pump();
 
     // 3. 点击登录
+    await tester.ensureVisible(find.text('登录'));
     await tester.tap(find.text('登录'));
     await tester.pumpAndSettle();
 
@@ -88,7 +96,12 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    await tester.enterText(find.byType(TextField).at(0), 'admin');
     await tester.enterText(find.byType(TextField).at(1), 'wrong');
+    await tester.ensureVisible(find.byKey(const Key('login-agree')));
+    await tester.tap(find.byKey(const Key('login-agree')));
+    await tester.pump();
+    await tester.ensureVisible(find.text('登录'));
     await tester.tap(find.text('登录'));
     await tester.pumpAndSettle();
 
@@ -118,8 +131,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // 清空预填的用户名
+    // 用户名留空（登录页无预填）
     await tester.enterText(find.byType(TextField).at(0), '');
+    await tester.ensureVisible(find.text('登录'));
     await tester.tap(find.text('登录'));
     await tester.pumpAndSettle();
 
@@ -128,5 +142,52 @@ void main() {
     expect(anyRequest, isFalse); // 前端校验拦截，未发请求
     // SnackBar 提示
     expect(find.text('请输入用户名和密码'), findsOneWidget);
+  });
+
+  testWidgets('未勾选协议 → 提示且不发请求', (tester) async {
+    var anyRequest = false;
+    installMock((options) {
+      anyRequest = true;
+      return okResponse({});
+    });
+
+    final auth = AuthStore();
+    await auth.init();
+    await tester.pumpWidget(MenuApp(
+      authStore: auth,
+      themeController: ThemeController(),
+      scaffoldKey: GlobalKey<ScaffoldMessengerState>(),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'admin');
+    await tester.enterText(find.byType(TextField).at(1), '123456');
+    await tester.ensureVisible(find.text('登录'));
+    await tester.tap(find.text('登录'));
+    await tester.pumpAndSettle();
+
+    expect(auth.isLoggedIn, isFalse);
+    expect(anyRequest, isFalse);
+    expect(find.text('请先阅读并同意《用户协议》和《隐私政策》'), findsOneWidget);
+  });
+
+  testWidgets('未登录点《用户协议》→ 打开协议页（redirect 白名单）', (tester) async {
+    installMock((_) => okResponse({}));
+    final auth = AuthStore();
+    await auth.init();
+    await tester.pumpWidget(MenuApp(
+      authStore: auth,
+      themeController: ThemeController(),
+      scaffoldKey: GlobalKey<ScaffoldMessengerState>(),
+    ));
+    await tester.pumpAndSettle();
+
+    // 未登录态直接进 /legal/terms，不应被 redirect 弹回登录页
+    final ctx = tester.element(find.byType(LoginPage));
+    GoRouter.of(ctx).push('/legal/terms');
+    await tester.pumpAndSettle();
+    expect(find.byType(LegalPage), findsOneWidget);
+    expect(find.text('用户协议'), findsWidgets);
+    expect(find.textContaining('运营主体'), findsWidgets);
   });
 }

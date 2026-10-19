@@ -1,8 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import zhCn from 'element-plus/es/locale/lang/zh-cn'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+// Element Plus 组件/指令由 unplugin-vue-components 按需引入（见 vite.config.ts）；
+// 样式仍整体引入一次，保证主题 CSS 变量覆盖与 ElMessage/ElMessageBox 等命令式组件样式完整。
 import 'element-plus/dist/index.css'
 import './styles/global.css'
 import App from './App.vue'
@@ -14,12 +13,6 @@ const pinia = createPinia()
 
 app.use(pinia)
 app.use(router)
-app.use(ElementPlus, { locale: zhCn })
-
-// 注册所有 Element Plus 图标
-for (const [key, comp] of Object.entries(ElementPlusIconsVue)) {
-  app.component(key, comp as never)
-}
 
 // 首屏应用记住的主题
 useThemeStore().apply(useThemeStore().current)

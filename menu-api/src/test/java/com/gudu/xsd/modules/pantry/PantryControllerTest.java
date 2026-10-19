@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gudu.xsd.common.PageQuery;
+import com.gudu.xsd.modules.pantry.application.StockAppService;
+import com.gudu.xsd.modules.pantry.application.dto.BestBeforeUpdate;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -30,6 +32,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -68,38 +71,70 @@ class PantryControllerTest {
     @MockBean
     private PantryService svc;
 
-    private final ObjectMapper om = new ObjectMapper().registerModule(new JavaTimeModule());
+    @MockBean
+    private StockAppService stockAppService;
 
-    private PantryVO vo(Long id, String name, BigDecimal amount, LocalDate expire) {
-        PantryVO v = new PantryVO();
-        v.setId(id);
-        v.setIngredientId(10L);
-        v.setIngredientName(name);
-        v.setAmount(amount);
-        // V55：unitName 随食材去单位删除
-        v.setExpireDate(expire);
-        // lowThreshold 已挪到 ingredient（V39），pantry 行不再带阈值
-        return v;
-    }
-
-    /** 分组项（listLow 现在返回 PantryGroupedVO.Item，V42 档位版）。 */
-    private PantryGroupedVO.Item lowItem(String name) {
-        PantryGroupedVO.Item it = new PantryGroupedVO.Item();
-        it.setIngredientId(10L);
-        it.setIngredientName(name);
-        it.setLevel("LOW");
-        return it;
+    @Test
+    void 设档位_不传bestBefore_保质期不改() throws Exception {
+        mvc.perform(put("/pantry/10/level").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"level\":\"LOW\",\"note\":\"改\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        verify(stockAppService).adjustLevel(10L, "LOW", BestBeforeUpdate.keep(), "改");
     }
 
     @Test
-    void 临期查询_返回VO数组() throws Exception {
-        given(svc.listExpiring(eq(3))).willReturn(List.of(
-                vo(1L, "牛奶", new BigDecimal("500"), LocalDate.of(2026, 6, 22))));
+    void 设档位_传bestBefore_设置保质期() throws Exception {
+        mvc.perform(put("/pantry/10/level").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"level\":\"ENOUGH\",\"bestBefore\":\"2026-10-20\"}"))
+                .andExpect(status().isOk());
+        verify(stockAppService).adjustLevel(10L, "ENOUGH", BestBeforeUpdate.set(LocalDate.of(2026, 10, 20)), null);
+    }
 
-        mvc.perform(get("/pantry/expiring").param("days", "3"))
+    @Test
+    void 设档位_bestBefore传null_清除保质期() throws Exception {
+        mvc.perform(put("/pantry/10/level").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"level\":\"ENOUGH\",\"bestBefore\":null}"))
+                .andExpect(status().isOk());
+        verify(stockAppService).adjustLevel(10L, "ENOUGH", BestBeforeUpdate.set(null), null);
+    }
+
+    @Test
+    void 手动入库_带bestBefore_入库后补登保质期() throws Exception {
+        given(svc.manualAdd(eq(10L), any(), eq("ENOUGH"), any())).willReturn(10L);
+        mvc.perform(post("/pantry/manual").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ingredientId\":10,\"level\":\"ENOUGH\",\"bestBefore\":\"2026-10-18\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data[0].ingredientName").value("牛奶"));
+                .andExpect(jsonPath("$.code").value(0));
+        verify(stockAppService).changeBestBefore(10L, LocalDate.of(2026, 10, 18));
+    }
+
+    @Test
+    void 手动入库_不带bestBefore_不改保质期() throws Exception {
+        given(svc.manualAdd(eq(10L), any(), any(), any())).willReturn(10L);
+        mvc.perform(post("/pantry/manual").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ingredientId\":10}"))
+                .andExpect(status().isOk());
+        verify(stockAppService, never()).changeBestBefore(any(), any());
+    }
+
+    @Test
+    void 分组列表_返回保质期与剩余天数() throws Exception {
+        PantryGroupedVO vo = new PantryGroupedVO();
+        vo.setSummary(new PantryGroupedVO.Summary());
+        PantryGroupedVO.Item it = new PantryGroupedVO.Item();
+        it.setIngredientId(10L);
+        it.setIngredientName("牛奶");
+        it.setLevel("ENOUGH");
+        it.setBestBefore(LocalDate.of(2026, 10, 18));
+        it.setDaysLeft(2);
+        vo.setItems(List.of(it));
+        given(svc.grouped(any(), any(), any(), any())).willReturn(vo);
+
+        mvc.perform(get("/pantry/grouped"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].bestBefore").value("2026-10-18"))
+                .andExpect(jsonPath("$.data.items[0].daysLeft").value(2));
     }
 
     @Test

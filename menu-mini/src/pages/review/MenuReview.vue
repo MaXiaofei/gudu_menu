@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 食集统一评价页：整体评价 + 逐道评价 -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">
@@ -128,7 +129,7 @@ function goBack() {
   padding: 0 14px;
 }
 .back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
@@ -137,7 +138,7 @@ function goBack() {
 .title {
   flex: 1;
   text-align: center;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
 }
@@ -154,8 +155,8 @@ function goBack() {
   padding: 10px 0 14px;
 }
 .head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.head-name { font-size: 16px; font-weight: 800; color: var(--title); }
-.head-sub { font-size: 11px; color: var(--caption); }
+.head-name { font-size: var(--fs-lg); font-weight: 800; color: var(--title); }
+.head-sub { font-size: var(--fs-xs); color: var(--caption); }
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -165,15 +166,15 @@ function goBack() {
   flex-direction: column;
   gap: 8px;
 }
-.card-title { font-size: 14px; font-weight: 800; color: var(--title); }
+.card-title { font-size: var(--fs-md); font-weight: 800; color: var(--title); }
 .reviewed-row { display: flex; align-items: center; gap: 10px; }
-.stars { font-size: 20px; color: var(--primary); }
-.reviewed { font-size: 12px; color: var(--success); font-weight: 700; }
-.dim-summary { font-size: 11px; color: var(--caption); }
-.not-reviewed { font-size: 13px; color: var(--caption); }
+.stars { font-size: var(--fs-h3); color: var(--primary); }
+.reviewed { font-size: var(--fs-sm); color: var(--success); font-weight: 700; }
+.dim-summary { font-size: var(--fs-xs); color: var(--caption); }
+.not-reviewed { font-size: var(--fs-md); color: var(--caption); }
 .btn-line { align-self: flex-start; }
 .btn-line-txt {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--primary);
   border: 1px solid var(--primary);
@@ -182,7 +183,7 @@ function goBack() {
 }
 .sec-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--caption);
   letter-spacing: 1px;
@@ -200,22 +201,22 @@ function goBack() {
 }
 .dish-cover { width: 40px; height: 40px; border-radius: var(--r-md); background: var(--secondary); }
 .dish-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.dish-name { font-size: 13px; font-weight: 700; color: var(--title); }
-.dish-star { font-size: 11px; color: var(--primary); }
-.dish-reviewed { color: var(--success); font-weight: 700; font-size: 10px; }
-.dish-none { font-size: 11px; color: var(--caption); }
+.dish-name { font-size: var(--fs-md); font-weight: 700; color: var(--title); }
+.dish-star { font-size: var(--fs-xs); color: var(--primary); }
+.dish-reviewed { color: var(--success); font-weight: 700; font-size: var(--fs-tiny); }
+.dish-none { font-size: var(--fs-xs); color: var(--caption); }
 .dish-btn {
   border: 1px solid var(--primary);
   border-radius: var(--r-pill);
   padding: 4px 12px;
 }
-.dish-btn-txt { font-size: 11px; font-weight: 700; color: var(--primary); }
+.dish-btn-txt { font-size: var(--fs-xs); font-weight: 700; color: var(--primary); }
 .tip-bar {
   margin-top: 16px;
   background: var(--highlight);
   border-radius: var(--r-sm);
   padding: 10px 12px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--body);
 }
 </style>

@@ -33,4 +33,12 @@ public class AiCallLog {
     private String status;
     private String errorMsg;
     private LocalDateTime createTime;
+    /** V73 模型网关：能力（非空 = 网关单次尝试行，不计入业务场景用量）。 */
+    private String capability;
+    /** V73 实际模型名。 */
+    private String model;
+    /** V73 成本（分，按调用时刻单价）。 */
+    private BigDecimal costFen;
+    /** V73 关联追踪 id。 */
+    private String traceId;
 }

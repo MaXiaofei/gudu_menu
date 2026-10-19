@@ -35,5 +35,8 @@ public class CookingRecord {
     /** 欠量明细（家里不够、没扣成的部分），格式 "ingredientId:克g;..."。V36 加。 */
     private String memo;
 
+    /** 来源领域事件 id（DishCookedEvent.eventId，V65）：同一次做菜的多条记录共享，幂等键。 */
+    private String eventId;
+
     private LocalDateTime createTime;
 }

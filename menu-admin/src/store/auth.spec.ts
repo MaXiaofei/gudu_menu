@@ -11,7 +11,7 @@ vi.mock('@/api/auth', () => ({
   me: (...args: any[]) => apiMe(...args),
 }))
 
-const { useAuthStore } = await import('./auth')
+const { useAuthStore, NoAdminPermissionError } = await import('./auth')
 
 describe('useAuthStore', () => {
   beforeEach(() => {
@@ -23,8 +23,8 @@ describe('useAuthStore', () => {
   })
 
   describe('login', () => {
-    it('成功 → 写 token/nickname 到 state 和 localStorage', async () => {
-      apiLogin.mockResolvedValue({ token: 'tok1', nickname: '张爸爸' })
+    it('成功 → 写 token/nickname/isAdmin 到 state 和 localStorage', async () => {
+      apiLogin.mockResolvedValue({ token: 'tok1', nickname: '张爸爸', isAdmin: true })
       const store = useAuthStore()
 
       await store.login({ username: 'admin', password: '123' })
@@ -33,14 +33,32 @@ describe('useAuthStore', () => {
       expect(store.nickname).toBe('张爸爸')
       expect(localStorage.getItem('gudu-token')).toBe('tok1')
       expect(localStorage.getItem('gudu-nickname')).toBe('张爸爸')
+      expect(store.isAdmin).toBe(true)
+      expect(localStorage.getItem('gudu-is-admin')).toBe('true')
     })
 
-    it('透传 dto 给 apiLogin', async () => {
-      apiLogin.mockResolvedValue({ token: 't', nickname: 'n' })
+    it('透传 dto 给 apiLogin，并固定带 scope=admin', async () => {
+      apiLogin.mockResolvedValue({ token: 't', nickname: 'n', isAdmin: true })
       const store = useAuthStore()
-      const dto = { username: 'u', password: 'p' }
-      await store.login(dto)
-      expect(apiLogin).toHaveBeenCalledWith(dto)
+      await store.login({ username: 'u', password: 'p' })
+      expect(apiLogin).toHaveBeenCalledWith({ username: 'u', password: 'p', scope: 'admin' })
+    })
+
+    it('返回 isAdmin!==true → 抛 NoAdminPermissionError 且不落登录态', async () => {
+      apiLogin.mockResolvedValue({ token: 't', nickname: 'n', isAdmin: false })
+      const store = useAuthStore()
+      await expect(store.login({ username: 'u', password: 'p' })).rejects.toBeInstanceOf(NoAdminPermissionError)
+      expect(store.token).toBe('')
+      expect(store.isAdmin).toBe(false)
+      expect(localStorage.getItem('gudu-token')).toBeNull()
+      expect(localStorage.getItem('gudu-is-admin')).toBeNull()
+    })
+
+    it('后端拒绝（无后台权限）→ 透传错误，不落登录态', async () => {
+      apiLogin.mockRejectedValue(new Error('无后台权限'))
+      const store = useAuthStore()
+      await expect(store.login({ username: 'u', password: 'p' })).rejects.toThrow('无后台权限')
+      expect(localStorage.getItem('gudu-token')).toBeNull()
     })
   })
 
@@ -52,9 +70,12 @@ describe('useAuthStore', () => {
       store.nickname = 'n'
       localStorage.setItem('gudu-token', 'tok')
       localStorage.setItem('gudu-nickname', 'n')
+      localStorage.setItem('gudu-is-admin', 'true')
 
       await store.logout()
 
+      expect(localStorage.getItem('gudu-is-admin')).toBeNull()
+      expect(store.isAdmin).toBe(false)
       expect(store.token).toBe('')
       expect(store.nickname).toBe('')
       expect(localStorage.getItem('gudu-token')).toBeNull()
@@ -93,7 +114,9 @@ describe('useAuthStore', () => {
     it('localStorage 有 token 时初始化恢复', () => {
       localStorage.setItem('gudu-token', 'restored')
       localStorage.setItem('gudu-nickname', 'restored-nick')
+      localStorage.setItem('gudu-is-admin', 'true')
       const store = useAuthStore()
+      expect(store.isAdmin).toBe(true)
       expect(store.token).toBe('restored')
       expect(store.nickname).toBe('restored-nick')
     })

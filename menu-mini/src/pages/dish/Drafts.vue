@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 草稿箱（左滑删除无确认，滑走即删） -->
   <view class="page">
     <ui-back-header />
@@ -134,7 +135,7 @@ function onTe(_e: TouchEvent, id: number) {
   right: 0;
   bottom: 0;
   width: 72px;
-  background: #E53935;
+  background: var(--error);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -144,7 +145,7 @@ function onTe(_e: TouchEvent, id: number) {
 .swipe-del.on {
   opacity: 1;
 }
-.swipe-del-txt { color: #FFFFFF; font-size: 13px; font-weight: 700; }
+.swipe-del-txt { color: var(--on-primary); font-size: var(--fs-md); font-weight: 700; }
 .row {
   position: relative;
   display: flex;
@@ -164,19 +165,19 @@ function onTe(_e: TouchEvent, id: number) {
   gap: 3px;
 }
 .name {
-  font-size: 14px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--title);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sub { font-size: 10px; color: var(--caption); }
-.go { font-size: 12px; color: var(--primary); font-weight: 700; }
+.sub { font-size: var(--fs-tiny); color: var(--caption); }
+.go { font-size: var(--fs-sm); color: var(--primary); font-weight: 700; }
 .footer {
   padding: 16px 0;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--caption);
 }
 </style>

@@ -1,21 +1,25 @@
 /**
  * 设计 token 的 JS 侧常量（CSS 变量见 App.vue）。
  * 用于 JS 动态取色（canvas 绘制、动态 style 绑定等）。
- * 权威定义对齐 menu-flutter/lib/core/app_theme.dart 的 AppTokens.cream。
+ * 权威定义对齐 menu-flutter/lib/core/app_theme.dart 的 AppTokens.cream / matcha。
  */
+import { palette } from './theme'
+
 export const T = {
-  primary: '#E89150',
-  primaryDeep: '#D17A3C',
-  primarySoft: '#F6D9BE',
-  secondary: '#FBF0DD',
-  accent: '#B8762E',
-  bg: '#FDFAF4',
-  card: '#FFFFFF',
-  border: '#F0E6D6',
-  title: '#4A382A',
-  body: '#6E5C49',
-  caption: '#9C8C7A',
-  highlight: '#FFF7EC',
+  // 主题相关色：跟随当前主题（奶油轻食 / 抹茶禅意，见 utils/theme.ts）
+  get primary() { return palette().primary },
+  get primaryDeep() { return palette().primaryDeep },
+  get primarySoft() { return palette().primarySoft },
+  get secondary() { return palette().secondary },
+  get accent() { return palette().accent },
+  get bg() { return palette().bg },
+  get card() { return palette().card },
+  get border() { return palette().border },
+  get title() { return palette().title },
+  get body() { return palette().body },
+  get caption() { return palette().caption },
+  get highlight() { return palette().highlight },
+  // 功能色：两套主题共享
   success: '#4FAE6E',
   warning: '#E5A938',
   warningText: '#B8860B',

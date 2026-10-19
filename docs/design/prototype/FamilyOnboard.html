@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>创建或加入家庭 · 咕嘟小食单原型</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px}
+body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}
+a{color:#B8622A;text-decoration:none}
+button,input,textarea{font-family:inherit;color:inherit}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px 0 30px;font-size:15px;font-weight:600;color:#4A382A}
+.sb svg{display:block}
+.top{display:flex;align-items:center;gap:8px;padding:2px 12px 8px;min-height:52px}
+.back{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#4A382A;flex-shrink:0}
+.ttl{flex:1;font-size:17px;font-weight:700}
+.h1{font-size:24px;font-weight:700}
+.card{flex-shrink:0;background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.sec{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.muted{font-size:12px;color:#6E5C49}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px;display:block}
+.av{border-radius:999px;display:block;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}
+.stack img{border:2px solid #FFFFFF;border-radius:999px;margin-left:-8px;display:block;background:#FBF0DD}
+.stack img:first-child{margin-left:0}
+.ph-img{object-fit:cover;display:block;flex-shrink:0;background:#FBF0DD}
+.btn{height:52px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 6px 16px rgba(169,101,30,.28);cursor:pointer}
+.ghost{height:52px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.chip{padding:7px 12px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:12px;color:#6E5C49;white-space:nowrap}
+.chip.on{background:#4A382A;color:#FFFFFF;border-color:#4A382A;font-weight:700}
+.tag{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.tag.ok{background:#F0F8EE;color:#2F7347}.tag.warn{background:#FFF7EC;color:#8A5A22;border:1px solid #F6D9BE}.tag.err{background:#DB5A4E;color:#FFFFFF}.tag.info{background:#E8F3FA;color:#2F6A8C}.tag.mute{background:#F5EEE2;color:#6E5C49}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.row+.row{border-top:1px solid #F3EBDD}
+.seg{display:flex;border-radius:9px;border:1px solid #F0E6D6;overflow:hidden;font-size:12px;background:#FFFFFF;flex-shrink:0}
+.seg span{padding:6px 9px;color:#6E5C49}
+.seg .ok{background:#4FAE6E;color:#FFFFFF;font-weight:700}.seg .warn{background:#E5A938;color:#4A382A;font-weight:700}.seg .err{background:#DB5A4E;color:#FFFFFF;font-weight:700}
+.lrow{display:flex;align-items:center;gap:12px;padding:0 14px;height:52px;color:#4A382A;font-size:15px}
+.lrow+.lrow{border-top:1px solid #F3EBDD}
+.lrow .ico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lrow .val{margin-left:auto;font-size:13px;color:#6E5C49;display:flex;align-items:center;gap:4px}
+.toggle{width:46px;height:28px;border-radius:999px;background:#4FAE6E;position:relative;flex-shrink:0;margin-left:auto}
+.toggle::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:999px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.off{background:#E8DCCB}.toggle.off::after{right:auto;left:3px}
+.dot{width:8px;height:8px;border-radius:999px;background:#DB5A4E;flex-shrink:0}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:84px;background:#FFFFFF;border-top:1px solid #F0E6D6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding-bottom:22px}
+.tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:500;color:#6E5C49}
+.tabbar a[aria-current]{color:#B8622A;font-weight:700}
+.tabbar .fab{justify-content:flex-end}
+.tabbar .fab span{width:50px;height:50px;margin-top:-24px;border-radius:999px;background:#D17A3C;border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(169,101,30,.4)}
+</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+</head>
+<body>
+<div class="ph">
+<div class="sb" aria-hidden="true"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0M4 7a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.5" stroke="currentColor" opacity=".45"/><rect x="2.5" y="2.5" width="15" height="7" rx="2" fill="currentColor"/><path d="M24.5 4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".45"/></svg></span></div>
+<div style="padding:8px 20px 0;display:flex;align-items:center;gap:10px">
+  <span style="display:flex;gap:6px;flex:1"><span style="flex:1;height:4px;border-radius:4px;background:#D17A3C"></span><span style="flex:1;height:4px;border-radius:4px;background:#D17A3C"></span><span style="flex:1;height:4px;border-radius:4px;background:#F0E6D6"></span></span>
+  <span class="muted" style="font-weight:600">第 2 步 / 共 3 步</span>
+</div>
+<div style="flex:1;overflow:hidden;padding:22px 20px 0;display:flex;flex-direction:column;gap:18px">
+  <div style="display:flex;align-items:center;gap:14px">
+    <span style="flex:1;display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:21px;font-weight:700;line-height:1.4">先有一个家，<br>菜谱和余量才有地方放</span>
+      <span style="font-size:13px;color:#6E5C49;line-height:1.6">家里的余量、食集和食记只在家庭内可见。公共菜谱库所有人都能看。</span>
+    </span>
+    <span style="position:relative;width:104px;height:104px;flex-shrink:0">
+      <span style="position:absolute;inset:0;border-radius:999px;background:#FBF0DD"></span>
+      <img class="ph-img" src="img/dish/xihongshi-jidan-tang.jpg" alt="" style="width:64px;height:64px;border-radius:999px;position:absolute;left:20px;top:22px;border:3px solid #fff;box-shadow:0 4px 12px rgba(169,101,30,.2)">
+      <img class="av" src="img/avatar/xiaowang.svg" alt="" width="36" height="36" style="width:36px;height:36px;position:absolute;left:-6px;top:4px;border:2px solid #fff">
+      <img class="av" src="img/avatar/linlin.svg" alt="" width="36" height="36" style="width:36px;height:36px;position:absolute;right:-6px;top:0;border:2px solid #fff">
+      <img class="av" src="img/avatar/duoduo.svg" alt="" width="32" height="32" style="width:32px;height:32px;position:absolute;right:4px;bottom:-4px;border:2px solid #fff">
+    </span>
+  </div>
+
+  <div class="card" style="padding:16px;display:flex;flex-direction:column;gap:14px;border:2px solid #D17A3C">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="width:44px;height:44px;border-radius:12px;background:#FBF0DD;color:#B8622A;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg></span>
+      <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:700">创建我的家庭</span><span class="muted">你将成为家庭主人（OWNER）</span></span>
+      <span style="width:22px;height:22px;border-radius:999px;background:#D17A3C;color:#fff;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>
+    </div>
+    <label style="display:flex;flex-direction:column;gap:6px"><span class="muted">家庭名称</span>
+      <input value="小王家的厨房" style="height:46px;border-radius:12px;border:1px solid #F0E6D6;padding:0 12px;font-size:15px;font-weight:600;background:#FDFAF4;outline:none"></label>
+    <div style="display:flex;flex-direction:column;gap:8px"><span class="muted">一起吃饭的人（可稍后添加）</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><span style="display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:13px"><img class="av" src="img/avatar/xiaowang.svg" alt="" width="26" height="26" style="width:26px;height:26px">我</span><span style="display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:13px"><img class="av" src="img/avatar/linlin.svg" alt="" width="26" height="26" style="width:26px;height:26px">妻子</span><span style="display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:13px"><img class="av" src="img/avatar/duoduo.svg" alt="" width="26" height="26" style="width:26px;height:26px">朵朵 · 宝宝辅食</span>
+        <button style="height:34px;padding:0 12px;border-radius:999px;border:1px dashed #D9C6A6;background:transparent;font-size:13px;color:#B8622A">+ 添加成员档案</button></div>
+      <span style="font-size:12px;color:#6E5C49;line-height:1.5">没有账号的家人以「成员档案」存在，用来记录忌口和份量。</span>
+    </div>
+  </div>
+
+  <div class="card" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="width:44px;height:44px;border-radius:12px;background:#E8F3FA;color:#2F6A8C;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l2 2M15 8l2 2"/></svg></span>
+      <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:700">用邀请码加入</span><span class="muted">向家人要 6 位邀请码，或直接点开他们发的邀请卡片</span></span>
+    </div>
+    <div aria-label="邀请码输入" style="display:flex;gap:8px"><span style="flex:1;height:48px;border-radius:12px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700">K</span><span style="flex:1;height:48px;border-radius:12px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700">7</span><span style="flex:1;height:48px;border-radius:12px;background:#FFFFFF;border:2px solid #D17A3C;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700"><span style='width:2px;height:22px;background:#D17A3C'></span></span><span style="flex:1;height:48px;border-radius:12px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700"></span><span style="flex:1;height:48px;border-radius:12px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700"></span><span style="flex:1;height:48px;border-radius:12px;background:#FFFFFF;border:1px solid #F0E6D6;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700"></span></div>
+  </div>
+</div>
+<div style="padding:12px 20px 34px"><button class="btn" style="width:100%">创建家庭，开始使用</button></div>
+</div>
+</body>
+</html>

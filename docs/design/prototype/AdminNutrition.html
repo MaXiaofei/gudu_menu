@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>食材营养审核 · 咕嘟小食单原型</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <span class="brand"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg>小食单后台</span>
+    <a href="AdminDashboard.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">仪表盘</span></a>
+    <a href="AdminLibrary.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h5v17H6a2 2 0 0 0-2 2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v17h5a2 2 0 0 1 2 2z"/></svg><span class="lbl">公共菜谱库</span><span class="badge">12</span></a>
+    <a href="AdminNutrition.html" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21c-5 0-8-4-8-9 0-4 3-6 5-6 1.5 0 2.2.6 3 .6s1.5-.6 3-.6c2 0 5 2 5 6 0 5-3 9-8 9z"/><path d="M12 6c0-2 1-3 3-3"/></svg><span class="lbl">食材与营养</span><span class="badge">37</span></a>
+    <a href="AdminFeedback.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/></svg><span class="lbl">意见反馈</span><span class="badge">3</span></a>
+    <a href="AdminTenants.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg><span class="lbl">账号与家庭</span></a>
+    <a href="AdminAi.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span class="lbl">AI 用量与限额</span></a>
+    <a href="AdminOps.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span class="lbl">系统健康</span></a>
+    <span class="group">Agent 与社区</span>
+    <a href="AdminAgentTrace.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h7"/><path d="M8 12h9"/><path d="M12 18h8"/><circle cx="4" cy="6" r="0.5"/></svg><span class="lbl">Agent 调用链</span></a>
+    <a href="AdminAgentEval.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L5 19a1.5 1.5 0 0 0 1.3 2h11.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7.5 15h9"/></svg><span class="lbl">Agent 评测</span></a>
+    <a href="AdminCommunity.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span class="lbl">社区审核</span><span class="badge">12</span></a>
+    <span class="group">基础数据</span>
+    <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="lbl">字典与标签</span></a>
+    <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg><span class="lbl">单位换算</span></a>
+    <span class="foot"><img src="img/extra/avatar-admin.svg" alt=""><span style="display:flex;flex-direction:column;gap:2px"><b>admin</b><span style="font-size:11px;opacity:.85">超级管理员</span></span></span>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div><h1>食材与营养</h1><div class="sub">每 100 克可食部分；AI 估算的数据必须人工核对后才会用于菜谱营养和特殊人群标记</div></div>
+      <div class="toolbar"><button class="btn">导出 CSV</button><button class="btn primary">新建食材</button></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><span>食材总数</span><b>2,904</b></div>
+      <div class="kpi"><span>已核对</span><b style="color: var(--ok)">2,611</b></div>
+      <div class="kpi"><span>AI 估算待核对</span><b style="color: var(--warn)">37</b></div>
+      <div class="kpi"><span>缺营养数据</span><b style="color: var(--err)">256</b></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="seg"><span>全部</span><span class="on">待核对 37</span><span>缺数据 256</span><span>已核对</span></div>
+      <input class="input" placeholder="搜食材" aria-label="搜食材" style="width: 200px">
+      <select class="input" aria-label="品类"><option>全部品类</option><option>蔬菜</option><option>肉禽蛋</option><option>水产</option></select>
+      <span style="flex: 1"></span>
+      <button class="btn">对缺数据的 AI 补全（今日剩 180 次）</button>
+    </div>
+
+    <div class="row" style="align-items: flex-start">
+      <div class="card" style="flex: 3 1 560px; min-width: 0; padding: 6px 8px">
+        <div class="tablewrap">
+          <table style="min-width: 600px">
+            <thead><tr><th>食材</th><th>热量<div class="muted" style="font-weight:400">kcal</div></th><th>蛋白质<div class="muted" style="font-weight:400">g</div></th><th>脂肪<div class="muted" style="font-weight:400">g</div></th><th>钠<div class="muted" style="font-weight:400">mg</div></th><th>状态</th><th>保质参考</th></tr></thead>
+            <tbody>
+              <tr style="background: var(--highlight)"><td><span class="cell"><span class="ing"><img src="img/ing/fish.svg" alt=""></span><span><b>鲈鱼</b><div class="muted">水产</div></span></span></td><td>105</td><td>18.6</td><td>3.4</td><td>144</td><td><span class="tag warn">AI 估算 · 待核对</span></td><td>冷藏 2 天</td></tr>
+              <tr><td><span class="cell"><span class="ing"><img src="img/ing/broccoli.svg" alt=""></span><span><b>西兰花</b><div class="muted">蔬菜</div></span></span></td><td>36</td><td>4.1</td><td>0.6</td><td>18</td><td><span class="tag warn">AI 估算 · 待核对</span></td><td>冷藏 5 天</td></tr>
+              <tr><td><span class="cell"><span class="ing"><img src="img/ing/tofu.svg" alt=""></span><span><b>北豆腐</b><div class="muted">豆制品</div></span></span></td><td>116</td><td>12.2</td><td>4.8</td><td>7</td><td><span class="tag ok">已核对 · 中国食物成分表</span></td><td>冷藏 3 天</td></tr>
+              <tr><td><span class="cell"><span class="ing"><img src="img/ing/sauce.svg" alt=""></span><span><b>蒸鱼豉油</b><div class="muted">调料</div></span></span></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="tag err">缺数据</span></td><td>常温 365 天</td></tr>
+              <tr><td><span class="cell"><span class="ing"><img src="img/ing/tissue.svg" alt=""></span><span><b>抽纸</b><div class="muted">生活用品</div></span></span></td><td colspan="4" class="muted">非食用，不计营养</td><td><span class="tag mute">不适用</span></td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="flex: 0 1 400px; min-width: 320px; display: flex; flex-direction: column; gap: 14px">
+        <div class="cell"><span class="ing lg"><img src="img/ing/fish.svg" alt=""></span><span style="flex: 1"><div style="font-size: 18px; font-weight: 700">核对：鲈鱼</div><div class="muted">水产 · 别名 七星鲈、海鲈</div></span><span class="tag warn">AI 估算</span></div>
+        <div style="padding: 10px 12px; border-radius: 10px; background: var(--info-bg); color: var(--info); font-size: 12px; line-height: 1.6">AI 估算，请对照权威来源核对后保存。保存即记为「已核对」，并记录核对人。</div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <label style="display: flex; flex-direction: column; gap: 4px"><span class="label">热量 kcal</span><input class="input" value="105"></label>
+          <label style="display: flex; flex-direction: column; gap: 4px"><span class="label">蛋白质 g</span><input class="input" value="18.6"></label>
+          <label style="display: flex; flex-direction: column; gap: 4px"><span class="label">脂肪 g</span><input class="input" value="3.4"></label>
+          <label style="display: flex; flex-direction: column; gap: 4px"><span class="label">碳水 g</span><input class="input" value="0"></label>
+          <label style="display: flex; flex-direction: column; gap: 4px"><span class="label">钠 mg</span><input class="input" value="144" style="border-color: var(--primary-deep)"></label>
+          <label style="display: flex; flex-direction: column; gap: 4px"><span class="label">胆固醇 mg</span><input class="input" value="86"></label>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 4px"><span class="label">数据来源</span><select class="input"><option>中国食物成分表（第 6 版）</option><option>USDA</option><option>包装标签</option></select></label>
+        <label style="display: flex; flex-direction: column; gap: 4px"><span class="label">冷藏保质参考（天）</span><input class="input" value="2"></label>
+        <div style="display: flex; flex-direction: column; gap: 8px"><span class="muted">影响：被 214 道菜谱引用；钠含量会影响「适合高血压」标记</span><span class="cell" style="gap: 8px"><img class="thumb" src="img/dish/qingzheng-luyu.jpg" alt="" style="width: 36px; height: 36px"><img class="thumb" src="img/dish/naibai-jiyu-tang.jpg" alt="" style="width: 36px; height: 36px"><img class="thumb" src="img/dish/jiyu-doufu-tang.jpg" alt="" style="width: 36px; height: 36px"><span class="muted">清蒸鲈鱼 等 214 道</span></span></div>
+        <div class="toolbar" style="justify-content: flex-end"><button class="btn">跳过</button><button class="btn primary">核对无误，保存</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

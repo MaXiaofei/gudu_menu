@@ -1,54 +1,73 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
-    <ui-action-bar>
-      <!-- 新建食集（筛选条上方独立一行，右侧对齐） -->
-      <view class="bar-col">
-        <view class="new-btn" @click="openCreate">新建食集</view>
-        <!-- 筛选条（全部/进行中/已完成） -->
-        <view class="filter-row">
-          <view class="fchip" :class="{ on: status === '' }" @click="switchStatus('')">全部 {{ loadedCount }}</view>
-          <view class="fchip" :class="{ on: status === 'ACTIVE' }" @click="switchStatus('ACTIVE')">进行中 {{ activeCount }}</view>
-          <view class="fchip" :class="{ on: status === 'DONE' }" @click="switchStatus('DONE')">已完成 {{ doneCount }}</view>
-        </view>
-      </view>
-    </ui-action-bar>
+    <ui-tab-header title="食集">
+      <view class="new-btn" @click="openCreate"><ui-icon name="plus" tone="white" :size="14" /><text class="new-txt">新食集</text></view>
+      <ui-me-avatar />
+    </ui-tab-header>
 
-    <!-- 列表 -->
+    <ui-offline-bar />
+    <view class="filter-row">
+      <view class="fchip" :class="{ on: status === '' }" @click="switchStatus('')">全部</view>
+      <view class="fchip" :class="{ on: status === 'ACTIVE' }" @click="switchStatus('ACTIVE')">进行中 {{ activeCount }}</view>
+      <view class="fchip" :class="{ on: status === 'DONE' }" @click="switchStatus('DONE')">已完成 {{ doneCount }}</view>
+    </view>
+
     <view class="list">
-      <view v-for="m in menus" :key="m.id" class="swipe-wrap">
+      <!-- 进行中主卡 -->
+      <active-menu-card v-if="current" :menu="current" :dishes="dishesOf(current.id)" @tap="onTapCard(current)" />
+
+      <!-- AI 一周餐程入口（周一至周日） -->
+      <view class="plan-card" data-testid="go-weekplan" @click="goWeekPlan">
+        <view class="plan-ic"><ui-icon name="calendar" tone="white" :size="22" /></view>
+        <view class="plan-main">
+          <text class="plan-title">让咕嘟排下周 7 天</text>
+          <text class="plan-sub">{{ planRange }} · 按家人档案排，顺手用掉快到期的</text>
+        </view>
+        <text class="plan-go">AI 排餐 ›</text>
+      </view>
+
+      <text v-if="rest.length" class="sec-label">{{ current ? '接下来 · 其他食集' : '全部食集' }}</text>
+      <view v-for="m in rest" :key="m.id" class="swipe-wrap">
         <view class="swipe-del" :class="{ on: (offsets[m.id] || 0) < 0 }" @click.stop="confirmDelete(m)">
           <text class="swipe-del-txt">删除</text>
         </view>
         <view
           class="card"
-          :class="{ highlight: m.status !== 'DONE' }"
+          :class="{ done: m.status === 'DONE' }"
           :style="{ transform: `translateX(${offsets[m.id] || 0}px)` }"
           @touchstart="onTs($event, m.id)"
           @touchmove="onTm($event, m.id)"
           @touchend="onTe($event, m.id)"
           @click="onTapCard(m)"
         >
-          <view class="row1">
+          <view class="date">
+            <text class="date-w">{{ weekOf(m.createTime) }}</text>
+            <text class="date-d">{{ dayOf(m.createTime) }}</text>
+          </view>
+          <view class="info">
             <text class="name">{{ m.name }}</text>
-            <view class="pill" :class="m.status === 'DONE' ? 'done' : 'active'">
-              {{ m.status === 'DONE' ? '已完成' : '进行中' }}
-            </view>
+            <text class="meta">{{ m.dishCount ?? 0 }} 道菜 · {{ m.servingCount ?? 1 }} 人份 · {{ m.status === 'DONE' ? '已完成' : '进行中' }}</text>
           </view>
-          <view class="row2">
-            <text class="meta">{{ m.dishCount ?? 0 }} 道菜</text>
-            <text class="meta spacer">{{ m.servingCount ?? 1 }} 人份 · {{ relativeDate(m.createTime) }}</text>
-          </view>
+          <ui-thumb-stack :items="dishesOf(m.id)" />
         </view>
       </view>
 
       <view v-if="!firstLoading && menus.length" class="footer">
         {{ hasMore ? '上拉加载更多' : '没有更多了' }}
       </view>
-      <ui-state v-if="!firstLoading && !menus.length" mode="empty" text="还没有食集" />
+      <ui-state
+        v-if="!firstLoading && !menus.length"
+        mode="empty"
+        text="还没有食集"
+        hint="一顿饭建一个食集：选菜、备菜、采购都在里面"
+        action-text="新建食集"
+        :illus="['rice', 'egg', 'broccoli']"
+        @action="openCreate"
+      />
       <ui-state v-if="firstLoading" mode="loading" />
     </view>
 
-    <!-- 新建食集弹窗 -->
     <view v-if="dialogVisible" class="mask" @click="dialogVisible = false">
       <view class="dialog" @click.stop>
         <text class="dialog-title">新建食集</text>
@@ -70,10 +89,14 @@
 </template>
 
 <script setup lang="ts">
+import { PAGES } from '@/utils/nav'
+import { defaultPlanWeekStart, weekRangeLabel } from '@/utils/week'
 import { ref, computed, reactive } from 'vue'
+import { useSwipe } from '@/composables/useSwipe'
+import ActiveMenuCard from './parts/ActiveMenuCard.vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
-import { listMenus, createMenu, deleteMenu, type Menu } from '@/api/menu'
-import { relativeDate } from '@/utils/datetime'
+import { listMenus, createMenu, deleteMenu, menuDetail, type Menu } from '@/api/menu'
+import { parseDate } from '@/utils/datetime'
 
 const menus = ref<Menu[]>([])
 const status = ref('')
@@ -85,12 +108,38 @@ const firstLoading = ref(true)
 const dialogVisible = ref(false)
 const newName = ref('')
 
-const offsets = reactive<Record<number, number>>({})
-let touchStartX = 0
-let touchStartY = 0
-let touching = false
+const { offsets, onTs, onTm, onTe, reset: resetSwipe } = useSwipe()
 
-const loadedCount = computed(() => menus.value.length)
+// 食集 → 菜（封面拼图用；详情按需拉取并缓存）
+const covers = reactive<Record<number, { cover?: string | null; name?: string | null }[]>>({})
+function dishesOf(id: number) {
+  return covers[id] || []
+}
+async function loadCovers(list: Menu[]) {
+  await Promise.all(
+    list
+      .filter((m) => !covers[m.id] && (m.dishCount ?? 1) > 0)
+      .slice(0, 12)
+      .map((m) =>
+        menuDetail(m.id)
+          .then((d) => (covers[m.id] = d.dishes.map((x) => ({ cover: x.coverUrl, name: x.dishName || x.customName }))))
+          .catch(() => {}),
+      ),
+  )
+}
+
+const current = computed(() => (status.value === 'DONE' ? null : menus.value.find((m) => m.status !== 'DONE') || null))
+const rest = computed(() => menus.value.filter((m) => m.id !== current.value?.id))
+const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+function weekOf(s?: string | null) {
+  const d = parseDate(s)
+  return d ? WEEK[d.getDay()] : ''
+}
+function dayOf(s?: string | null) {
+  const d = parseDate(s)
+  return d ? String(d.getDate()) : '-'
+}
+
 const activeCount = computed(() => menus.value.filter((m) => m.status !== 'DONE').length)
 const doneCount = computed(() => menus.value.filter((m) => m.status === 'DONE').length)
 
@@ -113,7 +162,8 @@ async function reload() {
   firstLoading.value = true
   menus.value = await fetch(1)
   firstLoading.value = false
-  Object.keys(offsets).forEach((k) => delete offsets[Number(k)])
+  resetSwipe()
+  loadCovers(menus.value)
 }
 
 onPullDownRefresh(async () => {
@@ -127,6 +177,7 @@ onReachBottom(async () => {
   page.value += 1
   menus.value.push(...list)
   loading.value = false
+  loadCovers(list)
 })
 
 function switchStatus(s: string) {
@@ -167,7 +218,7 @@ function confirmDelete(m: Menu) {
     title: '删除食集',
     content: `确认删除食集「${m.name}」？该操作不可撤销。`,
     confirmText: '删除',
-    confirmColor: '#DB5A4E',
+    confirmColor: '#DB5A4E', // showModal 只收色值字面量
     success: async ({ confirm }) => {
       if (!confirm) {
         offsets[m.id] = 0
@@ -185,24 +236,10 @@ function confirmDelete(m: Menu) {
   })
 }
 
-// ---- 左滑手势 ----
-function onTs(e: TouchEvent, id: number) {
-  touchStartX = e.touches[0].clientX
-  touchStartY = e.touches[0].clientY
-  touching = true
-}
-function onTm(e: TouchEvent, id: number) {
-  if (!touching) return
-  const dx = e.touches[0].clientX - touchStartX
-  const dy = Math.abs(e.touches[0].clientY - touchStartY)
-  if (dy > 12) return
-  const base = offsets[id] || 0
-  offsets[id] = Math.min(0, Math.max(-72, base + dx))
-}
-function onTe(_e: TouchEvent, id: number) {
-  touching = false
-  const cur = offsets[id] || 0
-  offsets[id] = cur < -36 ? -72 : 0
+
+const planRange = weekRangeLabel(defaultPlanWeekStart())
+function goWeekPlan() {
+  uni.navigateTo({ url: PAGES.weekPlan })
 }
 </script>
 
@@ -211,47 +248,97 @@ function onTe(_e: TouchEvent, id: number) {
   min-height: 100vh;
   background: var(--bg);
 }
-.bar-col {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-.filter-row {
-  width: 100%;
+.new-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: var(--primary-deep);
+  box-shadow: 0 4px 12px rgba(var(--sh), 0.3);
+}
+.new-txt {
+  color: var(--on-primary);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.filter-row {
+  display: flex;
+  gap: var(--space-sm);
+  padding: 0 var(--space-lg) var(--space-md);
 }
 .fchip {
-  padding: 4px 9px;
-  border-radius: var(--r-sm);
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--body);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .fchip.on {
   background: var(--title);
   border-color: var(--title);
-  color: #FFFFFF;
-}
-.new-btn {
-  padding: 5px 12px;
-  border-radius: var(--r-pill);
-  background: var(--primary);
-  color: #FFFFFF;
-  font-size: 10px;
+  color: var(--on-primary);
   font-weight: 700;
 }
 .list {
-  padding: 0 12px 16px;
+  padding: 0 var(--space-lg) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.plan-card {
+  margin-bottom: var(--space-md);
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--primary-soft);
+  background: linear-gradient(120deg, var(--highlight), var(--secondary));
+}
+.plan-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--primary-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.plan-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.plan-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--title);
+}
+.plan-sub {
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.plan-go {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.sec-label {
+  margin-top: var(--space-sm);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--body);
+  letter-spacing: 1px;
 }
 .swipe-wrap {
   position: relative;
-  margin-bottom: 7px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-lg);
   overflow: hidden;
 }
 .swipe-del {
@@ -260,7 +347,7 @@ function onTe(_e: TouchEvent, id: number) {
   right: 0;
   bottom: 0;
   width: 72px;
-  background: #E53935;
+  background: var(--error);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -271,73 +358,75 @@ function onTe(_e: TouchEvent, id: number) {
   opacity: 1;
 }
 .swipe-del-txt {
-  color: #FFFFFF;
-  font-size: 13px;
+  color: var(--on-primary);
+  font-size: var(--fs-md);
   font-weight: 700;
 }
 .card {
   position: relative;
-  padding: 11px;
-  border-radius: var(--r-md);
-  background: var(--card);
-  border: 1px solid var(--border);
-  transition: transform 0.15s ease-out;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.card.highlight {
-  background: var(--highlight);
-  border: 1.5px solid var(--primary-soft);
-}
-.row1 {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  transition: transform 0.15s ease-out;
+}
+.card.done {
+  background: var(--bg);
+}
+.date {
+  width: 44px;
+  height: 48px;
+  border-radius: var(--r-md);
+  background: var(--secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.date-w {
+  font-size: var(--fs-tiny);
+  color: var(--body);
+}
+.date-d {
+  font-size: var(--fs-h3);
+  font-weight: 800;
+  color: var(--title);
+  line-height: 1.1;
+}
+.info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 .name {
-  flex: 1;
-  font-size: 14px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pill {
-  padding: 2px 8px;
-  border-radius: var(--r-pill);
-  font-size: 10px;
-  font-weight: 700;
-  color: #FFFFFF;
-}
-.pill.active {
-  background: var(--warning);
-}
-.pill.done {
-  background: var(--success);
-}
-.row2 {
-  display: flex;
-  align-items: center;
-}
 .meta {
-  font-size: 10px;
-  color: var(--caption);
-}
-.spacer {
-  margin-left: auto;
+  font-size: var(--fs-sm);
+  color: var(--body);
 }
 .footer {
-  padding: 16px 0;
+  padding: var(--space-lg) 0;
   text-align: center;
-  font-size: 12px;
-  color: var(--caption);
+  font-size: var(--fs-sm);
+  color: var(--body);
 }
-/* 弹窗 */
 .mask {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 100;
 }
@@ -353,7 +442,7 @@ function onTe(_e: TouchEvent, id: number) {
   z-index: 110;
 }
 .dialog-title {
-  font-size: 16px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
 }
@@ -361,7 +450,7 @@ function onTe(_e: TouchEvent, id: number) {
   margin-top: 14px;
   border-bottom: 1px solid var(--border);
   padding: 8px 2px;
-  font-size: 14px;
+  font-size: var(--fs-md);
   color: var(--title);
 }
 .dialog-actions {
@@ -371,12 +460,12 @@ function onTe(_e: TouchEvent, id: number) {
   margin-top: 10px;
 }
 .dialog-btn {
-  font-size: 14px;
-  color: var(--caption);
+  font-size: var(--fs-md);
+  color: var(--body);
   padding: 6px 4px;
 }
 .dialog-btn.primary {
-  color: var(--primary);
+  color: var(--primary-deep);
   font-weight: 700;
 }
 .ph {

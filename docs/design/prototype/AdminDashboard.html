@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理后台 · 仪表盘 · 咕嘟小食单原型</title>
+<link rel="stylesheet" href="admin.css">
+<style>
+.chart{height:220px;display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:8px;align-items:end;border-bottom:1px solid var(--border);padding-bottom:2px;background:repeating-linear-gradient(to top,transparent 0,transparent 54px,#F6EFE4 54px,#F6EFE4 55px)}
+.chart .b{display:flex;gap:2px;align-items:end;height:100%}
+.chart .b i{flex:1;border-radius:4px 4px 0 0;display:block}
+.chart .b:nth-last-child(2) i:first-child{background:#D17A3C!important}
+.todo{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;color:var(--title);border:1px solid var(--border);background:#fff}
+.todo:hover{border-color:var(--primary-soft);color:var(--title)}
+.todo .ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.todo b.n{font-size:22px}
+.dishes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.dish{display:flex;flex-direction:column;gap:4px}
+.dish b{font-size:15px;margin-top:6px}
+.rank{box-shadow:0 1px 4px rgba(0,0,0,.25);position:absolute;left:10px;top:10px;width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.92);color:var(--title);font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center}
+.kpi .d{font-size:12px;font-weight:700}
+.kpi .ki{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <span class="brand"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg>小食单后台</span>
+    <a href="AdminDashboard.html" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">仪表盘</span></a>
+    <a href="AdminLibrary.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h5v17H6a2 2 0 0 0-2 2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v17h5a2 2 0 0 1 2 2z"/></svg><span class="lbl">公共菜谱库</span><span class="badge">12</span></a>
+    <a href="AdminNutrition.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21c-5 0-8-4-8-9 0-4 3-6 5-6 1.5 0 2.2.6 3 .6s1.5-.6 3-.6c2 0 5 2 5 6 0 5-3 9-8 9z"/><path d="M12 6c0-2 1-3 3-3"/></svg><span class="lbl">食材与营养</span><span class="badge">37</span></a>
+    <a href="AdminFeedback.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/></svg><span class="lbl">意见反馈</span><span class="badge">3</span></a>
+    <a href="AdminTenants.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg><span class="lbl">账号与家庭</span></a>
+    <a href="AdminAi.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span class="lbl">AI 用量与限额</span></a>
+    <a href="AdminOps.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span class="lbl">系统健康</span></a>
+    <span class="group">Agent 与社区</span>
+    <a href="AdminAgentTrace.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h7"/><path d="M8 12h9"/><path d="M12 18h8"/><circle cx="4" cy="6" r="0.5"/></svg><span class="lbl">Agent 调用链</span></a>
+    <a href="AdminAgentEval.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L5 19a1.5 1.5 0 0 0 1.3 2h11.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7.5 15h9"/></svg><span class="lbl">Agent 评测</span></a>
+    <a href="AdminCommunity.html"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span class="lbl">社区审核</span><span class="badge">12</span></a>
+    <span class="group">基础数据</span>
+    <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="lbl">字典与标签</span></a>
+    <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg><span class="lbl">单位换算</span></a>
+    <span class="foot"><img src="img/extra/avatar-admin.svg" alt=""><span style="display:flex;flex-direction:column;gap:2px"><b>admin</b><span style="font-size:11px;opacity:.85">超级管理员</span></span></span>
+  </aside>
+
+  <main class="main" style="gap:24px">
+    <div class="head">
+      <div><h1>运营仪表盘</h1><div class="sub">数据更新于 10-16 22:40 · 示例数据</div></div>
+      <div class="topbar">
+        <div class="seg"><span>7 天</span><span class="on">14 天</span><span>30 天</span></div>
+        <button class="btn">主题：奶油轻食</button>
+        <span class="me"><img src="img/extra/avatar-admin.svg" alt="">admin</span>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><span class="ki" style="background:var(--secondary);color:#B8622A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><span>累计账号</span><b>2,418</b><span class="d" style="color:var(--ok)">近 7 天 +86</span></div>
+      <div class="kpi"><span class="ki" style="background:var(--secondary);color:#B8622A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span>家庭数</span><b>1,037</b><span class="d" style="color:var(--body);font-weight:400">平均 2.6 人 / 家</span></div>
+      <div class="kpi"><span class="ki" style="background:var(--ok-bg);color:var(--ok)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span><span>近 7 天活跃家庭</span><b>412</b><span class="d" style="color:var(--ok)">较上周 +6%</span></div>
+      <div class="kpi"><span class="ki" style="background:var(--secondary);color:#B8622A"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M8 8c0-1.5 1-2 1-3.5M12 8c0-1.5 1-2 1-3.5M16 8c0-1.5 1-2 1-3.5"/></svg></span><span>近 7 天做饭记录</span><b>3,206</b><span class="d" style="color:var(--body);font-weight:400">其中单菜直做 41%</span></div>
+      <div class="kpi"><span class="ki" style="background:var(--warn-bg);color:var(--warn)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z"/></svg></span><span>近 7 天 AI 成本</span><b>¥38.60</b><span class="d" style="color:var(--warn)">预算 ¥100 / 周 · 39%</span></div>
+    </div>
+
+    <div class="row">
+      <div class="card" style="flex:2 1 480px;min-width:0;display:flex;flex-direction:column;gap:16px">
+        <span style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span class="panel-title">14 天趋势</span>
+          <span style="display:flex;gap:14px;font-size:12px;color:var(--body)">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#E89150"></span>做饭记录</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#4FA0D0"></span>活跃成员</span>
+          </span>
+        </span>
+        <div class="chart">
+          <span class="b"><i style="height:42%;background:#E89150"></i><i style="height:30%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:48%;background:#E89150"></i><i style="height:33%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:45%;background:#E89150"></i><i style="height:31%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:55%;background:#E89150"></i><i style="height:36%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:70%;background:#E89150"></i><i style="height:44%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:82%;background:#E89150"></i><i style="height:52%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:60%;background:#E89150"></i><i style="height:40%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:50%;background:#E89150"></i><i style="height:35%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:52%;background:#E89150"></i><i style="height:37%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:58%;background:#E89150"></i><i style="height:39%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:62%;background:#E89150"></i><i style="height:41%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:76%;background:#E89150"></i><i style="height:48%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:90%;background:#E89150"></i><i style="height:57%;background:#4FA0D0"></i></span>
+          <span class="b"><i style="height:66%;background:#E89150"></i><i style="height:43%;background:#4FA0D0"></i></span>
+        </div>
+        <span style="display:flex;justify-content:space-between;font-size:11px;color:var(--body)"><span>10-03</span><span>10-09 周四</span><span>10-16</span></span>
+      </div>
+
+      <div class="card" style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:10px">
+        <span class="panel-title">待处理</span>
+        <a class="todo" href="AdminLibrary.html"><span class="avs"><img class="av" src="img/dish/majiang-banmian.jpg" alt="" style="object-fit:cover"><img class="av" src="img/dish/suantang-feiniu.jpg" alt="" style="object-fit:cover"><img class="av" src="img/dish/shucai-shala.jpg" alt="" style="object-fit:cover"></span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px">公共菜谱投稿待审核</b><span class="muted">最早一条已等 2 天</span></span><b class="n">12</b></a>
+        <a class="todo" href="AdminNutrition.html"><span class="ing"><img src="img/ing/fish.svg" alt=""></span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px">营养数据待核对</b><span class="muted">AI 估算，未经人工确认</span></span><b class="n">37</b></a>
+        <a class="todo" href="AdminFeedback.html"><span class="avs"><img class="av" src="img/avatar/xiaowang.svg" alt=""><img class="av" src="img/avatar/linlin.svg" alt=""><img class="av" src="img/extra/avatar-default.svg" alt=""></span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px">新反馈</b><span class="muted">2 条报错、1 条建议</span></span><b class="n">3</b></a>
+        <a class="todo" href="AdminOps.html" style="background:var(--err-bg);border-color:#F6C4BE"><span class="ic" style="background:#fff;color:var(--err)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px">告警</b><span class="muted" style="color:var(--err)">语义搜索 P95 超过 2 秒</span></span><b class="n">1</b></a>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:14px">
+      <span style="display:flex;justify-content:space-between;align-items:center"><span class="panel-title">本周最常做的菜</span><a href="AdminLibrary.html" style="font-size:13px">去公共菜谱库 →</a></span>
+      <div class="dishes">
+        <div class="dish">
+          <div class="hero" style="height:150px"><img src="img/dish/huadan-xiaren.jpg" alt="滑蛋虾仁"><span class="rank">1</span></div>
+          <b>滑蛋虾仁</b>
+          <span class="muted">318 个家庭 · 做了 402 次</span>
+          <span class="muted" style="color:var(--ok);font-weight:700">+96 家加入</span>
+        </div>
+        <div class="dish">
+          <div class="hero" style="height:150px"><img src="img/dish/qingzheng-luyu.jpg" alt="清蒸鲈鱼"><span class="rank">2</span></div>
+          <b>清蒸鲈鱼</b>
+          <span class="muted">141 个家庭 · 做了 158 次</span>
+          <span class="muted" style="color:var(--ok);font-weight:700">+63 家加入</span>
+        </div>
+        <div class="dish">
+          <div class="hero" style="height:150px"><img src="img/dish/suanrong-xilanhua.jpg" alt="蒜蓉西兰花"><span class="rank">3</span></div>
+          <b>蒜蓉西兰花</b>
+          <span class="muted">130 个家庭 · 做了 151 次</span>
+          <span class="muted" style="color:var(--ok);font-weight:700">+22 家加入</span>
+        </div>
+        <div class="dish">
+          <div class="hero" style="height:150px"><img src="img/dish/kele-jichi.jpg" alt="可乐鸡翅"><span class="rank">4</span></div>
+          <b>可乐鸡翅</b>
+          <span class="muted">122 个家庭 · 做了 139 次</span>
+          <span class="muted" style="color:var(--ok);font-weight:700">+41 家加入</span>
+        </div>
+        <div class="dish">
+          <div class="hero" style="height:150px"><img src="img/dish/hongshao-rou.jpg" alt="红烧肉"><span class="rank">5</span></div>
+          <b>红烧肉</b>
+          <span class="muted">97 个家庭 · 做了 104 次</span>
+          <span class="muted" style="color:var(--ok);font-weight:700">+35 家加入</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

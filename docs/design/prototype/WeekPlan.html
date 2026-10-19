@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 一周餐程 · 咕嘟小食单原型</title>
+<style>
+
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#EDE5D8;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px}
+body>div{box-shadow:0 20px 60px rgba(74,56,42,.18);border-radius:32px}
+a{color:#B8622A;text-decoration:none}
+button,input,textarea{font-family:inherit;color:inherit}
+.ph{width:390px;height:844px;position:relative;overflow:hidden;background:#FDFAF4;color:#4A382A;font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column}
+.sb{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px 0 30px;font-size:15px;font-weight:600;color:#4A382A}
+.sb svg{display:block}
+.top{display:flex;align-items:center;gap:8px;padding:2px 12px 8px;min-height:52px}
+.back{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#4A382A;flex-shrink:0}
+.ttl{flex:1;font-size:17px;font-weight:700}
+.h1{font-size:24px;font-weight:700}
+.card{flex-shrink:0;background:#FFFFFF;border:1px solid #F0E6D6;border-radius:16px;box-shadow:0 2px 10px rgba(169,101,30,.08)}
+.sec{font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px}
+.muted{font-size:12px;color:#6E5C49}
+.ing{width:44px;height:44px;border-radius:12px;background:#FBF0DD;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ing img{width:32px;height:32px;display:block}
+.av{border-radius:999px;display:block;flex-shrink:0;background:#FBF0DD}
+.stack{display:flex}
+.stack img{border:2px solid #FFFFFF;border-radius:999px;margin-left:-8px;display:block;background:#FBF0DD}
+.stack img:first-child{margin-left:0}
+.ph-img{object-fit:cover;display:block;flex-shrink:0;background:#FBF0DD}
+.btn{height:52px;border:none;border-radius:14px;background:#D17A3C;color:#FFFFFF;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 6px 16px rgba(169,101,30,.28);cursor:pointer}
+.ghost{height:52px;border-radius:14px;border:1px solid #E8DCCB;background:#FFFFFF;color:#4A382A;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.chip{padding:7px 12px;border-radius:999px;background:#FFFFFF;border:1px solid #F0E6D6;font-size:12px;color:#6E5C49;white-space:nowrap}
+.chip.on{background:#4A382A;color:#FFFFFF;border-color:#4A382A;font-weight:700}
+.tag{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.tag.ok{background:#F0F8EE;color:#2F7347}.tag.warn{background:#FFF7EC;color:#8A5A22;border:1px solid #F6D9BE}.tag.err{background:#DB5A4E;color:#FFFFFF}.tag.info{background:#E8F3FA;color:#2F6A8C}.tag.mute{background:#F5EEE2;color:#6E5C49}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.row+.row{border-top:1px solid #F3EBDD}
+.seg{display:flex;border-radius:9px;border:1px solid #F0E6D6;overflow:hidden;font-size:12px;background:#FFFFFF;flex-shrink:0}
+.seg span{padding:6px 9px;color:#6E5C49}
+.seg .ok{background:#4FAE6E;color:#FFFFFF;font-weight:700}.seg .warn{background:#E5A938;color:#4A382A;font-weight:700}.seg .err{background:#DB5A4E;color:#FFFFFF;font-weight:700}
+.lrow{display:flex;align-items:center;gap:12px;padding:0 14px;height:52px;color:#4A382A;font-size:15px}
+.lrow+.lrow{border-top:1px solid #F3EBDD}
+.lrow .ico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lrow .val{margin-left:auto;font-size:13px;color:#6E5C49;display:flex;align-items:center;gap:4px}
+
+
+.chips{display:flex;flex-wrap:nowrap;gap:6px;overflow:hidden;margin-right:-16px;-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent)}
+.chips>*{flex-shrink:0}
+.chip{display:inline-flex;align-items:center;gap:5px;color:#4A382A}
+.chip.k{background:#FFF7EC;border-color:#F6D9BE;color:#8A5A22;font-weight:600}
+.okc{display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:14px;background:#F0F8EE;border:1px solid #D5ECD9}
+.okc .ic{width:32px;height:32px;border-radius:10px;background:#4FAE6E;color:#FFFFFF;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hd{display:grid;grid-template-columns:52px 1fr 1fr;gap:6px;font-size:11px;font-weight:700;color:#6E5C49;letter-spacing:1px;padding:0 2px}
+.dr{display:grid;grid-template-columns:52px 1fr 1fr;gap:6px;align-items:stretch}
+.dl{display:flex;flex-direction:column;justify-content:center;gap:1px}
+.dl b{font-size:14px}.dl span{font-size:11px;color:#6E5C49}
+.dl .ev{margin-top:3px;font-size:10px;font-weight:700;color:#FFFFFF;background:#D17A3C;border-radius:5px;padding:2px 5px;line-height:1.3;text-align:center;width:max-content;max-width:52px}
+.cl{display:flex;gap:8px;align-items:center;background:#FFFFFF;border:1px solid #F0E6D6;border-radius:12px;padding:5px;min-width:0;position:relative}
+.cl img{width:38px;height:38px;border-radius:9px}
+.cn{display:flex;flex-direction:column;gap:3px;min-width:0;align-items:flex-start}
+.dn{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bd{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px}
+.bd.e{background:#FFF7EC;color:#8A5A22;border:1px solid #F6D9BE}
+.bd.b{background:#E8F3FA;color:#2F6A8C}
+.cl.sw{border:2px dashed #D17A3C;background:#FFF7EC;padding:4px}
+.cl.sw .dn{text-decoration:line-through;color:#6E5C49}
+.swb{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#FFFFFF;background:#D17A3C;border-radius:6px;padding:2px 6px}
+.pop{position:absolute;right:-4px;bottom:calc(100% + 10px);width:214px;background:#FFFFFF;border-radius:16px;box-shadow:0 12px 32px rgba(74,56,42,.24);border:1px solid #F0E6D6;padding:10px;z-index:3;display:flex;flex-direction:column;gap:4px}
+.pop::before{content:"";position:absolute;bottom:-7px;right:56px;width:12px;height:12px;background:#FFFFFF;border-right:1px solid #F0E6D6;border-bottom:1px solid #F0E6D6;transform:rotate(45deg)}
+.ao{display:flex;gap:10px;align-items:center;padding:6px;border-radius:10px;color:#6E5C49}
+.ao:first-of-type{background:#FBF0DD}
+.ao img{width:40px;height:40px;border-radius:9px}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:10px 16px 28px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid #F0E6D6;display:flex;flex-direction:column;gap:10px;z-index:4}
+.st3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));text-align:center}
+.st3 div+div{border-left:1px solid #F3EBDD}
+.st3 b{display:block;font-size:18px;font-weight:700}
+.st3 span{font-size:12px;color:#6E5C49}
+
+</style>
+<script>if(location.hash==="#embed")document.documentElement.className="embed"</script>
+<style>.embed body{padding:0!important;background:none!important;display:block!important;min-height:0!important}.embed body>div{box-shadow:none!important;border-radius:0!important}</style>
+</head>
+<body>
+<div class="ph">
+<div class="sb" aria-hidden="true"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0M4 7a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.5" stroke="currentColor" opacity=".45"/><rect x="2.5" y="2.5" width="15" height="7" rx="2" fill="currentColor"/><path d="M24.5 4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".45"/></svg></span></div>
+
+<div class="top"><a href="Menus.html" class="back" aria-label="返回"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></a><span class="ttl"><span style="display:flex;flex-direction:column;line-height:1.25">AI 一周餐程<span style="font-size:12px;font-weight:500;color:#6E5C49">10.19 周一 – 10.25 周日 · 午晚两餐</span></span></span><a class="chip" style="display:flex;gap:4px;align-items:center;color:#4A382A;font-weight:600"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg>重新排</a></div>
+<div style="flex:1;overflow:hidden;padding:0 16px;display:flex;flex-direction:column;gap:10px;position:relative">
+  <div class="chips">
+    <span class="chip k"><span class="stack"><img src="img/avatar/xiaowang.svg" width="18" height="18" alt=""><img src="img/avatar/linlin.svg" width="18" height="18" alt=""><img src="img/avatar/mama.svg" width="18" height="18" alt=""><img src="img/avatar/duoduo.svg" width="18" height="18" alt=""></span>4 口人</span>
+    <span class="chip k">妈妈少盐</span><span class="chip k">朵朵辅食版</span><span class="chip k">工作日 ≤30 分钟</span><span class="chip k">优先用快到期</span><span class="chip k">预算 ¥400</span>
+    <span class="chip" style="color:#B8622A;font-weight:600"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M12 5v14M5 12h14"/></svg>条件</span>
+  </div>
+  <div class="okc">
+    <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="m5 12 5 5 9-10"/></svg></span>
+    <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:#2F7347">已排好 7 天 · 校验通过</div><div style="font-size:12px;color:#2F7347;margin-top:1px">钠日均 1.8g（≤2g）· 14 道不重样 · 第 2 轮通过</div></div>
+  </div>
+  <div class="hd"><span></span><span>午餐</span><span>晚餐</span></div>
+  <div style="display:flex;flex-direction:column;gap:5px"><div class="dr"><div class="dl"><b>周一</b><span>10.19</span></div><div class="cl"><img class="ph-img" src="img/dish/xianggu-jirou-zhou.jpg" alt=""><div class="cn"><span class="dn">香菇鸡肉粥</span><span class="bd b">宝宝版</span></div></div><div class="cl"><img class="ph-img" src="img/dish/suanrong-xilanhua.jpg" alt=""><div class="cn"><span class="dn">蒜蓉西兰花</span><span class="bd e">快到期</span></div></div></div><div class="dr"><div class="dl"><b>周二</b><span>10.20</span></div><div class="cl"><img class="ph-img" src="img/dish/fanqie-caihua.jpg" alt=""><div class="cn"><span class="dn">番茄菜花</span><span class="bd e">快到期</span></div></div><div class="cl"><img class="ph-img" src="img/dish/baizhuo-xia.jpg" alt=""><div class="cn"><span class="dn">白灼虾</span></div></div></div><div class="dr"><div class="dl"><b>周三</b><span>10.21</span></div><div class="cl"><img class="ph-img" src="img/dish/zhengshuidan.jpg" alt=""><div class="cn"><span class="dn">蒸水蛋</span><span class="bd b">宝宝版</span></div></div><div class="cl"><img class="ph-img" src="img/dish/naibai-jiyu-tang.jpg" alt=""><div class="cn"><span class="dn">奶白鲫鱼汤</span></div></div></div><div class="dr"><div class="dl"><b>周四</b><span>10.22</span></div><div class="cl"><img class="ph-img" src="img/dish/nangua-geng.jpg" alt=""><div class="cn"><span class="dn">牛奶南瓜羹</span><span class="bd b">宝宝版</span></div></div><div class="cl sw"><img class="ph-img" src="img/dish/yuxiang-rousi.jpg" alt=""><div class="cn"><span class="dn">鱼香肉丝</span><span class="swb"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d='M4 7h13l-3-3M20 17H7l3 3'/></svg>换一道</span></div>  <div class="pop">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px 4px"><b style="font-size:13px">换掉 鱼香肉丝</b><span class="muted">同样少盐</span></div>
+    <div class="ao"><img class="ph-img" src="img/dish/jiucai-jidan.jpg" alt=""><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">韭菜炒鸡蛋</div><div class="muted" style="white-space:nowrap;font-size:11px">15 分钟 · 钠 0.6g</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d='m9 6 6 6-6 6'/></svg></div><div class="ao"><img class="ph-img" src="img/dish/haoyou-shengcai.jpg" alt=""><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">蚝油生菜</div><div class="muted" style="white-space:nowrap;font-size:11px">10 分钟 · 钠 0.5g</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d='m9 6 6 6-6 6'/></svg></div><div class="ao"><img class="ph-img" src="img/dish/liangban-huanggua.jpg" alt=""><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">凉拌黄瓜</div><div class="muted" style="white-space:nowrap;font-size:11px">8 分钟 · 钠 0.4g</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d='m9 6 6 6-6 6'/></svg></div>
+  </div>
+</div></div><div class="dr"><div class="dl"><b>周五</b><span>10.23</span></div><div class="cl"><img class="ph-img" src="img/dish/nangua-jirou-fan.jpg" alt=""><div class="cn"><span class="dn">南瓜鸡肉饭</span></div></div><div class="cl"><img class="ph-img" src="img/dish/shousi-baocai.jpg" alt=""><div class="cn"><span class="dn">手撕包菜</span><span class="bd e">快到期</span></div></div></div><div class="dr big"><div class="dl"><b>周六</b><span>10.24</span><span class="ev">周末<br>慢炖</span></div><div class="cl"><img class="ph-img" src="img/dish/lianou-paigu.jpg" alt=""><div class="cn"><span class="dn">莲藕排骨汤</span></div></div><div class="cl"><img class="ph-img" src="img/dish/jiachang-doufu.jpg" alt=""><div class="cn"><span class="dn">家常豆腐</span></div></div></div><div class="dr"><div class="dl"><b>周日</b><span>10.25</span></div><div class="cl"><img class="ph-img" src="img/dish/xiaomi-zhou.jpg" alt=""><div class="cn"><span class="dn">小米粥</span><span class="bd b">宝宝版</span></div></div><div class="cl"><img class="ph-img" src="img/dish/dongua-paigu.jpg" alt=""><div class="cn"><span class="dn">冬瓜排骨汤</span></div></div></div></div>
+</div>
+<div class="bar">
+  <div class="st3"><div><b>¥326</b><span>预计采购</span></div><div><b>18 样</b><span>需要新买</span></div><div><b style="color:#2F7347">3 样</b><span>用掉快到期</span></div></div>
+  <a href="Menus.html" class="btn" role="button">生成 7 个食集和采购清单</a>
+</div>
+
+</div>
+</body>
+</html>

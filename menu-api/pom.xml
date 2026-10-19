@@ -18,6 +18,8 @@
     <description>咕嘟小食单 MVP</description>
 
     <properties>
+        <!-- 咕嘟评测（@Tag("eval")）默认不随 mvn test 跑；-Dgroups=eval 时由 profile agent-eval 放开 -->
+        <surefire.excludedGroups>eval</surefire.excludedGroups>
         <java.version>17</java.version>
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <sa-token.version>1.37.0</sa-token.version>
@@ -165,6 +167,14 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+                </configuration>
+            </plugin>
+
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
@@ -178,4 +188,20 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- ./mvnw test -Dgroups=eval -Deval.split=test -Deval.provider=mock|gateway → target/agent-eval-report.json -->
+        <profile>
+            <id>agent-eval</id>
+            <activation>
+                <property>
+                    <name>groups</name>
+                    <value>eval</value>
+                </property>
+            </activation>
+            <properties>
+                <surefire.excludedGroups>none</surefire.excludedGroups>
+            </properties>
+        </profile>
+    </profiles>
 </project>

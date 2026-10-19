@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <!-- ===== 列表视图 ===== -->
     <template v-if="view === 'list'">
@@ -76,6 +77,7 @@
               <view class="checkbox" :class="{ on: it.purchased ? true : selected.has(it.id), done: !!it.purchased }">
                 <text class="checkbox-txt">✓</text>
               </view>
+              <ui-ing-icon :icon-key="it.iconKey" :name="itemName(it)" :size="36" :out="!!it.purchased" />
               <view class="item-main">
                 <text class="item-name" :class="{ done: it.purchased }">{{ itemName(it) }}</text>
                 <text v-if="amountText(it)" class="item-amount">{{ amountText(it) }}</text>
@@ -105,53 +107,11 @@
         </button>
       </view>
 
-      <!-- 添加弹层 -->
-      <view v-if="addSheet" class="mask" @click="addSheet = false">
-        <view class="sheet" @click.stop>
-          <text class="sheet-title">添加采购项</text>
-          <view class="add-row">
-            <input v-model="addName" class="add-ipt" placeholder="名称" placeholder-class="ph" :focus="addSheet" />
-            <input v-model="addQty" class="add-qty" placeholder="数量+单位 · 如 2斤" placeholder-class="ph" />
-          </view>
-          <view class="add-more" @click="pushAddRow">＋ 再加一行</view>
-          <view v-if="addedRows.length" class="added-list">
-            <text class="added-label">已添加 {{ addedRows.length }} 种</text>
-            <view v-for="(r, i) in addedRows" :key="i" class="added-row">
-              <text class="added-txt">{{ r.name }} {{ r.qty }}</text>
-              <text class="added-del" @click="addedRows.splice(i, 1)">✕</text>
-            </view>
-          </view>
-          <view class="sheet-bottom-row">
-            <button class="btn-primary" :disabled="!canSaveAdd" @click="saveAdd">{{ saveAddLabel }}</button>
-          </view>
-        </view>
-      </view>
+      <add-items-sheet v-if="addSheet" :list-id="detail!.id" @close="addSheet = false" @saved="onAdded" />
     </template>
 
     <!-- ===== 分享预览视图 ===== -->
-    <template v-else>
-      <view class="top" :style="{ paddingTop: sb + 'px' }">
-        <text class="back" @click="view = 'detail'">‹</text>
-        <text class="title">分享采购清单</text>
-        <view style="width: 40px" />
-      </view>
-      <scroll-view scroll-y class="body">
-        <text class="share-tip">预览与导出的内容、格式完全一致</text>
-        <view class="share-card">
-          <text class="share-title">{{ shareTitle }}</text>
-          <view v-for="it in unPurchasedItems" :key="it.id" class="share-row">
-            <text class="share-name">{{ itemName(it) }}</text>
-            <text class="share-qty">{{ amountText(it) }}</text>
-          </view>
-          <text v-if="!unPurchasedItems.length" class="share-none">清单里的都入库了，没有要分享的项</text>
-        </view>
-        <view class="share-actions">
-          <view class="share-btn" @click="copyText"><text class="share-btn-txt">复制文字</text></view>
-          <view class="share-btn" @click="saveImage"><text class="share-btn-txt">转图片分享</text></view>
-        </view>
-        <view style="height: 40px" />
-      </scroll-view>
-    </template>
+    <share-view v-else-if="detail" :detail="detail" :items="unPurchasedItems" @back="view = 'detail'" />
 
     <!-- 改名弹窗 -->
     <view v-if="renameDialog" class="mask" @click="renameDialog = false">
@@ -170,10 +130,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+import ShareView from './parts/ShareView.vue'
+import AddItemsSheet from './parts/AddItemsSheet.vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import {
   listShopping, shoppingDetail, createEmptyList, restockItems, undoRestock,
-  addCustomItem, removeShoppingItem, deleteShoppingList, renameShoppingList,
+  removeShoppingItem, deleteShoppingList, renameShoppingList,
   sourceTypeLabel, amountText, stockBadge,
   type ShoppingListSummary, type ShoppingDetail, type ShoppingItem,
 } from '@/api/shopping'
@@ -198,9 +160,6 @@ const detail = ref<ShoppingDetail | null>(null)
 const selected = reactive(new Set<number>())
 const restocking = ref(false)
 const addSheet = ref(false)
-const addName = ref('')
-const addQty = ref('')
-const addedRows = ref<{ name: string; qty: string }[]>([])
 const renameDialog = ref(false)
 const renameInput = ref('')
 
@@ -347,40 +306,9 @@ function confirmRemoveItem(it: ShoppingItem) {
   }
 }
 
-// ---- 添加弹层 ----
-const canSaveAdd = computed(
-  () => addedRows.value.length > 0 || addName.value.trim().length > 0,
-)
-const saveAddLabel = computed(() => {
-  const n = addedRows.value.length + (addName.value.trim() ? 1 : 0)
-  return n > 0 ? `添加 · 保存 ${n} 种` : '保存'
-})
-
-function pushAddRow() {
-  const name = addName.value.trim()
-  if (!name) return
-  addedRows.value.push({ name, qty: addQty.value.trim() })
-  addName.value = ''
-  addQty.value = ''
-}
-
-async function saveAdd() {
-  const rows = [...addedRows.value]
-  if (addName.value.trim()) rows.push({ name: addName.value.trim(), qty: addQty.value.trim() })
-  if (!rows.length) return
-  try {
-    for (const r of rows) {
-      const m = r.qty.match(/\d+(\.\d+)?/)
-      await addCustomItem({ listId: detail.value!.id, name: r.name, amount: m ? Number(m[0]) : undefined })
-    }
-    addSheet.value = false
-    addedRows.value = []
-    addName.value = ''
-    addQty.value = ''
-    openDetail(detail.value!.id)
-  } catch {
-    uni.showToast({ title: '添加失败', icon: 'none' })
-  }
+function onAdded() {
+  addSheet.value = false
+  openDetail(detail.value!.id)
 }
 
 // ---- 新建 / 删除 / 批量 / 改名 ----
@@ -461,25 +389,6 @@ async function confirmRename() {
   }
 }
 
-// ---- 分享 ----
-const shareTitle = computed(() => {
-  const d = detail.value
-  return `${d?.name || `采购单 #${d?.id}`} · ${new Date().getMonth() + 1}月${new Date().getDate()}日`
-})
-
-function copyText() {
-  const lines = unPurchasedItems.value.map((it) => `${itemName(it)} ${amountText(it)}`.trim())
-  uni.setClipboardData({
-    data: [shareTitle.value, ...lines].join('\n'),
-    success: () => uni.showToast({ title: '采购清单已复制', icon: 'none' }),
-  })
-}
-
-function saveImage() {
-  // 阶段 4 简化：canvas 转图后续迭代；先用系统截屏分享文案替代
-  copyText()
-  uni.showToast({ title: '已复制文字，可直接粘贴分享', icon: 'none' })
-}
 </script>
 
 <style scoped>
@@ -497,7 +406,7 @@ function saveImage() {
   min-height: 44px;
 }
 .back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
@@ -505,7 +414,7 @@ function saveImage() {
 }
 .title {
   flex: 1;
-  font-size: 16px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
 }
@@ -523,14 +432,14 @@ function saveImage() {
 }
 .rename {
   color: var(--primary);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 .top-actions {
   display: flex;
   gap: 12px;
 }
 .top-btn {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--primary);
   font-weight: 700;
 }
@@ -565,7 +474,7 @@ function saveImage() {
   flex-shrink: 0;
 }
 .order-no-txt {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--primary-deep);
 }
@@ -577,7 +486,7 @@ function saveImage() {
   gap: 2px;
 }
 .lcard-name {
-  font-size: 14px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--title);
   overflow: hidden;
@@ -585,12 +494,12 @@ function saveImage() {
   white-space: nowrap;
 }
 .lcard-sub {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--caption);
 }
 .arrow {
   color: var(--caption);
-  font-size: 16px;
+  font-size: var(--fs-lg);
   font-weight: 700;
 }
 /* 勾选框 */
@@ -613,8 +522,8 @@ function saveImage() {
   border-color: var(--success);
 }
 .checkbox-txt {
-  color: #FFFFFF;
-  font-size: 13px;
+  color: var(--on-primary);
+  font-size: var(--fs-md);
   font-weight: 800;
 }
 /* 空态 / footer */
@@ -626,11 +535,11 @@ function saveImage() {
   gap: 8px;
 }
 .empty-main {
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--caption);
 }
 .empty-sub {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--caption);
   opacity: 0.8;
   text-align: center;
@@ -639,7 +548,7 @@ function saveImage() {
 .footer {
   padding: 16px 0;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--caption);
 }
 /* 底栏 */
@@ -655,7 +564,7 @@ function saveImage() {
 .bottom-restock { flex: 2; }
 .batch-all {
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--body);
 }
 .btn-batch-del {
@@ -664,7 +573,7 @@ function saveImage() {
   border: 1px solid var(--error);
   color: var(--error);
   border-radius: var(--r-md);
-  font-size: 14px;
+  font-size: var(--fs-md);
   font-weight: 700;
   padding: 11px 0;
 }
@@ -680,12 +589,12 @@ function saveImage() {
   padding: 10px 2px;
 }
 .all-label {
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--body);
 }
 .all-count {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--primary);
 }
 /* 分区 */
@@ -702,7 +611,7 @@ function saveImage() {
   background: var(--primary);
 }
 .sec-name {
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   font-weight: 800;
   color: var(--primary-deep);
   letter-spacing: 1px;
@@ -726,7 +635,7 @@ function saveImage() {
   gap: 1px;
 }
 .item-name {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--title);
 }
@@ -735,7 +644,7 @@ function saveImage() {
   text-decoration: line-through;
 }
 .item-amount {
-  font-size: 9px;
+  font-size: var(--fs-tiny);
   color: var(--caption);
 }
 .item-badge {
@@ -743,149 +652,28 @@ function saveImage() {
   padding: 2px 7px;
   border-radius: var(--r-pill);
   background: var(--bg);
-  font-size: 9px;
+  font-size: var(--fs-tiny);
   font-weight: 800;
 }
 .item-del {
   flex-shrink: 0;
   color: var(--caption);
-  font-size: 13px;
+  font-size: var(--fs-md);
   padding: 0 2px;
 }
 /* 弹层 */
 .mask {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--mask);
   z-index: 100;
   display: flex;
   align-items: flex-end;
 }
-.sheet {
-  width: 100%;
-  background: var(--card);
-  border-radius: var(--r-xl) var(--r-xl) 0 0;
-  padding: 16px 18px calc(14px + env(safe-area-inset-bottom));
-}
-.sheet-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--title);
-  display: block;
-  margin-bottom: 12px;
-}
-.add-row {
-  display: flex;
-  gap: 8px;
-}
-.add-ipt {
-  flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 9px 10px;
-  font-size: 13px;
-  color: var(--title);
-}
-.add-qty {
-  width: 150px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 9px 10px;
-  font-size: 13px;
-  color: var(--title);
-}
 .ph { color: var(--caption); }
-.add-more {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--primary);
-  font-weight: 700;
-}
-.added-list {
-  margin-top: 10px;
-}
-.added-label {
-  font-size: 11px;
-  color: var(--caption);
-}
-.added-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 0;
-}
-.added-txt {
-  font-size: 13px;
-  color: var(--title);
-}
-.added-del {
-  color: var(--caption);
-  font-size: 12px;
-}
-.sheet-bottom-row {
-  margin-top: 12px;
-}
-/* 分享视图 */
-.share-tip {
-  display: block;
-  text-align: center;
-  font-size: 10px;
-  color: var(--caption);
-  margin: 10px 0;
-}
-.share-card {
-  background: var(--card);
-  border-radius: var(--r-lg);
-  padding: 16px;
-}
-.share-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--title);
-  display: block;
-  margin-bottom: 8px;
-}
-.share-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 0;
-}
-.share-name {
-  font-size: 13px;
-  color: var(--body);
-}
-.share-qty {
-  font-size: 12px;
-  color: var(--caption);
-}
-.share-none {
-  font-size: 12px;
-  color: var(--caption);
-  text-align: center;
-  padding: 12px 0;
-}
-.share-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
-}
-.share-btn {
-  flex: 1;
-  background: var(--card);
-  border: 1px solid var(--primary);
-  border-radius: var(--r-md);
-  padding: 11px 0;
-  text-align: center;
-}
-.share-btn-txt {
-  color: var(--primary);
-  font-size: 13px;
-  font-weight: 700;
-}
-/* 对话框 */
 .dialog {
   position: fixed;
   left: 50%;
@@ -898,13 +686,13 @@ function saveImage() {
   z-index: 110;
 }
 .dialog-title {
-  font-size: 16px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--title);
 }
 .dialog-hint {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--caption);
   margin-top: 4px;
 }
@@ -912,7 +700,7 @@ function saveImage() {
   margin-top: 14px;
   border-bottom: 1px solid var(--border);
   padding: 8px 2px;
-  font-size: 14px;
+  font-size: var(--fs-md);
   color: var(--title);
 }
 .dialog-actions {
@@ -922,7 +710,7 @@ function saveImage() {
   margin-top: 10px;
 }
 .dialog-btn {
-  font-size: 14px;
+  font-size: var(--fs-md);
   color: var(--caption);
   padding: 6px 4px;
 }

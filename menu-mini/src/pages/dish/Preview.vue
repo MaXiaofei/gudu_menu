@@ -1,4 +1,5 @@
 <template>
+  <page-meta :page-style="gdThemeStyle" />
   <!-- 写菜谱预览页（数据来自 preview store，无接口；发布回调写菜谱页） -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">
@@ -107,14 +108,14 @@ function publish() {
   padding: 0 14px;
 }
 .back {
-  font-size: 26px;
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: var(--title);
   line-height: 1;
   padding: 4px 8px;
 }
 .edit {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 800;
   color: var(--primary);
 }
@@ -131,26 +132,26 @@ function publish() {
   background: var(--primary-soft);
 }
 .cover.ph { display: flex; align-items: center; justify-content: center; }
-.ph-txt { font-size: 44px; font-weight: 700; color: var(--title); opacity: 0.45; }
+.ph-txt { font-size: var(--fs-display); font-weight: 700; color: var(--title); opacity: 0.45; }
 .name {
   display: block;
-  font-size: 18px;
+  font-size: var(--fs-subtitle);
   font-weight: 800;
   color: var(--title);
   margin-top: 12px;
 }
-.meta { display: block; font-size: 11px; color: var(--caption); margin-top: 4px; }
+.meta { display: block; font-size: var(--fs-xs); color: var(--caption); margin-top: 4px; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .tag {
   padding: 3px 10px;
   border-radius: var(--r-pill);
   background: var(--primary-soft);
   color: var(--title);
-  font-size: 10px;
+  font-size: var(--fs-tiny);
 }
 .sec-label {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   color: var(--title);
   margin: 16px 0 8px;
@@ -167,9 +168,9 @@ function publish() {
   padding: 8px 0;
 }
 .ing-row + .ing-row { border-top: 1px solid var(--bg); }
-.ing-name { font-size: 12px; font-weight: 700; color: var(--title); }
-.ing-amount { font-size: 12px; font-weight: 800; color: var(--title); }
-.note { font-size: 12px; color: var(--body); line-height: 1.6; padding: 8px 0; }
+.ing-name { font-size: var(--fs-sm); font-weight: 700; color: var(--title); }
+.ing-amount { font-size: var(--fs-sm); font-weight: 800; color: var(--title); }
+.note { font-size: var(--fs-sm); color: var(--body); line-height: 1.6; padding: 8px 0; }
 .step-row {
   display: flex;
   gap: 10px;
@@ -185,9 +186,9 @@ function publish() {
   justify-content: center;
   flex-shrink: 0;
 }
-.step-no-txt { color: #FFFFFF; font-size: 11px; font-weight: 700; }
-.step-text { flex: 1; font-size: 12px; color: var(--body); line-height: 1.6; }
-.none { font-size: 12px; color: var(--caption); padding: 10px 0; }
+.step-no-txt { color: var(--on-primary); font-size: var(--fs-xs); font-weight: 700; }
+.step-text { flex: 1; font-size: var(--fs-sm); color: var(--body); line-height: 1.6; }
+.none { font-size: var(--fs-sm); color: var(--caption); padding: 10px 0; }
 .bottom {
   padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
   background: var(--card);
@@ -196,5 +197,5 @@ function publish() {
   flex-direction: column;
   gap: 6px;
 }
-.bottom-hint { text-align: center; font-size: 10px; color: var(--caption); }
+.bottom-hint { text-align: center; font-size: var(--fs-tiny); color: var(--caption); }
 </style>

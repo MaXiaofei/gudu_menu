@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Sql(scripts = "classpath:e2e-seed.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+@Sql(scripts = "classpath:e2e-teardown.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class GuduE2EFlowTest {
 
     @Autowired
@@ -427,6 +428,64 @@ class GuduE2EFlowTest {
 
         // 清理
         delete(token, "/menu/" + menuId);
+    }
+
+    /**
+     * 场景（feature-gaps-closure G1）：单菜直做全链路——弹窗数据 → 做菜（番茄用完 / 鸡蛋用了一些）
+     * → 最近做过首条为该菜 → 库存档位变化（番茄 NONE 且保质期清除、鸡蛋 ENOUGH→LOW）→ 食记可见。
+     * 种子：番茄 ENOUGH(明天到期)、鸡蛋 ENOUGH。
+     */
+    @Test
+    void 单菜直做_做完_最近做过可见_库存档位回写() {
+        String token = loginAdmin();
+
+        JsonNode mats = get(token, "/cook/dish/" + DISH_FANQIE_CHAODAN + "/materials");
+        assertThat(mats.get("code").asInt()).as("materials msg=" + text(mats, "msg")).isEqualTo(0);
+        boolean hasTomato = false;
+        for (JsonNode it : mats.get("data").get("items")) {
+            if (it.get("ingredientId").asLong() == ING_TOMATO) {
+                hasTomato = true;
+                assertThat(it.get("level").asText()).isEqualTo("ENOUGH");
+            }
+        }
+        assertThat(hasTomato).isTrue();
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("servings", 1);
+        body.put("usedUp", List.of(ING_TOMATO));
+        body.put("partiallyUsed", List.of(2L));
+        body.put("note", "E2E单菜直做");
+        JsonNode cook = post(token, "/cook/dish/" + DISH_FANQIE_CHAODAN, body);
+        assertThat(cook.get("code").asInt()).as("单菜直做 msg=" + text(cook, "msg")).isEqualTo(0);
+        assertThat(cook.get("data").get("recordId").asLong()).isPositive();
+        assertThat(cook.get("data").get("dishId").asLong()).isEqualTo(DISH_FANQIE_CHAODAN);
+
+        // 最近做过首条 = 番茄炒蛋
+        JsonNode recent = get(token, "/cookbook/recent?limit=10");
+        assertThat(recent.get("code").asInt()).isEqualTo(0);
+        assertThat(recent.get("data").get(0).get("dishId").asLong()).isEqualTo(DISH_FANQIE_CHAODAN);
+
+        // 库存回写：番茄用完 → NONE（保质期清除，不再临期）；鸡蛋用了一些 → LOW
+        JsonNode tomato = get(token, "/pantry/item?ingredientId=" + ING_TOMATO).get("data");
+        assertThat(tomato.get("level").asText()).isEqualTo("NONE");
+        assertThat(tomato.get("bestBefore").isNull()).isTrue();
+        assertThat(tomato.get("changes").get(0).get("action").asText()).isEqualTo("cook");
+        assertThat(get(token, "/pantry/item?ingredientId=2").get("data").get("level").asText()).isEqualTo("LOW");
+        boolean stillExpiring = false;
+        for (JsonNode e : get(token, "/pantry/expiring?days=3").get("data")) {
+            stillExpiring |= e.get("ingredientId").asLong() == ING_TOMATO;
+        }
+        assertThat(stillExpiring).as("用完的番茄不应再出现在临期").isFalse();
+
+        // 食记可见（按菜汇总含番茄炒蛋）
+        String ym = LocalDate.now().toString().substring(0, 7);
+        JsonNode byDish = get(token, "/food-log/by-dish?month=" + ym);
+        assertThat(byDish.get("code").asInt()).isEqualTo(0);
+        boolean inLog = false;
+        for (JsonNode it : byDish.get("data").get("items")) {
+            inLog |= it.get("dishId").asLong() == DISH_FANQIE_CHAODAN;
+        }
+        assertThat(inLog).as("食记应可见单菜直做").isTrue();
     }
 
     // ---------------- HTTP 工具 ----------------

@@ -12,8 +12,15 @@ public record CookMaterialsVO(Long menuId, List<Item> items) {
      * @param usageTexts  用量原文（已拼菜名，如「番茄炒蛋 2个」；显示用，不参与任何库存判断）
      * @param level       ENOUGH 充足 / LOW 快用完 / NONE 没有（当前档位）
      * @param isCondiment 是否调料（采购品类=调味料）
+     * @param iconKey     插画 key（V68，可空）
      */
     public record Item(Long ingredientId, String ingredientName,
-                       List<String> usageTexts, String level, boolean isCondiment) {
+                       List<String> usageTexts, String level, boolean isCondiment, String iconKey) {
+
+        /** 无插画 key 的便捷构造（测试与旧调用方）。 */
+        public Item(Long ingredientId, String ingredientName,
+                    List<String> usageTexts, String level, boolean isCondiment) {
+            this(ingredientId, ingredientName, usageTexts, level, isCondiment, null);
+        }
     }
 }

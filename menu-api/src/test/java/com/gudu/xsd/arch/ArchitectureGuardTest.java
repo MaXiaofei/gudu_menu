@@ -1,6 +1,8 @@
 package com.gudu.xsd.arch;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.gudu.xsd.common.domain.AggregateRoot;
+import com.gudu.xsd.common.domain.DomainEvent;
 import com.tngtech.archunit.core.domain.Dependency;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -18,6 +20,7 @@ import java.util.List;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
 /**
  * DDD 分层与模块边界守护（ArchUnit）。
@@ -50,7 +53,10 @@ class ArchitectureGuardTest {
         JavaClasses classes = importClasses();
         List<String> failures = new ArrayList<>();
         for (ArchRule rule : List.of(controller不得依赖Mapper, controller不得依赖数据访问设施, mapper包规范,
-                mapper命名收口, 实体不依赖上层, 公共层不依赖业务模块, 跨模块Mapper访问冻结)) {
+                mapper命名收口, 实体不依赖上层, 公共层不依赖业务模块, 跨模块Mapper访问冻结,
+                领域层零框架依赖, 领域层不依赖持久化实体, 领域模型禁public_setter, 领域事件必须实现DomainEvent,
+                领域模型实体必须是聚合根, 领域层不依赖外层, 应用层不依赖接口层与基础设施, 基础设施不依赖应用层与接口层,
+                接口层不依赖基础设施)) {
             rule.evaluate(classes).getFailureReport().getDetails()
                     .forEach(detail -> failures.add("[" + rule.getDescription() + "]\n  " + detail));
         }
@@ -135,6 +141,72 @@ class ArchitectureGuardTest {
                     }
                 }
             }));
+
+    // ------------------------------------------------------------------
+    // DDD 四层（feature-gaps-closure 激活；绞杀式：只约束已迁入四层包的新代码）
+    // ------------------------------------------------------------------
+
+    private static final String[] DOMAIN_PKGS = {"com.gudu.xsd.modules..domain..", "com.gudu.xsd.common.domain.."};
+    private static final String APPLICATION = "com.gudu.xsd.modules..application..";
+    private static final String INTERFACES = "com.gudu.xsd.modules..interfaces..";
+    private static final String INFRASTRUCTURE = "com.gudu.xsd.modules..infrastructure..";
+
+    /** 领域层纯 JDK：禁 Spring / MyBatis(-Plus) / Jackson / Swagger / Sa-Token / Lombok / Servlet。 */
+    static final ArchRule 领域层零框架依赖 = noClasses()
+            .that().resideInAnyPackage(DOMAIN_PKGS)
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "org.springframework..", "com.baomidou..", "org.apache.ibatis..", "org.mybatis..",
+                    "com.fasterxml.jackson..", "io.swagger..", "cn.dev33..", "lombok..", "jakarta..", "javax.sql..");
+
+    /** 领域层不得引用持久化实体（@TableName PO）——PO ↔ 领域对象转换在 infrastructure。 */
+    static final ArchRule 领域层不依赖持久化实体 = noClasses()
+            .that().resideInAnyPackage(DOMAIN_PKGS)
+            .should().dependOnClassesThat().areAnnotatedWith("com.baomidou.mybatisplus.annotation.TableName");
+
+    /** 充血模型：领域模型禁 public setter（变更走意图明确的行为方法；等价于禁 @Data）。 */
+    static final ArchRule 领域模型禁public_setter = noMethods()
+            .that().areDeclaredInClassesThat().resideInAPackage("com.gudu.xsd.modules..domain.model..")
+            .and().haveNameMatching("set[A-Z].*")
+            .should().bePublic()
+            .allowEmptyShould(true); // 合规时本就无 setter 可查
+
+    /** domain.event 包内事件必须实现 DomainEvent。 */
+    static final ArchRule 领域事件必须实现DomainEvent = classes()
+            .that().resideInAPackage("com.gudu.xsd.modules..domain.event..")
+            .and().areTopLevelClasses()
+            .should().beAssignableTo(DomainEvent.class);
+
+    /**
+     * domain.model 里的「实体」（非 record / enum / 接口的顶层类）必须继承 AggregateRoot；
+     * 值对象一律用 record/enum 表达（天然不可变）。
+     */
+    static final ArchRule 领域模型实体必须是聚合根 = classes()
+            .that().resideInAPackage("com.gudu.xsd.modules..domain.model..")
+            .and().areTopLevelClasses()
+            .and().areNotInterfaces()
+            .and().areNotEnums()
+            .and().areNotRecords()
+            .should().beAssignableTo(AggregateRoot.class);
+
+    /** 依赖方向：domain 不依赖 application / interfaces / infrastructure。 */
+    static final ArchRule 领域层不依赖外层 = noClasses()
+            .that().resideInAnyPackage(DOMAIN_PKGS)
+            .should().dependOnClassesThat().resideInAnyPackage(APPLICATION, INTERFACES, INFRASTRUCTURE);
+
+    /** 依赖方向：application 只向内依赖 domain（仓储接口），不碰 interfaces / infrastructure 实现。 */
+    static final ArchRule 应用层不依赖接口层与基础设施 = noClasses()
+            .that().resideInAPackage(APPLICATION)
+            .should().dependOnClassesThat().resideInAnyPackage(INTERFACES, INFRASTRUCTURE);
+
+    /** 依赖方向：infrastructure 实现 domain 端口，不反向依赖 application / interfaces。 */
+    static final ArchRule 基础设施不依赖应用层与接口层 = noClasses()
+            .that().resideInAPackage(INFRASTRUCTURE)
+            .should().dependOnClassesThat().resideInAnyPackage(APPLICATION, INTERFACES);
+
+    /** 依赖方向：interfaces 只调 application（及其 DTO），不直连 infrastructure。 */
+    static final ArchRule 接口层不依赖基础设施 = noClasses()
+            .that().resideInAPackage(INTERFACES)
+            .should().dependOnClassesThat().resideInAPackage(INFRASTRUCTURE);
 
     /** modules.&lt;feature&gt;.… 取顶层 feature（menu.prep / menu.together 归并为 menu）。 */
     private static String topModuleOf(JavaClass c) {

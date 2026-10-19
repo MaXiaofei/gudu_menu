@@ -3,11 +3,14 @@ import { request } from './request'
 export interface LoginDTO {
   username: string
   password: string
+  /** 'admin'：后台登录，非超级管理员后端直接返回「无后台权限」 */
+  scope?: 'admin'
 }
 
 export interface LoginVO {
   token: string
   nickname: string
+  isAdmin: boolean
 }
 
 export function login(data: LoginDTO) {

@@ -205,17 +205,20 @@ function pickMinute(m: number) {
   padding: 3px 9px;
 }
 .capsule-txt {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   color: var(--title);
 }
 .capsule-caret {
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   color: var(--caption);
 }
 .mask {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 100;
   display: flex;
@@ -238,12 +241,12 @@ function pickMinute(m: number) {
   margin-bottom: 10px;
 }
 .path {
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 800;
   color: var(--title);
 }
 .done {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   color: var(--primary);
 }
@@ -253,7 +256,7 @@ function pickMinute(m: number) {
 }
 .grid-title {
   display: block;
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   font-weight: 800;
   color: var(--caption);
   letter-spacing: 1px;
@@ -281,14 +284,14 @@ function pickMinute(m: number) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--body);
   box-sizing: border-box;
 }
 .cell.on {
   background: var(--primary-deep);
   border-color: var(--primary-deep);
-  color: #FFFFFF;
+  color: var(--on-primary);
   font-weight: 800;
 }
 .cell.blank {
@@ -302,7 +305,7 @@ function pickMinute(m: number) {
 .week-txt {
   flex: 1;
   text-align: center;
-  font-size: 10px;
+  font-size: var(--fs-tiny);
   color: var(--caption);
 }
 </style>

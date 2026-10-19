@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import { init, type ECharts } from '@/utils/echarts'
+import { useThemeStore } from '@/store/theme'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   listMenus,
@@ -151,7 +152,8 @@ const summaryVisible = ref(false)
 const summaryTitle = ref('')
 const summary = ref<MenuSummary | null>(null)
 const chartRef = ref<HTMLDivElement>()
-let chartInstance: echarts.ECharts | null = null
+let chartInstance: ECharts | null = null
+const themeStore = useThemeStore()
 
 async function showSummary(row: Menu) {
   summaryTitle.value = `「${row.name}」汇总`
@@ -168,7 +170,7 @@ async function showSummary(row: Menu) {
 function renderChart() {
   if (!chartRef.value || !summary.value) return
   if (!chartInstance) {
-    chartInstance = echarts.init(chartRef.value)
+    chartInstance = init(chartRef.value)
   }
   const raw = summary.value.totalNutrition || {}
   const data = metrics.value
@@ -187,7 +189,7 @@ function renderChart() {
       {
         type: 'bar',
         data: data.map((d) => d.value),
-        itemStyle: { color: '#7A9A5B', borderRadius: [4, 4, 0, 0] },
+        itemStyle: { color: themeStore.currentTheme().primary, borderRadius: [4, 4, 0, 0] },
       },
     ],
   })
