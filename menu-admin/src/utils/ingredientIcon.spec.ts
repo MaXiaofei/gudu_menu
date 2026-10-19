@@ -1,9 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import rules from '../../../docs/design/ingredient-icons.json'
-import assets from '../../../docs/design/assets.json'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import rules from './ingredient-icons.json'
+import assets from './assets.json'
 import { availableIconKeys, iconUrl, matchIconKey, resolveIconKey } from './ingredientIcon'
 
+const root = resolve(process.cwd(), '..')
+
 describe('食材插画 key', () => {
+  it('副本与 docs/design 源文件一致（改规则请同步复制；Docker 构建上下文仅 menu-admin/，够不到仓库级 docs/）', () => {
+    const srcRules = JSON.parse(readFileSync(resolve(root, 'docs/design/ingredient-icons.json'), 'utf8'))
+    const srcAssets = JSON.parse(readFileSync(resolve(root, 'docs/design/assets.json'), 'utf8'))
+    expect(rules).toEqual(srcRules)
+    expect(assets).toEqual(srcAssets)
+  })
+
   it('素材与 assets.json 一致（gen-assets 生成后同步）', () => {
     expect(availableIconKeys()).toEqual([...assets.ing].sort())
   })

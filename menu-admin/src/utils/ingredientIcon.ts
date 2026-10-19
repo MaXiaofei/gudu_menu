@@ -1,7 +1,8 @@
 // 食材 → 插画 key。规则单一来源：docs/design/ingredient-icons.json（后端 V68 回填 icon_key 用同一份规则）；
-// 素材由 scripts/design/gen-assets.mjs 复制到 src/assets/ing/。
+// 本目录的 ingredient-icons.json 是副本（Docker 构建上下文仅 menu-admin/，够不到仓库级 docs/），
+// ingredientIcon.spec.ts 守护与源文件一致；素材由 scripts/design/gen-assets.mjs 复制到 src/assets/ing/。
 // 优先级：接口给的 iconKey → 名称关键词（取最长匹配）→ 采购品类兜底 → null（组件退首字）。
-import rules from '../../../docs/design/ingredient-icons.json'
+import rules from './ingredient-icons.json'
 
 const ICON_URLS = import.meta.glob('../assets/ing/*.svg', {
   eager: true,
