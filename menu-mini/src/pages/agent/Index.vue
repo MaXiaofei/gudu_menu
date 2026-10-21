@@ -499,7 +499,8 @@ function goDish(id: number) {
 .exp-icons {
   display: flex;
 }
-.exp-icons > * + * {
+/* WXSS 不支持 * 通配选择器，按实际子元素 ui-ing-icon 写等价规则 */
+.exp-icons > ui-ing-icon + ui-ing-icon {
   margin-left: -8px;
 }
 .exp-main {

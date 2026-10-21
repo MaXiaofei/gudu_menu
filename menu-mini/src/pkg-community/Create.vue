@@ -378,10 +378,12 @@ function goBack() {
   border: 1.5px dashed var(--border);
   background: var(--card);
 }
-.cell.add > * {
+/* WXSS 不支持 * 通配选择器与 :first-child，按实际子元素 ui-icon / .add-txt 写等价规则 */
+.cell.add > ui-icon,
+.cell.add > .add-txt {
   position: absolute;
 }
-.cell.add > :first-child {
+.cell.add > ui-icon {
   left: 50%;
   top: 38%;
   transform: translate(-50%, -50%);
