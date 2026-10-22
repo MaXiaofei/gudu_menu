@@ -1,6 +1,7 @@
 package com.gudu.xsd.modules.dish;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import com.gudu.xsd.modules.dish.mapper.DishDictMapper;
 import com.gudu.xsd.modules.dish.mapper.DishHistoryMapper;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
@@ -244,6 +246,16 @@ class DishServiceTest {
                 .containsExactlyInAnyOrder(bd("200"), bd("100"));
         // 关键：只查了一次 ingredient 表（批量），不是逐个查
         Mockito.verify(ingredientMapper, Mockito.times(1)).selectBatchIds(any());
+    }
+
+    /** 详情：菜谱不存在时抛业务异常，而非 NPE 走全局兜底 500（游客白名单端点，可被任意触发）。 */
+    @Test
+    void 详情_菜谱不存在_抛业务异常() {
+        when(dishMapper.selectById(404L)).thenReturn(null);
+
+        assertThatThrownBy(() -> svc.detail(404L))
+                .isInstanceOf(BizException.class)
+                .hasMessageContaining("菜谱不存在");
     }
 
     /** 详情：食材被软删（查不到名）时 ingredientName 落 null，不报错。 */

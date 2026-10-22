@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.cookbook.CookingRecord;
 import com.gudu.xsd.modules.cookbook.mapper.CookingRecordMapper;
 import com.gudu.xsd.modules.dish.mapper.DishDictMapper;
@@ -153,6 +154,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     /** 详情：菜品 + 步骤 + 菜系/标签/分类 ID + 食材用量。 */
     public DishDetail detail(Long id) {
         Dish dish = getById(id);
+        if (dish == null) throw new BizException("菜谱不存在");
         List<DishStep> steps = stepMapper.selectList(
                 new QueryWrapper<DishStep>().eq("dish_id", id).orderByAsc("sort_order", "seq"));
         List<DishDict> rels = dictRelMapper.selectList(new QueryWrapper<DishDict>().eq("dish_id", id));

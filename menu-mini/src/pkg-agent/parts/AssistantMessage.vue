@@ -322,7 +322,8 @@ function goPlan(id: number) {
 .mthumbs {
   display: flex;
 }
-.mthumbs > * + * {
+/* WXSS 不支持 * 通配选择器，按实际子元素 ui-dish-image 写等价规则 */
+.mthumbs > ui-dish-image + ui-dish-image {
   margin-left: -10px;
 }
 .plan-ic {
