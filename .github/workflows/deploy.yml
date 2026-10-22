@@ -3,7 +3,12 @@
 #
 # 触发条件：
 #   - push 到 main 分支    → 部署生产环境 (prod, 端口 80)
-#   - push 到 feat/mvp 分支 → 部署测试环境 (staging, 端口 9090)
+#   - workflow_dispatch    → 手动触发（ref=main 部署 prod；ref=feat/mvp 部署 staging）
+#
+# ⏸️ staging（feat/mvp → 9090）已于 2026-10-22 封存：容器已停、数据卷保留。
+#    恢复步骤见 docs/deploy.md「staging 封存与恢复」：
+#    服务器 up -d（或直接 workflow_dispatch 选 feat/mvp）即可，数据/迁移自动追平；
+#    恢复常态化自动部署时把 feat/mvp 加回下方 on.push.branches。
 #
 # 选择性部署：检测本次 push 改动的目录（menu-api/ / menu-admin/ / menu-mini/），
 # 只重建涉及的服务；docker-compose/scripts/nginx 等基础设施改动 → 全量兜底；
@@ -25,9 +30,8 @@ name: Deploy
 on:
   push:
     branches:
-      - main       # 生产环境
-      - feat/mvp   # 测试环境
-  workflow_dispatch: # 允许手动触发（未指定 services → 全量）
+      - main       # 生产环境（staging 已封存，feat/mvp 暂不自动部署）
+  workflow_dispatch: # 允许手动触发（ref=feat/mvp 时部署 staging——封存期间恢复用）
 
 jobs:
   # 判断部署目标环境
