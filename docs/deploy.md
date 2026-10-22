@@ -44,7 +44,7 @@
 
 > ### ⏸️ 当前状态：staging 已封存（2026-10-22）
 >
-> 容器已全部停止（`docker compose -p gudu-staging down` + nacos-staging 同停），**数据卷完整保留**（`gudu-staging_mysql-data / pgvector-data / ollama-data（含 bge-m3 模型）/ uploads` 及 `nacos-staging_*`）。deploy.yml 已移除 feat/mvp 的 push 触发，冻结期间推代码不会自动部署；staging.imxf.cloud 访问 502 属预期（证书照常续期）。
+> 容器已全部停止（`docker compose -p gudu-staging down` + nacos-staging 同停），**数据卷完整保留**（`gudu-staging_mysql-data / pgvector-data / ollama-data（含 bge-m3 模型）/ uploads` 及 `nacos-staging_*`）。deploy.yml 已移除 feat/mvp 的 push 触发，冻结期间推代码不会自动部署；staging.imxf.cloud 无法访问（超时）属预期（证书照常续期）。
 >
 > **恢复步骤（两步）：**
 > 1. GitHub Actions 页面手动触发 Deploy 工作流，ref 选 `feat/mvp`（或把 `feat/mvp` 加回 deploy.yml 的 `on.push.branches` 恢复常态自动部署）；
