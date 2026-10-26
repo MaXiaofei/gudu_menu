@@ -43,7 +43,11 @@ void main() {
     expect(kAiDisclaimer, '$kAiLabel，$kAiDisclaimerTail');
     expect(aiFeedbackLocation(AiSource.agent, 'm 1'), '/feedback?type=ai&source=agent&ref=m+1');
     expect(aiFeedbackLocation(AiSource.scan), '/feedback?type=ai&source=scan');
-    expect(aiSourceTag(AiSource.nutrition), 'source=AI/营养报告');
+    expect(aiSourceTag(AiSource.scan), 'source=AI/拍照识别');
+    // 营养报告（规则计算）、智荐（本地向量召回）不是模型生成：不在 AI 来源里，健康提示不带「AI」
+    expect(AiSource.values.map((s) => s.name), ['agent', 'scan', 'weekplan']);
+    expect(kHealthDisclaimer, '仅供参考，不能替代医生或营养师建议');
+    expect(kHealthDisclaimer, isNot(contains('AI')));
   });
 
   testWidgets('默认：只有「AI 生成」徽章', (tester) async {
@@ -55,10 +59,18 @@ void main() {
   });
 
   testWidgets('disclaimer：徽章 + 免责提示', (tester) async {
-    await pump(tester, const AiBadge(disclaimer: true, source: AiSource.nutrition));
+    await pump(tester, const AiBadge(disclaimer: true, source: AiSource.weekplan));
     expect(find.byKey(const Key('ai-disclaimer')), findsOneWidget);
     expect(find.text(kAiDisclaimerTail), findsOneWidget);
     expect(find.text('AI 生成'), findsOneWidget);
+  });
+
+  testWidgets('HealthNote：只有健康免责提示，无「AI 生成」与反馈入口', (tester) async {
+    await pump(tester, const HealthNote());
+    expect(find.byKey(const Key('health-note')), findsOneWidget);
+    expect(find.text(kHealthDisclaimer), findsOneWidget);
+    expect(find.text('AI 生成'), findsNothing);
+    expect(find.byKey(const Key('ai-feedback')), findsNothing);
   });
 
   testWidgets('AI 身份说明', (tester) async {

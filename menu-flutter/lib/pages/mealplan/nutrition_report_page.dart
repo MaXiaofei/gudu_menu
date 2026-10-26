@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/ai_label.dart';
 import '../../core/app_theme.dart';
 import '../../models/member.dart';
 import '../../services/agent_service.dart' show isNotDeployed;
@@ -115,8 +114,8 @@ class _NutritionReportPageState extends State<NutritionReportPage> {
         children: [
           if (members.isNotEmpty) _memberChips(t, members),
           const SizedBox(height: AppTokens.sp12),
-          // AI 标识 + 免责提示（A.4）
-          const AiBadge(disclaimer: true, source: AiSource.nutrition),
+          // 健康类免责提示（营养报告是规则计算，不标 AI）
+          const HealthNote(),
           const SizedBox(height: AppTokens.sp12),
           if (_loading)
             const SkeletonBox(height: 280, radius: AppTokens.rLg)

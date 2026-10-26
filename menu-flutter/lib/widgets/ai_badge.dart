@@ -70,3 +70,28 @@ class AiAssistantIntro extends StatelessWidget {
     ]);
   }
 }
+
+/// 健康类免责提示（非 AI 内容用：营养报告、家有特殊饮食人群时的智荐）：
+/// 「仅供参考，不能替代医生或营养师建议」，不带「AI 生成」与反馈入口。
+class HealthNote extends StatelessWidget {
+  const HealthNote({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTokens.of(context);
+    return Container(
+      key: const Key('health-note'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp10, vertical: AppTokens.sp8),
+      decoration: BoxDecoration(
+        color: AppTokens.infoBg,
+        borderRadius: BorderRadius.circular(AppTokens.rSm),
+      ),
+      child: Row(children: [
+        const Icon(Icons.info_outline_rounded, size: 14, color: AppTokens.infoText),
+        const SizedBox(width: AppTokens.sp6),
+        Expanded(child: Text(kHealthDisclaimer, style: t.textStyles.caption.copyWith(color: AppTokens.infoText))),
+      ]),
+    );
+  }
+}

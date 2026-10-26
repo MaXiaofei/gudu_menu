@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/ai_label.dart';
 import '../../core/app_theme.dart';
 import '../../core/ingredient_icons.dart';
 import '../../models/member.dart';
@@ -115,9 +114,7 @@ class _AgentHomePageState extends State<AgentHomePage> {
                   const SizedBox(height: AppTokens.sp20),
                   Row(
                     children: [
-                      Text('今晚首推', style: ts.subtitle),
-                      const SizedBox(width: AppTokens.sp6),
-                      const Expanded(child: Align(alignment: Alignment.centerLeft, child: AiBadge(source: AiSource.recommend))),
+                      Expanded(child: Text('今晚首推', style: ts.subtitle)),
                       InkWell(
                         onTap: () => context.push('/ai-recommend'),
                         child: Text('全部推荐 ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),

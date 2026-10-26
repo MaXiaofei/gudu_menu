@@ -28,7 +28,7 @@
     <ui-state v-else-if="!report" mode="error" text="报告没生成出来" :retry="true" @retry="load" />
     <scroll-view v-else scroll-y class="body">
       <view class="pad">
-        <view class="ai-row" data-testid="nutrition-ai"><ui-ai-badge disclaimer source="nutrition" /></view>
+        <view class="ai-row" data-testid="nutrition-note"><ui-health-note /></view>
         <view class="card">
           <text class="c-title">{{ report.member.name }}{{ rangeLabel }} {{ okCount }} 项达标<text v-if="report.alerts.length" class="c-bad"> · {{ report.alerts.map((a) => a.label).join('、') }}超标</text></text>
           <text class="c-sub">根据 {{ report.recordCount }} 条食记按每人份估算 · {{ shortDate(report.range.from) }}–{{ shortDate(report.range.to) }}</text>

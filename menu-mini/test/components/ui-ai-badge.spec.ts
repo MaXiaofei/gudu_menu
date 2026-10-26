@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest'
 import { createApp, h, nextTick, type App, type Component } from 'vue'
 import { __testUni } from '../setup'
 import UiAiBadge from '@/components/ui-ai-badge.vue'
+import UiHealthNote from '@/components/ui-health-note.vue'
 import AssistantMessage from '@/pkg-agent/parts/AssistantMessage.vue'
 import type { AgentMessage } from '@/api/agent'
 import { AI_LABEL } from '@/utils/aiLabel'
@@ -45,6 +46,15 @@ describe('ui-ai-badge', () => {
     const r = await mount(UiAiBadge, { source: 'scan', feedbackRef: 42 })
     ;(r.querySelector('[data-testid="ai-feedback"]') as HTMLElement).click()
     expect(__testUni.mocks.navigateTo).toHaveBeenCalledWith({ url: '/pages/profile/Feedback?type=ai&source=scan&ref=42' })
+  })
+})
+
+describe('ui-health-note', () => {
+  it('只有健康免责提示，不出现「AI 生成」与反馈入口', async () => {
+    const r = await mount(UiHealthNote, {}, { 'ui-icon': { render: () => null } })
+    expect(r.querySelector('[data-testid="health-note"]')?.textContent).toBe('仅供参考，不能替代医生或营养师建议')
+    expect(r.textContent).not.toContain('AI')
+    expect(r.querySelector('[data-testid="ai-feedback"]')).toBeNull()
   })
 })
 

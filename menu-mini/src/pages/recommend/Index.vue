@@ -24,8 +24,8 @@
       <ui-state v-if="homeLoading" mode="loading" skeleton="hero" />
       <ui-state v-else-if="homeError" mode="error" text="推荐没加载出来" :retry="true" @retry="loadHome" />
       <template v-else>
-        <!-- AI 标识（A.4）：家里有特殊饮食人群时附免责提示 -->
-        <view class="ai-row" data-testid="smart-ai"><ui-ai-badge source="recommend" :disclaimer="hasSpecialDiet" /></view>
+        <!-- 健康类免责提示（智荐是本地向量召回，不是 AI 生成，不标 AI）：家里有特殊饮食人群时显示 -->
+        <view v-if="hasSpecialDiet" class="ai-row" data-testid="smart-health"><ui-health-note /></view>
         <!-- 今晚首推 -->
         <view v-if="heroCard" class="hero" data-testid="smart-hero" @click="goDish(heroCard.dishId)">
           <ui-dish-image :src="cardCover(heroCard)" :name="heroCard.name" ratio="4:3" :radius="22" original>

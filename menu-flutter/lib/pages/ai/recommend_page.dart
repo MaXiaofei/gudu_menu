@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/ai_label.dart';
 import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
 import '../../core/error_text.dart';
@@ -136,9 +135,11 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _header(t),
           const SizedBox(height: AppTokens.sp12),
-          // AI 标识（A.4）：家里有特殊饮食人群时附免责提示
-          _aiBadge(),
-          const SizedBox(height: AppTokens.sp12),
+          // 健康类免责提示（智荐是本地向量召回，不标 AI）：家里有特殊饮食人群时显示
+          if (_hasSpecialDiet()) ...[
+            const HealthNote(key: Key('smart-health')),
+            const SizedBox(height: AppTokens.sp12),
+          ],
           // 智荐分区：今晚首推 / 快到期的 / 你家常做 / 应季 / 最近做过（空分区隐藏）
           SmartHomeSections(key: _homeKey),
           const SizedBox(height: AppTokens.sp24),
@@ -291,19 +292,12 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
     );
   }
 
-  Widget _aiBadge() {
-    List<Member> members;
+  bool _hasSpecialDiet() {
     try {
-      members = context.watch<MemberStore>().members;
+      return context.watch<MemberStore>().members.any((m) => m.audiences.isNotEmpty);
     } catch (_) {
-      members = const [];
+      return false;
     }
-    final special = members.any((m) => m.audiences.isNotEmpty);
-    return special
-        ? const AiBadge(key: Key('smart-ai'), disclaimer: true, source: AiSource.recommend)
-        : const Align(
-            alignment: Alignment.centerLeft,
-            child: AiBadge(key: Key('smart-ai'), source: AiSource.recommend));
   }
 
   /// 顶部问候：家人头像 + 「周四晚上 · N 人吃饭」+ 今晚吃点什么。

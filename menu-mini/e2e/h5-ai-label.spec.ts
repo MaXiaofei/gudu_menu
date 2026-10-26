@@ -13,12 +13,13 @@ async function setup(page: Page) {
 }
 
 test.describe('H5 AI 生成标识', () => {
-  test('咕嘟首屏：AI 身份说明 + 今晚首推标识', async ({ page }) => {
+  test('咕嘟首屏：AI 身份说明；今晚首推（非模型生成）不标 AI', async ({ page }) => {
     await setup(page)
     await page.goto('/#/pages/agent/Index')
     await expect(page.locator('[data-testid="agent-hero"]')).toContainText('清蒸鲈鱼', { timeout: 15000 })
     await expect(page.locator('[data-testid="ai-intro"]')).toContainText('我是 AI 助手')
     await expect(page.locator('[data-testid="ai-intro"] [data-testid="ai-badge-chip"]')).toHaveText('AI 生成')
+    await expect(page.locator('[data-testid="ai-badge"]')).toHaveCount(1)
   })
 
   test('对话：首屏 AI 身份说明；回复带标识，反馈进意见反馈页（AI 内容）', async ({ page }) => {
@@ -50,18 +51,19 @@ test.describe('H5 AI 生成标识', () => {
     await expect(page.locator('[data-testid="weekplan-ai"]')).toContainText(DISCLAIMER)
   })
 
-  test('营养报告：标识 + 免责提示', async ({ page }) => {
+  test('营养报告（规则计算）：只有健康免责提示，不标 AI', async ({ page }) => {
     await setup(page)
     await page.goto('/#/pkg-ai/Nutrition')
     await expect(page.locator('.al-title')).toContainText('钠 本周日均 2.6g', { timeout: 15000 })
-    await expect(page.locator('[data-testid="nutrition-ai"]')).toContainText('AI 生成')
-    await expect(page.locator('[data-testid="nutrition-ai"]')).toContainText(DISCLAIMER)
+    await expect(page.locator('[data-testid="nutrition-note"]')).toHaveText(DISCLAIMER)
+    await expect(page.locator('[data-testid="ai-badge"]')).toHaveCount(0)
   })
 
-  test('智荐：标识', async ({ page }) => {
+  test('智荐（本地向量召回）：不标 AI；家有特殊饮食人群时显示健康免责提示', async ({ page }) => {
     await installMocks(page)
     await page.goto('/#/pages/recommend/Index')
     await expect(page.locator('[data-testid="smart-hero"]')).toContainText('清蒸鲈鱼', { timeout: 15000 })
-    await expect(page.locator('[data-testid="smart-ai"] [data-testid="ai-badge-chip"]')).toHaveText('AI 生成')
+    await expect(page.locator('[data-testid="ai-badge"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="smart-health"]')).toHaveText(DISCLAIMER)
   })
 })
