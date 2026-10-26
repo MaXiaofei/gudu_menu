@@ -24,6 +24,8 @@
       <ui-state v-if="homeLoading" mode="loading" skeleton="hero" />
       <ui-state v-else-if="homeError" mode="error" text="推荐没加载出来" :retry="true" @retry="loadHome" />
       <template v-else>
+        <!-- AI 标识（A.4）：家里有特殊饮食人群时附免责提示 -->
+        <view class="ai-row" data-testid="smart-ai"><ui-ai-badge source="recommend" :disclaimer="hasSpecialDiet" /></view>
         <!-- 今晚首推 -->
         <view v-if="heroCard" class="hero" data-testid="smart-hero" @click="goDish(heroCard.dishId)">
           <ui-dish-image :src="cardCover(heroCard)" :name="heroCard.name" ratio="4:3" :radius="22" original>
@@ -153,6 +155,8 @@ import { goTab } from '@/utils/nav'
 
 const askRef = ref<InstanceType<typeof AskBlock> | null>(null)
 const faces = ref<{ name: string; tags?: string[] | null }[]>([])
+/** 家里有特殊饮食人群（高血压 / 宝宝辅食 …）：推荐与其相关，需显示免责提示。 */
+const hasSpecialDiet = computed(() => faces.value.some((f) => (f.tags?.length ?? 0) > 0))
 const unread = ref(0)
 
 onShow(() => {
@@ -446,5 +450,8 @@ function goDish(id: number) {
 .ask-wrap {
   padding-top: var(--space-sm);
   border-top: 1px solid var(--border);
+}
+.ai-row {
+  margin-bottom: var(--sp-12);
 }
 </style>
