@@ -59,7 +59,7 @@
   - `GET /admin/accounts`（只读全局表 account / account_ban / family_membership / family；手机号脱敏、openid 只出末 6 位、只给家庭数）；`POST /admin/accounts/{id}/ban|unban {reason}`；封禁表 `account_ban`（V86）；封禁即 `StpUtil.logout` 下线，登录（手机号 / 微信）与写接口（`BannedAccountInterceptor`）统一 **423 ACCOUNT_BANNED**，小程序弹窗提示原因回登录页；超管不可封、运营只能由超管封
   - 后台操作日志 `admin_operation_log`（V86）+ `GET /admin/operation-logs`（封禁、解封、恢复、确认违规、重试注销）
 - [x] F.2 注销申请处理：查看注销记录与匿名化执行结果，失败重试；隐私政策「15 个工作日」时限提醒
-  - `account_deactivation`（V86）：注销同事务受理（第一步「账号匿名化与退出家庭」），提交后执行各上下文 `AccountErasureStep`（系统模式、幂等；当前：意见反馈联系方式 / 设备信息清除），失败 FAILED 可 `POST /admin/deactivations/{id}/retry`；截止 = 受理后第 15 个工作日（只跳周末，偏严），超期高亮 + 顶部告警
+  - `account_deactivation`（V86）：注销同事务受理（第一步「账号匿名化与退出家庭」），提交后执行各上下文 `AccountErasureStep`（系统模式、幂等；当前：AI 对话、拍照识别任务、用户偏好、导出链接凭证、通知、意见反馈联系方式与截图（与账号解绑）、头像文件；同意记录法定留存保留，登记条数），失败 FAILED 可 `POST /admin/deactivations/{id}/retry`；截止 = 受理后第 15 个工作日（只跳周末，偏严），超期高亮 + 顶部告警
 - [x] F.3 内容安全违规记录：查看文本/图片违规记录（来源、用途、结论、时间），人工复核「恢复」（还原隔离文件、恢复头像/帖子）或「确认违规」
   - 文本：拦截即写 `content_text_violation`（V86，独立事务不随 451 回滚，只存前 100 字摘录）；图片：`content_media_check` 加复核字段（V87），`MediaCheck.restore/confirmViolation`；恢复发 `MediaRestoredEvent`（头像恢复到上传账号各家庭档案中被清空的头像、帖子恢复公开）后 `UploadQuarantine.release` 还原文件；隔离原图可在后台查看
   - 顺带修复：图片违规回调无登录态（游客租户），订阅方改在系统模式执行，否则多家庭后清不到头像；openid 解析改读 account 表

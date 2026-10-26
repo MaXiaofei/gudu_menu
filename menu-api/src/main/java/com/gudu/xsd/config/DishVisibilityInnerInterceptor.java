@@ -41,7 +41,7 @@ public class DishVisibilityInnerInterceptor extends TenantLineInnerInterceptor {
         super(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
-                Long familyId = TenantContextHolder.familyIdOrNull();
+                Long familyId = DishVisibility.effectiveFamilyId();
                 return new LongValue(familyId == null ? GuduTenantLineHandler.GUEST_TENANT : familyId);
             }
 
@@ -72,7 +72,7 @@ public class DishVisibilityInnerInterceptor extends TenantLineInnerInterceptor {
         Column col = getAliasColumn(table);
         IsNullExpression isPublic = new IsNullExpression();
         isPublic.setLeftExpression(col);
-        Long familyId = TenantContextHolder.familyIdOrNull();
+        Long familyId = DishVisibility.effectiveFamilyId();
         if (familyId == null) return isPublic;
         return new ParenthesedExpressionList<>(new OrExpression(isPublic, new EqualsTo(col, new LongValue(familyId))));
     }
@@ -80,7 +80,7 @@ public class DishVisibilityInnerInterceptor extends TenantLineInnerInterceptor {
     /** {@code EXISTS (SELECT 1 FROM dish vd WHERE vd.id = <子表>.dish_id AND 可见性)}。 */
     Expression childExists(Table table) {
         String ref = table.getAlias() != null ? table.getAlias().getName() : table.getName();
-        Long familyId = TenantContextHolder.familyIdOrNull();
+        Long familyId = DishVisibility.effectiveFamilyId();
         String visible = familyId == null ? "vd.family_id IS NULL"
                 : "(vd.family_id IS NULL OR vd.family_id = " + familyId + ")";
         try {

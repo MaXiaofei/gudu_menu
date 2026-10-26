@@ -47,8 +47,8 @@
 ## Phase F：前端三端
 - [x] F.1 （仅小程序 menu-mini 已完成；分包 pkg-family / pkg-account，账号与安全页「导出我的数据」待 `GET /account/me/export` 上线后接入）menu-mini：登录后家庭上下文存储；顶部/我的页家庭切换器；家庭页（成员列表/角色/移除/退出/转让/解散）；邀请生成与分享（小程序 `onShareAppMessage` 带 code）；邀请落地页；首次登录引导；成员档案页；公共菜谱「复制到我家」；注销入口；403 FAMILY_ACCESS_DENIED 处理
 - [ ] F.2 menu-flutter：同上（家庭页、切换、邀请链接/邀请码输入、档案、fork、注销）
-- [ ] F.3 menu-admin：OPERATOR 鉴权；公共菜谱库管理（仅 family_id IS NULL）；用户/家庭只读统计；移除家庭私有数据页面（菜单/库存/采购/周计划）
-  - 已完成（随 mini-release-compliance F.1/F.5）：OPERATOR / SUPER_ADMIN 鉴权、账号元数据只读列表、家庭私有数据页面下线；待确认：公共菜谱库页仅列 family_id IS NULL（dish 可见性由另一窗口负责）
+- [x] F.3 menu-admin：OPERATOR 鉴权；公共菜谱库管理（仅 family_id IS NULL）；用户/家庭只读统计；移除家庭私有数据页面（菜单/库存/采购/周计划）
+  - 已完成（随 mini-release-compliance F.1/F.5）：OPERATOR / SUPER_ADMIN 鉴权、账号元数据只读列表、家庭私有数据页面下线；公共菜谱库已核实并收紧：后台（scope=admin）登录时 DishVisibility / DishVisibilityInnerInterceptor 一律按「无家庭」只列、只改 family_id IS NULL 的公共菜谱，运营自己家庭的私有菜谱后台不可见不可写（DishVisibilityAdminScopeTest）
 - [ ] F.4 三端测试：mini unit+Playwright（家庭切换、邀请加入）；Flutter widget+integration（家庭页、邀请）；admin Playwright（非 OPERATOR 拒绝）
 
 ## Phase G：E2E 与上线
