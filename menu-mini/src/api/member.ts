@@ -38,13 +38,14 @@ export interface MemberSave {
 }
 
 /** 新增本家无账号成员档案（OWNER/ADMIN），返回档案 id。 */
-export function addMember(m: MemberSave): Promise<number> {
-  return request({ url: '/member', method: 'POST', data: { ...m, id: undefined }, contentScene: 'nickname' })
+export async function addMember(m: MemberSave): Promise<number> {
+  // 走 saveMemberProfile：含健康 / 儿童信息时先弹单独同意窗，428 自动补同意后重试（B.2）
+  return (await saveMemberProfile({ ...m, id: undefined })) as number
 }
 
 /** 编辑本家成员档案（OWNER/ADMIN 任意；普通成员只能改本人）。 */
-export function updateMember(m: MemberSave & { id: number }): Promise<void> {
-  return request({ url: '/member', method: 'PUT', data: m, contentScene: 'nickname' })
+export async function updateMember(m: MemberSave & { id: number }): Promise<void> {
+  await saveMemberProfile(m)
 }
 
 /** 删除本家无账号成员档案（有账号的成员在家庭页移除）。 */
@@ -135,7 +136,7 @@ export class ConsentDeclinedError extends Error {
 export async function saveMemberProfile(p: MemberProfilePayload): Promise<number | undefined> {
   if (!(await ensureSensitiveConsent(p))) throw new ConsentDeclinedError()
   const submit = () =>
-    request<number | null>({ url: '/member', method: p.id ? 'PUT' : 'POST', data: { ...p } })
+    request<number | null>({ url: '/member', method: p.id ? 'PUT' : 'POST', data: { ...p }, contentScene: 'nickname' })
   try {
     const r = await submit()
     return p.id ?? (r ?? undefined)

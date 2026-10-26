@@ -46,7 +46,7 @@
             <text class="row-label">导出我的数据</text>
             <text class="row-sub">下载你的账号、家庭成员档案、菜谱与记录副本</text>
           </view>
-          <text class="soon">即将开放</text>
+          <ui-icon name="chevron" :size="16" />
         </view>
         <view class="row" data-testid="deactivate-entry" @click="showDeactivate = !showDeactivate">
           <text class="row-label grow danger-txt">注销账号</text>
@@ -91,6 +91,7 @@ import {
   ownedFamiliesBlockingDeactivation,
   type AccountMe,
 } from '@/api/account'
+import { createExportLink, copyExportLink } from '@/api/privacy'
 import { useAuthStore } from '@/store/auth'
 import { useFamilyStore } from '@/store/family'
 import { saveFamilyContext } from '@/utils/family'
@@ -162,8 +163,18 @@ async function onMerge() {
   }
 }
 
-function onExport() {
-  uni.showToast({ title: '导出功能即将开放，也可发邮件申请副本', icon: 'none' })
+let exporting = false
+async function onExport() {
+  if (exporting) return
+  exporting = true
+  try {
+    const link = await createExportLink()
+    await copyExportLink(link)
+  } catch {
+    // request.ts 已提示（如每日次数用完）
+  } finally {
+    exporting = false
+  }
 }
 
 function goFamily() {
