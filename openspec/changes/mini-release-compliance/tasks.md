@@ -28,12 +28,21 @@
 
 ## Phase B：同意与敏感信息
 - [ ] B.1 `consent_record` 表 + `POST /consent` + 登录流程上报协议同意（含版本）
-- [ ] B.2 健康档案 / 不满 14 周岁成员单独同意弹窗（mini + Flutter），撤回即删除对应字段
-- [ ] B.3 健康档案、手机号字段级加密（TypeHandler + 存量加密迁移脚本 + 回滚）
+- [x] B.2 健康档案 / 不满 14 周岁成员单独同意弹窗（mini + Flutter），撤回即删除对应字段
+  - 后端 privacy 上下文：`consent_record`（V88 自建，B.1 合入时复用；doc_type = sensitive_health / child_info）+ `GET/POST /consent/sensitive`、`POST /consent/sensitive/withdraw`；`/member` 新增/编辑含健康档案或不满 14 周岁信息时无同意记录 → 428 `CONSENT_REQUIRED`（data.docTypes），不保存
+  - 撤回即删除：`member.health_consent_account_id` 记录提供人；撤回 sensitive_health 清空本人档案 + 其提供的全部档案的健康档案/目标/活动水平，撤回 child_info 只清其中儿童档案；称呼/头像保留；`AccountMerged` 改指提供人与同意记录
+  - mini：`saveMemberProfile` 保存前按缺项弹原生单独同意窗（儿童场景「监护人单独同意」），428 兜底重弹重试；「家庭成员」页「敏感信息授权」可撤回。成员档案编辑页本身属 multi-tenant-family F.1，须调用 `saveMemberProfile`；Flutter 端随 App 上线再做
+- [x] B.3 健康档案、手机号字段级加密（TypeHandler + 存量加密迁移脚本 + 回滚）
+  - AES-256-GCM，密文 `ENC:v<版本>:…`，密钥 `GUDU_FIELD_CRYPTO_KEYS`（多版本，`GUDU_FIELD_CRYPTO_ACTIVE` 选加密版本）；手机号盲索引 `account.phone_hash`（HMAC-SHA256，`GUDU_FIELD_CRYPTO_HMAC_KEY`，唯一索引，登录按它查，兼容未迁移明文）；openid 明文
+  - V88 列改造（health_profile JSON→TEXT、phone 加宽、phone_hash）；存量迁移/轮换/回滚用一次性进程 `--gudu.field-crypto.migrate=encrypt|decrypt`（MySQL 无 AES-GCM），回滚 SQL `sql/rollback/V88-V89_privacy.sql`
+  - dev/test/staging 共用固定测试密钥（共库）；e2e-seed 用 SQL 版 HMAC 还原 E2E 手机号
 
 ## Phase C：数据生命周期
-- [ ] C.1 定时清理：agent 对话 180 天、ai_call_log 180 天、反馈 1 年
-- [ ] C.2 `GET /account/me/export` 个人数据导出（依赖 multi-tenant-family Account）
+- [x] C.1 定时清理：agent 对话 180 天、ai_call_log 180 天、反馈 1 年
+  - `DataRetentionJob` 每天 03:30，`RetentionPurger` 各上下文实现（agent 会话/消息、agent_trace/span + ai_call_log、DONE 反馈按 update_time）；每批 500 行独立提交、单次批数上限、系统模式；`gudu.retention.days.<策略>` 可覆盖；V89 补时间索引
+- [x] C.2 `GET /account/me/export` 个人数据导出（依赖 multi-tenant-family Account）
+  - 各上下文 `PersonalDataSection`：账号、所属家庭+本人档案（不含其他成员）、本人创建的菜谱（V89 `dish.created_by`，存量无归属）、做菜记录、饮食日志、点评、AI 对话、反馈、同意记录；每天 3 次
+  - 交付：`POST /account/me/export/link` 签发 30 分钟下载凭证（Redis，不落盘），mini `createExportLink` + `copyExportLink` 复制到浏览器下载；页面入口另做
 
 ## Phase D：协议与平台材料
 - [x] D.1 重写 `docs/legal/privacy.md`、`terms.md`（个人主体：马晓飞 / maxiaofeidev@gmail.com）并同步 `static/legal/*.ts` 与 Flutter assets，升级 `LEGAL_VERSION`；文本中依赖未完成任务的承诺列在 `docs/legal/README.md`
