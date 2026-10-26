@@ -8,8 +8,8 @@
 - [ ] A.1 小程序关闭社区：`FEATURE_COMMUNITY` 开关，隐藏入口，`pkg-community` 不打包；后端识别 `X-Client: mp-weixin` 拒绝社区写接口
 - [ ] A.2 prod 关闭 Swagger/knife4j（`application-prod.yml`），放行名单随 profile
 - [ ] A.3 上传：UUID 文件名、去 EXIF；`/uploads/**` 改登录可读 + 公共/分享图例外
-- [ ] A.4 AI 标识组件（mini `ui-ai-badge` / Flutter `AiBadge`）接入 Agent 对话、拍照识别结果、营养报告、智荐、周餐程；营养/特殊人群页加免责提示；Agent 首屏 AI 身份说明；AI 内容反馈入口
-- [ ] A.5 发给模型的家庭信息最小化：成员称呼假名化，仅传特殊人群标签 + 过敏原；单测断言 prompt 不含真实称呼/手机号/openid
+- [x] A.4 AI 标识组件（mini `ui-ai-badge` / Flutter `AiBadge`）接入 Agent 对话、拍照识别结果、营养报告、智荐、周餐程；营养/特殊人群页加免责提示；Agent 首屏 AI 身份说明；AI 内容反馈入口
+- [x] A.5 发给模型的家庭信息最小化：成员称呼假名化，仅传特殊人群标签 + 过敏原；单测断言 prompt 不含真实称呼/手机号/openid
 - [ ] A.6 `ContentSecurity` 端口 + 微信实现（msgSecCheck v2 / mediaCheckAsync + 回调）+ 规则兜底；接入 AI 输入输出、昵称、头像、上传图片、反馈
 - [ ] A.7 首次登录完善资料：昵称仍为「微信用户」的账号登录后弹一次头像昵称设置（`chooseAvatar` + `type="nickname"`，可跳过、跳过后不再弹）；保存前过 A.6 内容安全；Flutter 端不涉及
 

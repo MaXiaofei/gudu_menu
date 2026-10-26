@@ -9,6 +9,7 @@ import '../../stores/member_store.dart';
 import '../../models/member.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/action_bar.dart';
+import '../../widgets/ai_badge.dart';
 import '../../widgets/member_avatar.dart';
 import 'smart_home_sections.dart';
 
@@ -133,7 +134,12 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _header(t),
-          const SizedBox(height: AppTokens.sp16),
+          const SizedBox(height: AppTokens.sp12),
+          // 健康类免责提示（智荐是本地向量召回，不标 AI）：家里有特殊饮食人群时显示
+          if (_hasSpecialDiet()) ...[
+            const HealthNote(key: Key('smart-health')),
+            const SizedBox(height: AppTokens.sp12),
+          ],
           // 智荐分区：今晚首推 / 快到期的 / 你家常做 / 应季 / 最近做过（空分区隐藏）
           SmartHomeSections(key: _homeKey),
           const SizedBox(height: AppTokens.sp24),
@@ -284,6 +290,14 @@ class _AiRecommendPageState extends State<AiRecommendPage> {
         ),
       ),
     );
+  }
+
+  bool _hasSpecialDiet() {
+    try {
+      return context.watch<MemberStore>().members.any((m) => m.audiences.isNotEmpty);
+    } catch (_) {
+      return false;
+    }
   }
 
   /// 顶部问候：家人头像 + 「周四晚上 · N 人吃饭」+ 今晚吃点什么。

@@ -15,6 +15,10 @@
     <scroll-view scroll-y class="body" :scroll-into-view="anchor" scroll-with-animation>
       <view class="pad">
         <text class="day">今天 {{ hm }}</text>
+        <view class="ai-intro" data-testid="ai-intro">
+          <ui-ai-badge />
+          <text class="ai-intro-txt">{{ AI_ASSISTANT_INTRO }}</text>
+        </view>
         <view v-if="!chat.messages.length" class="empty">
           <text class="empty-txt">问问咕嘟：冰箱里的能做什么、帮我把菜加进食集、做完了帮我扣余量。</text>
         </view>
@@ -76,6 +80,7 @@ import { useAgentChat } from '@/composables/useAgentChat'
 import { navInset } from '@/utils/token'
 import { PAGES } from '@/utils/nav'
 import AssistantMessage from './parts/AssistantMessage.vue'
+import { AI_ASSISTANT_INTRO } from '@/utils/aiLabel'
 
 const inset = navInset()
 const chat = useAgentChat()
@@ -315,5 +320,23 @@ function goVoice() {
 }
 .send.stop {
   background: var(--title);
+}
+/* AI 身份说明（A.4）：首屏常驻 */
+.ai-intro {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  margin: 0 auto var(--sp-12);
+  padding: var(--sp-6) var(--sp-10);
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.ai-intro-txt {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--caption);
+  line-height: 1.5;
 }
 </style>

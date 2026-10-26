@@ -7,6 +7,7 @@ import '../../models/member.dart';
 import '../../services/agent_service.dart' show isNotDeployed;
 import '../../services/mealplan_service.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/ai_badge.dart';
 import '../../widgets/dish_image.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/illustration.dart';
@@ -112,6 +113,9 @@ class _NutritionReportPageState extends State<NutritionReportPage> {
         padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp4, AppTokens.sp16, AppTokens.sp32),
         children: [
           if (members.isNotEmpty) _memberChips(t, members),
+          const SizedBox(height: AppTokens.sp12),
+          // 健康类免责提示（营养报告是规则计算，不标 AI）
+          const HealthNote(),
           const SizedBox(height: AppTokens.sp12),
           if (_loading)
             const SkeletonBox(height: 280, radius: AppTokens.rLg)

@@ -22,6 +22,7 @@
     <ui-state v-else-if="!draft" mode="error" text="这次没排出来" :retry="true" @retry="generate" />
     <scroll-view v-else scroll-y class="body">
       <view class="pad">
+        <view class="ai-row" data-testid="weekplan-ai"><ui-ai-badge disclaimer source="weekplan" :feedback-ref="draft.draftId" /></view>
         <view class="check" :class="{ bad: !draft.check.passed }">
           <view class="check-ic"><ui-icon :name="draft.check.passed ? 'check' : 'info'" tone="white" :size="18" /></view>
           <view class="check-main">
@@ -490,5 +491,8 @@ async function apply() {
   font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--on-primary);
+}
+.ai-row {
+  margin-bottom: var(--sp-12);
 }
 </style>

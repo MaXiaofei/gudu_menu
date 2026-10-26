@@ -81,6 +81,9 @@ void main() {
       expect(find.textContaining('鲈鱼明天到期'), findsWidgets);
       expect(find.text('还有 1 样快到期'), findsOneWidget);
       expect(find.text('冰箱里的能做什么'), findsOneWidget);
+      // AI 身份说明；今晚首推（非模型生成）不标 AI —— 全页只有说明里那一个「AI 生成」
+      expect(find.byKey(const Key('ai-intro')), findsOneWidget);
+      expect(find.text('AI 生成'), findsOneWidget);
       expect(find.text('今晚 3 口人'), findsOneWidget);
 
       await tester.tap(find.byType(MeAvatarButton));
@@ -277,6 +280,9 @@ void main() {
       expect(find.text('周一'), findsOneWidget);
       expect(find.text('周日'), findsOneWidget);
       expect(find.text('已排好 7 天 · 校验通过'), findsOneWidget);
+      // 周餐程是模型生成：AI 标识 + 免责提示
+      expect(find.byKey(const Key('ai-disclaimer')), findsOneWidget);
+      expect(find.text('AI 生成'), findsOneWidget);
       expect(find.text('¥326'), findsOneWidget);
       expect(find.text('宝宝版'), findsOneWidget);
       expect(find.text('妈妈少盐'), findsOneWidget);
@@ -325,6 +331,11 @@ void main() {
       expect(find.text('钠 日均 2.6g'), findsOneWidget);
       expect(find.text('红烧肉'), findsOneWidget);
       expect(find.text('换进餐程'), findsOneWidget);
+      // 营养报告是规则计算：只有健康免责提示，不标 AI
+      expect(find.byKey(const Key('health-note')), findsOneWidget);
+      expect(find.text('仅供参考，不能替代医生或营养师建议'), findsOneWidget);
+      expect(find.text('AI 生成'), findsNothing);
+      expect(find.byKey(const Key('ai-feedback')), findsNothing);
       await tester.scrollUntilVisible(find.text('膳食纤维达标'), 300,
           scrollable: find.descendant(of: find.byKey(const Key('nutrition-list')), matching: find.byType(Scrollable)).first);
       expect(find.text('膳食纤维达标'), findsOneWidget);
@@ -347,6 +358,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('识别到 2 样'), findsOneWidget);
+      expect(find.byKey(const Key('ai-badge-chip')), findsOneWidget);
+      expect(find.byKey(const Key('ai-feedback')), findsOneWidget);
       expect(find.text('西红柿 → 已匹配为 番茄'), findsOneWidget);
       expect(find.text('放进余量 · 1 样'), findsOneWidget);
 
