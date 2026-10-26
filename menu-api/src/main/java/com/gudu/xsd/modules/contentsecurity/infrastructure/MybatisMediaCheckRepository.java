@@ -75,6 +75,14 @@ public class MybatisMediaCheckRepository implements MediaCheckRepository {
     }
 
     @Override
+    public List<String> urlsByAccount(Long accountId, ContentPurpose purpose) {
+        if (accountId == null || purpose == null) return List.of();
+        return mapper.selectList(new QueryWrapper<ContentMediaCheckPO>().select("id", "media_url")
+                        .eq("member_id", accountId).eq("purpose", purpose.name()))
+                .stream().map(ContentMediaCheckPO::getMediaUrl).filter(java.util.Objects::nonNull).distinct().toList();
+    }
+
+    @Override
     public long countViolations(String review, String purpose, Long accountId) {
         return mapper.selectCount(violations(review, purpose, accountId));
     }

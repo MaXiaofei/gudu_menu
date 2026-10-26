@@ -217,6 +217,18 @@ class VisionJobAppServiceTest {
         }
 
         @Override
+        public List<VisionJob> findByMember(Long memberId) {
+            return store.values().stream().filter(j -> memberId.equals(j.memberId())).toList();
+        }
+
+        @Override
+        public int deleteByMember(Long memberId) {
+            int before = store.size();
+            store.values().removeIf(j -> memberId.equals(j.memberId()));
+            return before - store.size();
+        }
+
+        @Override
         public int deleteCreatedBefore(LocalDateTime createdBefore) {
             int before = store.size();
             store.values().removeIf(j -> j.createdAt().isBefore(createdBefore));

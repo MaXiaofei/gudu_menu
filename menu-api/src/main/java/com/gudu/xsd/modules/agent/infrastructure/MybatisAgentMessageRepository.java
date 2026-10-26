@@ -108,6 +108,12 @@ public class MybatisAgentMessageRepository implements AgentMessageRepository {
     }
 
     @Override
+    public int deleteByMember(Long memberId) {
+        if (memberId == null) return 0;
+        return mapper.delete(new QueryWrapper<AgentMessagePO>().eq("member_id", memberId));
+    }
+
+    @Override
     public int deleteBySessions(java.util.Collection<String> sessionIds) {
         if (sessionIds == null || sessionIds.isEmpty()) return 0;
         return mapper.delete(new QueryWrapper<AgentMessagePO>().in("session_id", sessionIds));

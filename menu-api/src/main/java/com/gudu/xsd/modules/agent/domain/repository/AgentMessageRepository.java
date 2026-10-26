@@ -31,6 +31,9 @@ public interface AgentMessageRepository {
     /** 保存期限清理（C.1）：物理删除 createdAt 早于 cutoff 的一批消息，返回删除条数。 */
     int deleteCreatedBefore(java.time.LocalDateTime cutoff, int limit);
 
+    /** 注销：物理删除该账号的全部消息。 */
+    int deleteByMember(Long memberId);
+
     /** 物理删除这些会话的全部消息（会话被清理时）。 */
     int deleteBySessions(java.util.Collection<String> sessionIds);
 

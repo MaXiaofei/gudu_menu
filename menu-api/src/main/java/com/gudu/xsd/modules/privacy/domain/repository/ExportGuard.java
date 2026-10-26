@@ -12,6 +12,9 @@ public interface ExportGuard {
     /** 签发临时下载凭证（随机 token → accountId），ttl 后自动失效。 */
     String issueToken(Long accountId, Duration ttl);
 
+    /** 注销：作废该账号已签发的全部下载凭证与当日限频计数，返回作废的凭证数（幂等）。 */
+    int revokeAll(Long accountId);
+
     /** 解析凭证（有效期内可重复下载，便于浏览器重试 / 链接预览后再打开）。 */
     Optional<Long> resolveToken(String token);
 }

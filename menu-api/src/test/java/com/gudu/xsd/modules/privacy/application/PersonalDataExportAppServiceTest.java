@@ -60,6 +60,14 @@ class PersonalDataExportAppServiceTest {
         public Optional<Long> resolveToken(String token) {
             return Optional.ofNullable(tokens.get(token));
         }
+
+        @Override
+        public int revokeAll(Long accountId) {
+            int before = tokens.size();
+            tokens.values().removeIf(accountId::equals);
+            counts.remove(accountId);
+            return before - tokens.size();
+        }
     }
 
     static PersonalDataSection section(String key, int order, List<PersonalDataSubject> seen, List<Boolean> system) {

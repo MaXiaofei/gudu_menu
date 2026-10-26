@@ -17,6 +17,9 @@ public interface AgentTraceRepository {
 
     List<TraceSpan> spans(String traceId);
 
+    /** 注销：该账号的调用链去标识——清片段输入输出、首句，并解除与账号的关联（统计保留）。返回处理的调用链数。 */
+    int anonymizeByMember(Long memberId);
+
     /** 倒序分页；rating=-1 只看差评；status 可空。 */
     List<AgentTrace> page(Integer rating, TraceStatus status, LocalDateTime beforeCreatedAt, String beforeId, int size);
 

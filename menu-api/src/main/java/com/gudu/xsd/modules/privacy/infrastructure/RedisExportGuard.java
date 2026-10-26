@@ -27,6 +27,7 @@ public class RedisExportGuard implements ExportGuard {
 
     private static final String COUNT = "gudu:export:count:";
     private static final String TOKEN = "gudu:export:token:";
+    private static final String TOKEN_INDEX = "gudu:export:tokens:";
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -47,7 +48,26 @@ public class RedisExportGuard implements ExportGuard {
         RANDOM.nextBytes(b);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(b);
         redis.opsForValue().set(TOKEN + token, String.valueOf(accountId), ttl);
+        // 账号 → 凭证索引（注销时整体作废）；索引的有效期跟随最晚签发的凭证
+        redis.opsForSet().add(TOKEN_INDEX + accountId, token);
+        redis.expire(TOKEN_INDEX + accountId, ttl.plusDays(1));
         return token;
+    }
+
+    @Override
+    public int revokeAll(Long accountId) {
+        if (accountId == null) return 0;
+        java.util.Set<String> tokens = redis.opsForSet().members(TOKEN_INDEX + accountId);
+        int n = 0;
+        if (tokens != null) {
+            for (String t : tokens) {
+                if (Boolean.TRUE.equals(redis.delete(TOKEN + t))) n++;
+            }
+        }
+        redis.delete(TOKEN_INDEX + accountId);
+        java.util.Set<String> counts = redis.keys(COUNT + accountId + ":*");
+        if (counts != null && !counts.isEmpty()) redis.delete(counts);
+        return n;
     }
 
     @Override

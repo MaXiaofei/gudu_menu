@@ -24,6 +24,11 @@ public class MybatisUserPreferenceRepository implements UserPreferenceRepository
     }
 
     @Override
+    public int deleteByMemberId(Long memberId) {
+        return memberId == null ? 0 : mapper.deleteById(memberId);
+    }
+
+    @Override
     public void save(UserPreference p) {
         UserPreferencePO po = new UserPreferencePO();
         po.setMemberId(p.memberId());

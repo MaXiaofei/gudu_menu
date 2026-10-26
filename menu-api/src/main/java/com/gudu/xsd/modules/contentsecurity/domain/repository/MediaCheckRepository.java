@@ -25,5 +25,8 @@ public interface MediaCheckRepository {
      */
     List<MediaCheck> pageViolations(String review, String purpose, Long accountId, int offset, int limit);
 
+    /** 注销：该账号上传过的指定用途图片地址（去重）。 */
+    List<String> urlsByAccount(Long accountId, com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose purpose);
+
     long countViolations(String review, String purpose, Long accountId);
 }

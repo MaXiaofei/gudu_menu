@@ -70,6 +70,19 @@ public class MybatisVisionJobRepository implements VisionJobRepository {
     }
 
     @Override
+    public List<VisionJob> findByMember(Long memberId) {
+        if (memberId == null) return List.of();
+        return mapper.selectList(new QueryWrapper<VisionJobPO>().eq("member_id", memberId))
+                .stream().map(MybatisVisionJobRepository::toDomain).toList();
+    }
+
+    @Override
+    public int deleteByMember(Long memberId) {
+        if (memberId == null) return 0;
+        return mapper.delete(new QueryWrapper<VisionJobPO>().eq("member_id", memberId));
+    }
+
+    @Override
     public int deleteCreatedBefore(LocalDateTime createdBefore) {
         return mapper.delete(new QueryWrapper<VisionJobPO>().lt("create_time", createdBefore));
     }

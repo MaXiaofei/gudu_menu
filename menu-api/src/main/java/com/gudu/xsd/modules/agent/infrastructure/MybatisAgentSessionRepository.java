@@ -63,6 +63,11 @@ public class MybatisAgentSessionRepository implements AgentSessionRepository {
     }
 
     @Override
+    public List<String> idsByMember(Long memberId) {
+        return memberId == null ? List.of() : mapper.selectIdsByMember(memberId);
+    }
+
+    @Override
     public int hardDelete(java.util.Collection<String> ids) {
         if (ids == null || ids.isEmpty()) return 0;
         return mapper.hardDeleteByIds(ids);

@@ -58,6 +58,12 @@ public class NotificationService {
             .in("member_id", memberIds).eq("is_read", 0));
     }
 
+    /** 账号注销：删除发给该账号的全部通知，返回删除条数（调用方需以系统模式运行）。 */
+    public int deleteByMember(Long memberId) {
+        if (memberId == null) return 0;
+        return notificationMapper.delete(new QueryWrapper<Notification>().eq("member_id", memberId));
+    }
+
     public void markRead(Long id, Long memberId) {
         markRead(id, List.of(memberId));
     }

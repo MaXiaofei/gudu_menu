@@ -121,11 +121,19 @@ public class MybatisFeedbackRepository implements FeedbackRepository {
 
     @Override
     public int anonymizeAccount(Long accountId) {
-        if (accountId == null) return 0;
+        if (accountId == null || accountId == ANONYMOUS_ACCOUNT) return 0;
         return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<FeedbackPO>()
                 .eq("member_id", accountId)
-                .and(w -> w.isNotNull("contact").or().isNotNull("client_info"))
-                .set("contact", null).set("client_info", null));
+                .set("contact", null).set("client_info", null).set("images", null)
+                .set("member_id", ANONYMOUS_ACCOUNT));
+    }
+
+    @Override
+    public List<String> imageUrlsOfAccount(Long accountId) {
+        if (accountId == null || accountId == ANONYMOUS_ACCOUNT) return List.of();
+        return mapper.selectList(new QueryWrapper<FeedbackPO>().select("id", "images").eq("member_id", accountId)
+                        .isNotNull("images"))
+                .stream().flatMap(po -> readImages(po.getImages()).stream()).toList();
     }
 
     @Override
