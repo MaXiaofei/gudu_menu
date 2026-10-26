@@ -1,70 +1,72 @@
 package com.gudu.xsd.modules.auth;
 
 import cn.dev33.satoken.stp.StpUtil;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gudu.xsd.common.BizException;
-import com.gudu.xsd.modules.member.Member;
-import com.gudu.xsd.modules.member.mapper.MemberMapper;
+import com.gudu.xsd.common.security.TenantSession;
+import com.gudu.xsd.modules.family.application.FamilyAppService;
+import com.gudu.xsd.modules.family.application.FamilyQueryApi;
+import com.gudu.xsd.modules.family.application.dto.FamilyViews.SessionFamily;
+import com.gudu.xsd.modules.identity.application.AccountAppService;
+import com.gudu.xsd.modules.identity.application.dto.AccountView;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 账号登录:BCrypt 校验 + Sa-Token 发券。
+ * 登录（multi-tenant-family A.4）：基于 {@code account} 认证，loginId = account.id；
+ * 登录后解析当前家庭（上次使用 / 唯一家庭 / 自动建「我的家」）写入 token 会话。
  *
- * <p>V29 合并后登录查 {@link Member}(phone = dto.username,或 admin 走 is_admin=1 的 phone='admin' 行)。
- * loginId = member.id,登录即定就餐成员(session.currentMemberId = member.id),
- * 故合并后不再需要「切换成员」。
+ * <p>响应：token、nickname、isAdmin（平台超管）、accountId、families[]、currentFamilyId、
+ * currentMemberId（本人在当前家庭的成员档案 id，兼容旧前端「登录即定就餐成员」）。
  */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final MemberMapper memberMapper;
+    private final AccountAppService accounts;
+    private final FamilyAppService familyApp;
+    private final FamilyQueryApi familyQuery;
     private final WxClient wxClient;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /** 管理后台登录场景。 */
-    static final String SCOPE_ADMIN = "admin";
+    static final String SCOPE_ADMIN = TenantSession.SCOPE_ADMIN;
 
     public Map<String, Object> login(LoginDTO dto) {
-        Member m = memberMapper.selectOne(
-                new QueryWrapper<Member>().eq("phone", dto.getUsername()));
-        if (m == null || m.getPasswordHash() == null
-                || !passwordEncoder.matches(dto.getPassword(), m.getPasswordHash())) {
-            throw new BizException("用户名或密码错误");
-        }
-        boolean admin = Integer.valueOf(1).equals(m.getIsAdmin());
-        if (SCOPE_ADMIN.equals(dto.getScope()) && !admin) {
+        AccountView a = accounts.authenticate(dto.getUsername(), dto.getPassword());
+        if (SCOPE_ADMIN.equals(dto.getScope()) && !a.superAdmin()) {
             throw BizException.forbidden("无后台权限");
         }
-        StpUtil.login(m.getId());
-        // 合并:登录即定就餐成员,免切换。兼容现有读 session.currentMemberId 的代码。
-        StpUtil.getSession().set("currentMemberId", m.getId());
-        return Map.of("token", StpUtil.getTokenValue(), "nickname", m.getName(), "isAdmin", admin);
+        return establish(a, SCOPE_ADMIN.equals(dto.getScope()) ? SCOPE_ADMIN : null, null);
     }
 
     /**
-     * 微信小程序静默登录（V50）：wx.login 的 code → openid → 查/建 member → Sa-Token 发券。
-     * 新用户零门槛：openid 首次出现即自动建号（name=微信用户，phone=wx_ 前缀占位）。
-     * 同一 openid 永远同一账号（换设备数据不丢）。
+     * 微信小程序静默登录：wx.login 的 code → openid → 查/建账号 → 发券。
+     * 新 openid 自动注册：带有效 inviteCode 则直接加入邀请家庭，否则自动建「我的家」。
+     * 已并入手机号账号的 openid 直接登录到手机号账号。
      */
-    public Map<String, Object> wxLogin(String code) {
+    public Map<String, Object> wxLogin(String code, String inviteCode) {
         String openid = wxClient.code2session(code);
+        AccountView a = accounts.loginOrRegisterByWechat(openid, null, inviteCode);
+        return establish(a, null, null);
+    }
 
-        Member m = memberMapper.selectOne(new QueryWrapper<Member>().eq("openid", openid));
-        if (m == null) {
-            m = new Member();
-            m.setOpenid(openid);
-            m.setName("微信用户");
-            m.setPhone("wx_" + openid.substring(0, Math.min(8, openid.length()))); // 占位手机号（无密码登录）
-            memberMapper.insert(m);
-        }
-        StpUtil.login(m.getId());
-        StpUtil.getSession().set("currentMemberId", m.getId());
-        return Map.of("token", StpUtil.getTokenValue(), "nickname", m.getName(),
-                "isAdmin", Integer.valueOf(1).equals(m.getIsAdmin()));
+    /** 登录并绑定当前家庭（preferredFamilyId 非空且仍是成员时沿用，账号合并后沿用合并前的当前家庭）。 */
+    public Map<String, Object> establish(AccountView a, String scope, Long preferredFamilyId) {
+        StpUtil.login(a.id());
+        TenantSession.setScope(scope);
+        SessionFamily sf = familyApp.resolveSession(a.id(), preferredFamilyId);
+        TenantSession.bind(sf.familyId(), sf.profileId());
+        Map<String, Object> out = new HashMap<>();
+        out.put("token", StpUtil.getTokenValue());
+        out.put("accountId", a.id());
+        out.put("nickname", a.nickname());
+        out.put("isAdmin", a.superAdmin());
+        out.put("platformRole", a.platformRole());
+        out.put("families", familyQuery.familiesOf(a.id()));
+        out.put("currentFamilyId", sf.familyId());
+        out.put("currentMemberId", sf.profileId());
+        return out;
     }
 }

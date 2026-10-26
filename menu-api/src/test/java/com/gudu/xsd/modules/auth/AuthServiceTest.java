@@ -2,226 +2,116 @@ package com.gudu.xsd.modules.auth;
 
 import cn.dev33.satoken.session.SaSession;
 import cn.dev33.satoken.stp.StpUtil;
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.gudu.xsd.common.BizException;
-import com.gudu.xsd.modules.member.Member;
-import com.gudu.xsd.modules.member.mapper.MemberMapper;
+import com.gudu.xsd.modules.family.application.FamilyAppService;
+import com.gudu.xsd.modules.family.application.FamilyQueryApi;
+import com.gudu.xsd.modules.family.application.dto.FamilyViews.FamilySummary;
+import com.gudu.xsd.modules.family.application.dto.FamilyViews.SessionFamily;
+import com.gudu.xsd.modules.identity.application.AccountAppService;
+import com.gudu.xsd.modules.identity.application.dto.AccountView;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * AuthService 单测:V29 合并后登录查 member(phone)+ BCrypt + session 定就餐成员。
- *
- * <p>用 MockedStatic 桩 StpUtil.login/getSession/getTokenValue(同 MpPermissionAspectTest 范式),
- * MemberMapper 用 Mockito 桩 selectOne。BCrypt 用真实编码器(可逆,验证校验链路)。
+ * AuthService（multi-tenant-family A.4）：基于 account 认证，loginId = account.id；
+ * 登录后解析当前家庭写入 token 会话，响应带 families[] / currentFamilyId / currentMemberId。
  */
 class AuthServiceTest {
 
-    private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder =
-            new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+    private final AccountAppService accounts = mock(AccountAppService.class);
+    private final FamilyAppService familyApp = mock(FamilyAppService.class);
+    private final FamilyQueryApi familyQuery = mock(FamilyQueryApi.class);
+    private final WxClient wx = mock(WxClient.class);
+    private final AuthService svc = new AuthService(accounts, familyApp, familyQuery, wx);
 
-    /** 造一个 phone='13800000001' 密码 'pw123' 的普通 member。 */
-    private Member phoneMember() {
-        Member m = new Member();
-        m.setId(10L);
-        m.setName("测试员");
-        m.setPhone("13800000001");
-        m.setPasswordHash(encoder.encode("pw123"));
-        m.setIsAdmin(0);
-        return m;
+    private static AccountView acc(long id, String nick, String role) {
+        return new AccountView(id, nick, null, "138****0001", false, true, role, "ACTIVE");
     }
 
-    /** 造一个 phone='admin' 密码 'admin123' 的超管 member。 */
-    private Member adminMember() {
-        Member m = new Member();
-        m.setId(99L);
-        m.setName("掌勺人");
-        m.setPhone("admin");
-        m.setPasswordHash(encoder.encode("admin123"));
-        m.setIsAdmin(1);
-        return m;
-    }
-
-    @Test
-    void 手机号登录成功_返回token和昵称_session定成员() {
-        MemberMapper mm = mock(MemberMapper.class);
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(phoneMember());
-        AuthService svc = new AuthService(mm, mock(WxClient.class));
-
+    private Map<String, Object> withStp(java.util.function.Supplier<Map<String, Object>> body, SaSession session) {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            SaSession session = mock(SaSession.class);
-            stp.when(() -> StpUtil.login(10L)).thenAnswer(i -> null);
-            stp.when(StpUtil::getSession).thenReturn(session);
+            stp.when(StpUtil::getTokenSession).thenReturn(session);
             stp.when(StpUtil::getTokenValue).thenReturn("tok-abc");
-
-            Map<String, Object> r = svc.login(new LoginDTO("13800000001", "pw123"));
-            assertThat(r.get("token")).isEqualTo("tok-abc");
-            assertThat(r.get("nickname")).isEqualTo("测试员");
-            // 登录即定就餐成员 = loginId(合并核心)
-            verify(session).set("currentMemberId", 10L);
+            return body.get();
         }
     }
 
     @Test
-    void admin账号登录成功_phone为admin字面量() {
-        MemberMapper mm = mock(MemberMapper.class);
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(adminMember());
-        AuthService svc = new AuthService(mm, mock(WxClient.class));
+    void 手机号登录_返回token_家庭列表_当前家庭与本人档案() {
+        when(accounts.authenticate("13800000001", "pw123")).thenReturn(acc(10L, "测试员", "USER"));
+        when(familyApp.resolveSession(10L, null)).thenReturn(new SessionFamily(3L, 31L, "OWNER"));
+        when(familyQuery.familiesOf(10L)).thenReturn(List.of(new FamilySummary(3L, "我的家", "OWNER", 1)));
+        SaSession session = mock(SaSession.class);
 
+        Map<String, Object> r = withStp(() -> svc.login(new LoginDTO("13800000001", "pw123")), session);
+
+        assertThat(r).containsEntry("token", "tok-abc").containsEntry("accountId", 10L)
+                .containsEntry("nickname", "测试员").containsEntry("isAdmin", false)
+                .containsEntry("currentFamilyId", 3L).containsEntry("currentMemberId", 31L);
+        assertThat((List<?>) r.get("families")).hasSize(1);
+        verify(session).set("familyId", 3L);
+        verify(session).set("currentMemberId", 31L);
+    }
+
+    @Test
+    void 认证失败_异常透传_不签发token() {
+        when(accounts.authenticate(any(), any())).thenThrow(new BizException("用户名或密码错误"));
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            SaSession session = mock(SaSession.class);
-            stp.when(() -> StpUtil.login(99L)).thenAnswer(i -> null);
-            stp.when(StpUtil::getSession).thenReturn(session);
-            stp.when(StpUtil::getTokenValue).thenReturn("tok-admin");
-
-            Map<String, Object> r = svc.login(new LoginDTO("admin", "admin123"));
-            assertThat(r.get("token")).isEqualTo("tok-admin");
-            assertThat(r.get("nickname")).isEqualTo("掌勺人");
-            verify(session).set("currentMemberId", 99L);
+            assertThatThrownBy(() -> svc.login(new LoginDTO("x", "y"))).hasMessageContaining("用户名或密码错误");
+            stp.verify(() -> StpUtil.login(any()), never());
         }
-    }
-
-    @Test
-    void 手机号不存在_抛用户名或密码错误() {
-        MemberMapper mm = mock(MemberMapper.class);
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(null);
-        AuthService svc = new AuthService(mm, mock(WxClient.class));
-
-        assertThatThrownBy(() -> svc.login(new LoginDTO("13900000000", "any")))
-                .isInstanceOf(BizException.class)
-                .hasMessageContaining("用户名或密码错误");
-    }
-
-    @Test
-    void 密码错误_抛用户名或密码错误() {
-        MemberMapper mm = mock(MemberMapper.class);
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(phoneMember());
-        AuthService svc = new AuthService(mm, mock(WxClient.class));
-
-        assertThatThrownBy(() -> svc.login(new LoginDTO("13800000001", "wrong")))
-                .isInstanceOf(BizException.class)
-                .hasMessageContaining("用户名或密码错误");
-    }
-
-    @Test
-    void member无密码hash_抛用户名或密码错误() {
-        // 纯家庭成员(phone=null/passwordHash=null)不应能登录
-        Member m = phoneMember();
-        m.setPasswordHash(null);
-        MemberMapper mm = mock(MemberMapper.class);
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(m);
-        AuthService svc = new AuthService(mm, mock(WxClient.class));
-
-        assertThatThrownBy(() -> svc.login(new LoginDTO("13800000001", "pw123")))
-                .isInstanceOf(BizException.class)
-                .hasMessageContaining("用户名或密码错误");
-    }
-
-    // ===================== wxLogin（V50 微信静默登录） =====================
-
-    @Test
-    void 微信登录_老openid_直接登录不建号() {
-        MemberMapper mm = mock(MemberMapper.class);
-        WxClient wx = mock(WxClient.class);
-        when(wx.code2session("code-ok")).thenReturn("oABC123");
-        Member existing = new Member();
-        existing.setId(20L);
-        existing.setName("老微信用户");
-        existing.setOpenid("oABC123");
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(existing);
-
-        AuthService svc = new AuthService(mm, wx);
-        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            SaSession session = mock(SaSession.class);
-            stp.when(() -> StpUtil.login(20L)).thenAnswer(i -> null);
-            stp.when(StpUtil::getSession).thenReturn(session);
-            stp.when(StpUtil::getTokenValue).thenReturn("tok-wx");
-
-            Map<String, Object> r = svc.wxLogin("code-ok");
-            assertThat(r.get("token")).isEqualTo("tok-wx");
-            assertThat(r.get("nickname")).isEqualTo("老微信用户");
-            verify(session).set("currentMemberId", 20L);
-        }
-        verify(mm, never()).insert(any(Member.class));
-    }
-
-    @Test
-    void 微信登录_新openid_自动建号_昵称微信用户_占位手机号() {
-        MemberMapper mm = mock(MemberMapper.class);
-        WxClient wx = mock(WxClient.class);
-        when(wx.code2session("code-new")).thenReturn("oXYZ_long_openid_9999");
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(null);
-        when(mm.insert(any(Member.class))).thenAnswer(i -> {
-            ((Member) i.getArgument(0)).setId(30L);
-            return 1;
-        });
-
-        AuthService svc = new AuthService(mm, wx);
-        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            SaSession session = mock(SaSession.class);
-            stp.when(() -> StpUtil.login(30L)).thenAnswer(i -> null);
-            stp.when(StpUtil::getSession).thenReturn(session);
-            stp.when(StpUtil::getTokenValue).thenReturn("tok-new");
-
-            Map<String, Object> r = svc.wxLogin("code-new");
-            assertThat(r.get("nickname")).isEqualTo("微信用户");
-        }
-        // 验证建号参数：openid + 占位 phone（前 8 位）+ 无密码
-        var captor = org.mockito.ArgumentCaptor.forClass(Member.class);
-        verify(mm).insert(captor.capture());
-        Member created = captor.getValue();
-        assertThat(created.getOpenid()).isEqualTo("oXYZ_long_openid_9999");
-        assertThat(created.getPhone()).isEqualTo("wx_" + "oXYZ_lon");
-        assertThat(created.getPasswordHash()).isNull();
-    }
-
-    @Test
-    void 微信登录_code2session失败_抛业务异常() {
-        MemberMapper mm = mock(MemberMapper.class);
-        WxClient wx = mock(WxClient.class);
-        when(wx.code2session("bad")).thenThrow(new BizException("微信登录失败(40029)：invalid code"));
-
-        AuthService svc = new AuthService(mm, wx);
-        assertThatThrownBy(() -> svc.wxLogin("bad"))
-                .isInstanceOf(BizException.class)
-                .hasMessageContaining("40029");
-        verify(mm, never()).insert(any(Member.class));
     }
 
     @Test
     void 后台登录_非超管_403且不签发token() {
-        MemberMapper mm = mock(MemberMapper.class);
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(phoneMember());
-        AuthService svc = new AuthService(mm, mock(WxClient.class));
-
+        when(accounts.authenticate("13800000001", "pw123")).thenReturn(acc(10L, "测试员", "USER"));
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             assertThatThrownBy(() -> svc.login(new LoginDTO("13800000001", "pw123", "admin")))
                     .isInstanceOf(BizException.class)
-                    .hasMessageContaining("无后台权限")
                     .extracting(e -> ((BizException) e).getCode()).isEqualTo(403);
             stp.verify(() -> StpUtil.login(any()), never());
         }
     }
 
     @Test
-    void 后台登录_超管_成功且返回isAdmin() {
-        MemberMapper mm = mock(MemberMapper.class);
-        when(mm.selectOne(any(Wrapper.class))).thenReturn(adminMember());
-        AuthService svc = new AuthService(mm, mock(WxClient.class));
+    void 后台登录_超管_成功_会话记录admin场景() {
+        when(accounts.authenticate("admin", "admin123")).thenReturn(acc(99L, "掌勺人", "SUPER_ADMIN"));
+        when(familyApp.resolveSession(99L, null)).thenReturn(new SessionFamily(1L, 99L, "OWNER"));
+        SaSession session = mock(SaSession.class);
+        Map<String, Object> r = withStp(() -> svc.login(new LoginDTO("admin", "admin123", "admin")), session);
+        assertThat(r).containsEntry("isAdmin", true);
+        verify(session).set("loginScope", "admin");
+    }
 
-        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getSession).thenReturn(mock(SaSession.class));
-            stp.when(StpUtil::getTokenValue).thenReturn("tok-admin");
-            Map<String, Object> r = svc.login(new LoginDTO("admin", "admin123", "admin"));
-            assertThat(r.get("token")).isEqualTo("tok-admin");
-            assertThat(r.get("isAdmin")).isEqualTo(true);
-        }
+    @Test
+    void 微信登录_openid交给账号服务_带邀请码() {
+        when(wx.code2session("c1")).thenReturn("oid-1");
+        when(accounts.loginOrRegisterByWechat("oid-1", null, "ABCDEFGH")).thenReturn(acc(5L, "微信用户", "USER"));
+        when(familyApp.resolveSession(5L, null)).thenReturn(new SessionFamily(8L, 81L, "MEMBER"));
+        Map<String, Object> r = withStp(() -> svc.wxLogin("c1", "ABCDEFGH"), mock(SaSession.class));
+        assertThat(r).containsEntry("accountId", 5L).containsEntry("currentFamilyId", 8L);
+    }
+
+    @Test
+    void 微信登录_code2session失败_抛业务异常() {
+        when(wx.code2session("bad")).thenThrow(new BizException("微信登录失败(40029)：invalid code"));
+        assertThatThrownBy(() -> svc.wxLogin("bad", null)).hasMessageContaining("40029");
+        verify(accounts, never()).loginOrRegisterByWechat(any(), any(), any());
+    }
+
+    @Test
+    void 账号合并后重签_沿用合并前的当前家庭() {
+        when(familyApp.resolveSession(eq(10L), eq(8L))).thenReturn(new SessionFamily(8L, 82L, "MEMBER"));
+        Map<String, Object> r = withStp(() -> svc.establish(acc(10L, "老张", "USER"), null, 8L), mock(SaSession.class));
+        assertThat(r).containsEntry("currentFamilyId", 8L).containsEntry("currentMemberId", 82L);
     }
 }
