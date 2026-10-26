@@ -44,7 +44,7 @@
 - [x] E.8 存量修复：迁移脚本识别「同一人两个账号」不自动合并（无法证明是同一人），只在用户主动发起时合并
 
 ## Phase F：前端三端
-- [ ] F.1 menu-mini：登录后家庭上下文存储；顶部/我的页家庭切换器；家庭页（成员列表/角色/移除/退出/转让/解散）；邀请生成与分享（小程序 `onShareAppMessage` 带 code）；邀请落地页；首次登录引导；成员档案页；公共菜谱「复制到我家」；注销入口；403 FAMILY_ACCESS_DENIED 处理
+- [x] F.1 （仅小程序 menu-mini 已完成；分包 pkg-family / pkg-account，账号与安全页「导出我的数据」待 `GET /account/me/export` 上线后接入）menu-mini：登录后家庭上下文存储；顶部/我的页家庭切换器；家庭页（成员列表/角色/移除/退出/转让/解散）；邀请生成与分享（小程序 `onShareAppMessage` 带 code）；邀请落地页；首次登录引导；成员档案页；公共菜谱「复制到我家」；注销入口；403 FAMILY_ACCESS_DENIED 处理
 - [ ] F.2 menu-flutter：同上（家庭页、切换、邀请链接/邀请码输入、档案、fork、注销）
 - [ ] F.3 menu-admin：OPERATOR 鉴权；公共菜谱库管理（仅 family_id IS NULL）；用户/家庭只读统计；移除家庭私有数据页面（菜单/库存/采购/周计划）
 - [ ] F.4 三端测试：mini unit+Playwright（家庭切换、邀请加入）；Flutter widget+integration（家庭页、邀请）；admin Playwright（非 OPERATOR 拒绝）

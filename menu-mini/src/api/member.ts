@@ -1,10 +1,53 @@
 import { request } from '@/utils/request'
 
+export interface HealthProfile {
+  height?: number | null
+  weight?: number | null
+  age?: number | null
+  /** male / female（营养目标 BMR 计算用） */
+  gender?: string | null
+  /** 特殊人群：高血压 / 高血糖 / 高血脂 / 宝宝辅食 */
+  audiences?: string[] | null
+  allergies?: string[] | null
+  [k: string]: any
+}
+
+/**
+ * 本家成员档案（multi-tenant-family：/member 只返回当前家庭）。
+ * accountId 为空 = 无账号成员（宝宝、老人），由主理人 / 管理员代建。
+ */
 export interface Member {
   id: number
   name: string
-  roleTags?: string[] | null
+  accountId?: number | null
+  healthProfile?: HealthProfile | null
+  goal?: string | null
+  activityLevel?: string | null
+  roleTags?: string[] | string | null
   audienceTags?: string[] | null
+}
+
+export interface MemberSave {
+  id?: number
+  name: string
+  healthProfile?: HealthProfile
+  goal?: string | null
+  activityLevel?: string | null
+}
+
+/** 新增本家无账号成员档案（OWNER/ADMIN），返回档案 id。 */
+export function addMember(m: MemberSave): Promise<number> {
+  return request({ url: '/member', method: 'POST', data: { ...m, id: undefined }, contentScene: 'nickname' })
+}
+
+/** 编辑本家成员档案（OWNER/ADMIN 任意；普通成员只能改本人）。 */
+export function updateMember(m: MemberSave & { id: number }): Promise<void> {
+  return request({ url: '/member', method: 'PUT', data: m, contentScene: 'nickname' })
+}
+
+/** 删除本家无账号成员档案（有账号的成员在家庭页移除）。 */
+export function deleteMember(id: number): Promise<void> {
+  return request({ url: `/member/${id}`, method: 'DELETE' })
 }
 
 /** 成员列表（兼容数组 / IPage 两种返回）。 */

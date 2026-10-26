@@ -1,12 +1,16 @@
 import { request } from '@/utils/request'
 import { hasConsent } from '@/utils/consent'
+import { applyLoginResult, PENDING_INVITE_KEY, type LoginResult } from '@/utils/family'
 
-/** 微信登录：POST /auth/wx-login {code} → {token, nickname}（新 openid 自动建号）。 */
-export function wxLogin(code: string): Promise<{ token: string; nickname: string }> {
+/**
+ * 微信登录：POST /auth/wx-login {code, inviteCode?} → {token, nickname, accountId, families, currentFamilyId…}。
+ * 新 openid 自动建号：带有效 inviteCode 直接加入邀请家庭，否则后端自动建「我的家」。
+ */
+export function wxLogin(code: string, inviteCode?: string): Promise<LoginResult> {
   return request({
     url: '/auth/wx-login',
     method: 'POST',
-    data: { code },
+    data: inviteCode ? { code, inviteCode } : { code },
   })
 }
 
@@ -20,16 +24,17 @@ export function wxCode(): Promise<string> {
   })
 }
 
-/** 静默登录：wx.login → wx-login → 存 token。新用户零操作。 */
-export async function silentLogin(): Promise<{ token: string; nickname: string } | null> {
+/**
+ * 静默登录：wx.login → wx-login → 存 token + 家庭上下文。新用户零操作。
+ * 邀请落地页记下的邀请码（PENDING_INVITE_KEY）随登录带上：新用户直接进邀请家庭。
+ */
+export async function silentLogin(): Promise<LoginResult | null> {
   if (!hasConsent()) return null // 合规：未勾选协议不调用 wx.login
   try {
     const code = await wxCode()
-    const r = await wxLogin(code)
-    uni.setStorageSync('token', r.token)
-    uni.setStorageSync('nickname', r.nickname)
+    const r = await wxLogin(code, uni.getStorageSync(PENDING_INVITE_KEY) || undefined)
+    applyLoginResult(r)
     uni.setStorageSync('login_via', 'wx') // 401 自愈只对微信登录用户启用
-    uni.removeStorageSync('logged_out')
     return r
   } catch {
     return null

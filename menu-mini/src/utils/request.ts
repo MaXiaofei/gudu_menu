@@ -4,6 +4,7 @@ export { BASE } from '@/config/env'
 import { BASE as BASE_URL } from '@/config/env'
 import { hasConsent } from './consent'
 import { contentSecurityMessage, type ContentScene } from './contentSecurity'
+import { applyLoginResult, handleFamilyDenied, isFamilyDenied } from './family'
 
 /** 默认请求超时（毫秒），调用方可通过 opt.timeout 覆盖。 */
 export const REQUEST_TIMEOUT = 15000
@@ -60,8 +61,8 @@ async function trySilentRelogin(): Promise<boolean> {
         })
         const body = res.data
         if (body.code !== 0 || !body.data?.token) return false
-        uni.setStorageSync('token', body.data.token)
-        uni.setStorageSync('nickname', body.data.nickname || '')
+        // 新会话：token + 家庭上下文（服务端按上次使用的家庭落会话）
+        applyLoginResult(body.data)
         return true
       } catch {
         return false
@@ -149,6 +150,12 @@ export async function request<T = any>(
   if (body.code === 429) {
     toast(MSG_TOO_FREQUENT)
     throw new Error(body.msg || MSG_TOO_FREQUENT)
+  }
+  if (isFamilyDenied(body)) {
+    // 已不是当前家庭成员（被移除 / 家庭解散）：服务端已清会话家庭 → 回到家庭选择
+    const msg = body.msg || '你已不在该家庭中，请重新选择家庭'
+    handleFamilyDenied(msg)
+    throw new Error(msg)
   }
   if (body.code === 403) {
     // 无权限：展示服务端原因（如「无权操作该家庭数据」），不清 token

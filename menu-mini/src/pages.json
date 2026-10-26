@@ -323,6 +323,52 @@
           }
         }
       ]
+    },
+    {
+      "root": "pkg-family",
+      "pages": [
+        {
+          "path": "Index",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Switch",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Invite",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Onboard",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "MemberEdit",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-account",
+      "pages": [
+        {
+          "path": "Security",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        }
+      ]
     }
   ],
   "preloadRule": {
@@ -336,6 +382,12 @@
       "network": "all",
       "packages": [
         "pkg-community"
+      ]
+    },
+    "pages/profile/Profile": {
+      "network": "all",
+      "packages": [
+        "pkg-family"
       ]
     }
   }

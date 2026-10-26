@@ -3,9 +3,12 @@ import { onLaunch, onShow } from "@dcloudio/uni-app";
 import { silentLogin } from "@/api/auth";
 import { initTheme, applyTabBar } from "@/utils/theme";
 import { hasConsent } from "@/utils/consent";
+import { rememberInviteFromLaunch } from "@/utils/family";
 onShow(() => applyTabBar());
-onLaunch(async () => {
+onLaunch(async (opts?: any) => {
   initTheme();
+  // 家庭邀请卡片冷启动：先记邀请码，登录后回到邀请落地页（multi-tenant-family F.1）
+  rememberInviteFromLaunch(opts);
   const token = uni.getStorageSync("token");
   const loggedOut = uni.getStorageSync("logged_out");
   if (!token) {

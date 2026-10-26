@@ -64,6 +64,8 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { routeAfterLogin } from '@/utils/afterLogin'
 import { navInset } from '@/utils/token'
 import { useAuthStore } from '@/store/auth'
 import { silentLogin } from '@/api/auth'
@@ -81,6 +83,11 @@ const agreed = ref(hasConsent())
 const mp = process.env.UNI_PLATFORM === 'mp-weixin'
 const showAccount = ref(!mp)
 const collageH = nav + 230
+// 登录回跳（如家庭邀请落地页 → 登录 → 回到落地页）；只接受站内页面路径，见 utils/afterLogin.safeRedirect
+const redirect = ref('')
+onLoad((o) => {
+  redirect.value = String(o?.redirect || '')
+})
 
 // 拼贴砖块用的食材插画 key（static/ing）
 const COLS = [
@@ -111,7 +118,7 @@ async function onWxLogin() {
   try {
     const r = await silentLogin()
     if (r) {
-      uni.switchTab({ url: '/pages/dish/List' })
+      await routeAfterLogin(r, redirect.value)
     } else {
       uni.showToast({ title: '微信登录失败，可先用账号登录', icon: 'none' })
     }
@@ -128,8 +135,8 @@ async function onLogin() {
   }
   loading.value = true
   try {
-    await auth.login(form.username, form.password)
-    uni.switchTab({ url: '/pages/dish/List' })
+    const r = await auth.login(form.username, form.password)
+    await routeAfterLogin(r, redirect.value)
   } catch {
     // request.ts 已弹 toast
   } finally {

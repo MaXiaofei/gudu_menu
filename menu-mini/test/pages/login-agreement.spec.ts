@@ -7,6 +7,8 @@ const auth = vi.hoisted(() => ({ login: vi.fn(), nickname: '' }))
 const wx = vi.hoisted(() => ({ silentLogin: vi.fn() }))
 vi.mock('@/store/auth', () => ({ useAuthStore: () => auth }))
 vi.mock('@/api/auth', () => wx)
+// 登录页 onLoad 读 redirect（登录回跳）；单测环境无 uni 页面生命周期
+vi.mock('@dcloudio/uni-app', () => ({ onLoad: () => {} }))
 
 import Login from '@/pages/login/Login.vue'
 
