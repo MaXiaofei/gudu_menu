@@ -63,7 +63,7 @@
           </view>
         </view>
       </view>
-      <view class="voice" @click="focusAsk"><view class="wv"><view v-for="i in 7" :key="i" class="wb" :style="{ animationDelay: i * 0.1 + 's' }" /></view><text class="voice-txt">说「下一步」或问咕嘟</text></view>
+      <view class="voice" @click="focusAsk"><view v-if="FEATURES.voice" class="wv"><view v-for="i in 7" :key="i" class="wb" :style="{ animationDelay: i * 0.1 + 's' }" /></view><text class="voice-txt">{{ FEATURES.voice ? '说「下一步」或问咕嘟' : '输入「下一步」或问咕嘟' }}</text></view>
       <view class="nav">
         <view class="prev" :class="{ off: idx === 0 }" data-testid="cook-prev" @click="prev"><text class="nav-txt">‹ 上一步</text></view>
         <view class="nextb" data-testid="cook-next" @click="next"><text class="nav-txt">{{ idx >= steps.length - 1 ? '做好了' : '下一步 ›' }}</text></view>
@@ -74,6 +74,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { FEATURES } from '@/config/features'
 import { onHide, onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { dishDetail, type Dish, type DishStep } from '@/api/dish'
 import { parseVoiceCommand } from '@/api/agent'
@@ -188,7 +189,7 @@ async function ask() {
   await chat.send(q)
 }
 function focusAsk() {
-  uni.showToast({ title: '在下方输入，或说「下一步」', icon: 'none' })
+  uni.showToast({ title: FEATURES.voice ? '在下方输入，或说「下一步」' : '在下方输入「下一步」或问咕嘟', icon: 'none' })
 }
 function exit() {
   if (timers.value.some((t) => remaining(t, now.value) > 0)) {

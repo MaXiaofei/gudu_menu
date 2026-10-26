@@ -2,7 +2,9 @@
  * 主导航（showcase-ai-community）：菜谱 / 食集 / 咕嘟（中间）/ 厨房圈 / 我家余量；
  * 「我的」改为主 Tab 右上角头像进入；原「智荐」改为二级页「全部推荐」。
  * 顺序与 pages.json tabBar.list、utils/theme.ts TAB_ICONS 一致（test/utils/nav.spec.ts 守护）。
+ * 微信小程序关闭厨房圈（FEATURES.community=false）：Tab 只剩 4 个，pages.json 同步条件编译。
  */
+import { FEATURES } from '@/config/features'
 
 export interface TabDef {
   key: 'dish' | 'menu' | 'agent' | 'community' | 'pantry'
@@ -10,13 +12,20 @@ export interface TabDef {
   path: string
 }
 
-export const TABS: readonly TabDef[] = [
+const ALL_TABS: readonly TabDef[] = [
   { key: 'dish', text: '菜谱', path: '/pages/dish/List' },
   { key: 'menu', text: '食集', path: '/pages/menu/List' },
   { key: 'agent', text: '咕嘟', path: '/pages/agent/Index' },
   { key: 'community', text: '厨房圈', path: '/pages/community/Index' },
   { key: 'pantry', text: '我家余量', path: '/pages/pantry/List' },
 ]
+
+/** 按功能开关过滤后的 Tab（关闭的功能不出现）。 */
+export function tabsFor(features: { community: boolean }): readonly TabDef[] {
+  return ALL_TABS.filter((t) => t.key !== 'community' || features.community)
+}
+
+export const TABS: readonly TabDef[] = tabsFor(FEATURES)
 
 /** 新模块页面路径（分包）。 */
 export const PAGES = {

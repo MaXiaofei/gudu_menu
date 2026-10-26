@@ -64,6 +64,8 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { goAfterLogin, resetLoginRedirect } from '@/utils/loginRedirect'
 import { navInset } from '@/utils/token'
 import { useAuthStore } from '@/store/auth'
 import { silentLogin } from '@/api/auth'
@@ -77,6 +79,16 @@ const loading = ref(false)
 const showPwd = ref(false)
 const wxLoading = ref(false)
 const agreed = ref(hasConsent())
+/** 登录后回跳目标（分享落地页带来的，goAfterLogin 内做白名单校验）。 */
+const redirect = ref('')
+onLoad((options) => {
+  redirect.value = String(options?.redirect || '')
+})
+
+function afterLogin() {
+  resetLoginRedirect()
+  goAfterLogin(redirect.value)
+}
 // 微信端默认展开一键登录，账号登录折叠；其他端直接展示账号表单
 const mp = process.env.UNI_PLATFORM === 'mp-weixin'
 const showAccount = ref(!mp)
@@ -111,7 +123,7 @@ async function onWxLogin() {
   try {
     const r = await silentLogin()
     if (r) {
-      uni.switchTab({ url: '/pages/dish/List' })
+      afterLogin()
     } else {
       uni.showToast({ title: '微信登录失败，可先用账号登录', icon: 'none' })
     }
@@ -129,7 +141,7 @@ async function onLogin() {
   loading.value = true
   try {
     await auth.login(form.username, form.password)
-    uni.switchTab({ url: '/pages/dish/List' })
+    afterLogin()
   } catch {
     // request.ts 已弹 toast
   } finally {

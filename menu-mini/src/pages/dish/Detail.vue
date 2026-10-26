@@ -88,11 +88,14 @@
 
       <add-to-menu-sheet ref="sheetRef" :dish-id="detail.dish.id" :dish-name="detail.dish.name" />
     </template>
+    <!-- 首次登录完善资料（A.7） -->
+    <ui-profile-setup />
   </view>
 </template>
 
 <script setup lang="ts">
 import { PAGES, withQuery, COOK_AFTER_MODE_KEY } from '@/utils/nav'
+import { buildTarget, ensureLogin } from '@/utils/loginRedirect'
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onShareAppMessage } from '@dcloudio/uni-app'
 import { dishDetail, type DishDetail, type DishIngredient } from '@/api/dish'
@@ -121,9 +124,11 @@ const cookSubmitting = ref(false)
 const cookDone = ref(false)
 const cookItems = ref<CookMaterial[]>([])
 
-onLoad((options) => {
+onLoad(async (options) => {
   dishId.value = Number(options?.id || 0)
   if (options?.showActions === '0') showActions.value = false
+  // 分享落地：未登录先去登录，登录后带着 id 回到本页（A.10）
+  if (!(await ensureLogin(buildTarget('/pages/dish/Detail', options)))) return
   load(dishId.value)
 })
 

@@ -15,6 +15,7 @@
  */
 import { reactive } from 'vue'
 import { DEFAULT_SKIN, SKINS, skinCssVars, type SkinPalette } from '@/styles/tokens.generated'
+import { TABS } from '@/utils/nav'
 
 /** 皮肤 key（cream / matcha / …，以 tokens.json 为准）。 */
 export type ThemeName = string
@@ -33,8 +34,8 @@ export const THEME_OPTIONS: { name: ThemeName; label: string; desc: string }[] =
 
 export const THEME_STORAGE_KEY = 'gd_theme'
 
-/** tabBar 页（顺序与 pages.json tabBar.list 一致），图标文件名前缀。 */
-export const TAB_ICONS = ['dish', 'menu', 'agent', 'community', 'pantry'] as const
+/** tabBar 页（顺序与 pages.json tabBar.list 一致，随功能开关过滤），图标文件名前缀。 */
+export const TAB_ICONS: readonly string[] = TABS.map((t) => t.key)
 
 export function normalizeTheme(v: unknown): ThemeName {
   return typeof v === 'string' && v in THEMES ? v : DEFAULT_SKIN

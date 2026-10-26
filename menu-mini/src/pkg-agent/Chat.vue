@@ -65,7 +65,9 @@
         </view>
         <view v-if="chat.sending.value" class="send stop" data-testid="chat-stop" @click="chat.stop()"><ui-icon name="pause" tone="white" :size="18" /></view>
         <view v-else-if="text.trim()" class="send" data-testid="chat-send" @click="onSend"><ui-icon name="send" tone="white" :size="18" /></view>
-        <view v-else class="send" @click="goVoice"><ui-icon name="mic" tone="white" :size="18" /></view>
+        <view v-else-if="FEATURES.voice" class="send" @click="goVoice"><ui-icon name="mic" tone="white" :size="18" /></view>
+        <!-- 小程序不开放语音（A.9）：空输入时发送键置灰 -->
+        <view v-else class="send off" data-testid="chat-send"><ui-icon name="send" tone="white" :size="18" /></view>
       </view>
     </view>
   </view>
@@ -77,6 +79,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { listMembers } from '@/api/member'
 import { ensureSession } from '@/api/agent'
 import { useAgentChat } from '@/composables/useAgentChat'
+import { FEATURES } from '@/config/features'
 import { navInset } from '@/utils/token'
 import { PAGES } from '@/utils/nav'
 import AssistantMessage from './parts/AssistantMessage.vue'
@@ -320,6 +323,9 @@ function goVoice() {
 }
 .send.stop {
   background: var(--title);
+}
+.send.off {
+  opacity: 0.4;
 }
 /* AI 身份说明（A.4）：首屏常驻 */
 .ai-intro {

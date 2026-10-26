@@ -237,6 +237,53 @@ test.describe('Agent 与社区', () => {
   })
 })
 
+test.describe('厨房圈紧急关停开关（A.12）', () => {
+  test('显示当前状态与最后操作人；关停需二次确认 + 原因，恢复同样确认', async ({ page }) => {
+    await base(page)
+    let state: any = { enabled: true, updatedBy: 1, updatedByName: '管理员', updatedAt: '2026-10-20T09:00:00', reason: null, recentChanges: [] }
+    const puts: any[] = []
+    await page.route(/\/gudu\/admin\/community\/switch/, (r) => {
+      if (r.request().method() === 'PUT') {
+        const body = r.request().postDataJSON()
+        puts.push(body)
+        state = { ...state, enabled: body.enabled, reason: body.reason ?? null, updatedByName: 'E2E管理员', updatedAt: '2026-10-26T18:00:00', recentChanges: [{ ...body, updatedBy: 1, updatedByName: 'E2E管理员', updatedAt: '2026-10-26T18:00:00' }] }
+      }
+      return r.fulfill(ok(state))
+    })
+    await page.route(/\/gudu\/admin\/community\/queue/, (r) => r.fulfill(ok({ items: [], nextCursor: null })))
+
+    await page.goto('/community')
+    const bar = page.getByTestId('community-switch')
+    await expect(bar.getByTestId('community-switch-status')).toHaveText('厨房圈运行中')
+    await expect(bar.getByTestId('community-switch-last')).toContainText('管理员 · 2026-10-20 09:00')
+
+    // 关停：弹二次确认，取消则不发请求
+    await bar.getByTestId('community-switch-toggle').click()
+    const box = page.locator('.el-message-box')
+    await expect(box).toContainText('审核后台不受影响')
+    await box.getByRole('button', { name: '取消' }).click()
+    expect(puts).toHaveLength(0)
+
+    // 不填原因不能关停；填了才发请求
+    await bar.getByTestId('community-switch-toggle').click()
+    await box.getByRole('button', { name: '确认关停' }).click()
+    await expect(box).toContainText('请填写关停原因')
+    await box.locator('input').fill('出现违规图片扩散')
+    await box.getByRole('button', { name: '确认关停' }).click()
+    await expect.poll(() => puts.length).toBe(1)
+    expect(puts[0]).toEqual({ enabled: false, reason: '出现违规图片扩散' })
+    await expect(bar.getByTestId('community-switch-status')).toHaveText('厨房圈已暂停')
+    await expect(bar.getByTestId('community-switch-last')).toContainText('E2E管理员')
+
+    // 恢复
+    await bar.getByTestId('community-switch-toggle').click()
+    await page.locator('.el-message-box').getByRole('button', { name: '确认恢复' }).click()
+    await expect.poll(() => puts.length).toBe(2)
+    expect(puts[1]).toEqual({ enabled: true })
+    await expect(bar.getByTestId('community-switch-status')).toHaveText('厨房圈运行中')
+  })
+})
+
 test.describe('模型网关', () => {
   const flash = { model: 'deepseek-flash', capabilities: ['CHAT', 'TOOLS', 'VISION'], price: { inputCacheHitFen: 20, inputFen: 100, outputFen: 400 }, peakHours: { timezone: 'Asia/Shanghai', weekdaysOnly: true, ranges: ['09:00-12:00', '14:00-18:00'], offPeakRatio: 0.5 } }
   const providers = [

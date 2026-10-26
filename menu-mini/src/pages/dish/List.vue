@@ -107,6 +107,8 @@
     <view v-if="!selectForMenuId" class="fab" data-testid="fab-create" @click="goCreate">
       <text class="fab-plus">＋</text><text class="fab-txt">写菜谱</text>
     </view>
+    <!-- 首次登录完善资料（A.7） -->
+    <ui-profile-setup />
   </view>
 </template>
 
