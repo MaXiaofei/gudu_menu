@@ -61,6 +61,10 @@ class ContentSecurityDomainTest {
         assertThat(c.status()).isEqualTo(MediaCheckStatus.RISKY);
         assertThat(c.blocked()).isTrue();
         assertThat(c.peekDomainEvents()).singleElement().isInstanceOf(MediaBlockedEvent.class);
+        assertThat(((MediaBlockedEvent) c.peekDomainEvents().get(0)).urlVariants())
+                .containsExactly("/gudu/uploads/a.jpg");
+        assertThat(new MediaBlockedEvent("/gudu/uploads/original/1/a.jpg", 1L, "UPLOAD", 1).urlVariants())
+                .containsExactly("/gudu/uploads/original/1/a.jpg", "/gudu/uploads/thumbnail/1/a.jpg");
         assertThat(c.resolve(new MediaCheckResult("wx", "tr", Suggest.PASS, 100, 0))).isFalse();
         assertThat(c.status()).isEqualTo(MediaCheckStatus.RISKY);
     }

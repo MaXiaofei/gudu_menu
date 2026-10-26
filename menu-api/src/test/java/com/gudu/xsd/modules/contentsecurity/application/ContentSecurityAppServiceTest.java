@@ -309,7 +309,11 @@ class ContentSecurityAppServiceTest {
         void 违规_定论RISKY_隔离文件_发布事件_重复推送幂等() {
             MediaCheck c = check(MediaCheckStatus.PENDING);
             when(repo.findByTraceId("trace-1")).thenReturn(Optional.of(c));
-            when(quarantine.quarantine(IMG)).thenReturn(true);
+            // 订阅方（清头像 / 隐藏帖子）先执行成功，再动文件
+            when(quarantine.quarantine(IMG)).thenAnswer(inv -> {
+                assertThat(published).as("隔离前事件已发布").hasSize(1);
+                return true;
+            });
             ContentSecurityAppService s = svc(true);
             assertThat(s.handlePush(WxPushSignature.sign("tok", ts(), "n"), ts(), "n", body("risky"))).isTrue();
             assertThat(c.status()).isEqualTo(MediaCheckStatus.RISKY);

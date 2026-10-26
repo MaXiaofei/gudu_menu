@@ -182,7 +182,14 @@ public class CommunityPostAppService {
         }
         return new PostDetail(p.id(), card.author(), p.title(), p.cover(), p.coverRatio(), p.images().size(),
                 c.likes(), card.liked(), c.copies(), card.tags(), p.text(), p.images(), topicRefs, recipe,
-                c.comments(), c.collects(), collected, following, p.createTime(), p.city(), p.status().name());
+                c.comments(), c.collects(), collected, following, p.createTime(), p.city(), p.status().name(),
+                statusReason(p, viewerId));
+    }
+
+    /** 给作者看的处置原因：目前只回「图片未通过审核」（其余审核原因是运营内部信息，不外露）。 */
+    static String statusReason(Post p, Long viewerId) {
+        return p.isAuthor(viewerId) && p.status() != PostStatus.PUBLISHED && p.imageBlocked()
+                ? Post.IMAGE_BLOCKED_REASON : null;
     }
 
     @Transactional(rollbackFor = Exception.class)

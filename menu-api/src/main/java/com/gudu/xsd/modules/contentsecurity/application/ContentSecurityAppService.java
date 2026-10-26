@@ -202,7 +202,10 @@ public class ContentSecurityAppService {
         return true;
     }
 
-    /** 图片检测结果定论：违规则隔离文件并发布 MediaBlockedEvent。重复推送幂等。 */
+    /**
+     * 图片检测结果定论：违规则发布 MediaBlockedEvent（同事务同步：头像清空、帖子隐藏），订阅方都成功后再隔离文件、
+     * 原地址换占位图——订阅方失败则整体回滚、文件不动，回调返回错误由微信重试。重复推送幂等。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void onMediaCheckResult(MediaCheckResult result) {
         String appid = wxProps.getAppid();
@@ -218,11 +221,11 @@ public class ContentSecurityAppService {
         MediaCheck check = found.get();
         boolean blocked = check.resolve(result);
         mediaChecks.save(check);
+        events.publishFrom(check);
         if (blocked) {
             boolean moved = quarantine.quarantine(check.mediaUrl());
             log.warn("图片违规已隔离 url={} label={} moved={}", check.mediaUrl(), check.label(), moved);
         }
-        events.publishFrom(check);
     }
 
     static Optional<MediaCheckResult> parseMediaCheck(String body) {

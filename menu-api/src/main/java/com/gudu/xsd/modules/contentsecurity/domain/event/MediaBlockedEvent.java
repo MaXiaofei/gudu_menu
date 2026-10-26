@@ -2,9 +2,15 @@ package com.gudu.xsd.modules.contentsecurity.domain.event;
 
 import com.gudu.xsd.common.domain.AbstractDomainEvent;
 
+import java.util.List;
+
 /**
- * 用户上传的图片被判违规（文件已隔离）。各上下文如需额外处理（清头像字段、帖子转人工复核等）可订阅本事件；
- * 不订阅也安全——文件已移出上传目录，所有引用处加载失败即不可见。
+ * 用户上传的图片被判违规。订阅方（同事务同步执行）：
+ * <ul>
+ *   <li>member：清空引用该图的头像（前端回退默认头像）；</li>
+ *   <li>community：含该图的帖子转为隐藏并回到复核队列，作者可见「图片未通过审核」。</li>
+ * </ul>
+ * 其余用途（菜谱、食记、评价…）不订阅：发布后文件被隔离、原地址换成占位图。
  */
 public final class MediaBlockedEvent extends AbstractDomainEvent {
 
@@ -22,6 +28,13 @@ public final class MediaBlockedEvent extends AbstractDomainEvent {
 
     public String mediaUrl() {
         return mediaUrl;
+    }
+
+    /** 引用处可能存的地址：原图 + 同名缩略图（上传接口两者都返回）。 */
+    public List<String> urlVariants() {
+        if (mediaUrl == null) return List.of();
+        String thumb = mediaUrl.replace("/uploads/original/", "/uploads/thumbnail/");
+        return thumb.equals(mediaUrl) ? List.of(mediaUrl) : List.of(mediaUrl, thumb);
     }
 
     public Long memberId() {

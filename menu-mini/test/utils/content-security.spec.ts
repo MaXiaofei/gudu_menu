@@ -11,6 +11,7 @@ import {
 import { updateMe } from '@/api/member'
 import { submitFeedback } from '@/api/feedback'
 import { applyAgentEvent, emptyAssistantMessage } from '@/api/agent'
+import { postReviewText } from '@/api/community'
 
 // 内容安全（A.6）：后端 451 违规 / 452 检测不可用 → 前端按场景给友好文案，不展示后端原文。
 describe('utils/contentSecurity', () => {
@@ -68,6 +69,14 @@ describe('request 处理内容安全错误码', () => {
   it('submitFeedback：反馈文案', async () => {
     reply(451, 'x')
     await expect(submitFeedback({ content: '一段违规的反馈' })).rejects.toThrow(/反馈内容未通过/)
+  })
+})
+
+describe('厨房圈帖子处置提示', () => {
+  it('图片违规原因优先，其次审核中 / 已隐藏', () => {
+    expect(postReviewText({ status: 'HIDDEN', statusReason: '图片未通过审核' })).toBe('图片未通过审核 · 仅自己可见')
+    expect(postReviewText({ status: 'HIDDEN', statusReason: null })).toBe('已被隐藏')
+    expect(postReviewText({ status: 'REVIEWING' })).toContain('审核中')
   })
 })
 

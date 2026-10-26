@@ -1136,7 +1136,7 @@ class GuduE2ECoverageTest {
      * 文本走规则兜底；图片回调用签名推送模拟微信（自建 E2E 前缀 trace_id，seed 兜底清理）。
      */
     @Test
-    void X_内容安全_昵称反馈规则兜底_图片违规回调隔离_头像拒绝_对话输入拦截() throws Exception {
+    void X_内容安全_昵称反馈规则兜底_图片违规回调_头像清空_帖子隐藏_占位图_对话输入拦截() throws Exception {
         String token = loginAdmin();
 
         // 1. 昵称命中禁发词：451，不保存
@@ -1170,7 +1170,20 @@ class GuduE2ECoverageTest {
         jdbc.update("INSERT INTO content_media_check(trace_id, media_url, member_id, purpose, status) "
                 + "VALUES (?, ?, NULL, 'AVATAR', 'PENDING')", traceId, url);
 
-        // 4. 微信消息推送：签名不对拒绝；签名正确 + risky → 定论 RISKY、文件隔离（原地址 404）
+        // 3b. 检测结果回来前：图已被用作头像、发进厨房圈（待回调的图片放行）
+        String oldAvatar = text(get(token, "/member/me").get("data"), "avatarUrl");
+        assertThat(put(token, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).isZero();
+        assertThat(text(get(token, "/member/me").get("data"), "avatarUrl")).isEqualTo(url);
+        Map<String, Object> postBody = new HashMap<>();
+        postBody.put("title", "E2E内容安全帖");
+        postBody.put("text", "E2E 正文：今天的番茄炒蛋");
+        postBody.put("imageUrls", List.of(url));
+        postBody.put("coverRatio", 0.75);
+        JsonNode published = post(token, "/community/posts", postBody);
+        assertThat(published.get("code").asInt()).as("发帖 msg=" + text(published, "msg")).isZero();
+        long postId = published.get("data").get("postId").asLong();
+
+        // 4. 微信消息推送：签名不对拒绝；签名正确 + risky → 定论 RISKY、订阅方处置、文件隔离
         String oldToken = wxProps.getToken();
         wxProps.setToken("e2e-push-token");
         try {
@@ -1191,13 +1204,29 @@ class GuduE2ECoverageTest {
         }
         assertThat(jdbc.queryForObject("SELECT status FROM content_media_check WHERE trace_id = ?", String.class,
                 traceId)).isEqualTo("RISKY");
-        assertThat(http.getForEntity(CTX + servedPath, byte[].class).getStatusCode().value())
-                .as("违规图片已隔离，引用处不可见").isEqualTo(404);
+        // 原地址换成占位图：仍 200（菜谱 / 食记等引用处不出现坏图），但已不是原图
+        org.springframework.http.ResponseEntity<byte[]> served = http.getForEntity(CTX + servedPath, byte[].class);
+        assertThat(served.getStatusCode().value()).as("原地址换占位图").isEqualTo(200);
+        assertThat(served.getBody()).isNotEqualTo(png);
+        assertThat(javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(served.getBody())).getWidth())
+                .as("占位图 600px").isEqualTo(600);
 
-        // 5. 用违规图片当头像：451
+        // 头像订阅方：已清空（前端回退默认头像）
+        assertThat(text(get(token, "/member/me").get("data"), "avatarUrl")).as("违规头像已清空").isEmpty();
+
+        // 帖子订阅方：他人不可见；作者可见 HIDDEN + 「图片未通过审核」
+        String chef = loginAs("13900000088", "chef123");
+        assertThat(get(chef, "/community/posts/" + postId).get("code").asInt()).as("他人不可见").isNotZero();
+        JsonNode mine = get(token, "/community/posts/" + postId);
+        assertThat(mine.get("code").asInt()).as("作者可见 msg=" + text(mine, "msg")).isZero();
+        assertThat(mine.get("data").get("status").asText()).isEqualTo("HIDDEN");
+        assertThat(text(mine.get("data"), "statusReason")).isEqualTo("图片未通过审核");
+
+        // 5. 再用违规图片当头像：451
         JsonNode avatar = put(token, "/member/me", Map.of("avatarUrl", url));
         assertThat(avatar.get("code").asInt()).as("头像违规 msg=" + text(avatar, "msg")).isEqualTo(451);
         assertThat(text(get(token, "/member/me").get("data"), "avatarUrl")).isNotEqualTo(url);
+        if (!oldAvatar.isEmpty()) put(token, "/member/me", Map.of("avatarUrl", oldAvatar));
 
         // 6. 咕嘟对话：输入命中禁发词 → 不跑工具、回内容安全提示；落库的是占位文本而非原话
         JsonNode ses = post(token, "/agent/sessions", Map.of("title", "E2E内容安全"));
@@ -1214,6 +1243,15 @@ class GuduE2ECoverageTest {
         JsonNode msgs = get(token, "/agent/sessions/" + sessionId + "/messages");
         assertThat(msgs.get("code").asInt()).isZero();
         assertThat(msgs.get("data").toString()).doesNotContain("冰毒").contains("已屏蔽").contains("内容安全检测");
+    }
+
+    private String loginAs(String username, String password) {
+        Map<String, String> body = new HashMap<>();
+        body.put("username", username);
+        body.put("password", password);
+        JsonNode r = post(null, "/auth/login", body);
+        assertThat(r.get("code").asInt()).as("登录 " + username + " msg=" + text(r, "msg")).isEqualTo(0);
+        return r.get("data").get("token").asText();
     }
 
     private String push(String signature, String timestamp, String nonce, String body) {
