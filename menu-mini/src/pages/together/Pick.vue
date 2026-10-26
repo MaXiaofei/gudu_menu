@@ -70,14 +70,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
-import { getTogether, addTogetherItem, removeTogetherItem, type TogetherVO, type TogetherDish } from '@/api/together'
+import { getTogether, joinInvite, addTogetherItem, removeTogetherItem, type TogetherVO, type TogetherDish } from '@/api/together'
 import { searchDishes, type Dish } from '@/api/dish'
 import { navInset } from '@/utils/token'
 
 const sb = navInset()
 
 const menuId = ref(0)
-const guestKey = ref('')
+const inviteToken = ref('')
 const nickname = ref('')
 const kw = ref('')
 const results = ref<Dish[]>([])
@@ -88,9 +88,9 @@ let timer: ReturnType<typeof setInterval> | null = null
 
 onLoad((options) => {
   menuId.value = Number(options?.menuId || 0)
-  guestKey.value = options?.token || ''
+  inviteToken.value = options?.token || ''
   nickname.value = uni.getStorageSync('guest_nickname') || ''
-  if (!menuId.value || !guestKey.value) {
+  if (!menuId.value || !inviteToken.value) {
     loading.value = false
     error.value = '缺少邀请凭证'
     return
@@ -99,13 +99,20 @@ onLoad((options) => {
 })
 
 onShow(() => {
-  if (menuId.value && guestKey.value && !error.value) startPolling()
+  if (menuId.value && inviteToken.value && !error.value) startPolling()
 })
 onHide(stopPolling)
 
+let joined = false
+
 async function load() {
   try {
-    together.value = await getTogether(menuId.value, guestKey.value)
+    // 须登录：先凭邀请 token 加入（幂等；本家成员也无害），之后凭加入记录访问，不再带 token / guestKey
+    if (!joined) {
+      await joinInvite(inviteToken.value, nickname.value.trim() || undefined)
+      joined = true
+    }
+    together.value = await getTogether(menuId.value)
     error.value = ''
   } catch (e: any) {
     error.value = e?.message || '凭证失效'
@@ -151,7 +158,7 @@ async function onSearch() {
 async function addDish(d: Dish) {
   if (!ensureNickname()) return
   try {
-    await addTogetherItem(menuId.value, { dishId: d.id, note: nickname.value.trim() }, guestKey.value)
+    await addTogetherItem(menuId.value, { dishId: d.id, note: nickname.value.trim() })
     uni.showToast({ title: `已加「${d.name}」`, icon: 'none' })
     kw.value = ''
     results.value = []
@@ -174,7 +181,7 @@ async function quickAddCustom() {
     }
   } catch {}
   try {
-    await addTogetherItem(menuId.value, { customName: q, note: nickname.value.trim() }, guestKey.value)
+    await addTogetherItem(menuId.value, { customName: q, note: nickname.value.trim() })
     uni.showToast({ title: `已加「${q}」`, icon: 'none' })
     kw.value = ''
     results.value = []
@@ -193,7 +200,7 @@ async function removeDish(d: TogetherDish) {
     success: async ({ confirm }) => {
       if (!confirm) return
       try {
-        await removeTogetherItem(menuId.value, d.id, guestKey.value)
+        await removeTogetherItem(menuId.value, d.id)
         load()
       } catch (e: any) {
         uni.showToast({ title: e?.message || '删除失败', icon: 'none' })

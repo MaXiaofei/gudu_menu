@@ -20,7 +20,8 @@
 #                   各家庭域表数据、公共菜谱）→ 演练。
 #   --existing      目标库已是预发 gudu 的复制品：按 schema_migration_log（deploy.sh 维护的登记表，
 #                   文件名 + sha256）补执行尚未执行的 V<75 迁移（V<42 只登记，与 deploy.sh 一致）→ 演练。
-#                   V80 及以后（其他 change 的迁移）不执行，仅提示。
+#   两种模式在回滚验证结束后，会重新执行 V75–V79，再按序执行其后（V80+）尚未登记的迁移，
+#   确认后续脚本能在多家庭结构上跑通；最终库处于「全部迁移已执行」状态。
 #
 # 演练（两种模式相同，同一个库上完成）：
 #   1. 导出迁移前结构快照（information_schema：表 / 列 / 索引）
@@ -70,6 +71,9 @@ esac
 [ "${DB_NAME}" != "gudu" ] || die "拒绝在库 gudu 上演练（真库）"
 [[ "${DB_NAME}" == *_rehearsal ]] || die "库名必须以 _rehearsal 结尾（当前: ${DB_NAME}），防止误跑到真库"
 for f in "${TARGET_FILES[@]}"; do [ -f "${SQL_DIR}/${f}" ] || die "缺少迁移文件 ${f}"; done
+for f in $(cd "${SQL_DIR}" && printf '%s\n' V*.sql); do
+  [[ "${f}" =~ ^V[0-9]+__[A-Za-z0-9_]+\.sql$ ]] || die "非法迁移文件名: ${f}"
+done
 [ -f "${VERIFY_SQL}" ] || die "缺少 ${VERIFY_SQL}"
 [ -f "${ROLLBACK_SQL}" ] || die "缺少 ${ROLLBACK_SQL}"
 
@@ -180,9 +184,6 @@ prepare_existing() {
       apply_file "${name}"
     fi
   done
-  local later
-  later="$(all_migrations | while read -r n; do [ "$((10#$(version_of "${n}")))" -gt 79 ] && echo "${n}"; done || true)"
-  [ -z "${later}" ] || echo "  ⚠️  跳过 V80+（不属于本次演练）: $(echo "${later}" | tr '\n' ' ')"
 }
 
 # ------------------------------------------------------------------ 仿生产夹具（仅 --from-scratch）
@@ -350,9 +351,22 @@ else
   head -n 40 "${WORK}/schema.diff" | sed 's/^/      /'
 fi
 
+info "回滚验证完毕，重新执行 V75–V79 并按序执行后续迁移（V80+）"
+for f in "${TARGET_FILES[@]}"; do apply_file "${f}"; done
+for name in $(all_migrations); do
+  v=$((10#$(version_of "${name}")))
+  [ "${v}" -gt 79 ] || continue
+  if [ "$(q "SELECT COUNT(*) FROM schema_migration_log WHERE filename = '${name}'")" = "0" ]; then
+    apply_file "${name}"
+    pass "后续迁移 ${name} 执行成功"
+  fi
+done
+expect_zero "重新迁移后校验项仍全部为 0" \
+  "SELECT COUNT(*) FROM (SELECT 1 FROM member WHERE family_id IS NULL UNION ALL SELECT 1 FROM menu WHERE family_id IS NULL) x"
+
 echo
 if [ "${FAILURES}" -eq 0 ]; then
-  echo "✅ 演练通过（库 ${DB_NAME} 已回滚到迁移前结构；日志 ${WORK}）"
+  echo "✅ 演练通过（回滚后结构与迁移前一致；最终库 ${DB_NAME} 已重新迁移到最新；日志 ${WORK}）"
 else
   echo "❌ 演练失败：${FAILURES} 项断言未通过（日志 ${WORK}）"
   exit 1

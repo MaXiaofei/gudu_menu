@@ -14,6 +14,11 @@ import java.util.List;
 /**
  * 食集聚餐接口（V45，设计文档 §8）。
  *
+ * <p>访问规则（multi-tenant-family E.3）：本家成员凭登录态直接访问；非本家必须先凭有效邀请凭证
+ * （token 或 6 位口令，7 天有效、可撤销）调用 join，之后凭加入记录只能访问这一个食集的聚餐范围。
+ * 分享链接格式：小程序 {@code /pages/together/Pick?menuId={menuId}&token={token}}，
+ * H5 {@code {base}/together.html?token={token}}（口令场景：{@code GET /invite/code/{code}} 换取 token）。
+ *
  * <p>身份解析：登录用户（Sa-Token）→ memberId；H5 访客 → 请求头 {@code X-Guest-Key}。
  * 邀请链路：APP 生成（口令+二维码+链接同效）→ H5（together.html?token=）输昵称 join → guestKey 存 localStorage。
  */
@@ -31,6 +36,13 @@ public class TogetherController {
     @PostMapping("/menu/{id}/invite")
     public R<TogetherService.InviteVO> invite(@PathVariable Long id) {
         return R.ok(svc.invite(id, currentMemberId(true)));
+    }
+
+    /** 撤销邀请（本家成员）：旧口令 / 链接立即失效。 */
+    @DeleteMapping("/menu/{id}/invite")
+    public R<?> revokeInvite(@PathVariable Long id) {
+        svc.revokeInvite(id, currentMemberId(true));
+        return R.ok(null);
     }
 
     /** 邀请信息（免身份，H5 进入页校验 token）。 */
@@ -86,7 +98,7 @@ public class TogetherController {
     public R<List<TogetherService.DishBrief>> searchDishes(@PathVariable Long id,
                                                            @RequestParam String keyword,
                                                            @RequestParam(defaultValue = "8") int pageSize) {
-        return R.ok(svc.searchDishes(keyword, pageSize));
+        return R.ok(svc.searchDishes(id, identity(), keyword, pageSize));
     }
 
     // ===================== 请求体 / 身份 =====================

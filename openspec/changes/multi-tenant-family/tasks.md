@@ -37,6 +37,7 @@
 - [x] E.1 dish：可见性规则（读公共+本家/写本家）、`POST /dish/{id}/fork`、公共菜谱写需 OPERATOR；`DishQueryApi.findVisible`（实现为 MyBatis 可见性插件兜底全部 dish 读 + `DishService.requireVisible`）；语义搜索/向量检索按可见性过滤
 - [x] E.2 menu（含 prep/together/cook）、pantry、shopping、cookbook、dailylog、foodlog、review、notification、ai 逐一适配：创建时写入 familyId；去掉对客户端 memberId 的信任，改从 TenantContext 取 profileId（客户端仍可传 memberId 的接口——营养报告 / 切换就餐成员——由租户过滤限制在本家）
 - [x] E.3 聚餐协同（together）：访客 X-Guest-Key 仅能访问被邀请的那个菜单
+- [x] E.3b 聚餐加入必须持有有效邀请凭证：非本家用户须先凭 token/口令 join（`menu_invite` 增 `expires_at`/`revoked`，V80；7 天有效，刷新换 token 并重新计时，`DELETE /menu/{id}/invite` 撤销；无期限记录按过期处理）；本家成员免凭证；已加入者凭加入记录只能访问该食集聚餐（含菜谱搜索 `/menu/{id}/together/dishes` 也经 `withMenu` 校验）。分享链接：小程序 `/pages/together/Pick?menuId={menuId}&token={token}`（须登录），H5 `together.html?token={token}`。单测 `TogetherInviteCredentialTest`，E2E 用例在 `GuduE2ETenantIsolationTest`（代码已交付，未运行）；mini `test/api/together.spec.ts`（未能运行：worktree 无 node_modules）
 - [x] E.4 `MpPerm` 改为 FamilyRole 默认模板 + 档案级勾选
 - [x] E.5 `/member/**` 改为本家成员档案（去 isAdmin/password）
 - [x] E.6 账号注销 `DELETE /account/me`（OWNER 校验 + 匿名化 + AccountDeactivated → 退出全部家庭）
@@ -52,7 +53,7 @@
 ## Phase G：E2E 与上线
 - [ ] G.1 `GuduE2ETenantIsolationTest` 越权套件（覆盖全部家庭域写接口）——用例代码已交付，staging 封存未能运行，解封后跑绿再勾选
 - [ ] G.2 `GuduE2EFlowTest` 新增：注册→建家→邀请→加入→切换→退出 主链路；微信建号→写数据→并入手机号账号→微信重新登录进入手机号账号且数据可见——用例代码已交付（另含合并冲突、注销），未能运行
-- [ ] G.3 staging 生产快照迁移演练 + 校验 SQL + 三端冒烟
+- [ ] G.3 staging 生产快照迁移演练 + 校验 SQL + 三端冒烟（本地演练脚本 `scripts/local-migration-rehearsal.sh` 已交付，未运行：`MYSQL_CMD=... scripts/local-migration-rehearsal.sh --from-scratch|--existing`）
 - [ ] G.4 生产：备份 → 低峰迁移 → 校验 → 发布 → 监控 24h
 
 ## Quality Gate

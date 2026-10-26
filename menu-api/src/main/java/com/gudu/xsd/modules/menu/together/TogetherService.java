@@ -41,6 +41,9 @@ public class TogetherService {
     /** 成员活跃窗口：超过该时长没轮询（心跳）即视为离开，成员区不再显示。 */
     static final int ACTIVE_WINDOW_MINUTES = 15;
 
+    /** 邀请凭证有效期（天）：生成 / 刷新时重新计时。 */
+    static final int INVITE_VALID_DAYS = 7;
+
     private final MenuMapper menuMapper;
     private final MenuDishMapper menuDishMapper;
     /** 菜谱经 dish 上下文服务访问（不直连 DishMapper，ArchUnit 跨模块冻结基线只减不增）。 */
@@ -101,18 +104,42 @@ public class TogetherService {
             inv.setCode(code);
             inv.setToken(token);
             inv.setCreatedBy(memberId);
+            inv.setExpiresAt(LocalDateTime.now().plusDays(INVITE_VALID_DAYS));
+            inv.setRevoked(0);
             inviteMapper.insert(inv);
         } else {
             existing.setCode(code);
             existing.setToken(token);
+            existing.setExpiresAt(LocalDateTime.now().plusDays(INVITE_VALID_DAYS));
+            existing.setRevoked(0);
             inviteMapper.updateById(existing);
         }
         return new InviteVO(code, token);
     }
 
+    /** 撤销邀请（本家成员；食集经租户过滤，非本家食集 = 不存在）：旧口令 / 链接立即失效，已加入者不受影响。 */
+    @Transactional(rollbackFor = Exception.class)
+    public void revokeInvite(Long menuId, Long memberId) {
+        if (menuId == null) throw new BizException("食集 id 不能为空");
+        if (memberId == null) throw new BizException("请先登录");
+        if (menuMapper.selectById(menuId) == null) throw BizException.notFound("食集不存在");
+        MenuInvite existing = inviteMapper.selectOne(new QueryWrapper<MenuInvite>().eq("menu_id", menuId));
+        if (existing == null) return;
+        existing.setRevoked(1);
+        inviteMapper.updateById(existing);
+    }
+
+    /** 凭证校验：撤销 / 过期一律视为无效（不区分原因，不泄露存在性）。 */
+    private MenuInvite requireUsable(MenuInvite inv) {
+        if (inv == null || !inv.isUsable(LocalDateTime.now())) {
+            throw new BizException("邀请链接无效或已失效");
+        }
+        return inv;
+    }
+
     /** 邀请信息（免身份，H5 进入页校验 token）。 */
     public InviteInfoVO inviteInfo(String token) {
-        MenuInvite inv = findByToken(token);
+        MenuInvite inv = requireUsable(findByToken(token));
         return inFamilyOf(inv, () -> inviteInfo(inv));
     }
 
@@ -121,7 +148,7 @@ public class TogetherService {
         if (code == null || code.isBlank()) throw new BizException("口令无效");
         MenuInvite inv = TenantContextHolder.callAsSystem(() -> inviteMapper.selectOne(
                 new QueryWrapper<MenuInvite>().eq("code", code.trim().toUpperCase())));
-        if (inv == null) throw new BizException("口令无效或已失效");
+        if (inv == null || !inv.isUsable(LocalDateTime.now())) throw new BizException("口令无效或已失效");
         return inFamilyOf(inv, () -> inviteInfo(inv));
     }
 
@@ -190,7 +217,7 @@ public class TogetherService {
      */
     @Transactional(rollbackFor = Exception.class)
     public JoinVO join(String token, String nickname, Long memberId) {
-        MenuInvite inv = findByToken(token);
+        MenuInvite inv = requireUsable(findByToken(token));
         String name = nickname == null ? "" : nickname.trim();
         if (memberId == null && name.isEmpty()) {
             throw new BizException("请先输入昵称");
@@ -292,8 +319,13 @@ public class TogetherService {
     // ===================== 菜谱搜索（H5 加菜候选，免登录） =====================
 
     /** 菜谱模糊搜索（加菜候选）：name like keyword，最多 limit 条。 */
-    public List<DishBrief> searchDishes(String keyword, int limit) {
+    public List<DishBrief> searchDishes(Long menuId, Identity identity, String keyword, int limit) {
         if (keyword == null || keyword.isBlank()) return List.of();
+        // 必须是该食集的本家成员或已加入者；按食集所属家庭的可见范围（公共 + 该家庭私有）搜索
+        return withMenu(menuId, identity, (menu, familyMember) -> doSearchDishes(keyword, limit));
+    }
+
+    private List<DishBrief> doSearchDishes(String keyword, int limit) {
         List<Dish> rows = dishService.list(DishVisibility.visible(new QueryWrapper<Dish>())
                 .like("name", keyword.trim())
                 .last("LIMIT " + Math.min(Math.max(limit, 1), 10)));

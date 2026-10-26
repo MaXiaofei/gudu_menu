@@ -33,6 +33,24 @@ export function createInvite(menuId: number): Promise<{ code: string; token: str
   return request({ url: `/menu/${menuId}/invite`, method: 'POST' })
 }
 
+/** 撤销邀请：DELETE /menu/{id}/invite（本家成员；旧口令/链接立即失效）。 */
+export function revokeInvite(menuId: number): Promise<void> {
+  return request({ url: `/menu/${menuId}/invite`, method: 'DELETE' })
+}
+
+/**
+ * 凭邀请凭证加入聚餐：POST /invite/{token}/join（须登录）。
+ * 非本家用户必须先 join 才能访问该食集聚餐；token 过期 / 已撤销 / 伪造都会被拒。
+ */
+export function joinInvite(token: string, nickname?: string): Promise<{ menuId: number; menuName?: string }> {
+  return request({ url: `/invite/${encodeURIComponent(token)}/join`, method: 'POST', data: { nickname: nickname || '' } })
+}
+
+/** 分享路径（小程序卡片 / 小程序码）：menuId + 邀请 token，打开须登录并先 join。 */
+export function togetherSharePath(menuId: number, token: string): string {
+  return `/pages/together/Pick?menuId=${menuId}&token=${encodeURIComponent(token)}`
+}
+
 /** 聚餐清单（发起端登录态 / 朋友端传 guestKey）。 */
 export function getTogether(menuId: number, guestKey?: string): Promise<TogetherVO> {
   return request<TogetherVO>({

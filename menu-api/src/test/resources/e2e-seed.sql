@@ -24,6 +24,9 @@ INSERT IGNORE INTO e2e_family(id)
 INSERT IGNORE INTO e2e_family(id)
   SELECT fm.family_id FROM family_membership fm JOIN account a ON a.id = fm.account_id
   WHERE fm.family_id > 2 AND fm.role = 'OWNER' AND (a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%');
+DELETE FROM menu_invite WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM menu_join WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM menu_activity WHERE family_id IN (SELECT id FROM e2e_family);
 DELETE FROM menu_dish WHERE family_id IN (SELECT id FROM e2e_family);
 DELETE FROM menu WHERE family_id IN (SELECT id FROM e2e_family);
 DELETE FROM ingredient_stock WHERE family_id IN (SELECT id FROM e2e_family);

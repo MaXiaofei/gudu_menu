@@ -37,5 +37,16 @@ public class MenuInvite {
     /** 房主 member_id（邀请生成人）。 */
     private Long createdBy;
 
+    /** 凭证有效期截止（V80）；为空视为已过期（fail closed）。 */
+    private LocalDateTime expiresAt;
+
+    /** 是否已撤销（V80）：房主主动撤销，或刷新邀请时旧凭证作废。 */
+    private Integer revoked;
+
     private LocalDateTime createTime;
+
+    /** 凭证当前是否有效：未撤销且未过期。 */
+    public boolean isUsable(LocalDateTime now) {
+        return (revoked == null || revoked == 0) && expiresAt != null && expiresAt.isAfter(now);
+    }
 }

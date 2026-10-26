@@ -102,7 +102,7 @@ import {
   type MenuDetail, type MenuDish, type CookMaterial,
 } from '@/api/menu'
 import { getPrep, updatePrepStatus, type MenuPrep, type PrepItem } from '@/api/prep'
-import { getTogether, createInvite, type TogetherVO } from '@/api/together'
+import { getTogether, createInvite, togetherSharePath, type TogetherVO } from '@/api/together'
 import { mdHm } from '@/utils/datetime'
 import DishesTab from './parts/DishesTab.vue'
 import PrepTab from './parts/PrepTab.vue'
@@ -143,7 +143,7 @@ onShareAppMessage(() => {
   if (invite.value) {
     return {
       title: `一起来点菜：${detail.value?.menu.name || '聚餐清单'}`,
-      path: `/pages/together/Pick?menuId=${menuId.value}&token=${invite.value.token}`,
+      path: togetherSharePath(menuId.value, invite.value.token),
     }
   }
   return { title: '咕嘟小食单', path: '/pages/dish/List' }

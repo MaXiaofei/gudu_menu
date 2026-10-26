@@ -66,6 +66,8 @@ class TogetherServiceTest {
         inv.setCode(code);
         inv.setToken(token);
         inv.setCreatedBy(1L);
+        inv.setExpiresAt(java.time.LocalDateTime.now().plusDays(1));
+        inv.setRevoked(0);
         return inv;
     }
 
@@ -338,7 +340,7 @@ class TogetherServiceTest {
         dish2.setName("红烧排骨");
         given(dishService.list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).willReturn(List.of(dish1, dish2));
 
-        List<TogetherService.DishBrief> list = svc.searchDishes("红烧", 8);
+        List<TogetherService.DishBrief> list = svc.searchDishes(7L, TogetherService.Identity.member(5L), "红烧", 8);
 
         assertThat(list).hasSize(2);
         assertThat(list.get(0).name()).isEqualTo("红烧肉");
@@ -347,7 +349,7 @@ class TogetherServiceTest {
 
     @Test
     void 搜索菜谱_关键字为空_返回空() {
-        assertThat(svc.searchDishes("  ", 8)).isEmpty();
+        assertThat(svc.searchDishes(7L, TogetherService.Identity.member(5L), "  ", 8)).isEmpty();
         verify(dishService, never()).list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
     }
 

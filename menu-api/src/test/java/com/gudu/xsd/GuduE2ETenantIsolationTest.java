@@ -197,6 +197,41 @@ class GuduE2ETenantIsolationTest {
         assertDenied(get(b, "/menu/" + menuId), "加入聚餐不等于加入家庭");
     }
 
+    @Test
+    void 聚餐_加入必须持有有效凭证_撤销刷新后旧凭证失效_凭证不跨食集() {
+        Who a = newFamily("13900000109", "E2E凭证甲");
+        Who b = newFamily("13900000110", "E2E凭证乙");
+        long menu1 = okLong(post(a, "/menu", Map.of("menu", Map.of("name", "E2E凭证食集1", "servingCount", 2),
+                "dishes", List.of())));
+        long menu2 = okLong(post(a, "/menu", Map.of("menu", Map.of("name", "E2E凭证食集2", "servingCount", 2),
+                "dishes", List.of())));
+        // 无凭证 / 伪造凭证：不能加入，也读不到
+        assertDenied(post(b, "/invite/not-a-real-token/join", Map.of("nickname", "乙")), "伪造凭证加入");
+        assertDenied(get(b, "/menu/" + menu1 + "/together"), "无凭证读聚餐");
+        assertDenied(get(b, "/menu/" + menu1 + "/together/dishes?keyword=番茄"), "无凭证搜菜");
+        assertDenied(delete(b, "/menu/" + menu1 + "/invite"), "别家用户撤销邀请");
+
+        // 撤销后凭证失效
+        String tok1 = ok(post(a, "/menu/" + menu1 + "/invite", null)).get("token").asText();
+        ok(delete(a, "/menu/" + menu1 + "/invite"));
+        assertDenied(post(b, "/invite/" + tok1 + "/join", Map.of("nickname", "乙")), "已撤销凭证加入");
+        assertDenied(get(b, "/invite/" + tok1), "已撤销凭证查看");
+
+        // 刷新后旧凭证作废、新凭证可用；凭证 1 只能进食集 1
+        String tok1b = ok(post(a, "/menu/" + menu1 + "/invite", null)).get("token").asText();
+        assertThat(tok1b).isNotEqualTo(tok1);
+        assertDenied(post(b, "/invite/" + tok1 + "/join", Map.of("nickname", "乙")), "刷新前的旧凭证");
+        ok(post(b, "/invite/" + tok1b + "/join", Map.of("nickname", "乙")));
+        ok(get(b, "/menu/" + menu1 + "/together"));
+        ok(get(b, "/menu/" + menu1 + "/together/dishes?keyword=番茄"));
+        assertDenied(get(b, "/menu/" + menu2 + "/together"), "拿食集1的凭证读食集2的聚餐");
+        assertDenied(post(b, "/menu/" + menu2 + "/together/items", Map.of("customName", "E2E越权菜")),
+                "拿食集1的凭证往食集2加菜");
+        // 已加入者撤销凭证后仍可凭加入记录继续参与（但不能再拉别人）
+        ok(delete(a, "/menu/" + menu1 + "/invite"));
+        ok(get(b, "/menu/" + menu1 + "/together"));
+    }
+
     // ===================================================================== helpers
 
     private Who newFamily(String phone, String nickname) {
