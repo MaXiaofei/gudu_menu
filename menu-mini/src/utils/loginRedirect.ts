@@ -9,15 +9,23 @@
  * 其他一律回首页。
  */
 import { isTabPath } from './nav'
+import { getAccountId, invitePath, onboardKey, PENDING_INVITE_KEY, profileIsBlank } from './family'
+import { shouldPromptProfile } from './profileSetup'
+import { listMembers } from '@/api/member'
 
 export const LOGIN_PAGE = '/pages/login/Login'
 export const HOME_PAGE = '/pages/dish/List'
+/** 家庭邀请落地页（multi-tenant-family）。 */
+export const INVITE_PAGE = '/pkg-family/Invite'
+/** 成员档案引导页（首次引导第 2 步）。 */
+export const ONBOARD_PAGE = '/pkg-family/Onboard'
 
 /** 允许登录后回跳的非 Tab 页面（分享落地页）。新增分享落地页时在此登记。 */
 export const REDIRECT_WHITELIST: readonly string[] = [
   '/pages/together/Pick',
   '/pages/dish/Detail',
   '/pages/menu/Detail',
+  INVITE_PAGE,
 ]
 
 const MAX_QUERY_KEYS = 8
@@ -81,21 +89,112 @@ export function loginUrl(target?: string | null): string {
   return t ? `${LOGIN_PAGE}?redirect=${encodeURIComponent(t)}` : LOGIN_PAGE
 }
 
-/** 登录成功后：回到合法目标页（Tab 走 switchTab，其余 reLaunch 让登录页出栈），否则回首页。 */
-export function goAfterLogin(raw?: unknown): void {
-  const t = sanitizeRedirect(raw)
-  if (!t) {
-    uni.switchTab({ url: HOME_PAGE })
-    return
-  }
-  if (isTabPath(t)) uni.switchTab({ url: t.split('?')[0] })
-  else uni.reLaunch({ url: t })
+/** 跳到站内目标：Tab 走 switchTab，其余 reLaunch（让登录页 / 落地页出栈）。返回实际目标。 */
+function go(url: string): string {
+  if (isTabPath(url)) uni.switchTab({ url: url.split('?')[0] })
+  else uni.reLaunch({ url })
+  return url
 }
 
-/** App onLaunch 参数（{path, query}）→ 回跳目标；非白名单返回 null。 */
+/**
+ * 登录成功后的唯一去向逻辑（登录页、邀请落地页共用）。优先级：
+ *  1. 待加入家庭邀请（PENDING_INVITE_KEY）→ 回邀请落地页继续「加入」；
+ *  2. redirect 回跳（白名单校验）；
+ *  3. 首次引导：昵称仍是默认 → 回首页，由首页弹头像昵称（A.7），关闭后 continueFirstRun 决定是否进成员档案引导；
+ *     昵称已改过、本账号还没处理过成员档案引导且本人档案为空 → 直接进成员档案引导；
+ *  4. 首页。
+ * 不需要查档案的分支同步完成跳转。
+ */
+export function goAfterLogin(raw?: unknown, accountId?: number | null): Promise<string> {
+  const pending = uni.getStorageSync(PENDING_INVITE_KEY)
+  if (pending) return Promise.resolve(go(invitePath(String(pending))))
+  const t = sanitizeRedirect(raw)
+  if (t) return Promise.resolve(go(t))
+  if (shouldPromptProfile() || !onboardPending(accountId)) return Promise.resolve(go(HOME_PAGE))
+  return needOnboard(accountId).then((need) => go(need ? ONBOARD_PAGE : HOME_PAGE))
+}
+
+// ---------------------------------------------------------------------------
+// 首次引导（头像昵称 A.7 → 成员档案 multi-tenant-family）：顺序进行、都可跳过、跳过不再打扰。
+// ---------------------------------------------------------------------------
+
+/** 本账号还没处理过成员档案引导（无账号 id 视为不需要）。 */
+function onboardPending(accountId?: number | null): boolean {
+  const id = accountId || getAccountId()
+  return !!id && !uni.getStorageSync(onboardKey(id))
+}
+
+/** 记「成员档案引导已处理」（完成或跳过都记，按账号）。 */
+export function markOnboarded(accountId?: number | null): void {
+  const id = accountId || getAccountId()
+  if (id) uni.setStorageSync(onboardKey(id), '1')
+}
+
+/**
+ * 是否需要成员档案引导：本账号没处理过，且本人在当前家庭的档案还没填身体 / 健康信息。
+ * 老用户档案已填 → 记已处理，不再打扰。
+ */
+export async function needOnboard(accountId?: number | null): Promise<boolean> {
+  const id = accountId || getAccountId()
+  if (!onboardPending(id)) return false
+  try {
+    const mine: any = (await listMembers()).find((m: any) => m.accountId === id)
+    if (mine && !profileIsBlank(mine.healthProfile)) {
+      markOnboarded(id)
+      return false
+    }
+    return !!mine
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 首页头像昵称弹窗（A.7）关闭后调用：
+ * - 保存了 → 接着进成员档案引导（如需要）；
+ * - 跳过了 → 视为「先别打扰」，成员档案引导也记为已处理，不再连着弹第二次（之后在「成员档案」随时补）。
+ */
+export async function continueFirstRun(saved: boolean): Promise<boolean> {
+  if (!saved) {
+    markOnboarded()
+    return false
+  }
+  if (!(await needOnboard())) return false
+  uni.navigateTo({ url: ONBOARD_PAGE })
+  return true
+}
+
+/**
+ * 加入新家庭后：昵称仍是默认 → 先回首页弹头像昵称（之后 continueFirstRun 接成员档案引导）；
+ * 否则直接进新家庭的成员档案引导（可跳过）。
+ */
+export function goAfterJoin(): string {
+  if (shouldPromptProfile()) return go(HOME_PAGE)
+  return go(`${ONBOARD_PAGE}?from=join`)
+}
+
+/**
+ * App onLaunch 参数（{path, query}）→ 回跳目标；非白名单返回 null。
+ * 来自家庭邀请卡片时同时记下邀请码：新微信用户静默登录随 wx-login 带 inviteCode 直接进邀请家庭，
+ * 登录后也按「待加入邀请」优先回到落地页。
+ */
 export function launchTarget(options?: { path?: string; query?: Record<string, unknown> } | null): string | null {
   if (!options?.path) return null
-  return sanitizeRedirect(buildTarget(options.path, options.query))
+  const t = sanitizeRedirect(buildTarget(options.path, options.query))
+  rememberPendingInvite(t)
+  return t
+}
+
+/** 目标是家庭邀请落地页且带 code → 记为待加入邀请。 */
+export function rememberPendingInvite(target: string | null | undefined): void {
+  if (!target || !target.startsWith(INVITE_PAGE + '?')) return
+  const m = /[?&]code=([^&]+)/.exec(target)
+  if (!m) return
+  let code = m[1]
+  try {
+    code = decodeURIComponent(code)
+  } catch {}
+  if (code) uni.setStorageSync(PENDING_INVITE_KEY, code)
 }
 
 /** 当前页面 → 回跳目标（401 被踢回登录页时用）；非白名单返回 null。 */

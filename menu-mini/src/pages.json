@@ -349,6 +349,52 @@
           }
         }
       ]
+    },
+    {
+      "root": "pkg-family",
+      "pages": [
+        {
+          "path": "Index",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Switch",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Invite",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "Onboard",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "MemberEdit",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-account",
+      "pages": [
+        {
+          "path": "Security",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        }
+      ]
     }
   ],
   "preloadRule": {

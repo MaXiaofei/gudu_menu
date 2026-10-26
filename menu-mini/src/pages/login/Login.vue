@@ -85,9 +85,10 @@ onLoad((options) => {
   redirect.value = String(options?.redirect || '')
 })
 
-function afterLogin() {
+/** 登录成功：统一去向（待加入家庭邀请 > redirect 回跳 > 首次引导 > 首页），见 utils/loginRedirect.goAfterLogin。 */
+function afterLogin(accountId?: number | null) {
   resetLoginRedirect()
-  goAfterLogin(redirect.value)
+  return goAfterLogin(redirect.value, accountId)
 }
 // 微信端默认展开一键登录，账号登录折叠；其他端直接展示账号表单
 const mp = process.env.UNI_PLATFORM === 'mp-weixin'
@@ -123,7 +124,7 @@ async function onWxLogin() {
   try {
     const r = await silentLogin()
     if (r) {
-      afterLogin()
+      await afterLogin(r.accountId)
     } else {
       uni.showToast({ title: '微信登录失败，可先用账号登录', icon: 'none' })
     }
@@ -140,8 +141,8 @@ async function onLogin() {
   }
   loading.value = true
   try {
-    await auth.login(form.username, form.password)
-    afterLogin()
+    const r = await auth.login(form.username, form.password)
+    await afterLogin(r?.accountId)
   } catch {
     // request.ts 已弹 toast
   } finally {

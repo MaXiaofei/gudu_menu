@@ -11,6 +11,10 @@ export interface Dish {
   difficulty?: number | null
   note?: string | null
   sourceName?: string | null
+  /** 所属家庭：null = 平台公共菜谱；非空 = 本家菜谱（multi-tenant-family） */
+  familyId?: number | null
+  /** 「复制到我家」的来源菜谱 id */
+  sourceDishId?: number | null
   cuisineNames?: string[]
   categoryNames?: string[]
   tagNames?: string[]
@@ -143,6 +147,19 @@ export function searchDishes(p: DishSearchParams): Promise<Page<Dish>> {
 /** 菜谱详情：GET /dish/{id}。 */
 export function dishDetail(id: number): Promise<DishDetail> {
   return request<DishDetail>({ url: `/dish/${id}`, method: 'GET' })
+}
+
+/** 是否平台公共菜谱：familyId 显式为 null；旧后端无该字段时按 sourceName 判断。 */
+export function isPublicDish(d?: Pick<Dish, 'familyId' | 'sourceName'> | null): boolean {
+  if (!d) return false
+  if (d.familyId === null) return true
+  if (d.familyId === undefined) return !!d.sourceName
+  return false
+}
+
+/** 复制到我家：公共菜谱复制为当前家庭私有菜谱（记录来源），返回新菜谱 id。 */
+export function forkDish(id: number): Promise<number> {
+  return request<number>({ url: `/dish/${id}/fork`, method: 'POST' })
 }
 
 /** 删除菜谱（连带步骤/关联/用料/历史）。 */

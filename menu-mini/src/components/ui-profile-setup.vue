@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { updateMe } from '@/api/member'
-import { launchAuthDone } from '@/utils/loginRedirect'
+import { launchAuthDone, markOnboarded } from '@/utils/loginRedirect'
 import { markProfilePrompted, shouldPromptProfile, validateSetupNickname } from '@/utils/profileSetup'
 
 const emit = defineEmits<{ (e: 'done', v: { saved: boolean; name?: string }): void }>()
@@ -61,6 +61,8 @@ defineExpose({ check })
 
 function close(saved: boolean, n?: string) {
   markProfilePrompted()
+  // 跳过 = 先别打扰：成员档案引导也记为已处理，不连着弹第二次（multi-tenant-family 首次引导）
+  if (!saved) markOnboarded()
   visible.value = false
   setTabBar(true)
   emit('done', { saved, name: n })

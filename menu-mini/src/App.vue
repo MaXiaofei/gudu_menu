@@ -7,7 +7,8 @@ import { launchTarget, redirectToLogin, trackLaunchAuth } from "@/utils/loginRed
 onShow(() => applyTabBar());
 onLaunch((options) => {
   initTheme();
-  // 分享落地页（聚餐点菜 / 菜谱详情…）：带着原始页面与参数去登录，登录后回到原页（A.10）
+  // 分享落地页（聚餐点菜 / 菜谱详情 / 家庭邀请…）：带着原始页面与参数去登录，登录后回到原页（A.10）；
+  // 家庭邀请卡片同时记下邀请码（新微信用户静默登录直接进邀请家庭）
   const target = launchTarget(options as any);
   // 同步登记启动登录流程：落地页 ensureLogin() 会等它结束再决定是否发请求
   trackLaunchAuth(

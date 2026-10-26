@@ -1,0 +1,146 @@
+/* 家庭 / 账号分包公共样式：只用设计 token（var(--xx)），与「我的」页卡片、行一致。 */
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+}
+.body {
+  padding: 0 var(--sp-16) var(--sp-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-12) var(--sp-16);
+}
+.group-title {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--body);
+  letter-spacing: 1px;
+  padding-bottom: var(--sp-4);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  padding: var(--sp-10) 0;
+}
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.row-label {
+  font-size: var(--fs-md);
+  color: var(--title);
+}
+.row-label.strong {
+  font-weight: 700;
+}
+.row-sub {
+  font-size: var(--fs-sm);
+  color: var(--caption);
+}
+.row-value {
+  font-size: var(--fs-sm);
+  color: var(--body);
+}
+.row-act {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary-deep);
+  padding: 4px 0 4px 8px;
+}
+.row-act.danger {
+  color: var(--error-deep);
+}
+.role {
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-tiny);
+  font-weight: 700;
+  background: var(--secondary);
+  color: var(--body);
+}
+.role.OWNER {
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+}
+.role.ADMIN {
+  background: var(--info-soft);
+  color: var(--title);
+}
+.note {
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  color: var(--body);
+}
+.callout {
+  padding: var(--sp-12);
+  border-radius: var(--r-md);
+  background: var(--warning-soft);
+}
+.callout-txt {
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  color: var(--title);
+}
+.btn {
+  height: 48px;
+  line-height: 48px;
+  margin: 0;
+  border-radius: var(--r-md);
+  background: var(--primary-deep);
+  color: var(--on-primary);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  text-align: center;
+}
+.btn::after {
+  border: none;
+}
+.btn[disabled] {
+  opacity: 0.6;
+}
+.btn.ghost {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--title);
+}
+.btn.danger {
+  background: var(--card);
+  border: 1px solid var(--error);
+  color: var(--error-deep);
+}
+.input-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  height: 48px;
+  padding: 0 var(--sp-12);
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.ipt {
+  flex: 1;
+  font-size: var(--fs-lg);
+  color: var(--title);
+}
+.ipt-ph {
+  color: var(--caption);
+  font-size: var(--fs-md);
+}
+.err-txt {
+  font-size: var(--fs-sm);
+  color: var(--error-deep);
+}

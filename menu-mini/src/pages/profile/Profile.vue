@@ -9,9 +9,20 @@
         <ui-member-avatar :name="displayName" :avatar-url="me?.avatarUrl" :size="64" ring />
         <view class="user-info">
           <text class="user-name">{{ displayName }}</text>
-          <text class="user-sub">我家的厨房 · {{ me?.isAdmin ? '主人' : '成员' }}</text>
+          <text class="user-sub">{{ family.current?.name || '我的家' }} · {{ roleLabel(family.currentRole) }}</text>
         </view>
         <view class="edit"><text class="edit-txt">编辑资料</text></view>
+      </view>
+      <!-- 家庭切换器（multi-tenant-family）：当前家庭 + 快速切换；点名称进家庭页 -->
+      <view class="fam-switch" data-testid="family-switcher">
+        <view class="fs-main" @click="go('/pkg-family/Index')">
+          <text class="fs-label">当前家庭</text>
+          <text class="fs-name" data-testid="family-current-name">{{ family.current?.name || '我的家' }}</text>
+        </view>
+        <view class="fs-btn" data-testid="family-switch-btn" @click="onSwitchFamily">
+          <ui-icon name="swap" :size="14" />
+          <text class="fs-btn-txt">切换</text>
+        </view>
       </view>
       <ui-stat-grid v-if="stats" class="stats" :items="statItems" />
     </view>
@@ -61,9 +72,12 @@ import { navInset } from '@/utils/token'
 import { THEME_OPTIONS, themeState } from '@/utils/theme'
 import { APP_VERSION } from '@/config/app'
 import { PAGES, goTab } from '@/utils/nav'
+import { useFamilyStore } from '@/store/family'
+import { FAMILY_SWITCH_PAGE, roleLabel } from '@/utils/family'
 
 const auth = useAuthStore()
 const memberStore = useMemberStore()
+const family = useFamilyStore()
 const me = ref<MemberMe | null>(null)
 const stats = ref<MeStats | null>(null)
 const recent = ref<RecentCooked[]>([])
@@ -72,6 +86,11 @@ const personalized = ref<boolean | null>(null)
 const nav = navInset()
 
 onShow(() => {
+  family.refresh().catch(() => {})
+  reload()
+})
+
+function reload() {
   memberStore.load().catch(() => {})
   getMe()
     .then((m) => (me.value = m))
@@ -82,7 +101,34 @@ onShow(() => {
   getPreference()
     .then((p) => (personalized.value = p.personalizedRecommend))
     .catch(() => {})
-})
+}
+
+/** 快速切换：其他家庭（≤5）+「管理 / 新建家庭」走 ActionSheet（微信上限 6 项）；只有一个家庭直接进选择页。 */
+function onSwitchFamily() {
+  const others = family.families.filter((f) => f.id !== family.currentId)
+  if (!others.length) {
+    uni.navigateTo({ url: FAMILY_SWITCH_PAGE })
+    return
+  }
+  const shown = others.slice(0, 5)
+  uni.showActionSheet({
+    itemList: [...shown.map((f) => `切换到「${f.name}」`), '管理 / 新建家庭'],
+    success: async ({ tapIndex }) => {
+      const target = shown[tapIndex]
+      if (!target) {
+        uni.navigateTo({ url: FAMILY_SWITCH_PAGE })
+        return
+      }
+      try {
+        await family.switchTo(target.id)
+        uni.showToast({ title: `已切换到「${target.name}」`, icon: 'none' })
+        reload()
+      } catch {
+        // request.ts 已提示
+      }
+    },
+  })
+}
 const statItems = computed(() =>
   stats.value
     ? [
@@ -101,7 +147,10 @@ const themeLabel = computed(() => THEME_OPTIONS.find((t) => t.name === themeStat
 const groups = computed(() => [
   {
     title: '家庭',
-    items: [{ label: '家庭成员', icon: 'users', tone: 't1', url: '/pages/member/Index', value: memberStore.members.length ? `${memberStore.members.length} 人` : '' }],
+    items: [
+      { label: '我的家庭', icon: 'users', tone: 't1', url: '/pkg-family/Index', value: family.current ? `${family.current.memberCount} 人` : '' },
+      { label: '成员档案', icon: 'heart', tone: 't2', url: '/pages/member/Index', value: memberStore.members.length ? `${memberStore.members.length} 份` : '' },
+    ],
   },
   {
     title: '我的内容',
@@ -122,6 +171,7 @@ const groups = computed(() => [
       { label: '主题外观', icon: 'palette', tone: 't1', url: '/pages/profile/Theme', value: themeLabel.value },
       { label: '消息与提醒', icon: 'bell', tone: 't2', url: '/pages/notice/Index', badge: unread.value || '' },
       { label: '意见反馈', icon: 'message', tone: 't3', url: '/pages/profile/Feedback' },
+      { label: '账号与安全', icon: 'shield', tone: 't1', url: '/pkg-account/Security' },
       { label: '隐私与协议', icon: 'shield', tone: 't4', url: '/pages/profile/Legal?type=privacy' },
       { label: '关于小食单', icon: 'info', tone: 't4', url: '/pages/profile/About', value: `v${APP_VERSION}` },
     ],
@@ -209,6 +259,45 @@ function onLogout() {
   font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--title);
+}
+.fam-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  margin-bottom: var(--sp-12);
+  padding: var(--sp-10) var(--sp-12);
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.fs-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fs-label {
+  font-size: var(--fs-xs);
+  color: var(--caption);
+}
+.fs-name {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--title);
+}
+.fs-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--primary-soft);
+}
+.fs-btn-txt {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary-deep);
 }
 .body {
   padding: 0 var(--sp-16) var(--sp-24);

@@ -21,7 +21,7 @@
         <view class="sheet">
           <view class="title-row">
             <text class="title">{{ detail.dish.name }}</text>
-            <text v-if="detail.dish.sourceName" class="src-tag">公共库</text>
+            <text v-if="isPublic" class="src-tag" data-testid="dish-public-tag">公共库</text>
             <text v-else class="src-tag mine">我家的</text>
           </view>
           <view class="meta">
@@ -32,7 +32,14 @@
           <view v-if="relNames.length" class="chips">
             <text v-for="n in relNames" :key="n" class="chip">{{ n }}</text>
           </view>
-          <text v-if="detail.dish.sourceName" class="from">来源：{{ detail.dish.sourceName }} · 可加入我家后修改</text>
+          <text v-if="detail.dish.sourceName" class="from">来源：{{ detail.dish.sourceName }}</text>
+          <!-- 公共菜谱：复制到我家后可按自家口味改（multi-tenant-family fork） -->
+          <view v-if="isPublic" class="fork-row">
+            <text class="fork-tip">想按自家口味改？复制一份到我家，改动只在家里生效</text>
+            <button class="btn-fork" :disabled="forking" data-testid="dish-fork" @click="onFork">
+              {{ forking ? '复制中…' : '复制到我家' }}
+            </button>
+          </view>
 
           <ingredient-card
             :ingredients="detail.ingredients"
@@ -98,7 +105,7 @@ import { PAGES, withQuery, COOK_AFTER_MODE_KEY } from '@/utils/nav'
 import { buildTarget, ensureLogin } from '@/utils/loginRedirect'
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onShareAppMessage } from '@dcloudio/uni-app'
-import { dishDetail, type DishDetail, type DishIngredient } from '@/api/dish'
+import { dishDetail, forkDish, isPublicDish, type DishDetail, type DishIngredient } from '@/api/dish'
 import { toAbsolute, originalList } from '@/utils/image'
 import { navInset } from '@/utils/token'
 import { dishCookMaterials, cookDish } from '@/api/cook'
@@ -168,6 +175,23 @@ const diffLabel = computed(() => {
   if (!d) return ''
   return d <= 2 ? '简单' : d <= 3 ? '中等' : '有挑战'
 })
+const isPublic = computed(() => isPublicDish(detail.value?.dish))
+const forking = ref(false)
+
+async function onFork() {
+  if (forking.value || !dishId.value) return
+  forking.value = true
+  try {
+    const newId = await forkDish(dishId.value)
+    uni.showToast({ title: '已复制到我家', icon: 'none' })
+    setTimeout(() => uni.redirectTo({ url: `/pages/dish/Detail?id=${newId}` }), 400)
+  } catch {
+    // request.ts 已提示
+  } finally {
+    forking.value = false
+  }
+}
+
 const relNames = computed(() => {
   const d = detail.value?.dish
   if (!d) return []
@@ -347,6 +371,35 @@ function goCookMode() {
 .from {
   font-size: var(--fs-sm);
   color: var(--body);
+}
+.fork-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  margin-top: var(--sp-10);
+  padding: var(--sp-10) var(--sp-12);
+  border-radius: var(--r-md);
+  background: var(--secondary);
+}
+.fork-tip {
+  flex: 1;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--body);
+}
+.btn-fork {
+  margin: 0;
+  padding: 0 var(--sp-12);
+  height: 32px;
+  line-height: 32px;
+  border-radius: var(--r-pill);
+  background: var(--primary-deep);
+  color: var(--on-primary);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.btn-fork::after {
+  border: none;
 }
 .card {
   background: var(--card);
