@@ -32,6 +32,8 @@ DELETE FROM dish_history;
 DELETE FROM ai_call_log;
 -- V67 意见反馈（每账号每日 ≤10 条限流，E2E 重复跑必须清）
 DELETE FROM feedback;
+-- V84 用户偏好（主键 member_id；E2E 会切换个性化推荐开关，每次重置为默认「无行 = 开启」）
+DELETE FROM user_preference;
 -- V80 图片内容安全检测（trace_id 唯一约束；E2E 自建记录 trace_id 用 E2E 前缀、地址带 /e2e/）
 DELETE FROM content_media_check WHERE trace_id LIKE 'E2E%' OR media_url LIKE '%/e2e/%';
 -- V85 厨房圈紧急关停开关：E2E 会关再开，兜底恢复为开（防中途失败把 staging 厨房圈关着），清 E2E 日志

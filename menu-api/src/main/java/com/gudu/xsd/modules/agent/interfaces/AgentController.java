@@ -138,7 +138,7 @@ public class AgentController {
     @Operation(summary = "咕嘟首屏：问候、今晚推荐、快到期、快捷提问")
     @GetMapping("/suggestions")
     public R<SuggestionsView> suggestions() {
-        return R.ok(svc.suggestions(me()));
+        return R.ok(svc.suggestions(me(), StpUtil.getLoginIdAsLong()));
     }
 
     private static Long me() {

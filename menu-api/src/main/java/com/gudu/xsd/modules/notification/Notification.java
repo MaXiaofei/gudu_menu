@@ -17,6 +17,8 @@ public class Notification {
     private String channel;
     private String title;
     private String content;
+    /** 点击跳转目标 id（V83；feedback_reply → feedback.id）。 */
+    private String refId;
     private Integer isRead;
     private LocalDateTime createTime;
 }

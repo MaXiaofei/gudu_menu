@@ -198,6 +198,24 @@
       "style": {
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/profile/FeedbackMine",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/FeedbackDetail",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/Settings",
+      "style": {
+        "navigationStyle": "custom"
+      }
     }
   ],
   "tabBar": {

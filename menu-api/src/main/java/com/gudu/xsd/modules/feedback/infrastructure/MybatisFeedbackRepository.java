@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gudu.xsd.modules.feedback.domain.model.Feedback;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackPage;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackStatus;
+import com.gudu.xsd.modules.feedback.domain.model.FeedbackType;
 import com.gudu.xsd.modules.feedback.domain.repository.FeedbackRepository;
 import com.gudu.xsd.modules.feedback.infrastructure.mapper.FeedbackMapper;
 import com.gudu.xsd.modules.feedback.infrastructure.po.FeedbackPO;
@@ -32,11 +33,16 @@ public class MybatisFeedbackRepository implements FeedbackRepository {
         FeedbackPO po = new FeedbackPO();
         po.setId(f.id());
         po.setMemberId(f.memberId());
+        po.setType(f.type().code());
+        po.setSourceRef(f.sourceRef());
         po.setContent(f.content());
         po.setContact(f.contact());
         po.setImages(writeImages(f.images()));
         po.setClientInfo(f.clientInfo());
         po.setStatus(f.status().name());
+        po.setReply(f.reply());
+        po.setRepliedAt(f.repliedAt());
+        po.setRepliedBy(f.repliedBy());
         if (f.id() == null) {
             po.setCreateTime(f.createTime());
             mapper.insert(po);
@@ -59,17 +65,34 @@ public class MybatisFeedbackRepository implements FeedbackRepository {
     }
 
     @Override
-    public FeedbackPage page(FeedbackStatus status, int pageNum, int pageSize) {
+    public FeedbackPage page(FeedbackType type, FeedbackStatus status, int pageNum, int pageSize) {
+        return toPage(new QueryWrapper<FeedbackPO>()
+                .eq(type != null, "type", type == null ? null : type.code())
+                .eq(status != null, "status", status == null ? null : status.name()), pageNum, pageSize);
+    }
+
+    @Override
+    public FeedbackPage pageByMember(Long memberId, int pageNum, int pageSize) {
+        return toPage(new QueryWrapper<FeedbackPO>().eq("member_id", memberId), pageNum, pageSize);
+    }
+
+    private FeedbackPage toPage(QueryWrapper<FeedbackPO> q, int pageNum, int pageSize) {
         IPage<FeedbackPO> p = mapper.selectPage(new Page<>(pageNum, pageSize),
-                new QueryWrapper<FeedbackPO>().eq(status != null, "status", status == null ? null : status.name())
-                        .orderByDesc("create_time").orderByDesc("id"));
+                q.orderByDesc("create_time").orderByDesc("id"));
         return new FeedbackPage(p.getRecords().stream().map(MybatisFeedbackRepository::toDomain).toList(),
                 p.getTotal(), pageNum, pageSize);
     }
 
     static Feedback toDomain(FeedbackPO po) {
-        return Feedback.rehydrate(po.getId(), po.getMemberId(), po.getContent(), po.getContact(),
-                readImages(po.getImages()), po.getClientInfo(), FeedbackStatus.of(po.getStatus()), po.getCreateTime());
+        FeedbackType type;
+        try {
+            type = FeedbackType.ofOrGeneral(po.getType());
+        } catch (RuntimeException e) {
+            type = FeedbackType.GENERAL;
+        }
+        return Feedback.rehydrate(po.getId(), po.getMemberId(), type, po.getSourceRef(), po.getContent(),
+                po.getContact(), readImages(po.getImages()), po.getClientInfo(), FeedbackStatus.of(po.getStatus()),
+                po.getReply(), po.getRepliedAt(), po.getRepliedBy(), po.getCreateTime());
     }
 
     static String writeImages(List<String> images) {

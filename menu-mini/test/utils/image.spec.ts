@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toAbsolute, toThumbnail, thumbOf, thumbList, originalList } from '@/utils/image'
+import { toAbsolute, toThumbnail, thumbOf, thumbList, originalList, uploadUrl } from '@/utils/image'
 
 // utils/image：相对→绝对（同 BASE）、/original/ → /thumbnail/、逗号多图拆分。
 describe('utils/image', () => {
@@ -8,6 +8,14 @@ describe('utils/image', () => {
     expect(toAbsolute('https://a.com/x.jpg')).toBe('https://a.com/x.jpg')
     expect(toAbsolute('')).toBe('')
     expect(toAbsolute(null)).toBe('')
+  })
+
+  it('uploadUrl：已带 /gudu 的上传地址不重复拼 context-path', () => {
+    expect(uploadUrl('/gudu/uploads/original/1.jpg')).toMatch(/\/gudu\/uploads\/original\/1\.jpg$/)
+    expect(uploadUrl('/gudu/uploads/original/1.jpg')).not.toContain('/gudu/gudu/')
+    expect(uploadUrl('/uploads/x.jpg')).toBe(toAbsolute('/uploads/x.jpg'))
+    expect(uploadUrl('https://a.com/x.jpg')).toBe('https://a.com/x.jpg')
+    expect(uploadUrl(null)).toBe('')
   })
 
   it('toThumbnail：/original/ → /thumbnail/', () => {

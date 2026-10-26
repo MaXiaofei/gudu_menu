@@ -56,6 +56,7 @@ import { computed, ref } from 'vue'
 import { getMe, meStats, type MemberMe, type MeStats } from '@/api/member'
 import { recentCooked, type RecentCooked } from '@/api/recommend'
 import { unreadCount } from '@/api/notification'
+import { getPreference } from '@/api/preference'
 import { navInset } from '@/utils/token'
 import { THEME_OPTIONS, themeState } from '@/utils/theme'
 import { APP_VERSION } from '@/config/app'
@@ -67,6 +68,7 @@ const me = ref<MemberMe | null>(null)
 const stats = ref<MeStats | null>(null)
 const recent = ref<RecentCooked[]>([])
 const unread = ref(0)
+const personalized = ref<boolean | null>(null)
 const nav = navInset()
 
 onShow(() => {
@@ -77,6 +79,9 @@ onShow(() => {
   meStats().then((r) => (stats.value = r))
   recentCooked(6).then((r) => (recent.value = r)).catch(() => {})
   unreadCount().then((n) => (unread.value = n))
+  getPreference()
+    .then((p) => (personalized.value = p.personalizedRecommend))
+    .catch(() => {})
 })
 const statItems = computed(() =>
   stats.value
@@ -113,6 +118,7 @@ const groups = computed(() => [
   {
     title: '设置',
     items: [
+      { label: '设置', icon: 'sparkle', tone: 't1', url: '/pages/profile/Settings', value: personalized.value === null ? '' : `个性化推荐${personalized.value ? '开' : '关'}` },
       { label: '主题外观', icon: 'palette', tone: 't1', url: '/pages/profile/Theme', value: themeLabel.value },
       { label: '消息与提醒', icon: 'bell', tone: 't2', url: '/pages/notice/Index', badge: unread.value || '' },
       { label: '意见反馈', icon: 'message', tone: 't3', url: '/pages/profile/Feedback' },

@@ -3,6 +3,7 @@ package com.gudu.xsd.modules.feedback.domain.repository;
 import com.gudu.xsd.modules.feedback.domain.model.Feedback;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackPage;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackStatus;
+import com.gudu.xsd.modules.feedback.domain.model.FeedbackType;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -15,6 +16,9 @@ public interface FeedbackRepository {
 
     long countByMemberSince(Long memberId, LocalDateTime since);
 
-    /** status 为 null 不过滤；按创建时间倒序。 */
-    FeedbackPage page(FeedbackStatus status, int pageNum, int pageSize);
+    /** type / status 为 null 不过滤；按创建时间倒序。 */
+    FeedbackPage page(FeedbackType type, FeedbackStatus status, int pageNum, int pageSize);
+
+    /** 某账号自己提交的反馈，按创建时间倒序。 */
+    FeedbackPage pageByMember(Long memberId, int pageNum, int pageSize);
 }

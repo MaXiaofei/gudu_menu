@@ -2,12 +2,17 @@
   <page-meta :page-style="gdThemeStyle" />
   <!-- 意见反馈（录入页：只有返回箭头）：POST /feedback，最多 3 张图 -->
   <view class="page">
-    <ui-back-header title="意见反馈" />
+    <ui-back-header title="意见反馈">
+      <template #action>
+        <text class="mine-link" data-testid="feedback-mine-link" @click="goMine">我的反馈</text>
+      </template>
+    </ui-back-header>
 
     <view v-if="done" class="done" data-testid="feedback-done">
       <view class="done-badge"><text class="done-tick">✓</text></view>
       <text class="done-title">已收到，谢谢你的反馈</text>
-      <text class="done-sub">我们会认真看每一条意见</text>
+      <text class="done-sub">我们会在 15 个工作日内答复，结果会通过「消息与提醒」通知你</text>
+      <button class="btn-primary done-btn" data-testid="feedback-done-mine" @click="goMine">查看我的反馈</button>
       <button class="btn-ghost done-btn" @click="goBack">返回</button>
     </view>
 
@@ -83,14 +88,14 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { lastErrorId } from '@/utils/request'
-import { submitFeedback } from '@/api/feedback'
+import { apiTypeOf, submitFeedback } from '@/api/feedback'
 import { chooseImages, uploadImage } from '@/api/upload'
 import {
   validateFeedback, charLen,
   FEEDBACK_MAX, FEEDBACK_CONTACT_MAX, FEEDBACK_IMAGES_MAX,
 } from '@/utils/validate'
 import { APP_VERSION } from '@/config/app'
-import { aiSourceTag } from '@/utils/aiLabel'
+import { aiSourceRef } from '@/utils/aiLabel'
 
 const content = ref('')
 const contact = ref('')
@@ -100,14 +105,15 @@ const submitting = ref(false)
 const error = ref('')
 const done = ref(false)
 
-// 反馈类型（后端 type 字段 P3 上线前也写进 clientInfo，信息不丢）
+// 分类：前四项都是后端 type=general（细分写进 clientInfo「分类:…」方便运营看）；投诉举报 type=complaint
 const TYPES = [
   { key: 'bug', label: '出错了', icon: 'bug' },
   { key: 'feature', label: '想要功能', icon: 'bulb' },
   { key: 'recipe', label: '菜谱有误', icon: 'book' },
+  { key: 'complaint', label: '投诉举报', icon: 'shield' },
   { key: 'other', label: '其他', icon: 'message' },
 ]
-// AI 内容反馈（A.4）：从 AI 内容旁的「反馈」入口进来时追加，来源标记写进 clientInfo 开头（后端 type 字段上线前不丢）
+// AI 内容反馈（A.4 / A.11）：从 AI 内容旁的「反馈」入口进来时追加，type=ai + sourceRef（来源功能:消息 id）
 const AI_TYPE = { key: 'ai', label: 'AI 内容', icon: 'sparkle' }
 const type = ref('bug')
 const attach = ref(true)
@@ -144,9 +150,9 @@ async function addImages() {
 }
 
 function clientInfo(): string {
-  const label = types.value.find((t) => t.key === type.value)?.label || ''
-  const head = [aiSourceTag(aiSource.value, aiRef.value), label && `类型:${label}`,
-    attach.value && errorId.value ? `报错:${errorId.value}` : ''].filter(Boolean)
+  // 类型与来源走独立字段（type / sourceRef），这里只留一般反馈的细分与报错编号
+  const sub = apiTypeOf(type.value) === 'general' ? types.value.find((t) => t.key === type.value)?.label || '' : ''
+  const head = [sub && `分类:${sub}`, attach.value && errorId.value ? `报错:${errorId.value}` : ''].filter(Boolean)
   if (!attach.value) return head.join(' / ')
   try {
     const s = uni.getSystemInfoSync()
@@ -169,7 +175,13 @@ async function submit() {
   if (error.value) return
   submitting.value = true
   try {
-    await submitFeedback({ ...payload, clientInfo: clientInfo(), type: type.value, errorId: attach.value ? errorId.value : '' })
+    const apiType = apiTypeOf(type.value)
+    await submitFeedback({
+      ...payload,
+      clientInfo: clientInfo(),
+      type: apiType,
+      sourceRef: apiType === 'ai' ? aiSourceRef(aiSource.value, aiRef.value) : '',
+    })
     done.value = true
   } catch (e: any) {
     error.value = e?.message || '提交失败，请稍后再试'
@@ -180,6 +192,10 @@ async function submit() {
 
 function goBack() {
   uni.navigateBack()
+}
+
+function goMine() {
+  uni.navigateTo({ url: '/pages/profile/FeedbackMine' })
 }
 </script>
 
@@ -310,8 +326,17 @@ function goBack() {
   color: var(--caption);
 }
 .done-btn {
-  margin-top: var(--sp-16);
+  margin-top: var(--sp-8);
   width: 160px;
+}
+.done-sub {
+  text-align: center;
+  line-height: 1.6;
+}
+.mine-link {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary-deep);
 }
 .types {
   display: grid;

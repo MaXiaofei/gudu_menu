@@ -115,6 +115,11 @@ public class AiService {
      * → 模板理由。无 LLM 调用（原 chat 生成链路已删除）。
      */
     public List<MenuCandidate> recommendMenu(MenuRecommendRequest req) {
+        return recommendMenu(req, true);
+    }
+
+    /** @param personalized false = 账号关闭了个性化推荐（A.8）：召回只用用户本次填写的偏好文本，不拼口味画像 */
+    public List<MenuCandidate> recommendMenu(MenuRecommendRequest req, boolean personalized) {
         long start = System.currentTimeMillis();
         String reqJson = safeJson(req);
         // 额度护栏：有 member 维度时，校验今日调用次数（scene 无关，全 AI 接口共用额度）。
@@ -132,7 +137,7 @@ public class AiService {
             List<String> allergies = List.of();
 
             // 2. 口味画像 + 偏好文本 → 向量召回查询
-            String profile = tasteProfileService.profileText(req.memberId());
+            String profile = personalized ? tasteProfileService.profileText(req.memberId()) : "";
             String pref = (req.preference() == null || req.preference().isBlank())
                     ? "家常菜" : req.preference().trim();
             String query = profile.isEmpty() ? pref : pref + "，口味类似：" + profile;
@@ -215,8 +220,15 @@ public class AiService {
      * L1 无历史/冷启动 → 热门兜底（做过次数 TopN，不足补最新录入），理由=大家的选择。
      */
     public List<MenuCandidate> defaultRecommend(Long memberId, int topN) {
+        return defaultRecommend(memberId, topN, true);
+    }
+
+    /**
+     * @param personalized false = 账号关闭了个性化推荐（A.8）：不读口味画像（做菜历史），按无历史处理只推最新录入
+     */
+    public List<MenuCandidate> defaultRecommend(Long memberId, int topN, boolean personalized) {
         int n = topN <= 0 ? 3 : topN;
-        String profile = tasteProfileService.profileText(memberId);
+        String profile = personalized ? tasteProfileService.profileText(memberId) : "";
         long total = dishService.count();
         // L1 无做菜历史：一律按最新录入（2026-08-18 定稿，不论菜谱数量）
         if (profile.isEmpty()) {

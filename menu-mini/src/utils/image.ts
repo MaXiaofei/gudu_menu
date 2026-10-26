@@ -10,6 +10,17 @@ export function toAbsolute(url?: string | null): string {
   return BASE + url
 }
 
+/**
+ * 上传接口返回的地址（已带 context-path，如 /gudu/uploads/…）→ 绝对地址：
+ * 拼 BASE 的源（去掉末尾 /gudu），避免 toAbsolute 拼成 /gudu/gudu/…；其他相对路径同 toAbsolute。
+ */
+export function uploadUrl(url?: string | null): string {
+  if (!url) return ''
+  if (/^https?:\/\//.test(url)) return url
+  if (url.startsWith('/gudu/')) return BASE.replace(/\/gudu\/?$/, '') + url
+  return toAbsolute(url)
+}
+
 /** 原图 → 缩略图（路径 /original/ → /thumbnail/，同 Flutter ImageHelper）。 */
 export function toThumbnail(absUrl: string): string {
   return absUrl.replace('/original/', '/thumbnail/')
