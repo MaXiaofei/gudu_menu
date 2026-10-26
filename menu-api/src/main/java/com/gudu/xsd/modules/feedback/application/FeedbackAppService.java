@@ -30,7 +30,7 @@ public class FeedbackAppService {
     static final int MAX_PAGE_SIZE = 100;
 
     private final FeedbackRepository repository;
-    private final MemberService memberService;
+    private final com.gudu.xsd.modules.identity.application.AccountQueryApi accountQuery;
     private final Clock clock;
 
     @Transactional(rollbackFor = Exception.class)
@@ -50,8 +50,8 @@ public class FeedbackAppService {
         int ps = pageSize == null || pageSize < 1 ? 10 : Math.min(pageSize, MAX_PAGE_SIZE);
         FeedbackPage p = repository.page(st, pn, ps);
         List<Long> memberIds = p.records().stream().map(Feedback::memberId).filter(Objects::nonNull).distinct().toList();
-        Map<Long, String> names = memberIds.isEmpty() ? Map.of() : memberService.listByIds(memberIds).stream()
-                .collect(Collectors.toMap(Member::getId, m -> m.getName() == null ? "" : m.getName(), (a, b) -> a));
+        // 提交人 = 登录账号（跨家庭），取账号昵称
+        Map<Long, String> names = memberIds.isEmpty() ? Map.of() : accountQuery.nicknames(memberIds);
         Page<FeedbackView> out = new Page<>(pn, ps);
         out.setTotal(p.total());
         out.setRecords(p.records().stream().map(f -> new FeedbackView(f.id(), f.memberId(), names.get(f.memberId()),

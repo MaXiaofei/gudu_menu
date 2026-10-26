@@ -17,4 +17,7 @@ public interface FeedbackRepository {
 
     /** status 为 null 不过滤；按创建时间倒序。 */
     FeedbackPage page(FeedbackStatus status, int pageNum, int pageSize);
+
+    /** 账号合并（AccountMerged）：把归属 {@code from} 账号的记录改指 {@code to}。返回改动条数。 */
+    int reassignAccount(Long from, Long to);
 }

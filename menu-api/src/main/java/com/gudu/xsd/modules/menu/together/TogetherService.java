@@ -2,10 +2,11 @@ package com.gudu.xsd.modules.menu.together;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.common.tenant.DishVisibility;
+import com.gudu.xsd.common.tenant.TenantContext;
+import com.gudu.xsd.common.tenant.TenantContextHolder;
 import com.gudu.xsd.modules.dish.Dish;
-import com.gudu.xsd.modules.dish.mapper.DishMapper;
-import com.gudu.xsd.modules.member.Member;
-import com.gudu.xsd.modules.member.mapper.MemberMapper;
+import com.gudu.xsd.modules.dish.DishService;
 import com.gudu.xsd.modules.menu.Menu;
 import com.gudu.xsd.modules.menu.MenuDish;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
@@ -42,13 +43,14 @@ public class TogetherService {
 
     private final MenuMapper menuMapper;
     private final MenuDishMapper menuDishMapper;
-    private final DishMapper dishMapper;
-    private final MemberMapper memberMapper;
+    /** 菜谱经 dish 上下文服务访问（不直连 DishMapper，ArchUnit 跨模块冻结基线只减不增）。 */
+    private final DishService dishService;
     private final MenuInviteMapper inviteMapper;
     private final MenuJoinMapper joinMapper;
     private final MenuActivityMapper activityMapper;
+    private final com.gudu.xsd.modules.identity.application.AccountQueryApi accountQuery;
 
-    /** 身份：登录用户=memberId；H5 访客=guestKey（二选一）。 */
+    /** 身份：登录用户=memberId（= 登录账号 id）；H5 访客=guestKey（二选一）。 */
     public record Identity(Long memberId, String guestKey) {
         public static Identity member(Long id) {
             return new Identity(id, null);
@@ -110,16 +112,17 @@ public class TogetherService {
 
     /** 邀请信息（免身份，H5 进入页校验 token）。 */
     public InviteInfoVO inviteInfo(String token) {
-        return inviteInfo(findByToken(token));
+        MenuInvite inv = findByToken(token);
+        return inFamilyOf(inv, () -> inviteInfo(inv));
     }
 
     /** 按 6 位口令查邀请（H5 无链接场景：朋友收到口令，在页面输入）。 */
     public InviteInfoVO inviteInfoByCode(String code) {
         if (code == null || code.isBlank()) throw new BizException("口令无效");
-        MenuInvite inv = inviteMapper.selectOne(
-                new QueryWrapper<MenuInvite>().eq("code", code.trim().toUpperCase()));
+        MenuInvite inv = TenantContextHolder.callAsSystem(() -> inviteMapper.selectOne(
+                new QueryWrapper<MenuInvite>().eq("code", code.trim().toUpperCase())));
         if (inv == null) throw new BizException("口令无效或已失效");
-        return inviteInfo(inv);
+        return inFamilyOf(inv, () -> inviteInfo(inv));
     }
 
     private InviteInfoVO inviteInfo(MenuInvite inv) {
@@ -129,6 +132,55 @@ public class TogetherService {
                 new QueryWrapper<MenuDish>().eq("menu_id", inv.getMenuId()));
         return new InviteInfoVO(inv.getToken(), inv.getMenuId(), menu.getName(),
                 count == null ? 0 : count.intValue());
+    }
+
+    // ===================== 跨家庭作用域（multi-tenant-family E.3） =====================
+
+    /**
+     * 邀请凭证（token / 口令）是访问别家食集的唯一入口：凭证查到后，以该食集所属家庭身份执行后续读写，
+     * 只能触达这一个食集（所有查询仍带 menu_id 条件）。
+     */
+    private <T> T inFamilyOf(MenuInvite inv, java.util.function.Supplier<T> body) {
+        return inv.getFamilyId() == null ? body.get() : TenantContextHolder.callAsFamily(inv.getFamilyId(), body);
+    }
+
+    /**
+     * 按 id 访问食集聚餐：本家成员直接访问（可自动加入）；非本家（登录的朋友 / H5 访客）必须已凭邀请加入
+     * 这个食集，否则视同不存在（404，不泄露存在性）。通过后以食集所属家庭身份执行。
+     */
+    private <T> T withMenu(Long menuId, Identity identity, java.util.function.BiFunction<Menu, Boolean, T> body) {
+        if (menuId == null) throw BizException.notFound("食集不存在");
+        Menu menu = TenantContextHolder.callAsSystem(() -> menuMapper.selectById(menuId));
+        if (menu == null) throw BizException.notFound("食集不存在");
+        if (menu.getFamilyId() == null) return body.apply(menu, identity != null && identity.memberId() != null);
+        TenantContext ctx = TenantContextHolder.get();
+        boolean familyMember = identity != null && identity.memberId() != null && ctx != null
+                && ctx.accountId() != null && menu.getFamilyId().equals(ctx.familyId());
+        return TenantContextHolder.callAsFamily(menu.getFamilyId(), () -> {
+            if (!familyMember && !hasJoined(menuId, identity)) throw BizException.notFound("食集不存在");
+            return body.apply(menu, familyMember);
+        });
+    }
+
+    private boolean hasJoined(Long menuId, Identity identity) {
+        if (identity == null) return false;
+        QueryWrapper<MenuJoin> q = new QueryWrapper<MenuJoin>().eq("menu_id", menuId);
+        if (identity.memberId() != null) {
+            q.eq("member_id", identity.memberId());
+        } else if (identity.guestKey() != null) {
+            q.eq("guest_key", identity.guestKey());
+        } else {
+            return false;
+        }
+        Long n = joinMapper.selectCount(q);
+        return n != null && n > 0;
+    }
+
+    /** 登录用户昵称：账号昵称（跨家庭可用）；取不到回退 fallback。 */
+    private String nicknameOf(Long accountId, String fallback) {
+        if (accountQuery == null) return fallback;
+        String n = accountQuery.nicknames(List.of(accountId)).get(accountId);
+        return n != null && !n.isBlank() ? n : fallback;
     }
 
     /**
@@ -143,16 +195,20 @@ public class TogetherService {
         if (memberId == null && name.isEmpty()) {
             throw new BizException("请先输入昵称");
         }
+        String nick = memberId == null ? name : nicknameOf(memberId, name);
+        return inFamilyOf(inv, () -> doJoin(inv, nick, memberId));
+    }
+
+    private JoinVO doJoin(MenuInvite inv, String name, Long memberId) {
         String guestKey = null;
         if (memberId != null) {
-            Member member = memberMapper.selectById(memberId);
             MenuJoin join = joinMapper.selectOne(new QueryWrapper<MenuJoin>()
                     .eq("menu_id", inv.getMenuId()).eq("member_id", memberId));
             if (join == null) {
                 join = new MenuJoin();
                 join.setMenuId(inv.getMenuId());
                 join.setMemberId(memberId);
-                join.setNickname(member != null && member.getName() != null ? member.getName() : name);
+                join.setNickname(name);
                 join.setLastActiveAt(LocalDateTime.now());
                 joinMapper.insert(join);
             }
@@ -179,9 +235,11 @@ public class TogetherService {
      */
     @Transactional(rollbackFor = Exception.class)
     public TogetherVO together(Long menuId, Identity identity) {
-        Menu menu = menuMapper.selectById(menuId);
-        if (menu == null) throw new BizException("食集不存在");
-        MenuJoin me = resolveJoin(menuId, identity, true);
+        return withMenu(menuId, identity, (menu, familyMember) -> doTogether(menuId, identity, familyMember));
+    }
+
+    private TogetherVO doTogether(Long menuId, Identity identity, boolean familyMember) {
+        MenuJoin me = resolveJoin(menuId, identity, familyMember);
         touch(me);
 
         List<MenuJoin> joins = joinMapper.selectList(new QueryWrapper<MenuJoin>()
@@ -219,13 +277,16 @@ public class TogetherService {
     /** 修改昵称（已加入成员；H5 顶部昵称 ✎ 铅笔编辑）。 */
     @Transactional(rollbackFor = Exception.class)
     public void updateNickname(Long menuId, Identity identity, String nickname) {
-        MenuJoin me = resolveJoin(menuId, identity, false);
-        String name = nickname == null ? "" : nickname.trim();
-        if (name.isEmpty() || name.length() > 32) {
-            throw new BizException("昵称 1-32 个字");
-        }
-        me.setNickname(name);
-        joinMapper.updateById(me);
+        withMenu(menuId, identity, (menu, familyMember) -> {
+            MenuJoin me = resolveJoin(menuId, identity, false);
+            String name = nickname == null ? "" : nickname.trim();
+            if (name.isEmpty() || name.length() > 32) {
+                throw new BizException("昵称 1-32 个字");
+            }
+            me.setNickname(name);
+            joinMapper.updateById(me);
+            return null;
+        });
     }
 
     // ===================== 菜谱搜索（H5 加菜候选，免登录） =====================
@@ -233,7 +294,7 @@ public class TogetherService {
     /** 菜谱模糊搜索（加菜候选）：name like keyword，最多 limit 条。 */
     public List<DishBrief> searchDishes(String keyword, int limit) {
         if (keyword == null || keyword.isBlank()) return List.of();
-        List<Dish> rows = dishMapper.selectList(new QueryWrapper<Dish>()
+        List<Dish> rows = dishService.list(DishVisibility.visible(new QueryWrapper<Dish>())
                 .like("name", keyword.trim())
                 .last("LIMIT " + Math.min(Math.max(limit, 1), 10)));
         return rows.stream()
@@ -249,6 +310,10 @@ public class TogetherService {
     /** 朋友加菜：dishId（菜谱）或 customName（自由输入）二选一，可带备注。写 menu_dish + 活动流。 */
     @Transactional(rollbackFor = Exception.class)
     public Long addItem(Long menuId, Identity identity, Long dishId, String customName, String note) {
+        return withMenu(menuId, identity, (menu, familyMember) -> doAddItem(menuId, identity, dishId, customName, note));
+    }
+
+    private Long doAddItem(Long menuId, Identity identity, Long dishId, String customName, String note) {
         MenuJoin me = resolveJoin(menuId, identity, false);
         String custom = customName == null ? "" : customName.trim();
         if (dishId == null && custom.isEmpty()) {
@@ -256,8 +321,11 @@ public class TogetherService {
         }
         String dishName;
         if (dishId != null) {
-            Dish dish = dishMapper.selectById(dishId);
-            if (dish == null || dish.getName() == null) throw new BizException("菜品不存在");
+            // 以食集所属家庭身份校验：只能加公共菜谱或该家庭的私有菜谱
+            Dish dish = dishService.getById(dishId);
+            if (dish == null || dish.getName() == null || !DishVisibility.isVisible(dish.getFamilyId())) {
+                throw new BizException("菜品不存在");
+            }
             dishName = dish.getName();
         } else {
             dishName = custom;
@@ -281,13 +349,20 @@ public class TogetherService {
     /** 删菜（已加入成员可删任意菜）：删 menu_dish + 活动流记录谁删的。 */
     @Transactional(rollbackFor = Exception.class)
     public void removeItem(Long menuId, Identity identity, Long menuDishId) {
+        withMenu(menuId, identity, (menu, familyMember) -> {
+            doRemoveItem(menuId, identity, menuDishId);
+            return null;
+        });
+    }
+
+    private void doRemoveItem(Long menuId, Identity identity, Long menuDishId) {
         MenuJoin me = resolveJoin(menuId, identity, false);
         MenuDish md = menuDishMapper.selectById(menuDishId);
         if (md == null || !menuId.equals(md.getMenuId())) {
             throw new BizException("这道菜不在这个食集里");
         }
         String dishName = md.getCustomName() != null ? md.getCustomName()
-                : dishMapper.selectById(md.getDishId()) != null ? dishMapper.selectById(md.getDishId()).getName()
+                : dishService.getById(md.getDishId()) != null ? dishService.getById(md.getDishId()).getName()
                 : null;
         menuDishMapper.deleteById(menuDishId);
         logActivity(menuId, me, MenuActivity.ACTION_REMOVE, md.getDishId(),
@@ -298,8 +373,9 @@ public class TogetherService {
 
     private MenuInvite findByToken(String token) {
         if (token == null || token.isBlank()) throw new BizException("邀请链接无效");
-        MenuInvite inv = inviteMapper.selectOne(
-                new QueryWrapper<MenuInvite>().eq("token", token));
+        // 凭证全局查找（邀请人与被邀请人可能不在同一家庭），后续读写再切到食集所属家庭
+        MenuInvite inv = TenantContextHolder.callAsSystem(() -> inviteMapper.selectOne(
+                new QueryWrapper<MenuInvite>().eq("token", token)));
         if (inv == null) throw new BizException("邀请链接无效或已失效");
         return inv;
     }
@@ -315,11 +391,10 @@ public class TogetherService {
             MenuJoin join = joinMapper.selectOne(new QueryWrapper<MenuJoin>()
                     .eq("menu_id", menuId).eq("member_id", identity.memberId()));
             if (join == null && autoJoinMember) {
-                Member member = memberMapper.selectById(identity.memberId());
                 join = new MenuJoin();
                 join.setMenuId(menuId);
                 join.setMemberId(identity.memberId());
-                join.setNickname(member != null && member.getName() != null ? member.getName() : "我");
+                join.setNickname(nicknameOf(identity.memberId(), "我"));
                 join.setLastActiveAt(LocalDateTime.now());
                 joinMapper.insert(join);
             }
@@ -355,7 +430,7 @@ public class TogetherService {
         List<Long> ids = rows.stream().map(MenuDish::getDishId)
                 .filter(Objects::nonNull).distinct().toList();
         if (ids.isEmpty()) return Map.of();
-        return dishMapper.selectBatchIds(ids).stream()
+        return dishService.listByIds(ids).stream()
                 .collect(Collectors.toMap(Dish::getId, Dish::getName, (a, b) -> a));
     }
 

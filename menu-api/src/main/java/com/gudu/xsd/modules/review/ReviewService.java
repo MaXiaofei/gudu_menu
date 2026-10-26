@@ -59,7 +59,7 @@ public class ReviewService {
         if ((dto.getDishId() == null) == (dto.getMenuId() == null)) {
             throw new BizException("菜品和食集评价二选一");
         }
-        Long memberId = StpUtil.getSession().getLong("currentMemberId");
+        Long memberId = com.gudu.xsd.common.security.CurrentMember.id();
         if (memberId == null) throw new BizException("请先选择就餐成员");
         Review r = new Review();
         r.setDishId(dto.getDishId());
@@ -227,7 +227,7 @@ public class ReviewService {
     /** 当前就餐成员（未登录/未选择返回 null，mine/overview 容错）。 */
     private Long currentMemberId() {
         try {
-            return StpUtil.getSession().getLong("currentMemberId");
+            return com.gudu.xsd.common.security.CurrentMember.id();
         } catch (Exception e) {
             return null;
         }

@@ -68,8 +68,11 @@ class MpPermissionAspectTest {
     @Test
     void 权限按登录账号判定_不读当前就餐成员() throws Throwable {
         // 账号 2 是超管;即使 session.currentMemberId 被切成别人,判定仍用 loginId
-        MemberMapperStub mapper = new MemberMapperStub();
-        MpPermissionService svc = new MpPermissionService(mapper.proxy());
+        // 账号 2 是平台超管（account.platform_role=SUPER_ADMIN）
+        com.gudu.xsd.modules.identity.application.AccountQueryApi accounts =
+                mock(com.gudu.xsd.modules.identity.application.AccountQueryApi.class);
+        when(accounts.isSuperAdmin(2L)).thenReturn(true);
+        MpPermissionService svc = new MpPermissionService(null, accounts, null);
         MpPermissionAspect a = new MpPermissionAspect(svc, true);
         ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
         when(pjp.proceed()).thenReturn("OK");
@@ -78,19 +81,6 @@ class MpPermissionAspectTest {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(2L);
             assertThat(a.check(pjp, permAnnotation("ai.use"))).isEqualTo("OK");
             stp.verify(() -> StpUtil.getSession(false), never());
-        }
-    }
-
-    /** 最小 MemberMapper 桩:id=2 为超管。 */
-    static class MemberMapperStub {
-        com.gudu.xsd.modules.member.mapper.MemberMapper proxy() {
-            com.gudu.xsd.modules.member.mapper.MemberMapper m =
-                    mock(com.gudu.xsd.modules.member.mapper.MemberMapper.class);
-            Member admin = new Member();
-            admin.setId(2L);
-            admin.setIsAdmin(1);
-            when(m.selectById(2L)).thenReturn(admin);
-            return m;
         }
     }
 

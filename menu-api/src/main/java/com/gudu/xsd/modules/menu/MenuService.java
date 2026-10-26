@@ -86,10 +86,36 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         }
     }
 
-    /** 保存菜单并整体替换其菜品关联。 */
+    /** 菜谱可见性校验经 dish 上下文服务（multi-tenant-family）；setter + @Lazy 注入避免循环依赖、保持单测构造器。 */
+    private com.gudu.xsd.modules.dish.DishService dishService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setDishService(@org.springframework.context.annotation.Lazy com.gudu.xsd.modules.dish.DishService dishService) {
+        this.dishService = dishService;
+    }
+
+    /**
+     * 只能把「公共 + 本家」菜谱放进食集：别家私有菜谱 id 一律视为不存在（防止借食集备菜 / 采购读出别家菜谱用料）。
+     */
+    void assertDishesVisible(java.util.Collection<Long> dishIds) {
+        if (dishService == null || dishIds == null) return;
+        List<Long> ids = dishIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return;
+        if (dishService.listByIds(ids).size() != ids.size()) {
+            throw com.gudu.xsd.common.BizException.notFound("菜谱不存在");
+        }
+    }
+
+    /** 保存菜单并整体替换其菜品关联。更新时食集必须属于当前家庭（否则 404）。 */
     @Transactional(rollbackFor = Exception.class)
     public void saveWithDishes(MenuSaveDTO dto) {
         Menu menu = dto.getMenu();
+        if (menu.getId() != null && getById(menu.getId()) == null) {
+            throw com.gudu.xsd.common.BizException.notFound("食集不存在");
+        }
+        if (dto.getDishes() != null) {
+            assertDishesVisible(dto.getDishes().stream().map(MenuDish::getDishId).toList());
+        }
         if (menu.getServingCount() == null) {
             menu.setServingCount(1);
         }
@@ -117,7 +143,8 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
      */
     @Transactional(rollbackFor = Exception.class)
     public List<Long> addDishes(Long menuId, List<Long> dishIds, Long memberId) {
-        if (menuId == null || getById(menuId) == null) throw new com.gudu.xsd.common.BizException("食集不存在");
+        if (menuId == null || getById(menuId) == null) throw com.gudu.xsd.common.BizException.notFound("食集不存在");
+        assertDishesVisible(dishIds);
         java.util.Set<Long> existing = menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId))
                 .stream().map(MenuDish::getDishId).filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());

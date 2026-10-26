@@ -39,6 +39,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(IngredientFrequentControllerTest.TestSqlConfig.class)
 class IngredientFrequentControllerTest {
 
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        com.gudu.xsd.common.tenant.TenantContextHolder.clear();
+    }
+
     @TestConfiguration
     static class TestSqlConfig {
         @Bean
@@ -60,7 +65,7 @@ class IngredientFrequentControllerTest {
     @Test
     void 常用食材_默认8个_当前账号() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 7L, 7L, "MEMBER"));
             given(appService.frequent(7L, 8)).willReturn(List.of(new FrequentIngredient(1L, "番茄")));
             mvc.perform(get("/ingredient/frequent"))
                     .andExpect(status().isOk())

@@ -141,7 +141,7 @@ public class VisionJobAppService {
 
     private void submit(Long id) {
         try {
-            executor.execute(() -> process(id));
+            executor.execute(com.gudu.xsd.common.tenant.TenantContextHolder.wrap(() -> process(id)));
         } catch (RuntimeException e) { // 队列满：同步失败标记，避免任务永远 PENDING
             repository.findById(id).ifPresent(j -> {
                 j.fail("识别排队人数太多，请稍后再试");

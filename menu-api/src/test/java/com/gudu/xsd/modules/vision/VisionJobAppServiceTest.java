@@ -188,6 +188,11 @@ class VisionJobAppServiceTest {
 
     /** 内存仓储（只存引用，够应用层测试用）。 */
     static class InMemoryRepo implements VisionJobRepository {
+        @Override
+        public int reassignAccount(Long from, Long to) {
+            return 0;
+        }
+
         private final Map<Long, VisionJob> store = new HashMap<>();
         private long seq = 1;
 

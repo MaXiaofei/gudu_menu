@@ -53,6 +53,9 @@ class MenuServiceTest {
         injectBaseMapper(svc, menuMapper);
         // 直接 stub saveOrUpdate 本身，绕过其内部 TableInfo 查询
         Mockito.doReturn(true).when(svc).saveOrUpdate(any(Menu.class));
+        // multi-tenant-family：更新前校验食集属于当前家庭（租户过滤后 getById 非空）
+        Mockito.lenient().doReturn(new Menu()).when(svc).getById(7L);
+        Mockito.lenient().doReturn(new Menu()).when(svc).getById(1L);
     }
 
 

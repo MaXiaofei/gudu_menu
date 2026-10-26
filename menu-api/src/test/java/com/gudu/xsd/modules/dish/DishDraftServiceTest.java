@@ -28,6 +28,11 @@ import static org.mockito.Mockito.when;
  */
 class DishDraftServiceTest {
 
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        com.gudu.xsd.common.tenant.TenantContextHolder.clear();
+    }
+
     private DishDraftMapper mapper;
     private DishDraftService svc;
 
@@ -64,7 +69,7 @@ class DishDraftServiceTest {
         MockedStatic<StpUtil> stp = mockStatic(StpUtil.class);
         SaSession session = mock(SaSession.class);
         stp.when(StpUtil::getSession).thenReturn(session);
-        when(session.getLong("currentMemberId")).thenReturn(uid);
+        org.mockito.Mockito.lenient().when(session.getLong("currentMemberId")).thenReturn(uid); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, uid, uid, "MEMBER"));
         return stp;
     }
 

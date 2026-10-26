@@ -28,8 +28,9 @@ public class MemberProfileAppService {
         return toView(p);
     }
 
-    private MemberProfile load(Long memberId) {
-        return repository.findById(memberId).orElseThrow(() -> new BizException("成员不存在"));
+    /** accountId = 登录账号；取其在当前家庭的关联档案（multi-tenant-family 起账号 id ≠ 档案 id）。 */
+    private MemberProfile load(Long accountId) {
+        return repository.findByAccount(accountId).orElseThrow(() -> new BizException("成员不存在"));
     }
 
     private static MemberMeView toView(MemberProfile p) {

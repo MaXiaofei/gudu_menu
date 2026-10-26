@@ -88,7 +88,8 @@ public class AgentController {
                 log.debug("SSE 客户端已断开: {}", e.getMessage());
             }
         };
-        executor.execute(() -> {
+        // 子线程恢复本次请求的租户上下文（家庭域表访问必须有 TenantContext，否则拒绝）
+        executor.execute(com.gudu.xsd.common.tenant.TenantContextHolder.wrap(() -> {
             try {
                 svc.send(member, id, cmd, sink);
             } catch (RuntimeException e) {
@@ -97,7 +98,7 @@ public class AgentController {
             } finally {
                 emitter.complete();
             }
-        });
+        }));
         return emitter;
     }
 
@@ -141,6 +142,6 @@ public class AgentController {
     }
 
     private static Long me() {
-        return StpUtil.getSession().getLong("currentMemberId");
+        return com.gudu.xsd.common.security.CurrentMember.id();
     }
 }

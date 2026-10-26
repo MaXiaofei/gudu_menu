@@ -29,7 +29,7 @@ public class DishDraftService {
     private final ObjectMapper objectMapper;
 
     private Long currentUserId() {
-        return StpUtil.getSession().getLong("currentMemberId");
+        return com.gudu.xsd.common.security.CurrentMember.id();
     }
 
     private void assertOwner(DishDraft d) {

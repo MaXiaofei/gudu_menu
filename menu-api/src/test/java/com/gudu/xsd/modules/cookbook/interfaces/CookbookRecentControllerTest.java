@@ -38,6 +38,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(CookbookRecentControllerTest.TestSqlConfig.class)
 class CookbookRecentControllerTest {
 
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        com.gudu.xsd.common.tenant.TenantContextHolder.clear();
+    }
+
     @TestConfiguration
     static class TestSqlConfig {
         @Bean
@@ -58,7 +63,7 @@ class CookbookRecentControllerTest {
     @Test
     void 最近做过_当前账号_默认10条_ISO时间() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 7L, 7L, "MEMBER"));
             given(appService.recent(7L, 10)).willReturn(List.of(new RecentDishView(1L, "番茄炒蛋", null,
                     LocalDateTime.of(2026, 10, 16, 19, 0), 3)));
 
@@ -74,7 +79,7 @@ class CookbookRecentControllerTest {
     @Test
     void 最近做过_自定义limit() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 7L, 7L, "MEMBER"));
             given(appService.recent(7L, 3)).willReturn(List.of());
             mvc.perform(get("/cookbook/recent").param("limit", "3"))
                     .andExpect(status().isOk())

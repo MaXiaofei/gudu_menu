@@ -58,4 +58,7 @@ public interface PostRepository {
     long countByTopic(Long topicId);
 
     List<String> recentCoversOfTopic(Long topicId, int limit);
+
+    /** 账号合并（AccountMerged）：把归属 {@code from} 账号的记录改指 {@code to}。返回改动条数。 */
+    int reassignAccount(Long from, Long to);
 }

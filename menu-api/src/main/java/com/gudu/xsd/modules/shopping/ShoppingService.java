@@ -158,6 +158,23 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     /** 一笔 dish 用量：dish_id + 份数系数（menu/dish 默认 1）。 */
     private record DishUsage(Long dishId, BigDecimal servingFactor) {}
 
+    /** 菜谱可见性校验经 dish 上下文服务（multi-tenant-family）；setter + @Lazy 注入保持单测构造器。 */
+    private com.gudu.xsd.modules.dish.DishService dishService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setDishService(@org.springframework.context.annotation.Lazy com.gudu.xsd.modules.dish.DishService dishService) {
+        this.dishService = dishService;
+    }
+
+    /** 只能按「公共 + 本家」菜谱生成采购：别家私有菜谱 id 视为不存在（防止读出别家菜谱用料）。 */
+    private void assertDishesVisible(List<Long> dishIds) {
+        if (dishService == null || dishIds == null) return;
+        List<Long> ids = dishIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (!ids.isEmpty() && dishService.listByIds(ids).size() != ids.size()) {
+            throw com.gudu.xsd.common.BizException.notFound("菜谱不存在");
+        }
+    }
+
     /** 根据数据源类型解析涉及的 dish_id 列表（含份数系数）。 */
     private List<DishUsage> resolveDishes(String sourceType, Long sourceId, List<Long> sourceIds) {
         if (sourceType == null) sourceType = "dish";
@@ -175,6 +192,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             }
             case "dish": {
                 List<Long> ids = sourceIds == null ? List.of() : sourceIds;
+                assertDishesVisible(ids);
                 List<DishUsage> out = new ArrayList<>();
                 for (Long did : ids) {
                     if (did != null) out.add(new DishUsage(did, BigDecimal.ONE));
@@ -190,7 +208,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     private void notifyShoppingGenerated(String sourceType, int itemCount) {
         Long memberId;
         try {
-            memberId = StpUtil.getSession().getLong("currentMemberId");
+            memberId = com.gudu.xsd.common.security.CurrentMember.id();
         } catch (Exception e) {
             return;
         }

@@ -45,7 +45,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         value = MemberController.class,
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE,
-                classes = com.gudu.xsd.config.SaTokenConfig.class))
+                classes = {com.gudu.xsd.config.SaTokenConfig.class,
+                        com.gudu.xsd.modules.family.interfaces.TenantWebConfig.class}))
 @Import(MemberControllerTest.TestSqlConfig.class)
 class MemberControllerTest {
 
@@ -81,64 +82,33 @@ class MemberControllerTest {
         return m;
     }
 
-    @Test
-    void 成员分页_返回200_and_分页结构() throws Exception {
-        Page<Member> page = new Page<>(1, 10, 1);
-        page.setRecords(List.of(member(1L, "张爸爸")));
-        org.mockito.Mockito.doReturn(page).when(svc).page(any(PageQuery.class));
-
-        mvc.perform(get("/member").param("pageNum", "1").param("pageSize", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.records[0].name").value("张爸爸"));
-    }
-
-    @Test
-    void 成员列表_App侧普通成员只看本家成员档案() throws Exception {
-        org.mockito.Mockito.doReturn(List.of(member(CALLER, "小王"), member(11L, "妈妈"))).when(svc).household(CALLER);
-        asCaller(false, () -> {
-            mvc.perform(get("/member").param("pageNum", "1").param("pageSize", "10"))
-                    .andExpect(jsonPath("$.code").value(0))
-                    .andExpect(jsonPath("$.data.total").value(2))
-                    .andExpect(jsonPath("$.data.records[1].name").value("妈妈"));
-        });
-    }
-
-    @Test
-    void 家庭成员规则_排除超管_E2E_社区作者_未建档账号() {
-        Member admin = member(1L, "管理员");
-        admin.setIsAdmin(1);
-        admin.setHealthProfile(java.util.Map.of());
-        Member e2e = member(2L, "E2E咕嘟访客");
-        e2e.setHealthProfile(java.util.Map.of());
-        Member author = member(3L, "糖糖酱");
-        author.setPhone("cm_tangtang");
-        author.setHealthProfile(java.util.Map.of());
-        Member wx = member(4L, "微信用户");
-        Member mama = member(5L, "妈妈");
-        mama.setHealthProfile(java.util.Map.of("audiences", List.of("高血压")));
-        assertThat(MemberService.isHouseholdMember(admin, 9L)).isFalse();
-        assertThat(MemberService.isHouseholdMember(e2e, 9L)).isFalse();
-        assertThat(MemberService.isHouseholdMember(author, 9L)).isFalse();
-        assertThat(MemberService.isHouseholdMember(wx, 9L)).isFalse();
-        assertThat(MemberService.isHouseholdMember(wx, 4L)).as("本人总算在内").isTrue();
-        assertThat(MemberService.isHouseholdMember(mama, 9L)).isTrue();
-    }
-
     @MockBean
     private AdminChecker adminChecker;
 
-    private static final long CALLER = 10L;
+    @MockBean
+    private com.gudu.xsd.modules.family.application.FamilyAppService familyApp;
 
-    /** 以登录账号 CALLER 身份执行（admin 决定是否超管）。 */
-    private void asCaller(boolean admin, ThrowingRunnable body) throws Exception {
+    @MockBean
+    private com.gudu.xsd.modules.family.application.FamilyQueryApi familyQuery;
+
+    private static final long CALLER = 10L;
+    private static final long FAMILY = 3L;
+
+    /**
+     * 以登录账号 CALLER 身份、在家庭 FAMILY 中以 role 角色执行（admin 决定是否平台超管）。
+     * member 表按家庭过滤由租户插件保证：这里 svc.getById 返回 null 即模拟「别家 / 不存在」。
+     */
+    private void asCaller(boolean admin, String role, ThrowingRunnable body) throws Exception {
         given(adminChecker.isAdmin(CALLER)).willReturn(admin);
+        com.gudu.xsd.common.tenant.TenantContextHolder.set(
+                new com.gudu.xsd.common.tenant.TenantContext(FAMILY, CALLER, 100L, role));
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(CALLER);
             stp.when(StpUtil::isLogin).thenReturn(true);
-            stp.when(StpUtil::getSession).thenReturn(org.mockito.Mockito.mock(SaSession.class));
+            stp.when(StpUtil::getTokenSession).thenReturn(org.mockito.Mockito.mock(SaSession.class));
             body.run();
+        } finally {
+            com.gudu.xsd.common.tenant.TenantContextHolder.clear();
         }
     }
 
@@ -146,35 +116,36 @@ class MemberControllerTest {
         void run() throws Exception;
     }
 
-    private Member account(Long id, int isAdmin) {
-        Member m = member(id, "账号" + id);
-        m.setPasswordHash("$2a$hash");
-        m.setIsAdmin(isAdmin);
+    /** 有账号的成员档案（accountId 关联）。 */
+    private Member linked(Long id, long accountId) {
+        Member m = member(id, "账号" + accountId);
+        m.setAccountId(accountId);
         return m;
     }
 
     @Test
-    void 超管新增成员_密码加密_返回id() throws Exception {
-        org.mockito.Mockito.doAnswer(inv -> {
-            ((Member) inv.getArgument(0)).setId(33L);
-            return true;
-        }).when(svc).save(any(Member.class));
+    void 成员分页_只返回本家_不输出手机号与openid() throws Exception {
+        Member m = member(1L, "张爸爸");
+        m.setPhone("13800000001");
+        m.setOpenid("oid-secret");
+        Page<Member> page = new Page<>(1, 10, 1);
+        page.setRecords(List.of(m));
+        org.mockito.Mockito.doReturn(page).when(svc).page(any(PageQuery.class));
 
-        asCaller(true, () -> mvc.perform(post("/member").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"小张\",\"phone\":\"13800000000\",\"password\":\"abc123\"}"))
+        asCaller(false, "MEMBER", () -> mvc.perform(get("/member").param("pageNum", "1").param("pageSize", "10"))
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data").value(33)));
-        ArgumentCaptor<Member> cap = ArgumentCaptor.forClass(Member.class);
-        verify(svc).save(cap.capture());
-        assertThat(cap.getValue().getPasswordHash()).startsWith("$2a$");
-        assertThat(cap.getValue().getPhone()).isEqualTo("13800000000");
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].name").value("张爸爸"))
+                .andExpect(jsonPath("$.data.records[0].phone").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].openid").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].passwordHash").doesNotExist()));
     }
 
     @Test
-    void 普通用户新增成员_只能建纯档案_账号权限字段被丢弃() throws Exception {
-        asCaller(false, () -> mvc.perform(post("/member").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"宝宝\",\"phone\":\"admin2\",\"password\":\"x\",\"isAdmin\":1,"
-                                + "\"roleTags\":\"32\",\"mpPermissions\":[\"ai.use\"]}"))
+    void 主理人新增档案_账号字段被丢弃() throws Exception {
+        asCaller(false, "OWNER", () -> mvc.perform(post("/member").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"宝宝\",\"phone\":\"13800000009\",\"password\":\"x\",\"isAdmin\":1,"
+                                + "\"roleTags\":\"32\"}"))
                 .andExpect(jsonPath("$.code").value(0)));
         ArgumentCaptor<Member> cap = ArgumentCaptor.forClass(Member.class);
         verify(svc).save(cap.capture());
@@ -183,70 +154,103 @@ class MemberControllerTest {
         assertThat(saved.getIsAdmin()).isNull();
         assertThat(saved.getPasswordHash()).isNull();
         assertThat(saved.getPhone()).isNull();
-        assertThat(saved.getRoleTags()).isNull();
-        assertThat(saved.getMpPermissions()).isNull();
+        assertThat(saved.getRoleTags()).isEqualTo("32");
+        verify(familyApp, never()).registerPhoneAccount(any(), any(), any(), any());
     }
 
     @Test
-    void 普通用户把自己改成超管_isAdmin被忽略() throws Exception {
-        asCaller(false, () -> mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":10,\"name\":\"我\",\"isAdmin\":1,\"password\":\"hack\"}"))
-                .andExpect(jsonPath("$.code").value(0)));
+    void 普通成员新增档案_403() throws Exception {
+        asCaller(false, "MEMBER", () -> mvc.perform(post("/member").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"宝宝\"}"))
+                .andExpect(jsonPath("$.code").value(403)));
+        verify(svc, never()).save(any(Member.class));
+    }
+
+    @Test
+    void 超管带手机号密码新增_代建账号并加入当前家庭_返回档案id() throws Exception {
+        given(familyApp.registerPhoneAccount("13800000000", "abc123", "小张", FAMILY)).willReturn(55L);
+        given(familyQuery.profileIdOf(FAMILY, 55L)).willReturn(java.util.Optional.of(66L));
+        asCaller(true, "OWNER", () -> mvc.perform(post("/member").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"小张\",\"phone\":\"13800000000\",\"password\":\"abc123\"}"))
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").value(66)));
         ArgumentCaptor<Member> cap = ArgumentCaptor.forClass(Member.class);
         verify(svc).updateById(cap.capture());
-        assertThat(cap.getValue().getIsAdmin()).isNull();
+        assertThat(cap.getValue().getId()).isEqualTo(66L);
         assertThat(cap.getValue().getPasswordHash()).isNull();
     }
 
     @Test
-    void 普通用户改他人账号_403() throws Exception {
-        given(svc.getById(1L)).willReturn(account(1L, 1));
-        asCaller(false, () -> mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":1,\"name\":\"改超管名\"}"))
-                .andExpect(jsonPath("$.code").value(403)));
+    void 普通成员改本人档案_允许_越权字段被忽略() throws Exception {
+        given(svc.getById(100L)).willReturn(linked(100L, CALLER));
+        asCaller(false, "MEMBER", () -> mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":100,\"name\":\"我\",\"isAdmin\":1,\"roleTags\":\"32\"}"))
+                .andExpect(jsonPath("$.code").value(0)));
+        ArgumentCaptor<Member> cap = ArgumentCaptor.forClass(Member.class);
+        verify(svc).updateById(cap.capture());
+        assertThat(cap.getValue().getIsAdmin()).isNull();
+        assertThat(cap.getValue().getRoleTags()).isNull();
+    }
+
+    @Test
+    void 普通成员改他人或宝宝档案_403() throws Exception {
+        given(svc.getById(1L)).willReturn(linked(1L, 1L));
+        given(svc.getById(5L)).willReturn(member(5L, "宝宝"));
+        asCaller(false, "MEMBER", () -> {
+            mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON).content("{\"id\":1,\"name\":\"x\"}"))
+                    .andExpect(jsonPath("$.code").value(403));
+            mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON).content("{\"id\":5,\"name\":\"x\"}"))
+                    .andExpect(jsonPath("$.code").value(403));
+        });
         verify(svc, never()).updateById(any(Member.class));
     }
 
     @Test
-    void 普通用户改纯成员档案_允许() throws Exception {
-        given(svc.getById(5L)).willReturn(member(5L, "宝宝"));
-        asCaller(false, () -> mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":5,\"name\":\"小宝\"}"))
-                .andExpect(jsonPath("$.code").value(0)));
-        verify(svc).updateById(any(Member.class));
-    }
-
-    @Test
-    void 普通用户删他人账号_403_删纯档案_允许() throws Exception {
-        given(svc.getById(1L)).willReturn(account(1L, 0));
-        given(svc.getById(5L)).willReturn(member(5L, "宝宝"));
-        asCaller(false, () -> {
-            mvc.perform(delete("/member/1")).andExpect(jsonPath("$.code").value(403));
-            mvc.perform(delete("/member/5")).andExpect(jsonPath("$.code").value(0));
+    void 别家成员_改删切换查权限营养_一律404() throws Exception {
+        given(svc.getById(77L)).willReturn(null); // 租户过滤：别家档案查不到
+        asCaller(true, "OWNER", () -> {
+            mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON).content("{\"id\":77,\"name\":\"x\"}"))
+                    .andExpect(jsonPath("$.code").value(404));
+            mvc.perform(delete("/member/77")).andExpect(jsonPath("$.code").value(404));
+            mvc.perform(post("/member/current").param("memberId", "77")).andExpect(jsonPath("$.code").value(404));
+            mvc.perform(get("/member/77/permissions")).andExpect(jsonPath("$.code").value(404));
+            mvc.perform(get("/member/77/nutrition-target")).andExpect(jsonPath("$.data").doesNotExist());
         });
-        verify(svc, never()).removeById(1L);
-        verify(svc).removeById(5L);
+        verify(svc, never()).updateById(any(Member.class));
+        verify(svc, never()).removeById(77L);
+        verify(familyQuery).nutritionTarget(FAMILY, 77L);
     }
 
     @Test
-    void 不能删除自己() throws Exception {
-        asCaller(true, () -> mvc.perform(delete("/member/10")).andExpect(jsonPath("$.code").value(403)));
-        verify(svc, never()).removeById(10L);
-    }
-
-    @Test
-    void 普通用户切换就餐成员为超管_403() throws Exception {
-        given(svc.getById(1L)).willReturn(account(1L, 1));
-        asCaller(false, () -> mvc.perform(post("/member/current").param("memberId", "1"))
-                .andExpect(jsonPath("$.code").value(403)));
-    }
-
-    @Test
-    void 普通用户切换为纯档案或本人_允许() throws Exception {
+    void 管理员删宝宝档案_允许_删有账号成员_403_删自己_403() throws Exception {
         given(svc.getById(5L)).willReturn(member(5L, "宝宝"));
-        asCaller(false, () -> {
+        given(svc.getById(1L)).willReturn(linked(1L, 1L));
+        given(svc.getById(100L)).willReturn(linked(100L, CALLER));
+        asCaller(false, "ADMIN", () -> {
+            mvc.perform(delete("/member/5")).andExpect(jsonPath("$.code").value(0));
+            mvc.perform(delete("/member/1")).andExpect(jsonPath("$.code").value(403));
+            mvc.perform(delete("/member/100")).andExpect(jsonPath("$.code").value(403));
+        });
+        verify(svc).removeById(5L);
+        verify(svc, never()).removeById(1L);
+    }
+
+    @Test
+    void 普通成员删档案_403() throws Exception {
+        given(svc.getById(5L)).willReturn(member(5L, "宝宝"));
+        asCaller(false, "MEMBER", () -> mvc.perform(delete("/member/5")).andExpect(jsonPath("$.code").value(403)));
+        verify(svc, never()).removeById(5L);
+    }
+
+    @Test
+    void 普通成员切换就餐成员_本人或宝宝允许_其他账号403() throws Exception {
+        given(svc.getById(5L)).willReturn(member(5L, "宝宝"));
+        given(svc.getById(100L)).willReturn(linked(100L, CALLER));
+        given(svc.getById(1L)).willReturn(linked(1L, 1L));
+        asCaller(false, "MEMBER", () -> {
             mvc.perform(post("/member/current").param("memberId", "5")).andExpect(jsonPath("$.code").value(0));
-            mvc.perform(post("/member/current").param("memberId", "10")).andExpect(jsonPath("$.code").value(0));
+            mvc.perform(post("/member/current").param("memberId", "100")).andExpect(jsonPath("$.code").value(0));
+            mvc.perform(post("/member/current").param("memberId", "1")).andExpect(jsonPath("$.code").value(403));
         });
     }
 }

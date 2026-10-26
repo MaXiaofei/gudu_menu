@@ -6,8 +6,7 @@ import com.gudu.xsd.modules.feedback.domain.model.Feedback;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackPage;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackStatus;
 import com.gudu.xsd.modules.feedback.domain.repository.FeedbackRepository;
-import com.gudu.xsd.modules.member.Member;
-import com.gudu.xsd.modules.member.MemberService;
+import com.gudu.xsd.modules.identity.application.AccountQueryApi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -35,14 +34,14 @@ class FeedbackAppServiceTest {
     static final LocalDate TODAY = LocalDate.of(2026, 10, 16);
 
     FeedbackRepository repo;
-    MemberService memberService;
+    AccountQueryApi accountQuery;
     FeedbackAppService svc;
 
     @BeforeEach
     void setUp() {
         repo = mock(FeedbackRepository.class);
-        memberService = mock(MemberService.class);
-        svc = new FeedbackAppService(repo, memberService,
+        accountQuery = mock(AccountQueryApi.class);
+        svc = new FeedbackAppService(repo, accountQuery,
                 Clock.fixed(TODAY.atTime(9, 0).atZone(ZONE).toInstant(), ZONE));
     }
 
@@ -69,10 +68,7 @@ class FeedbackAppServiceTest {
         Feedback f = Feedback.rehydrate(3L, 1L, "内容够长了", null, List.of(), null, FeedbackStatus.NEW,
                 LocalDateTime.of(2026, 10, 16, 8, 0));
         when(repo.page(eq(FeedbackStatus.NEW), anyInt(), anyInt())).thenReturn(new FeedbackPage(List.of(f), 1, 1, 100));
-        Member m = new Member();
-        m.setId(1L);
-        m.setName("张爸爸");
-        when(memberService.listByIds(any())).thenReturn(List.of(m));
+        when(accountQuery.nicknames(any())).thenReturn(java.util.Map.of(1L, "张爸爸"));
 
         IPage<FeedbackView> p = svc.page("NEW", 0, 1000);
 
@@ -86,7 +82,7 @@ class FeedbackAppServiceTest {
     void 列表_不传状态_空页不查成员() {
         when(repo.page(null, 1, 10)).thenReturn(new FeedbackPage(List.of(), 0, 1, 10));
         assertThat(svc.page(null, null, null).getRecords()).isEmpty();
-        verify(memberService, never()).listByIds(any());
+        verify(accountQuery, never()).nicknames(any());
     }
 
     @Test

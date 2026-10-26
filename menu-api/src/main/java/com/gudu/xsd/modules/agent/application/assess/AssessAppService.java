@@ -157,7 +157,7 @@ public class AssessAppService {
         String mode = "gateway".equalsIgnoreCase(provider) ? "gateway" : "mock";
         StoredRun r = repo.saveRun(new StoredRun(null, promptVersion == null ? AgentPrompts.VERSION : promptVersion, mode,
                 "RUNNING", null, null, null, null, null, null, null, false, null, null, null, null));
-        executor.execute(() -> execute(r, split, runs == null ? 3 : runs));
+        executor.execute(com.gudu.xsd.common.tenant.TenantContextHolder.wrap(() -> execute(r, split, runs == null ? 3 : runs)));
         return Map.of("runId", r.id());
     }
 

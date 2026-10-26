@@ -49,7 +49,7 @@ public class CookController {
 
     private Long currentMemberId() {
         try {
-            return StpUtil.getLoginIdAsLong();
+            return com.gudu.xsd.common.security.CurrentMember.id();
         } catch (Exception e) {
             return null;   // 未登录（测试上下文）：service 内 memberId 仅用于写 record，可空
         }
