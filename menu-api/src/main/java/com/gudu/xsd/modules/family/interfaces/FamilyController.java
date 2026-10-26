@@ -39,6 +39,7 @@ public class FamilyController {
 
     private final FamilyAppService app;
     private final FamilyQueryApi query;
+    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
 
     @Data
     public static class NameReq {
@@ -80,6 +81,7 @@ public class FamilyController {
     @PostMapping
     public R<SessionFamily> create(@RequestBody(required = false) NameReq req) {
         long me = StpUtil.getLoginIdAsLong();
+        if (req != null) contentSecurity.assertUserText(com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose.FAMILY_NAME, req.getName());
         Long id = app.create(me, req == null ? null : req.getName());
         return R.ok(bind(app.switchTo(me, id)));
     }
@@ -102,6 +104,7 @@ public class FamilyController {
     @Operation(summary = "改家庭名（OWNER/ADMIN）")
     @PutMapping("/{id}")
     public R<Void> rename(@PathVariable Long id, @RequestBody NameReq req) {
+        if (req != null) contentSecurity.assertUserText(com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose.FAMILY_NAME, req.getName());
         app.rename(StpUtil.getLoginIdAsLong(), id, req == null ? null : req.getName());
         return R.ok(null);
     }

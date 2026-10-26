@@ -16,6 +16,7 @@ import java.util.List;
 public class MenuController {
 
     private final MenuService svc;
+    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
 
     @GetMapping
     public R<IPage<Menu>> list(MenuPageQuery q) {
@@ -33,14 +34,23 @@ public class MenuController {
         return R.ok(svc.summary(id));
     }
 
+    /** 内容安全：食集（菜单）名称。 */
+    private void screen(MenuSaveDTO dto) {
+        if (dto != null && dto.getMenu() != null) {
+            contentSecurity.assertUserText(com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose.MENU_NAME, dto.getMenu().getName());
+        }
+    }
+
     @PostMapping
     public R<?> save(@RequestBody MenuSaveDTO dto) {
+        screen(dto);
         svc.saveWithDishes(dto);
         return R.ok(dto.getMenu().getId());
     }
 
     @PutMapping
     public R<?> update(@RequestBody MenuSaveDTO dto) {
+        screen(dto);
         svc.saveWithDishes(dto);
         return R.ok(null);
     }

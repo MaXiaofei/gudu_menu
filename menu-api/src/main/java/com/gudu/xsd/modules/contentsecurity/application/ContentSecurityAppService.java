@@ -131,6 +131,67 @@ public class ContentSecurityAppService {
                 ? AGENT_REPLY_REPLACED : reply;
     }
 
+    /** 非对话类 AI 生成文本（拍照识别 / 一周餐程 / 营养估算说明）违规时替换成的安全提示。 */
+    public static final String AI_TEXT_REPLACED = "（该内容未通过内容安全检测，已隐藏）";
+    /** 微信 msgSecCheck 单次上限 2500 字，留余量按 2000 分段。 */
+    static final int TEXT_CHUNK = 2000;
+
+    /**
+     * 当前登录用户提交的多段文本一并检测（菜谱名称 / 简介 / 步骤、点评、各种名称）：不通过抛 451。
+     * 微信不可用降级到规则（这些用途都不是失败即拒绝）。空白段忽略，过长分段检测。
+     */
+    public void assertUserText(ContentPurpose purpose, String... texts) {
+        Long account = currentAccount();
+        for (String chunk : chunks(texts)) assertText(account, purpose, chunk);
+    }
+
+    /** AI 生成的文本放出前复核：违规返回 {@link #AI_TEXT_REPLACED}，否则原样返回（空白原样）。 */
+    public String reviewAiText(String text) {
+        return reviewAiText(currentAccount(), text);
+    }
+
+    /** 同上，显式指定账号（异步线程里没有登录态时由调用方传入；null = 只走规则）。 */
+    public String reviewAiText(Long account, String text) {
+        if (text == null || text.isBlank()) return text;
+        for (String chunk : chunks(text)) {
+            if (checkText(account, ContentPurpose.AI_OUTPUT, chunk).blocks(ContentPurpose.AI_OUTPUT)) return AI_TEXT_REPLACED;
+        }
+        return text;
+    }
+
+    static java.util.List<String> chunks(String... texts) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        if (texts != null) {
+            for (String t : texts) {
+                if (t == null || t.isBlank()) continue;
+                for (int i = 0; i < t.length(); i += TEXT_CHUNK) {
+                    String part = t.substring(i, Math.min(t.length(), i + TEXT_CHUNK));
+                    if (cur.length() + part.length() + 1 > TEXT_CHUNK && cur.length() > 0) {
+                        out.add(cur.toString());
+                        cur.setLength(0);
+                    }
+                    if (cur.length() > 0) cur.append('\n');
+                    cur.append(part);
+                }
+            }
+        }
+        if (cur.length() > 0) out.add(cur.toString());
+        return out;
+    }
+
+    public static Long currentAccountId() {
+        return currentAccount();
+    }
+
+    private static Long currentAccount() {
+        try {
+            return cn.dev33.satoken.stp.StpUtil.isLogin() ? cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong() : null;
+        } catch (RuntimeException e) { // 无 Web 上下文
+            return null;
+        }
+    }
+
     // ================================================================ 图片
 
     /** 上传后异步提交检测（不阻塞上传、不抛异常）。 */

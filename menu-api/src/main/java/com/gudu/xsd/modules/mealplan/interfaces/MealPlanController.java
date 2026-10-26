@@ -28,6 +28,17 @@ import java.util.Map;
 public class MealPlanController {
 
     private final MealPlanAppService appService;
+    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+
+    /** AI 生成文本输出检测：每日提示与校验说明违规则替换为安全提示（菜品卡来自家庭菜谱库，录入时已检）。 */
+    private MealPlanDraftView safe(MealPlanDraftView v) {
+        if (v == null) return null;
+        MealPlanDraftView.Check ck = v.check() == null ? null : new MealPlanDraftView.Check(v.check().passed(),
+                v.check().rounds(), v.check().notes() == null ? null : v.check().notes().stream().map(contentSecurity::reviewAiText).toList());
+        java.util.List<MealPlanDraftView.Day> days = v.days() == null ? null : v.days().stream()
+                .map(d -> new MealPlanDraftView.Day(d.date(), d.weekday(), contentSecurity.reviewAiText(d.note()), d.slots())).toList();
+        return new MealPlanDraftView(v.draftId(), v.weekStart(), v.weekEnd(), v.constraints(), ck, days, v.summary(), v.status());
+    }
 
     @Data
     public static class ReplaceReq {
@@ -36,12 +47,12 @@ public class MealPlanController {
 
     @PostMapping
     public R<MealPlanDraftView> create(@RequestBody(required = false) CreateDraftCommand cmd) {
-        return R.ok(appService.create(com.gudu.xsd.common.security.CurrentMember.id(), cmd));
+        return R.ok(safe(appService.create(com.gudu.xsd.common.security.CurrentMember.id(), cmd)));
     }
 
     @GetMapping("/{id}")
     public R<MealPlanDraftView> get(@PathVariable Long id) {
-        return R.ok(appService.get(com.gudu.xsd.common.security.CurrentMember.id(), id));
+        return R.ok(safe(appService.get(com.gudu.xsd.common.security.CurrentMember.id(), id)));
     }
 
     @PostMapping("/{id}/slots/{slotId}/alternatives")
@@ -51,7 +62,7 @@ public class MealPlanController {
 
     @PutMapping("/{id}/slots/{slotId}")
     public R<MealPlanDraftView> replace(@PathVariable Long id, @PathVariable Long slotId, @RequestBody ReplaceReq req) {
-        return R.ok(appService.replace(com.gudu.xsd.common.security.CurrentMember.id(), id, slotId, req.getDishId()));
+        return R.ok(safe(appService.replace(com.gudu.xsd.common.security.CurrentMember.id(), id, slotId, req.getDishId())));
     }
 
     @PostMapping("/{id}/apply")

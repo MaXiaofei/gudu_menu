@@ -96,6 +96,16 @@ export function createSession(title?: string): Promise<{ sessionId: string }> {
   return request({ url: '/agent/sessions', method: 'POST', data: title ? { title } : {} })
 }
 
+/** 删除单个 AI 对话（隐私政策 §三.2；后端只允许删本人档案的会话，别人的会话 404）。 */
+export function deleteSession(sessionId: string): Promise<unknown> {
+  return request({ url: `/agent/sessions/${encodeURIComponent(sessionId)}`, method: 'DELETE' })
+}
+
+/** 清空本人全部 AI 对话记录。 */
+export function clearSessions(): Promise<{ deleted: number }> {
+  return request({ url: '/agent/sessions', method: 'DELETE' })
+}
+
 export async function listSessions(cursor: string | null = null, size = 10): Promise<CursorPage<AgentSessionItem>> {
   return normalizePage(await request({ url: '/agent/sessions', method: 'GET', data: { cursor, size } }))
 }
@@ -243,6 +253,9 @@ export async function ensureSession(fresh = false): Promise<string> {
   const { sessionId } = await createSession()
   uni.setStorageSync(SESSION_KEY, sessionId)
   return sessionId
+}
+export function forgetCurrentSession(): void {
+  uni.removeStorageSync(SESSION_KEY)
 }
 export function setCurrentSession(id: string): void {
   uni.setStorageSync(SESSION_KEY, id)

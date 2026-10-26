@@ -56,6 +56,8 @@ class VisionJobAppServiceTest {
     private final StockAppService stockAppService = mock(StockAppService.class);
     private final PantryService pantryService = mock(PantryService.class);
     private final ImageStore imageStore = mock(ImageStore.class);
+    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity =
+            mock(com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService.class);
     private IngredientAligner aligner;
     private VisionJobAppService svc;
 
@@ -64,13 +66,14 @@ class VisionJobAppServiceTest {
         when(ingredientService.list()).thenReturn(List.of(ing(1L, "番茄", "tomato"), ing(2L, "鸡蛋", "egg"),
                 ing(3L, "菠菜", "spinach"), ing(4L, "北豆腐", "tofu"), ing(5L, "小葱", "scallion")));
         when(stockAppService.suggestShelfLifeDays(anyLong())).thenReturn(5);
+        when(contentSecurity.reviewAiText(any(), any())).thenAnswer(i -> i.getArgument(1)); // 默认放行
         aligner = new IngredientAligner(ingredientService, stockAppService, CLOCK);
         svc = newService(new MockVisionProvider());
     }
 
     private VisionJobAppService newService(VisionProvider provider) throws Exception {
         VisionJobAppService s = new VisionJobAppService(repo, provider, aligner, pantryService, stockAppService,
-                imageStore, CLOCK);
+                imageStore, CLOCK, contentSecurity);
         Method m = VisionJobAppService.class.getDeclaredMethod("useExecutor", Executor.class);
         m.setAccessible(true);
         m.invoke(s, (Executor) Runnable::run); // 同步执行
@@ -103,6 +106,20 @@ class VisionJobAppServiceTest {
         assertThat(unknown.ingredientId()).isNull(); // 没匹配上：入库时按名新建
         assertThat(unknown.suggestedBestBefore()).isNull();
         assertThat(out.get(0).level()).isEqualTo(ConfidenceLevel.CONFIRM);
+    }
+
+    @Test
+    void 内容安全只在识别完成时检测一次_多次GET不再调用_违规项剔除后落库() {
+        when(contentSecurity.reviewAiText(any(), eq("鸡蛋"))).thenReturn(
+                com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService.AI_TEXT_REPLACED);
+        VisionJobView created = svc.create(7L, "FRIDGE", IMG);
+        org.mockito.Mockito.clearInvocations(contentSecurity); // 记下识别完成之后的调用次数基线
+        VisionJobView first = svc.get(7L, created.jobId());
+        svc.get(7L, created.jobId());
+        svc.get(7L, created.jobId());
+        verify(contentSecurity, never()).reviewAiText(any(), any()); // GET/轮询不再检测
+        assertThat(first.items()).extracting(RecognizedItem::name).doesNotContain("鸡蛋"); // 已处理结果被持久化
+        assertThat(first.items()).isNotEmpty();
     }
 
     @Test

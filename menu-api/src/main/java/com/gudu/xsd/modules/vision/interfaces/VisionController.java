@@ -3,6 +3,7 @@ package com.gudu.xsd.modules.vision.interfaces;
 import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.R;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
 import com.gudu.xsd.modules.vision.application.VisionJobAppService;
 import com.gudu.xsd.modules.vision.application.dto.ApplyItem;
 import com.gudu.xsd.modules.vision.application.dto.VisionJobView;

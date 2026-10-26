@@ -39,7 +39,10 @@
             <view v-if="m.role === 'user'" class="q"><text class="q-txt">{{ m.text }}</text></view>
             <view v-else class="a">
               <image class="a-av" src="/static/brand/logo.png" mode="aspectFit" />
-              <text class="a-txt">{{ m.text || (m.streaming ? '想一想…' : m.error?.message || '') }}<text v-if="m.streaming" class="cursor">▍</text></text>
+              <view class="a-main">
+                <text class="a-txt">{{ m.text || (m.streaming ? '想一想…' : m.error?.message || '') }}<text v-if="m.streaming" class="cursor">▍</text></text>
+                <view v-if="!m.streaming && m.text" class="a-badge"><ui-ai-badge disclaimer source="agent" :feedback-ref="m.messageId" /></view>
+              </view>
             </view>
           </template>
           <view class="qa-ipt">
@@ -375,8 +378,17 @@ function exit() {
   background: var(--card);
   flex-shrink: 0;
 }
-.a-txt {
+.a-main {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.a-badge {
+  align-self: flex-start;
+}
+.a-txt {
   padding: 8px 12px;
   border-radius: 4px 14px 14px 14px;
   background: rgba(255, 255, 255, 0.1);

@@ -51,8 +51,10 @@
 
 ## Phase D：协议与平台材料
 - [x] D.1 重写 `docs/legal/privacy.md`、`terms.md`（个人主体：马晓飞 / maxiaofeidev@gmail.com）并同步 `static/legal/*.ts` 与 Flutter assets，升级 `LEGAL_VERSION`；文本中依赖未完成任务的承诺列在 `docs/legal/README.md`
-- [ ] D.2 小程序后台「用户隐私保护指引」填写清单（chooseMedia/chooseImage、保存相册、麦克风、剪贴板、头像昵称）
-- [ ] D.3 AI 功能审核材料清单（类目、模型备案号来源、内容安全措施说明）
+- [x] D.2 小程序后台「用户隐私保护指引」填写清单（chooseMedia/chooseImage、保存相册、麦克风、剪贴板、头像昵称）
+  - `docs/release/mini-submission-checklist.md` 第一节：按代码实际调用逐项给用途文案；明确不声明麦克风 / 位置 / 通讯录
+- [x] D.3 AI 功能审核材料清单（类目、模型备案号来源、内容安全措施说明）
+  - 同文档第三节；资质 / 类目项标为推断，需用户在公众平台确认；另含域名与推送配置、环境变量与迁移回滚、真机验证、默认管理员口令自查
 
 ## Phase F：后台运营配套（上线前必须，依赖 multi-tenant-family 合入）
 - [x] F.1 账号列表与封禁：按昵称/openid 尾号/家庭查询，查看账号状态与所属家庭（不展示家庭私有数据）；封禁/解封带原因，封禁账号登录与写接口拒绝；操作留痕

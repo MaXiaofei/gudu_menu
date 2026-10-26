@@ -123,6 +123,33 @@ public class AgentAppService {
                 s.coverUrl())).toList(), next);
     }
 
+    /**
+     * 用户自行删除单个 AI 对话（隐私政策 §三.2）。只能删本账号任一本人档案（member_id ∈ 档案 id 集合）的会话；
+     * 不存在与不属于本人一律 404（不暴露他人会话是否存在）。物理删除消息与会话，调用链去标识（统计保留）。
+     */
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
+    public void deleteSession(java.util.Collection<Long> profileIds, String sessionId) {
+        AgentSession s = sessions.findById(sessionId).orElseThrow(() -> new BizException(404, "会话不存在"));
+        if (profileIds == null || profileIds.stream().noneMatch(s::ownedBy)) throw new BizException(404, "会话不存在");
+        eraseSessions(List.of(sessionId));
+    }
+
+    /** 清空本账号在所有家庭中的本人档案的全部 AI 对话（含已软删除的），返回删除的会话数。 */
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
+    public int clearSessions(java.util.Collection<Long> profileIds) {
+        if (profileIds == null || profileIds.isEmpty()) return 0;
+        List<String> ids = sessions.idsByMembers(profileIds);
+        if (ids.isEmpty()) return 0;
+        eraseSessions(ids);
+        return ids.size();
+    }
+
+    private void eraseSessions(List<String> ids) {
+        messages.deleteBySessions(ids);
+        traces.anonymizeBySessions(ids);
+        sessions.hardDelete(ids);
+    }
+
     public PageView<MessageView> messages(Long memberId, String sessionId, String cursor, Integer size) {
         own(memberId, sessionId);
         Cursor c = Cursor.decode(cursor);

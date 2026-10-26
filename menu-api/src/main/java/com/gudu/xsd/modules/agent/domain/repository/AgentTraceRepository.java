@@ -23,6 +23,9 @@ public interface AgentTraceRepository {
     /** 注销：这些档案的调用链去标识——清片段输入输出、首句，并解除与账号的关联（统计保留）。返回处理的调用链数。 */
     int anonymizeByMembers(java.util.Collection<Long> memberIds);
 
+    /** 用户删除对话：这些会话的调用链去标识（清片段输入输出、首句、解除档案关联，统计保留）。返回处理的调用链数。 */
+    int anonymizeBySessions(java.util.Collection<String> sessionIds);
+
     /** 倒序分页；rating=-1 只看差评；status 可空。 */
     List<AgentTrace> page(Integer rating, TraceStatus status, LocalDateTime beforeCreatedAt, String beforeId, int size);
 

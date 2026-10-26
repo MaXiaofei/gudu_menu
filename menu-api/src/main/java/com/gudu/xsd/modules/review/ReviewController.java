@@ -22,10 +22,12 @@ import java.util.Map;
 public class ReviewController {
 
     private final ReviewService svc;
+    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
 
     /** 提交点评（菜品或食集整体，dishId/menuId 二选一）。 */
     @PostMapping
     public R<Long> submit(@RequestBody @Valid ReviewSaveDTO dto) {
+        contentSecurity.assertUserText(com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose.REVIEW_TEXT, dto.getText());
         return R.ok(svc.submit(dto));
     }
 

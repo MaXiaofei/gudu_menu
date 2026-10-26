@@ -76,6 +76,9 @@ class AiControllerTest {
     private MockMvc mvc;
 
     @MockBean
+    private com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+
+    @MockBean
     private AiService svc;
 
     @MockBean
@@ -145,6 +148,7 @@ class AiControllerTest {
         DishEstimateResponse resp = new DishEstimateResponse(
                 "一盘番茄炒蛋", nutrition, "deepseek", "按家常份量估算");
         given(svc.estimateDish(any(DishEstimateRequest.class))).willReturn(resp);
+        given(contentSecurity.reviewAiText(any())).willAnswer(i -> i.getArgument(0)); // 输出检测放行
 
         String body = "{\"description\":\"一盘番茄炒蛋\",\"servingFactor\":1}";
         mvc.perform(post("/ai/dish/estimate").contentType(MediaType.APPLICATION_JSON).content(body))

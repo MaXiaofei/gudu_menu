@@ -37,6 +37,7 @@ public class AiController {
     private final AiClientRouter router;
     private final AiCallLogService callLogSvc;
     private final UserPreferenceAppService preferences;
+    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
 
     /** 营养补全：按食材名返回 per100g 6 项指标（可选 ingredientId 落库到该食材）。 */
     @PostMapping("/nutrition/fill")
@@ -67,7 +68,10 @@ public class AiController {
     @AiRateLimited
     @MpPerm("ai.use")
     public R<DishEstimateResponse> estimateDish(@RequestBody DishEstimateRequest req) {
-        return R.ok(svc.estimateDish(req));
+        DishEstimateResponse r = svc.estimateDish(req);
+        // AI 生成文本输出检测：估算说明违规则替换为安全提示（description 是用户自己的输入回显，不再检）
+        return R.ok(new DishEstimateResponse(r.description(), r.nutrition(), r.source(),
+                contentSecurity.reviewAiText(r.aiNote()), r.tokensIn(), r.tokensOut()));
     }
 
     // ---------------- provider 运行时切换（管理后台用，仅平台超管） ----------------

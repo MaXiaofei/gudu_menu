@@ -1,0 +1,118 @@
+package com.gudu.xsd.modules.agent.application;
+
+import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.modules.agent.application.kitchen.LiveKitchenFactory;
+import com.gudu.xsd.modules.agent.application.tools.ToolRegistry;
+import com.gudu.xsd.modules.agent.domain.model.AgentSession;
+import com.gudu.xsd.modules.agent.domain.port.SpeechRecognizer;
+import com.gudu.xsd.modules.agent.domain.repository.AgentMessageRepository;
+import com.gudu.xsd.modules.agent.domain.repository.AgentQuota;
+import com.gudu.xsd.modules.agent.domain.repository.AgentSessionRepository;
+import com.gudu.xsd.modules.agent.domain.repository.AgentTraceRepository;
+import com.gudu.xsd.modules.agent.domain.repository.PendingActionStore;
+import com.gudu.xsd.modules.ai.gateway.application.ModelGateway;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/** 用户自行删除 AI 对话（隐私政策 §三.2）：只能删本人档案的会话，越权 404；消息物理删、调用链去标识。 */
+class AgentSessionDeleteTest {
+
+    static final long ME = 5L;     // 当前档案 id（不是账号 id）
+    static final long ME2 = 15L;   // 同一账号在另一个家庭的档案
+    static final long OTHER = 6L;
+    static final List<Long> MINE = List.of(ME, ME2);
+
+    AgentSessionRepository sessions;
+    AgentMessageRepository messages;
+    AgentTraceRepository traces;
+    AgentAppService svc;
+
+    @BeforeEach
+    void setUp() {
+        sessions = mock(AgentSessionRepository.class);
+        messages = mock(AgentMessageRepository.class);
+        traces = mock(AgentTraceRepository.class);
+        LocalDateTime t = LocalDateTime.of(2026, 10, 26, 10, 0);
+        when(sessions.findById("ses_mine")).thenReturn(Optional.of(AgentSession.start("ses_mine", ME, "我的", t)));
+        when(sessions.findById("ses_other")).thenReturn(Optional.of(AgentSession.start("ses_other", OTHER, "别人的", t)));
+        when(sessions.findById("ses_none")).thenReturn(Optional.empty());
+        LiveKitchenFactory kitchens = mock(LiveKitchenFactory.class);
+        svc = new AgentAppService(sessions, messages, traces, mock(PendingActionStore.class), mock(AgentQuota.class),
+                mock(AgentOrchestrator.class), new ToolRegistry(), kitchens, mock(ModelGateway.class),
+                mock(SpeechRecognizer.class), Clock.fixed(Instant.parse("2026-10-26T02:00:00Z"), ZoneId.of("Asia/Shanghai")),
+                50, mock(ContentSecurityAppService.class),
+                mock(com.gudu.xsd.modules.preference.application.UserPreferenceAppService.class),
+                mock(com.gudu.xsd.modules.recommend.application.HomeRecommendAppService.class));
+    }
+
+    @Test
+    void 删除本人会话_消息物理删_调用链去标识_会话物理删() {
+        svc.deleteSession(MINE, "ses_mine");
+
+        verify(messages).deleteBySessions(List.of("ses_mine"));
+        verify(traces).anonymizeBySessions(List.of("ses_mine"));
+        verify(sessions).hardDelete(List.of("ses_mine"));
+    }
+
+    @Test
+    void 删除本账号另一个家庭档案下的会话_允许() {
+        when(sessions.findById("ses_family2")).thenReturn(Optional.of(
+                AgentSession.start("ses_family2", ME2, "另一个家", LocalDateTime.of(2026, 10, 26, 10, 0))));
+
+        svc.deleteSession(MINE, "ses_family2");
+
+        verify(sessions).hardDelete(List.of("ses_family2"));
+    }
+
+    @Test
+    void 删除别人的会话_404且不动任何数据() {
+        assertThatThrownBy(() -> svc.deleteSession(MINE, "ses_other"))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(404));
+        verify(messages, never()).deleteBySessions(any());
+        verify(traces, never()).anonymizeBySessions(any());
+        verify(sessions, never()).hardDelete(any());
+    }
+
+    @Test
+    void 删除不存在的会话_404() {
+        assertThatThrownBy(() -> svc.deleteSession(MINE, "ses_none"))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(404));
+    }
+
+    @Test
+    void 清空_按本账号所有家庭的档案id取会话() {
+        when(sessions.idsByMembers(MINE)).thenReturn(List.of("ses_a", "ses_b"));
+
+        assertThat(svc.clearSessions(MINE)).isEqualTo(2);
+
+        verify(sessions).idsByMembers(MINE);
+        verify(messages).deleteBySessions(List.of("ses_a", "ses_b"));
+        verify(traces).anonymizeBySessions(List.of("ses_a", "ses_b"));
+        verify(sessions).hardDelete(List.of("ses_a", "ses_b"));
+    }
+
+    @Test
+    void 清空_无会话时返回0不报错() {
+        when(sessions.idsByMembers(MINE)).thenReturn(List.of());
+
+        assertThat(svc.clearSessions(MINE)).isZero();
+        assertThat(svc.clearSessions(List.of())).isZero();
+        verify(sessions, never()).hardDelete(any());
+    }
+}
