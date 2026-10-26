@@ -43,7 +43,7 @@ test.describe('菜品管理页', () => {
     await expect(page.getByText('黄瓜炒蛋')).toBeVisible()
   })
 
-  test('侧边栏导航含家庭成员 / 菜谱 / 意见反馈', async ({ page }) => {
+  test('侧边栏导航含菜谱 / 意见反馈，家庭私有数据页已下线', async ({ page }) => {
     await page.route(/\/gudu\//, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"code":0,"msg":"ok","data":{"records":[],"total":0}}' })
     })
@@ -51,7 +51,10 @@ test.describe('菜品管理页', () => {
     await page.goto('/home')
     // 侧边栏导航文字（限定在 .sidebar 容器内，避免与首页卡片标题冲突）
     const sidebar = page.locator('.sidebar')
-    await expect(sidebar.getByText('家庭成员', { exact: true })).toBeVisible()
+    // mini-release-compliance F.5：家庭成员 / 库存 / 食集 / 采购 / 周计划页面已下线
+    for (const t of ['家庭成员', '库存', '食集', '采购清单', '周计划']) {
+      await expect(sidebar.getByText(t, { exact: true })).toHaveCount(0)
+    }
     // 2026-07 命名定稿：「菜品」→「菜谱」
     await expect(sidebar.getByText('菜谱', { exact: true })).toBeVisible()
     await expect(sidebar.getByText('意见反馈', { exact: true })).toBeVisible()

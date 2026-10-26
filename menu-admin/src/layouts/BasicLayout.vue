@@ -3,8 +3,9 @@ import { computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  Brush, ArrowDown, SwitchButton, Setting, User, Apple, Food, Box, DataBoard, Notebook,
+  Brush, ArrowDown, SwitchButton, Setting, Apple, Food, DataBoard, Notebook,
   ChatDotRound, House, MagicStick, Odometer, Menu as MenuIcon, Connection, Share, Histogram, Opportunity,
+  UserFilled, Warning, Tickets,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/auth'
 import { useThemeStore } from '@/store/theme'
@@ -33,6 +34,9 @@ const iconByPath: Record<string, Component> = {
   '/ingredient': Apple,
   '/feedback': ChatDotRound,
   '/tenants': House,
+  '/deactivation': UserFilled,
+  '/content-review': Warning,
+  '/oplog': Tickets,
   '/ai-log': MagicStick,
   '/ops': Odometer,
   '/ai-gateway': Connection,
@@ -40,8 +44,6 @@ const iconByPath: Record<string, Component> = {
   '/agent-eval': Histogram,
   '/community': Opportunity,
   '/dish': Food,
-  '/member': User,
-  '/pantry': Box,
   '/dict': Setting,
 }
 
@@ -50,10 +52,12 @@ const menus = computed<MenuEntry[]>(() => {
   const layoutRoute = router.options.routes.find((r) => r.path === '/')
   const children = (layoutRoute?.children ?? []) as Array<{
     path: string
-    meta?: { title?: string; hidden?: boolean; group?: MenuGroup }
+    meta?: { title?: string; hidden?: boolean; group?: MenuGroup; superAdmin?: boolean }
   }>
   return children
     .filter((c) => !c.meta?.hidden)
+    // 超管专属页（后端 @RequireAdmin）对平台运营隐藏
+    .filter((c) => !c.meta?.superAdmin || authStore.isSuperAdmin)
     .map<MenuEntry>((c) => ({
       path: `/${c.path}`,
       title: c.meta?.title ?? c.path,
@@ -141,7 +145,7 @@ onMounted(() => {
         </span>
         <span class="me-txt">
           <b>{{ authStore.nickname || '管理员' }}</b>
-          <span>超级管理员</span>
+          <span>{{ authStore.roleLabel }}</span>
         </span>
         <el-button class="logout" text :icon="SwitchButton" aria-label="退出登录" title="退出登录" @click="onLogout" />
       </div>

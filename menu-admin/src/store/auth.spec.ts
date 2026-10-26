@@ -44,6 +44,17 @@ describe('useAuthStore', () => {
       expect(apiLogin).toHaveBeenCalledWith({ username: 'u', password: 'p', scope: 'admin' })
     })
 
+    it('平台运营（isOperator / platformRole=OPERATOR）可登录，角色记为 OPERATOR', async () => {
+      apiLogin.mockResolvedValue({ token: 't', nickname: '运营小李', isAdmin: false, isOperator: true, platformRole: 'OPERATOR' })
+      const store = useAuthStore()
+      await store.login({ username: 'u', password: 'p' })
+      expect(store.isAdmin).toBe(true)
+      expect(store.role).toBe('OPERATOR')
+      expect(store.isSuperAdmin).toBe(false)
+      expect(store.roleLabel).toBe('平台运营')
+      expect(localStorage.getItem('gudu-role')).toBe('OPERATOR')
+    })
+
     it('返回 isAdmin!==true → 抛 NoAdminPermissionError 且不落登录态', async () => {
       apiLogin.mockResolvedValue({ token: 't', nickname: 'n', isAdmin: false })
       const store = useAuthStore()

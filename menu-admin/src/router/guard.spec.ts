@@ -35,4 +35,14 @@ describe('router authGuard', () => {
     localStorage.setItem('gudu-is-admin', 'true')
     expect(authGuard(home)).toBe(true)
   })
+
+  it('平台运营：运营页放行，超管专属页（meta.superAdmin）回首页', () => {
+    localStorage.setItem('gudu-token', 't')
+    localStorage.setItem('gudu-is-admin', 'true')
+    localStorage.setItem('gudu-role', 'OPERATOR')
+    expect(authGuard({ path: '/tenants', meta: {} })).toBe(true)
+    expect(authGuard({ path: '/ai-gateway', meta: { superAdmin: true } })).toEqual({ path: '/home' })
+    localStorage.setItem('gudu-role', 'SUPER_ADMIN')
+    expect(authGuard({ path: '/ai-gateway', meta: { superAdmin: true } })).toBe(true)
+  })
 })

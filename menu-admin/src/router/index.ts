@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type RouteRecordRaw } from 'vue-router'
-import { clearAuth, hasAdminSession } from '@/utils/auth-storage'
+import { clearAuth, hasAdminSession, isSuperAdminStored } from '@/utils/auth-storage'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -44,16 +44,34 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '账号与家庭', group: 'ops' },
       },
       {
+        path: 'deactivation',
+        name: 'Deactivation',
+        component: () => import('@/views/deactivation/Index.vue'),
+        meta: { title: '注销处理', group: 'ops' },
+      },
+      {
+        path: 'content-review',
+        name: 'ContentReview',
+        component: () => import('@/views/content-review/Index.vue'),
+        meta: { title: '内容安全复核', group: 'ops' },
+      },
+      {
+        path: 'oplog',
+        name: 'OpLog',
+        component: () => import('@/views/oplog/Index.vue'),
+        meta: { title: '操作日志', group: 'ops' },
+      },
+      {
         path: 'ai-log',
         name: 'AiLog',
         component: () => import('@/views/ai-log/Index.vue'),
-        meta: { title: 'AI 用量与限额', group: 'ops' },
+        meta: { title: 'AI 用量与限额', group: 'ops', superAdmin: true },
       },
       {
         path: 'ai-gateway',
         name: 'AiGateway',
         component: () => import('@/views/ai-gateway/Index.vue'),
-        meta: { title: '模型网关', group: 'ops' },
+        meta: { title: '模型网关', group: 'ops', superAdmin: true },
       },
       {
         path: 'ops',
@@ -65,13 +83,13 @@ const routes: RouteRecordRaw[] = [
         path: 'agent-trace',
         name: 'AgentTrace',
         component: () => import('@/views/agent-trace/Index.vue'),
-        meta: { title: 'Agent 调用链', group: 'agent' },
+        meta: { title: 'Agent 调用链', group: 'agent', superAdmin: true },
       },
       {
         path: 'agent-eval',
         name: 'AgentEval',
         component: () => import('@/views/agent-eval/Index.vue'),
-        meta: { title: 'Agent 评测', group: 'agent' },
+        meta: { title: 'Agent 评测', group: 'agent', superAdmin: true },
       },
       {
         path: 'community',
@@ -86,41 +104,10 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '菜谱', group: 'data' },
       },
       {
-        path: 'member',
-        name: 'Member',
-        component: () => import('@/views/member/Index.vue'),
-        meta: { title: '家庭成员', group: 'data' },
-      },
-      {
         path: 'dict',
         name: 'Dict',
         component: () => import('@/views/dict/Index.vue'),
-        meta: { title: '配置中心', group: 'data' },
-      },
-      {
-        path: 'menu',
-        name: 'Menu',
-        component: () => import('@/views/menu/Index.vue'),
-        // 后台定位为管理辅助，菜单/采购/周计划等日常操作入口隐藏（路由保留，直接访问 URL 仍可达）
-        meta: { title: '食集', hidden: true },
-      },
-      {
-        path: 'mealplan',
-        name: 'MealPlan',
-        component: () => import('@/views/mealplan/Index.vue'),
-        meta: { title: '周计划', hidden: true },
-      },
-      {
-        path: 'pantry',
-        name: 'Pantry',
-        component: () => import('@/views/pantry/Index.vue'),
-        meta: { title: '库存', group: 'data' },
-      },
-      {
-        path: 'shopping',
-        name: 'Shopping',
-        component: () => import('@/views/shopping/Index.vue'),
-        meta: { title: '采购清单', hidden: true },
+        meta: { title: '配置中心', group: 'data', superAdmin: true },
       },
     ],
   },
@@ -131,12 +118,19 @@ const router = createRouter({
   routes,
 })
 
-/** 路由守卫：非公开页要求 token 且 isAdmin===true，否则清理残留登录态并回登录页。 */
+/**
+ * 路由守卫：非公开页要求 token 且为平台运营 / 超级管理员（multi-tenant-family F.3），否则清理残留登录态并回登录页；
+ * 超管专属页（meta.superAdmin，后端 @RequireAdmin）对平台运营回到首页。
+ * 家庭私有数据页（库存、家庭成员、食集、采购、周计划）已下线（mini-release-compliance F.5）。
+ */
 export function authGuard(to: Pick<RouteLocationNormalized, 'path' | 'meta'>) {
   if (to.meta.public || to.path === '/login') return true
-  if (hasAdminSession()) return true
-  clearAuth()
-  return { path: '/login' }
+  if (!hasAdminSession()) {
+    clearAuth()
+    return { path: '/login' }
+  }
+  if (to.meta.superAdmin && !isSuperAdminStored()) return { path: '/home' }
+  return true
 }
 
 router.beforeEach(authGuard)
