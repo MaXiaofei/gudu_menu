@@ -47,8 +47,11 @@ public class AgentController {
 
     private final AgentAppService svc;
     private final Executor executor;
+    private final com.gudu.xsd.modules.family.application.FamilyQueryApi families;
 
-    public AgentController(AgentAppService svc, @Qualifier("agentExecutor") Executor executor) {
+    public AgentController(AgentAppService svc, @Qualifier("agentExecutor") Executor executor,
+                           com.gudu.xsd.modules.family.application.FamilyQueryApi families) {
+        this.families = families;
         this.svc = svc;
         this.executor = executor;
     }
@@ -66,17 +69,17 @@ public class AgentController {
         return R.ok(svc.sessions(me(), cursor, size));
     }
 
-    @Operation(summary = "删除单个会话（本人档案，物理删除）")
+    @Operation(summary = "删除单个会话（本账号任一本人档案，物理删除）")
     @DeleteMapping("/sessions/{id}")
     public R<Map<String, Object>> deleteSession(@PathVariable String id) {
-        svc.deleteSession(me(), id);
+        svc.deleteSession(families.profileIdsOf(StpUtil.getLoginIdAsLong()), id);
         return R.ok(Map.of());
     }
 
-    @Operation(summary = "清空本人全部 AI 对话记录")
+    @Operation(summary = "清空本账号在所有家庭中的全部 AI 对话记录")
     @DeleteMapping("/sessions")
     public R<Map<String, Object>> clearSessions() {
-        return R.ok(Map.of("deleted", svc.clearSessions(me())));
+        return R.ok(Map.of("deleted", svc.clearSessions(families.profileIdsOf(StpUtil.getLoginIdAsLong()))));
     }
 
     @Operation(summary = "会话消息（倒序，游标分页）")

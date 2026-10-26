@@ -147,8 +147,12 @@ public class ContentSecurityAppService {
 
     /** AI 生成的文本放出前复核：违规返回 {@link #AI_TEXT_REPLACED}，否则原样返回（空白原样）。 */
     public String reviewAiText(String text) {
+        return reviewAiText(currentAccount(), text);
+    }
+
+    /** 同上，显式指定账号（异步线程里没有登录态时由调用方传入；null = 只走规则）。 */
+    public String reviewAiText(Long account, String text) {
         if (text == null || text.isBlank()) return text;
-        Long account = currentAccount();
         for (String chunk : chunks(text)) {
             if (checkText(account, ContentPurpose.AI_OUTPUT, chunk).blocks(ContentPurpose.AI_OUTPUT)) return AI_TEXT_REPLACED;
         }
@@ -174,6 +178,10 @@ public class ContentSecurityAppService {
         }
         if (cur.length() > 0) out.add(cur.toString());
         return out;
+    }
+
+    public static Long currentAccountId() {
+        return currentAccount();
     }
 
     private static Long currentAccount() {

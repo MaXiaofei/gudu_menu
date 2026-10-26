@@ -28,26 +28,6 @@ import java.util.Map;
 public class VisionController {
 
     private final VisionJobAppService appService;
-    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
-
-    /** AI 生成文本输出检测：识别项名称 / 菜谱标题、食材、步骤违规则替换为安全提示。 */
-    private VisionJobView safe(VisionJobView v) {
-        if (v == null || (v.items() == null && v.recipe() == null)) return v;
-        String hidden = ContentSecurityAppService.AI_TEXT_REPLACED;
-        // 识别项名称违规：整项剔除（避免把安全提示当食材名放进余量）；备选名违规：剔除该备选
-        java.util.List<com.gudu.xsd.modules.vision.domain.model.RecognizedItem> items = v.items() == null ? null : v.items().stream()
-                .filter(i -> !hidden.equals(contentSecurity.reviewAiText(i.name())))
-                .map(i -> new com.gudu.xsd.modules.vision.domain.model.RecognizedItem(i.name(), i.rawName(), i.ingredientId(),
-                        i.iconKey(), i.amount(), i.unit(), i.confidence(), i.level(),
-                        i.alternatives().stream().filter(a -> !hidden.equals(contentSecurity.reviewAiText(a))).toList(),
-                        i.suggestedBestBefore())).toList();
-        VisionJobView.RecipeView r = v.recipe() == null ? null : new VisionJobView.RecipeView(
-                contentSecurity.reviewAiText(v.recipe().title()),
-                v.recipe().ingredients() == null ? null : v.recipe().ingredients().stream()
-                        .map(l -> new VisionJobView.Line(l.ingredientId(), contentSecurity.reviewAiText(l.name()), l.iconKey(), l.amount(), l.unit())).toList(),
-                v.recipe().steps() == null ? null : v.recipe().steps().stream().map(contentSecurity::reviewAiText).toList());
-        return new VisionJobView(v.jobId(), v.mode(), v.status(), v.error(), v.imageExpiresAt(), items, r, v.degraded());
-    }
 
     @Data
     public static class CreateReq {
@@ -73,7 +53,7 @@ public class VisionController {
 
     @GetMapping("/{id}")
     public R<VisionJobView> get(@PathVariable Long id) {
-        return R.ok(safe(appService.get(StpUtil.getLoginIdAsLong(), id)));
+        return R.ok(appService.get(StpUtil.getLoginIdAsLong(), id));
     }
 
     @PostMapping("/{id}/apply")

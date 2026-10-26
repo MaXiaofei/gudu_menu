@@ -34,7 +34,9 @@ import static org.mockito.Mockito.when;
 class AgentSessionDeleteTest {
 
     static final long ME = 5L;     // 当前档案 id（不是账号 id）
+    static final long ME2 = 15L;   // 同一账号在另一个家庭的档案
     static final long OTHER = 6L;
+    static final List<Long> MINE = List.of(ME, ME2);
 
     AgentSessionRepository sessions;
     AgentMessageRepository messages;
@@ -61,7 +63,7 @@ class AgentSessionDeleteTest {
 
     @Test
     void 删除本人会话_消息物理删_调用链去标识_会话物理删() {
-        svc.deleteSession(ME, "ses_mine");
+        svc.deleteSession(MINE, "ses_mine");
 
         verify(messages).deleteBySessions(List.of("ses_mine"));
         verify(traces).anonymizeBySessions(List.of("ses_mine"));
@@ -69,8 +71,18 @@ class AgentSessionDeleteTest {
     }
 
     @Test
+    void 删除本账号另一个家庭档案下的会话_允许() {
+        when(sessions.findById("ses_family2")).thenReturn(Optional.of(
+                AgentSession.start("ses_family2", ME2, "另一个家", LocalDateTime.of(2026, 10, 26, 10, 0))));
+
+        svc.deleteSession(MINE, "ses_family2");
+
+        verify(sessions).hardDelete(List.of("ses_family2"));
+    }
+
+    @Test
     void 删除别人的会话_404且不动任何数据() {
-        assertThatThrownBy(() -> svc.deleteSession(ME, "ses_other"))
+        assertThatThrownBy(() -> svc.deleteSession(MINE, "ses_other"))
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(404));
         verify(messages, never()).deleteBySessions(any());
         verify(traces, never()).anonymizeBySessions(any());
@@ -79,17 +91,17 @@ class AgentSessionDeleteTest {
 
     @Test
     void 删除不存在的会话_404() {
-        assertThatThrownBy(() -> svc.deleteSession(ME, "ses_none"))
+        assertThatThrownBy(() -> svc.deleteSession(MINE, "ses_none"))
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(404));
     }
 
     @Test
-    void 清空_只按当前档案id取会话() {
-        when(sessions.idsByMembers(List.of(ME))).thenReturn(List.of("ses_a", "ses_b"));
+    void 清空_按本账号所有家庭的档案id取会话() {
+        when(sessions.idsByMembers(MINE)).thenReturn(List.of("ses_a", "ses_b"));
 
-        assertThat(svc.clearSessions(ME)).isEqualTo(2);
+        assertThat(svc.clearSessions(MINE)).isEqualTo(2);
 
-        verify(sessions).idsByMembers(List.of(ME));
+        verify(sessions).idsByMembers(MINE);
         verify(messages).deleteBySessions(List.of("ses_a", "ses_b"));
         verify(traces).anonymizeBySessions(List.of("ses_a", "ses_b"));
         verify(sessions).hardDelete(List.of("ses_a", "ses_b"));
@@ -97,9 +109,10 @@ class AgentSessionDeleteTest {
 
     @Test
     void 清空_无会话时返回0不报错() {
-        when(sessions.idsByMembers(List.of(ME))).thenReturn(List.of());
+        when(sessions.idsByMembers(MINE)).thenReturn(List.of());
 
-        assertThat(svc.clearSessions(ME)).isZero();
+        assertThat(svc.clearSessions(MINE)).isZero();
+        assertThat(svc.clearSessions(List.of())).isZero();
         verify(sessions, never()).hardDelete(any());
     }
 }

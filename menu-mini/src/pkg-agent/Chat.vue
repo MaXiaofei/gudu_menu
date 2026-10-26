@@ -149,14 +149,14 @@ async function newSession() {
 /** 右上角菜单：删除本对话 / 清空全部对话记录（二次确认；隐私政策 §三.2 用户可自行删除 AI 对话）。 */
 function openMenu() {
   uni.showActionSheet({
-    itemList: ['删除本对话', '清空全部对话记录'],
+    itemList: ['删除本对话', '清空所有家庭的对话记录'],
     success: ({ tapIndex }) => confirmErase(tapIndex === 1),
   })
 }
 function confirmErase(all: boolean) {
   uni.showModal({
-    title: all ? '清空全部对话记录？' : '删除本对话？',
-    content: all ? '你与咕嘟的所有对话记录将被永久删除，无法恢复。' : '本对话的记录将被永久删除，无法恢复。',
+    title: all ? '清空你在所有家庭中的咕嘟对话记录？' : '删除本对话？',
+    content: all ? '你在所有家庭中的咕嘟对话记录将被永久删除，无法恢复。' : '本对话的记录将被永久删除，无法恢复。',
     confirmText: '删除',
     confirmColor: '#DB5A4E',
     success: async ({ confirm }) => {

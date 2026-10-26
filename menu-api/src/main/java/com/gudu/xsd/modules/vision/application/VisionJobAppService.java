@@ -1,10 +1,12 @@
 package com.gudu.xsd.modules.vision.application;
 
 import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
 import com.gudu.xsd.modules.pantry.PantryService;
 import com.gudu.xsd.modules.pantry.application.StockAppService;
 import com.gudu.xsd.modules.vision.application.dto.ApplyItem;
 import com.gudu.xsd.modules.vision.application.dto.VisionJobView;
+import com.gudu.xsd.modules.vision.domain.model.RawItem;
 import com.gudu.xsd.modules.vision.domain.model.RawRecipe;
 import com.gudu.xsd.modules.vision.domain.model.RecognitionResult;
 import com.gudu.xsd.modules.vision.domain.model.VisionJob;
@@ -51,11 +53,13 @@ public class VisionJobAppService {
     private final StockAppService stockAppService;
     private final ImageStore imageStore;
     private final Clock clock;
+    private final ContentSecurityAppService contentSecurity;
     private Executor executor = defaultExecutor();
 
     public VisionJobAppService(VisionJobRepository repository, VisionProvider provider, IngredientAligner aligner,
                                PantryService pantryService, StockAppService stockAppService, ImageStore imageStore,
-                               Clock clock) {
+                               Clock clock, ContentSecurityAppService contentSecurity) {
+        this.contentSecurity = contentSecurity;
         this.repository = repository;
         this.provider = provider;
         this.aligner = aligner;
@@ -75,15 +79,16 @@ public class VisionJobAppService {
         VisionJob job = VisionJob.create(memberId, VisionMode.of(mode), imageUrl, LocalDateTime.now(clock));
         repository.save(job);
         Long id = job.id();
+        Long account = ContentSecurityAppService.currentAccountId(); // 异步线程没有登录态，这里带过去做内容安全
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    submit(id);
+                    submit(id, account);
                 }
             });
         } else {
-            submit(id);
+            submit(id, account);
         }
         return view(job);
     }
@@ -93,18 +98,35 @@ public class VisionJobAppService {
     }
 
     /** 执行识别（异步线程内调用；失败记 FAILED，不抛出）。 */
-    void process(Long jobId) {
+    void process(Long jobId, Long account) {
         Optional<VisionJob> found = repository.findById(jobId);
         if (found.isEmpty()) return;
         VisionJob job = found.get();
         try {
-            RecognitionResult r = provider.recognize(job.mode(), job.imageUrl());
+            // AI 输出检测只在这里做一次，处理后的结果随任务落库；GET/轮询直接读已处理结果，不再调内容安全
+            RecognitionResult r = review(provider.recognize(job.mode(), job.imageUrl()), account);
             job.complete(aligner.align(r.items()), r.recipe(), r.degraded());
         } catch (RuntimeException e) {
             log.warn("识别失败 job={} provider={}: {}", jobId, provider.name(), e.getMessage());
             job.fail("识别失败，请换个角度再拍一张");
         }
         repository.save(job);
+    }
+
+    /** 识别结果的文本复核：违规食材项整项剔除、备选名剔除；菜谱标题 / 用料名 / 步骤违规替换为安全提示。 */
+    RecognitionResult review(RecognitionResult r, Long account) {
+        String hidden = ContentSecurityAppService.AI_TEXT_REPLACED;
+        List<RawItem> items = r.items().stream()
+                .filter(i -> !hidden.equals(contentSecurity.reviewAiText(account, i.name())))
+                .map(i -> new RawItem(i.name(), i.amount(), i.unit(), i.confidence(),
+                        i.alternatives().stream().filter(a -> !hidden.equals(contentSecurity.reviewAiText(account, a))).toList(),
+                        i.priceFen()))
+                .toList();
+        RawRecipe rc = r.recipe() == null ? null : new RawRecipe(contentSecurity.reviewAiText(account, r.recipe().title()),
+                r.recipe().ingredients().stream()
+                        .map(l -> new RawRecipe.Line(contentSecurity.reviewAiText(account, l.name()), l.amount(), l.unit())).toList(),
+                r.recipe().steps().stream().map(s -> contentSecurity.reviewAiText(account, s)).toList());
+        return new RecognitionResult(items, rc, r.degraded());
     }
 
     /** 放进余量：逐项按 id 或名称入库（档位「充足」），有保质期则一并登记；每个任务只能放一次。 */
@@ -139,9 +161,9 @@ public class VisionJobAppService {
         if (removed > 0) log.info("清理过期识别任务 {} 条", removed);
     }
 
-    private void submit(Long id) {
+    private void submit(Long id, Long account) {
         try {
-            executor.execute(com.gudu.xsd.common.tenant.TenantContextHolder.wrap(() -> process(id)));
+            executor.execute(com.gudu.xsd.common.tenant.TenantContextHolder.wrap(() -> process(id, account)));
         } catch (RuntimeException e) { // 队列满：同步失败标记，避免任务永远 PENDING
             repository.findById(id).ifPresent(j -> {
                 j.fail("识别排队人数太多，请稍后再试");
