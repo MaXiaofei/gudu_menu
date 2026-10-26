@@ -118,4 +118,18 @@ public class MybatisFeedbackRepository implements FeedbackRepository {
         return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<FeedbackPO>()
                 .eq("member_id", from).set("member_id", to));
     }
+
+    @Override
+    public int deleteDoneBefore(LocalDateTime cutoff, int limit) {
+        return mapper.delete(new QueryWrapper<FeedbackPO>().eq("status", FeedbackStatus.DONE.name())
+                .lt("update_time", cutoff).last("LIMIT " + Math.max(1, limit)));
+    }
+
+    @Override
+    public List<Feedback> listByMember(Long memberId) {
+        if (memberId == null) return List.of();
+        return mapper.selectList(new QueryWrapper<FeedbackPO>().eq("member_id", memberId)
+                        .orderByAsc("create_time").orderByAsc("id"))
+                .stream().map(MybatisFeedbackRepository::toDomain).toList();
+    }
 }

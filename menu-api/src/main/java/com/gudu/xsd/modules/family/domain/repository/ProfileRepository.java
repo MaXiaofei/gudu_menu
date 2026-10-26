@@ -19,4 +19,10 @@ public interface ProfileRepository {
     List<FamilyMemberProfile> findByAccount(Long accountId);
 
     void save(FamilyMemberProfile profile);
+
+    /** 健康档案由该账号提供（并单独同意）的档案，跨全部家庭（mini-release-compliance B.2 撤回同意用）。 */
+    List<FamilyMemberProfile> findHealthProvidedBy(Long accountId);
+
+    /** 账号合并：健康档案提供人改指目标账号，返回改动条数。 */
+    int reassignHealthProvider(Long from, Long to);
 }

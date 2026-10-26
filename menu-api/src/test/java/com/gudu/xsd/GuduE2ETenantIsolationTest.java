@@ -69,6 +69,8 @@ class GuduE2ETenantIsolationTest {
                 "ingredients", List.of(Map.of("ingredientId", ING_TOMATO, "amount", 100, "unitId", UNIT_G)),
                 "steps", List.of(Map.of("seq", 1, "text", "秘方")),
                 "cuisineIds", List.of(), "tagIds", List.of(), "categoryIds", List.of())));
+        // 健康档案 + 不满 14 周岁：先单独同意（mini-release-compliance B.2，否则 428）
+        ok(post(a, "/consent/sensitive", Map.of("docTypes", List.of("sensitive_health", "child_info"), "channel", "e2e")));
         long babyId = okLong(post(a, "/member", Map.of("name", "E2E甲家宝宝",
                 "healthProfile", Map.of("height", 80, "weight", 10, "age", 1, "gender", "female"))));
 

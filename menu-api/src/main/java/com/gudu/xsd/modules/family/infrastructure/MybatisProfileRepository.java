@@ -83,6 +83,21 @@ public class MybatisProfileRepository implements ProfileRepository {
         });
     }
 
+    @Override
+    public List<FamilyMemberProfile> findHealthProvidedBy(Long accountId) {
+        if (accountId == null) return List.of();
+        return TenantContextHolder.callAsSystem(() -> mapper.selectList(new QueryWrapper<FamilyProfilePO>()
+                        .eq("health_consent_account_id", accountId).orderByAsc("id")))
+                .stream().map(MybatisProfileRepository::toDomain).toList();
+    }
+
+    @Override
+    public int reassignHealthProvider(Long from, Long to) {
+        if (from == null || to == null) return 0;
+        return TenantContextHolder.callAsSystem(() -> mapper.update(null, new UpdateWrapper<FamilyProfilePO>()
+                .eq("health_consent_account_id", from).set("health_consent_account_id", to)));
+    }
+
     static FamilyMemberProfile toDomain(FamilyProfilePO po) {
         return FamilyMemberProfile.rehydrate(po.getId(), FamilyId.of(po.getFamilyId()), po.getAccountId(),
                 po.getName(), po.getAvatarUrl(), po.getHealthProfile() == null ? null

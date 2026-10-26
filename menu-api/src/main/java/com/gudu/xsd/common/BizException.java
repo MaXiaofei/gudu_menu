@@ -9,14 +9,16 @@ public class BizException extends RuntimeException {
     public static final int FORBIDDEN = 403;
     /** 调用频率/额度超限。 */
     public static final int TOO_MANY_REQUESTS = 429;
-    /** 内容安全：内容未通过检测（客户端按场景给友好提示）。 */
-    public static final int CONTENT_BLOCKED = 451;
-    /** 内容安全：检测服务暂不可用且该场景失败即拒绝（昵称/头像），请稍后再试。 */
-    public static final int CONTENT_CHECK_UNAVAILABLE = 452;
     /** 资源不存在或不属于当前家庭（跨家庭访问统一 404，不泄露存在性）。 */
     public static final int NOT_FOUND = 404;
     /** 状态冲突（如账号合并 ACCOUNT_WECHAT_CONFLICT）。 */
     public static final int CONFLICT = 409;
+    /** 保存敏感个人信息前缺少单独同意（B.2，见 {@link ConsentRequiredException}）。 */
+    public static final int CONSENT_REQUIRED = 428;
+    /** 内容安全：内容未通过检测（客户端按场景给友好提示）。 */
+    public static final int CONTENT_BLOCKED = 451;
+    /** 内容安全：检测服务暂不可用且该场景失败即拒绝（昵称/头像），请稍后再试。 */
+    public static final int CONTENT_CHECK_UNAVAILABLE = 452;
 
     private final int code;
 

@@ -25,4 +25,7 @@ public interface AgentTraceRepository {
     List<TraceSpan> spansOf(List<String> traceIds);
 
     void updateFeedback(String traceId, int rating);
+
+    /** 保存期限清理（C.1）：物理删除 createdAt 早于 cutoff 的一批调用链（含其 span），返回删除的调用链条数。 */
+    int purgeBefore(LocalDateTime cutoff, int limit);
 }

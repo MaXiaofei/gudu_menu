@@ -91,6 +91,9 @@ class MemberControllerTest {
     @MockBean
     private com.gudu.xsd.modules.family.application.FamilyQueryApi familyQuery;
 
+    @MockBean
+    private com.gudu.xsd.modules.privacy.application.ConsentAppService consentApp;
+
     private static final long CALLER = 10L;
     private static final long FAMILY = 3L;
 
@@ -252,5 +255,51 @@ class MemberControllerTest {
             mvc.perform(post("/member/current").param("memberId", "100")).andExpect(jsonPath("$.code").value(0));
             mvc.perform(post("/member/current").param("memberId", "1")).andExpect(jsonPath("$.code").value(403));
         });
+    }
+
+    // ---------------- B.2 敏感信息单独同意 ----------------
+
+    @Test
+    void 健康档案_未单独同意_428_不保存() throws Exception {
+        given(svc.getById(100L)).willReturn(linked(100L, CALLER));
+        org.mockito.Mockito.doThrow(new com.gudu.xsd.common.ConsentRequiredException("填写健康档案需要您的单独同意",
+                        List.of("sensitive_health")))
+                .when(consentApp).assertAllowed(org.mockito.ArgumentMatchers.eq(CALLER), any(), any(), any());
+        asCaller(false, "MEMBER", () -> mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":100,\"name\":\"我\",\"healthProfile\":{\"height\":170}}"))
+                .andExpect(jsonPath("$.code").value(428))
+                .andExpect(jsonPath("$.data.reason").value("CONSENT_REQUIRED"))
+                .andExpect(jsonPath("$.data.docTypes[0]").value("sensitive_health")));
+        verify(svc, never()).updateById(any(Member.class));
+    }
+
+    @Test
+    void 儿童档案_未获监护人同意_428_不新增() throws Exception {
+        org.mockito.Mockito.doThrow(new com.gudu.xsd.common.ConsentRequiredException("x", List.of("child_info")))
+                .when(consentApp).assertAllowed(org.mockito.ArgumentMatchers.eq(CALLER), any(), any(), any());
+        asCaller(false, "OWNER", () -> mvc.perform(post("/member").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"宝宝\",\"healthProfile\":{\"ageMonth\":10,\"audiences\":[\"宝宝辅食\"]}}"))
+                .andExpect(jsonPath("$.code").value(428))
+                .andExpect(jsonPath("$.data.docTypes[0]").value("child_info")));
+        verify(svc, never()).save(any(Member.class));
+    }
+
+    @Test
+    void 已同意_保存健康档案_记录提供人账号_无健康字段不记录() throws Exception {
+        given(svc.getById(100L)).willReturn(linked(100L, CALLER));
+        asCaller(false, "OWNER", () -> {
+            mvc.perform(put("/member").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"id\":100,\"healthProfile\":{\"allergies\":[\"花生\"]},\"goal\":\"LOSE\"}"))
+                    .andExpect(jsonPath("$.code").value(0));
+            mvc.perform(post("/member").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"奶奶\"}"))
+                    .andExpect(jsonPath("$.code").value(0));
+        });
+        ArgumentCaptor<Member> upd = ArgumentCaptor.forClass(Member.class);
+        verify(svc).updateById(upd.capture());
+        assertThat(upd.getValue().getHealthConsentAccountId()).isEqualTo(CALLER);
+        ArgumentCaptor<Member> add = ArgumentCaptor.forClass(Member.class);
+        verify(svc).save(add.capture());
+        assertThat(add.getValue().getHealthConsentAccountId()).isNull();
+        verify(consentApp).assertAllowed(CALLER, java.util.Map.of("allergies", List.of("花生")), "LOSE", null);
     }
 }

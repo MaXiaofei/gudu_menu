@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.gudu.xsd.common.crypto.EncryptedJsonMapTypeHandler;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -28,7 +28,8 @@ public class FamilyProfilePO {
     private String name;
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String avatarUrl;
-    @TableField(typeHandler = JacksonTypeHandler.class, updateStrategy = FieldStrategy.ALWAYS)
+    /** 健康档案：AES-GCM 加密落库（mini-release-compliance B.3）。 */
+    @TableField(typeHandler = EncryptedJsonMapTypeHandler.class, updateStrategy = FieldStrategy.ALWAYS)
     private Map<String, Object> healthProfile;
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String goal;
@@ -37,6 +38,9 @@ public class FamilyProfilePO {
     /** 新建档案默认角色标签 34（普通成员），与旧 MpPerm 模板兼容。 */
     private String roleTags;
     private Integer isAdmin;
+    /** 提供健康档案并单独同意的账号（V88，B.2）；仓储只在撤回同意清档时读取，不随 save 覆盖。 */
+    @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
+    private Long healthConsentAccountId;
     private LocalDateTime createTime;
     @TableLogic
     private Integer deleted;

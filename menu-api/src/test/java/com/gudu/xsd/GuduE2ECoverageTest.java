@@ -1397,7 +1397,8 @@ class GuduE2ECoverageTest {
         assertThat(msgs.get("data").toString()).doesNotContain("冰毒").contains("已屏蔽").contains("内容安全检测");
     }
 
-    // ===================== Y. 小程序关闭厨房圈（mini-release-compliance A.1） =====================
+    // ===================== Y. 小程序关闭厨房圈（mini-release-compliance A.1） ==============    }
+
 
     @Test
     void Y_小程序来源_厨房圈写接口403_读接口与其他端不受影响() throws Exception {
@@ -1481,6 +1482,113 @@ class GuduE2ECoverageTest {
         assertThat(get(chef, "/community/feed").get("code").asInt()).as("再打开恢复").isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM community_post WHERE title = 'E2E暂停期间发帖'",
                 Integer.class)).isZero();
+    }
+
+    // ===================== mini-release-compliance B.2 / B.3 / C.1 / C.2 =====================
+
+    @Test
+    void Q_单独同意_撤回即删除_健康档案与手机号加密存储() {
+        String token = loginAdmin();
+        JsonNode st = get(token, "/consent/sensitive");
+        assertThat(st.get("code").asInt()).isZero();
+        assertThat(st.get("data").get("items").get("sensitive_health").get("granted").asBoolean()).isFalse();
+
+        // 未同意：健康档案 428，不保存
+        JsonNode denied = post(token, "/member", Map.of("name", "E2E敏感成员", "healthProfile", Map.of("height", 170)));
+        assertThat(denied.get("code").asInt()).as(denied.toString()).isEqualTo(428);
+        assertThat(denied.get("data").get("docTypes").toString()).contains("sensitive_health");
+
+        assertThat(post(token, "/consent/sensitive", Map.of("docTypes", List.of("sensitive_health"), "channel", "e2e"))
+                .get("code").asInt()).isZero();
+        long adult = post(token, "/member", Map.of("name", "E2E敏感成员", "healthProfile", Map.of("height", 170)))
+                .get("data").asLong();
+        String stored = jdbc.queryForObject("SELECT health_profile FROM member WHERE id = ?", String.class, adult);
+        assertThat(stored).as("健康档案密文落库").startsWith("ENC:v").doesNotContain("170");
+        assertThat(jdbc.queryForObject("SELECT health_consent_account_id FROM member WHERE id = ?", Long.class, adult))
+                .isNotNull();
+        assertThat(get(token, "/member?pageNum=1&pageSize=100").get("data").toString()).contains("\"height\":170");
+
+        // 儿童：另需监护人同意
+        Map<String, Object> babyBody = Map.of("name", "E2E宝宝",
+                "healthProfile", Map.of("ageMonth", 10, "audiences", List.of("宝宝辅食")));
+        JsonNode babyDenied = post(token, "/member", babyBody);
+        assertThat(babyDenied.get("code").asInt()).isEqualTo(428);
+        assertThat(babyDenied.get("data").get("docTypes").toString()).contains("child_info");
+        post(token, "/consent/sensitive", Map.of("docTypes", List.of("child_info"), "channel", "e2e"));
+        long baby = post(token, "/member", babyBody).get("data").asLong();
+
+        // 撤回儿童同意：只删儿童档案的健康字段
+        assertThat(post(token, "/consent/sensitive/withdraw", Map.of("docType", "child_info")).get("code").asInt()).isZero();
+        assertThat(jdbc.queryForObject("SELECT health_profile FROM member WHERE id = ?", String.class, baby)).isNull();
+        assertThat(jdbc.queryForObject("SELECT health_profile FROM member WHERE id = ?", String.class, adult)).isNotNull();
+        // 撤回健康档案同意：其提供的全部健康档案清空；再保存 428
+        post(token, "/consent/sensitive/withdraw", Map.of("docType", "sensitive_health"));
+        assertThat(jdbc.queryForObject("SELECT health_profile FROM member WHERE id = ?", String.class, adult)).isNull();
+        assertThat(put(token, "/member", Map.of("id", adult, "healthProfile", Map.of("weight", 60)))
+                .get("code").asInt()).isEqualTo(428);
+
+        // 手机号：代建账号后 account.phone 为密文 + 盲索引，按手机号登录仍可用
+        JsonNode created = post(token, "/member", Map.of("name", "E2E加密账号", "phone", "13900001235",
+                "password", "e2etest123"));
+        assertThat(created.get("code").asInt()).as(created.toString()).isZero();
+        Map<String, Object> acc = jdbc.queryForMap(
+                "SELECT a.phone, a.phone_hash FROM account a JOIN member m ON m.account_id = a.id WHERE m.id = ?",
+                created.get("data").asLong());
+        assertThat((String) acc.get("phone")).startsWith("ENC:v").doesNotContain("13900001235");
+        assertThat((String) acc.get("phone_hash")).hasSize(64);
+        assertThat(loginAs("13900001235", "e2etest123")).isNotBlank();
+    }
+
+    @Test
+    void R_导出我的数据_每天3次_临时下载链接() {
+        String admin = loginAdmin();
+        assertThat(post(admin, "/member", Map.of("name", "E2E导出账号", "phone", "13900001236",
+                "password", "e2etest123")).get("code").asInt()).isZero();
+        String token = loginAs("13900001236", "e2etest123");
+        post(token, "/consent/sensitive", Map.of("docTypes", List.of("sensitive_health"), "channel", "e2e"));
+
+        JsonNode out = get(token, "/account/me/export");
+        assertThat(out.get("code").asInt()).as(out.toString()).isZero();
+        JsonNode d = out.get("data");
+        assertThat(d.get("account").get("phone").asText()).isEqualTo("13900001236");
+        assertThat(d.get("families").isArray()).isTrue();
+        assertThat(d.get("families").toString()).doesNotContain("E2E敏感成员").doesNotContain("掌勺人");
+        for (String k : List.of("dishes", "cookingRecords", "dailyLogs", "reviews", "aiConversations", "feedback")) {
+            assertThat(d.get(k).isArray()).as(k).isTrue();
+        }
+        assertThat(d.get("consents").toString()).contains("sensitive_health");
+
+        JsonNode link = post(token, "/account/me/export/link", null);
+        assertThat(link.get("code").asInt()).isZero();
+        String path = link.get("data").get("path").asText();
+        assertThat(path).startsWith("/account/export/download?token=");
+        ResponseEntity<String> file = http.exchange(CTX + path, HttpMethod.GET, HttpEntity.EMPTY, String.class);
+        assertThat(file.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains("attachment");
+        assertThat(file.getBody()).contains("13900001236");
+        assertThat(get(null, "/account/export/download?token=bad-token-0123456789abcdef").get("code").asInt())
+                .isEqualTo(404);
+
+        assertThat(get(token, "/account/me/export").get("code").asInt()).isZero();
+        assertThat(get(token, "/account/me/export").get("code").asInt()).as("第 4 次").isEqualTo(429);
+    }
+
+    @Autowired
+    private com.gudu.xsd.modules.privacy.application.DataRetentionJob retentionJob;
+
+    @Test
+    void S_保存期限清理_超期删除_未超期与未处理保留() {
+        jdbc.update("INSERT INTO ai_call_log(scene, status, create_time) VALUES ('e2e_old', 'ok', NOW() - INTERVAL 200 DAY),"
+                + " ('e2e_new', 'ok', NOW() - INTERVAL 10 DAY)");
+        jdbc.update("INSERT INTO feedback(member_id, content, status, create_time, update_time) VALUES "
+                + "(1, 'E2E旧已处理反馈', 'DONE', NOW() - INTERVAL 400 DAY, NOW() - INTERVAL 400 DAY),"
+                + "(1, 'E2E旧未处理反馈', 'NEW', NOW() - INTERVAL 400 DAY, NOW() - INTERVAL 400 DAY)");
+        retentionJob.runOnce();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ai_call_log WHERE scene = 'e2e_old'", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ai_call_log WHERE scene = 'e2e_new'", Integer.class)).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM feedback WHERE content = 'E2E旧已处理反馈'", Integer.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM feedback WHERE content = 'E2E旧未处理反馈'", Integer.class))
+                .isOne();
     }
 
     private String loginAs(String username, String password) {

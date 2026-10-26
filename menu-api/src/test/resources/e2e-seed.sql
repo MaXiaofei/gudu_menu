@@ -16,6 +16,30 @@
 --    在 account 表与默认家庭成员关系中幂等重建，admin = SUPER_ADMIN + OWNER。
 -- 注：@Sql 走 JDBC，不经租户插件，家庭域表 INSERT 必须显式写 family_id。
 -- ============================================================
+-- [mini-release-compliance B.3] 手机号加密存储（account.phone 为 AES-GCM 密文 + phone_hash = HMAC-SHA256 盲索引）：
+-- 下面的清理按明文手机号 LIKE 匹配。E2E 账号由应用写入后 phone 是密文，先按盲索引把 E2E 候选手机号
+-- （1390000xxxx、13800000001、admin）还原成明文（测试账号，非真实个人信息）。
+-- @e2e_hk_i / @e2e_hk_o = 测试 HMAC 密钥（application-test.yml gudu.field-crypto.hmac-key）补零到 64 字节后
+-- 分别异或 0x36 / 0x5c，HMAC(k, m) = SHA256(k^opad ‖ SHA256(k^ipad ‖ m))；FieldCryptoSeedConsistencyTest 校验两者一致。
+SET @e2e_hk_i := UNHEX('514352431b5253401b425345421b465e5958531b5e5b57551b060704050203003636363636363636363636363636363636363636363636363636363636363636');
+SET @e2e_hk_o := UNHEX('3b2938297138392a7128392f28712c343332397134313d3f716c6d6e6f68696a5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c');
+DROP TEMPORARY TABLE IF EXISTS e2e_phone;
+CREATE TEMPORARY TABLE e2e_phone (phone VARCHAR(32) PRIMARY KEY, h CHAR(64) NOT NULL);
+INSERT INTO e2e_phone(phone, h)
+  SELECT p.phone, SHA2(CONCAT(@e2e_hk_o, UNHEX(SHA2(CONCAT(@e2e_hk_i, p.phone), 256))), 256)
+  FROM (SELECT CONCAT('1390000', d1.n, d2.n, d3.n, d4.n) AS phone
+        FROM (SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d1
+        CROSS JOIN (SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d2
+        CROSS JOIN (SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d3
+        CROSS JOIN (SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d4
+        UNION ALL SELECT '13800000001' UNION ALL SELECT 'admin') p;
+UPDATE account a JOIN e2e_phone p ON a.phone_hash = p.h SET a.phone = p.phone WHERE a.phone LIKE 'ENC:v%';
+DROP TEMPORARY TABLE IF EXISTS e2e_phone;
+
 DROP TEMPORARY TABLE IF EXISTS e2e_family;
 CREATE TEMPORARY TABLE e2e_family (id BIGINT PRIMARY KEY);
 INSERT IGNORE INTO e2e_family(id)
@@ -47,6 +71,9 @@ DELETE fm FROM family_membership fm JOIN account a ON a.id = fm.account_id
   WHERE a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%' OR (a.status = 'MERGED' AND a.phone IS NULL AND a.wx_openid IS NULL AND a.nickname LIKE 'E2E%');
 DELETE m FROM member m JOIN account a ON a.id = m.account_id
   WHERE a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%';
+-- [B.2] 同意记录（只追加、无唯一约束）：E2E 账号的记录随账号清理
+DELETE c FROM consent_record c JOIN account a ON a.id = c.account_id
+  WHERE a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%' OR a.nickname LIKE 'E2E%';
 DELETE FROM account_merge_log WHERE source_id IN (SELECT id FROM account WHERE phone LIKE '1390000%' OR wx_openid LIKE 'E2E%')
   OR target_id IN (SELECT id FROM account WHERE phone LIKE '1390000%' OR wx_openid LIKE 'E2E%');
 DELETE FROM account WHERE phone LIKE '1390000%' OR wx_openid LIKE 'E2E%';
@@ -316,3 +343,10 @@ UPDATE family_membership fm JOIN account a ON a.id = fm.account_id
   SET fm.role = 'OWNER' WHERE fm.family_id = 1 AND a.phone = 'admin';
 UPDATE family f SET owner_account_id = (SELECT id FROM account WHERE phone = 'admin') WHERE f.id = 1;
 UPDATE account SET last_family_id = 1 WHERE phone IN ('admin', '13800000001', '13900000088');
+-- [B.3] 种子账号补手机号盲索引（明文 phone 由应用兼容读取；登录按 phone_hash 查）
+UPDATE account SET phone_hash = SHA2(CONCAT(@e2e_hk_o, UNHEX(SHA2(CONCAT(@e2e_hk_i, phone), 256))), 256)
+  WHERE phone IN ('admin', '13800000001', '13900000088');
+-- [B.2] 种子账号的单独同意记录每轮重置（用例自行同意 / 撤回）；孤儿记录清理
+DELETE c FROM consent_record c JOIN account a ON a.id = c.account_id
+  WHERE a.phone IN ('admin', '13800000001', '13900000088');
+DELETE c FROM consent_record c LEFT JOIN account a ON a.id = c.account_id WHERE a.id IS NULL;

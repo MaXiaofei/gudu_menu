@@ -11,7 +11,6 @@ import com.gudu.xsd.modules.feedback.domain.model.FeedbackStatus;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackType;
 import com.gudu.xsd.modules.feedback.domain.repository.FeedbackRepository;
 import com.gudu.xsd.modules.member.Member;
-import com.gudu.xsd.modules.member.MemberService;
 import com.gudu.xsd.modules.notification.NotificationPayload;
 import com.gudu.xsd.modules.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
