@@ -22,6 +22,7 @@
 | 7 | [`prototype-ui-rollout`](changes/prototype-ui-rollout/proposal.md) | 按高保真原型（`docs/design/prototype/`）改版四端：P0 素材与组件 → P1 主链路 → P2 家庭 → P3 生产级能力 | 6(组件)、3(P2) | Draft |
 | 8 | [`recipe-content-seed`](changes/recipe-content-seed/proposal.md) | 下厨房导入数据可重复种子脚本 + staging 演示家庭（**仅测试环境**，生产硬拒绝） | — | Draft |
 | 9 | [`showcase-ai-community`](changes/showcase-ai-community/proposal.md) | 咕嘟 Agent（对话操作 App）、厨房圈社区、拍照识别、一周餐程 + 营养报告、跟做模式、Agent 可观测与评测；导航改为 菜谱/食集/咕嘟/厨房圈/余量 | 3、7(P0)、2 | Draft |
+| 10 | [`mini-release-compliance`](changes/mini-release-compliance/proposal.md) | 小程序正式版合规：内容安全、同意记录与单独同意、AI 标识与最小化、上传鉴权、协议重写、小程序关社区、首次登录完善资料 | 3（阻断项在 3） | Draft |
 | — | [`cookbook-search-revamp`](changes/cookbook-search-revamp/proposal.md) | 历史 change：App 菜谱页重构 | — | 待归档核对 |
 
 ```

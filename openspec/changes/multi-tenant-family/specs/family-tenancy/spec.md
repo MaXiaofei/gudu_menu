@@ -85,6 +85,27 @@ OWNER/ADMIN 可生成 7 天有效的邀请码；过期、撤销、用尽或家�
 - WHEN 普通成员注销
 - THEN 账号 status=DEACTIVATED，手机号/openid/昵称清空，退出全部家庭，token 失效
 
+### Requirement: 微信账号并入手机号账号
+同一个人的微信账号与手机号账号可以合并，以手机号账号为主；合并后微信登录直接进入手机号账号，原微信账号的家庭与数据都可见。
+
+#### Scenario: 合并成功
+- GIVEN 微信账号 W（属于家庭 F1）已登录，手机号账号 P（属于家庭 F2）
+- WHEN `POST /account/merge-phone` 提交 P 的手机号和正确密码
+- THEN P 绑定 W 的 openid，P 同属 F1 与 F2，W 状态为 MERGED 且 token 失效，响应返回 P 的新 token
+
+#### Scenario: 合并后微信登录
+- WHEN 用 W 的 openid 调用 `/auth/wx-login`
+- THEN 登录到 P
+
+#### Scenario: 手机号账号已绑定其他微信
+- GIVEN P 已绑定另一个 openid
+- WHEN 发起合并
+- THEN 拒绝（ACCOUNT_WECHAT_CONFLICT），两个账号都不变
+
+#### Scenario: 密码错误
+- WHEN 提交错误密码
+- THEN 拒绝并计入登录失败限流，不泄露该手机号是否存在
+
 ### Requirement: 新用户自动建家
 首次登录且未通过邀请进入的账号自动创建「我的家」并成为 OWNER。
 

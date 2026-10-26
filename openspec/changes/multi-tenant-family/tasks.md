@@ -40,6 +40,8 @@
 - [ ] E.4 `MpPerm` 改为 FamilyRole 默认模板 + 档案级勾选
 - [ ] E.5 `/member/**` 改为本家成员档案（去 isAdmin/password）
 - [ ] E.6 账号注销 `DELETE /account/me`（OWNER 校验 + 匿名化 + AccountDeactivated → 退出全部家庭）
+- [ ] E.7 账号合并 `POST /account/merge-phone`：`Account.absorb` + 领域单测（冲突/幂等/已合并）；`AccountMerged` 监听迁移 Membership、成员档案、Agent 会话/反馈/通知/同意记录；`account_merge_log`；W token 失效
+- [ ] E.8 存量修复：迁移脚本识别「同一人两个账号」不自动合并（无法证明是同一人），只在用户主动发起时合并
 
 ## Phase F：前端三端
 - [ ] F.1 menu-mini：登录后家庭上下文存储；顶部/我的页家庭切换器；家庭页（成员列表/角色/移除/退出/转让/解散）；邀请生成与分享（小程序 `onShareAppMessage` 带 code）；邀请落地页；首次登录引导；成员档案页；公共菜谱「复制到我家」；注销入口；403 FAMILY_ACCESS_DENIED 处理
@@ -49,7 +51,7 @@
 
 ## Phase G：E2E 与上线
 - [ ] G.1 `GuduE2ETenantIsolationTest` 越权套件（覆盖全部家庭域写接口）
-- [ ] G.2 `GuduE2EFlowTest` 新增：注册→建家→邀请→加入→切换→退出 主链路
+- [ ] G.2 `GuduE2EFlowTest` 新增：注册→建家→邀请→加入→切换→退出 主链路；微信建号→写数据→并入手机号账号→微信重新登录进入手机号账号且数据可见
 - [ ] G.3 staging 生产快照迁移演练 + 校验 SQL + 三端冒烟
 - [ ] G.4 生产：备份 → 低峰迁移 → 校验 → 发布 → 监控 24h
 

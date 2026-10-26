@@ -25,11 +25,12 @@ describe('utils/legal parseLegal', () => {
     expect(stripInline('见 [隐私政策](./privacy.md) 与 `code`')).toBe('见 隐私政策 与 code')
   })
 
-  it('内置正文与 docs/legal 源文件一致，且保留【运营主体】占位', () => {
+  it('内置正文与 docs/legal 源文件一致，且已无【】占位', () => {
     const root = resolve(__dirname, '../../..')
     expect(TERMS_MD).toBe(readFileSync(resolve(root, 'docs/legal/terms.md'), 'utf8'))
     expect(PRIVACY_MD).toBe(readFileSync(resolve(root, 'docs/legal/privacy.md'), 'utf8'))
-    expect(TERMS_MD).toContain('【运营主体】')
+    expect(TERMS_MD + PRIVACY_MD).not.toMatch(/【[^】]*】/)
+    expect(PRIVACY_MD).toContain('maxiaofeidev@gmail.com')
     expect(parseLegal(PRIVACY_MD).some((b) => b.type === 'h2')).toBe(true)
   })
 })

@@ -5,7 +5,7 @@
  */
 export const CONSENT_KEY = 'legal_consent'
 /** 协议版本（docs/legal 改版时同步更新，旧同意随之失效）。 */
-export const LEGAL_VERSION = '2026-10'
+export const LEGAL_VERSION = '2026-10-26'
 
 export function hasConsent(): boolean {
   return uni.getStorageSync(CONSENT_KEY) === LEGAL_VERSION

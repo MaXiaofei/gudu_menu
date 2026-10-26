@@ -58,8 +58,22 @@ Account (AggregateRoot<AccountId>)
   bindPhone(phone)
   grantPlatformRole(role, by)       仅 SUPER_ADMIN 可调用（应用层校验操作人）
   deactivate(now)                   匿名化：清 phone/openid/昵称/头像，status=DEACTIVATED
-事件：AccountRegistered, AccountDeactivated
+  absorb(source: Account, now)      账号合并（本账号=手机号账号为主）：source 必须 ACTIVE 且有 wechat、无 phone；
+                                    本账号不能已绑定另一个 openid（冲突 → ACCOUNT_WECHAT_CONFLICT）；
+                                    wechat 身份移到本账号，source.status=MERGED、mergedInto=本账号
+事件：AccountRegistered, AccountDeactivated, AccountMerged(sourceId, targetId)
 ```
+
+**账号合并流程**（`AccountMergeAppService`，单事务，幂等）：
+1. 当前登录 = 微信账号 W；用户提交手机号 + 密码，校验得到手机号账号 P（失败计入登录限流）。
+2. `P.absorb(W)`；保存两个聚合。
+3. 发布 `AccountMerged` → family 上下文监听：W 的每个 `Membership` 转给 P（P 已在该家庭则保留角色较高者）；W 关联的成员档案 `accountId` 改指 P（P 在同一家庭已有档案时保留 P 的，W 的档案改为无账号档案，不删数据）。
+4. 其余按账号归属的个人数据（Agent 会话、反馈、通知、同意记录）由各上下文监听 `AccountMerged` 把 accountId 从 W 改为 P。
+5. 使 W 的 token 失效，为 P 签发新 token 返回；当前家庭沿用 W 的当前家庭。
+6. 审计：`account_merge_log(source_id, target_id, operator, created_at, detail)`，不可回滚但可追溯。
+7. 资料取舍：昵称/头像优先保留用户改过的那份（P 的为空或仍是默认值「微信用户」时取 W 的）；平台角色取 P 的（不因合并提权或降权）。
+
+「以 P 为主」只决定**保留哪个账号 ID**（P 带着密码、手机号和平台角色，App 端手机号登录必须继续可用），不决定谁的数据留下：两边的家庭都保留，合并后无论用微信还是手机号登录，看到的都是同一个账号、同样的数据。
 
 ### 3.2 `Family`（family 上下文，**核心不变量都在这里**）
 ```
@@ -165,6 +179,7 @@ dish ADD family_id BIGINT NULL, ADD source_dish_id BIGINT NULL, INDEX(family_id)
 | PUT | `/account/me` | 昵称/头像 | 登录 |
 | PUT | `/account/password` | 改密码 | 登录 |
 | DELETE | `/account/me` | 注销（OWNER 须先处理家庭） | 登录 |
+| POST | `/account/merge-phone` | 微信账号并入手机号账号 `{phone, password}` → 新 token | 登录（仅微信账号） |
 | POST | `/family` | 创建家庭 | 登录（≤5） |
 | GET | `/family/current` | 当前家庭详情（成员+角色） | 成员 |
 | POST | `/family/current` | 切换当前家庭 | 成员 |
