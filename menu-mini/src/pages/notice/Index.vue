@@ -1,6 +1,6 @@
 <template>
   <page-meta :page-style="gdThemeStyle" />
-  <!-- 消息（prototype Notices · P1 先接现有 expiry/shopping 两类；邀请/反馈/投稿消息待 P3 后端）。 -->
+  <!-- 消息（prototype Notices）：expiry 临期 / shopping 采购 / feedback_reply 反馈回复（A.11，点开进反馈详情）；邀请/投稿消息待后端。 -->
   <view class="page">
     <ui-back-header title="消息">
       <template #action>
@@ -33,6 +33,7 @@
             </view>
             <text v-if="n.content" class="content">{{ n.content }}</text>
             <view v-if="n.type === 'expiry'" class="act"><text class="act-txt">去看看能做什么 ›</text></view>
+            <view v-else-if="n.type === NOTICE_FEEDBACK_REPLY" class="act" data-testid="notice-feedback-act"><text class="act-txt">查看回复 ›</text></view>
           </view>
           <view v-if="!n.isRead" class="dot" />
         </view>
@@ -45,7 +46,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { listNotices, markRead, noticeGroup, type Notice } from '@/api/notification'
+import { listNotices, markRead, noticeGroup, noticeTarget, NOTICE_FEEDBACK_REPLY, type Notice } from '@/api/notification'
 import { relativeDate } from '@/utils/datetime'
 
 const list = ref<Notice[]>([])
@@ -80,7 +81,7 @@ function iconOf(type?: string | null) {
   if (type === 'expiry') return 'clock'
   if (type === 'shopping') return 'cart'
   if (type === 'invite') return 'users'
-  return 'message'
+  return 'message' // 反馈回复等系统消息
 }
 
 async function open(n: Notice) {
@@ -88,8 +89,10 @@ async function open(n: Notice) {
     n.isRead = 1
     markRead(n.id).catch(() => (n.isRead = 0))
   }
-  if (n.type === 'expiry') uni.switchTab({ url: '/pages/agent/Index' })
-  else if (n.type === 'shopping') uni.navigateTo({ url: '/pages/shopping/List' })
+  const t = noticeTarget(n)
+  if (!t) return
+  if (t.tab) uni.switchTab({ url: t.url })
+  else uni.navigateTo({ url: t.url })
 }
 
 async function readAll() {

@@ -135,7 +135,7 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { agentSuggestions, listSessions, setCurrentSession, type AgentSessionItem } from '@/api/agent'
 import { coverageLabel, type CDishCard } from '@/api/contract'
-import { recommendHome } from '@/api/recommend'
+import { heroCandidates, recommendHome } from '@/api/recommend'
 import { listMembers } from '@/api/member'
 import { unreadCount } from '@/api/notification'
 import { relativeDate } from '@/utils/datetime'
@@ -232,7 +232,7 @@ async function load() {
 async function fallback() {
   try {
     const h = await recommendHome()
-    const d = h.expiringPicks[0] || h.frequent[0]
+    const d = heroCandidates(h)[0]
     if (d && !tonight.value) {
       tonight.value = {
         id: d.dishId,

@@ -37,9 +37,12 @@ export function aiFeedbackUrl(source: AiSource, ref?: string | number): string {
   return url
 }
 
-/** 反馈页 clientInfo 里的来源段，如「来源:AI/咕嘟助手#m123」。 */
-export function aiSourceTag(source?: string, ref?: string): string {
-  if (!source) return ''
-  const label = (AI_SOURCE_LABEL as Record<string, string>)[source] || source
-  return `来源:AI/${label}${ref ? '#' + ref : ''}`
+/**
+ * AI 内容反馈的来源引用（后端 feedback.source_ref，A.11）：「agent:m123」/「weekplan」。
+ * 只接受已知来源，其他返回空串（避免 URL 参数被随意塞内容）。
+ */
+export function aiSourceRef(source?: string, ref?: string): string {
+  if (!source || !(source in AI_SOURCE_LABEL)) return ''
+  const r = (ref ?? '').trim()
+  return (r ? `${source}:${r}` : source).slice(0, 128)
 }

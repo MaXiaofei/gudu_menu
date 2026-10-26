@@ -26,6 +26,11 @@
       <template v-else>
         <!-- 健康类免责提示（智荐是本地向量召回，不是 AI 生成，不标 AI）：家里有特殊饮食人群时显示 -->
         <view v-if="hasSpecialDiet" class="ai-row" data-testid="smart-health"><ui-health-note /></view>
+        <!-- 关闭个性化推荐（A.8）：说明当前是通用推荐，可去设置里打开 -->
+        <view v-if="!home.personalized" class="generic-note" data-testid="smart-generic" @click="goSettings">
+          <text class="generic-txt">已关闭个性化推荐，当前展示时令和大家常做的菜</text>
+          <text class="generic-link">去设置 ›</text>
+        </view>
         <!-- 今晚首推 -->
         <view v-if="heroCard" class="hero" data-testid="smart-hero" @click="goDish(heroCard.dishId)">
           <ui-dish-image :src="cardCover(heroCard)" :name="heroCard.name" ratio="4:3" :radius="22" original>
@@ -98,6 +103,23 @@
           </scroll-view>
         </view>
 
+        <!-- 大家常做（仅通用推荐：全站热度，不针对个人） -->
+        <view v-if="home.popular.length" class="sec" data-testid="sec-popular">
+          <text class="sec-title">大家常做</text>
+          <scroll-view scroll-x class="hscroll" :show-scrollbar="false">
+            <view class="hrow">
+              <ui-dish-card
+                v-for="d in home.popular"
+                :key="d.dishId"
+                :name="d.name"
+                :cover="cardCover(d)"
+                :meta="cardMeta(d)"
+                @tap="goDish(d.dishId)"
+              />
+            </view>
+          </scroll-view>
+        </view>
+
         <!-- 应季 -->
         <view v-if="home.seasonal.length" class="sec" data-testid="sec-seasonal">
           <text class="sec-title">{{ monthLabel }}应季</text>
@@ -145,7 +167,7 @@
 import { ref, reactive, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { coverageText, coverageLevel, cardCover, type DishCard } from '@/api/dish'
-import { recommendHome, recentCooked, type RecommendHome, type RecentCooked } from '@/api/recommend'
+import { heroCandidates, recommendHome, recentCooked, type RecommendHome, type RecentCooked } from '@/api/recommend'
 import { listMembers } from '@/api/member'
 import { unreadCount } from '@/api/notification'
 import { relativeDate } from '@/utils/datetime'
@@ -182,7 +204,9 @@ const monthLabel = computed(() => `${['一', '二', '三', '四', '五', '六', 
 const homeLoading = ref(true)
 const homeError = ref(false)
 const homeLoaded = ref(false)
-const home = reactive<RecommendHome>({ expiring: [], expiringPicks: [], frequent: [], seasonal: [] })
+const home = reactive<RecommendHome>({
+  expiring: [], expiringPicks: [], frequent: [], seasonal: [], popular: [], personalized: true,
+})
 const recent = ref<RecentCooked[]>([])
 
 /** 首次骨架；再次 onShow 静默刷新。两个接口都失败才进错误态。 */
@@ -197,8 +221,8 @@ async function loadHome() {
   homeLoading.value = false
 }
 
-// 首推候选：临期主推优先，其次你家常做
-const heroPool = computed<DishCard[]>(() => (home.expiringPicks.length ? home.expiringPicks : home.frequent))
+// 首推候选：临期主推优先，其次你家常做；关闭个性化推荐时用大家常做 / 应季
+const heroPool = computed<DishCard[]>(() => heroCandidates(home))
 const heroIdx = ref(0)
 const heroCard = computed(() => heroPool.value[heroIdx.value % Math.max(1, heroPool.value.length)] || null)
 const restPicks = computed(() => home.expiringPicks.filter((d) => d.dishId !== heroCard.value?.dishId))
@@ -225,8 +249,13 @@ const heroWhy = computed(() => {
 function cardMeta(d: DishCard): string {
   const parts: string[] = []
   if (d.cookMinutes) parts.push(`${d.cookMinutes} 分钟`)
-  parts.push(d.cookedCount > 0 ? `做过 ${d.cookedCount} 次` : '没做过')
+  // 通用推荐不带个人做饭次数（后端给 0），不显示「没做过」以免误导
+  if (home.personalized) parts.push(d.cookedCount > 0 ? `做过 ${d.cookedCount} 次` : '没做过')
   return parts.join(' · ')
+}
+
+function goSettings() {
+  uni.navigateTo({ url: '/pages/profile/Settings' })
 }
 
 function goPantry() {
@@ -453,5 +482,26 @@ function goDish(id: number) {
 }
 .ai-row {
   margin-bottom: var(--sp-12);
+}
+.generic-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  margin-bottom: var(--sp-12);
+  padding: var(--sp-8) var(--sp-12);
+  border-radius: var(--r-md);
+  background: var(--info-soft);
+}
+.generic-txt {
+  flex: 1;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--body);
+}
+.generic-link {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary-deep);
 }
 </style>

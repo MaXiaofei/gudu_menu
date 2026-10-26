@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  AI_DISCLAIMER, AI_DISCLAIMER_TAIL, AI_ASSISTANT_INTRO, HEALTH_DISCLAIMER, AI_SOURCE_LABEL, aiFeedbackUrl, aiSourceTag,
+  AI_DISCLAIMER, AI_DISCLAIMER_TAIL, AI_ASSISTANT_INTRO, HEALTH_DISCLAIMER, AI_SOURCE_LABEL, aiFeedbackUrl, aiSourceRef,
 } from '@/utils/aiLabel'
 
 describe('utils/aiLabel', () => {
@@ -19,9 +19,11 @@ describe('utils/aiLabel', () => {
     expect(aiFeedbackUrl('weekplan', 'a b')).toBe('/pages/profile/Feedback?type=ai&source=weekplan&ref=a%20b')
     expect(aiFeedbackUrl('scan', '')).toBe('/pages/profile/Feedback?type=ai&source=scan')
   })
-  it('clientInfo 来源标记', () => {
-    expect(aiSourceTag('scan')).toBe('来源:AI/拍照识别')
-    expect(aiSourceTag('agent', 'm1')).toBe('来源:AI/咕嘟助手#m1')
-    expect(aiSourceTag('')).toBe('')
+  it('来源引用 sourceRef（A.11，不再塞进 clientInfo）：只认已知来源', () => {
+    expect(aiSourceRef('scan')).toBe('scan')
+    expect(aiSourceRef('agent', ' m1 ')).toBe('agent:m1')
+    expect(aiSourceRef('')).toBe('')
+    expect(aiSourceRef('evil', 'x')).toBe('')
+    expect(aiSourceRef('agent', 'x'.repeat(200))).toHaveLength(128)
   })
 })
