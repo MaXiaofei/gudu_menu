@@ -1245,6 +1245,48 @@ class GuduE2ECoverageTest {
         assertThat(msgs.get("data").toString()).doesNotContain("冰毒").contains("已屏蔽").contains("内容安全检测");
     }
 
+    // ===================== Y. 小程序关闭厨房圈（mini-release-compliance A.1） =====================
+
+    @Test
+    void Y_小程序来源_厨房圈写接口403_读接口与其他端不受影响() throws Exception {
+        String token = loginAdmin();
+        HttpHeaders h = new HttpHeaders();
+        h.set("Authorization", token);
+        h.set("X-Client", "mp-weixin");
+        h.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> postBody = new HashMap<>();
+        postBody.put("title", "E2E小程序发帖");
+        postBody.put("text", "E2E 小程序不该发出去");
+        String[][] writes = {
+                {"/community/posts", om.writeValueAsString(postBody)},
+                {"/community/posts/1/comments", "{\"text\":\"E2E评论\"}"},
+                {"/community/posts/1/reactions", "{\"type\":\"LIKE\",\"on\":true}"},
+                {"/community/users/1/follow", "{\"on\":true}"},
+                {"/community/reports", "{\"postId\":1,\"reason\":\"E2E\"}"},
+        };
+        for (String[] w : writes) {
+            ResponseEntity<String> resp = http.exchange(CTX + w[0], HttpMethod.POST, new HttpEntity<>(w[1], h),
+                    String.class);
+            assertThat(resp.getStatusCode().value()).as("小程序写 " + w[0]).isEqualTo(403);
+            JsonNode body = om.readTree(resp.getBody());
+            assertThat(body.get("code").asInt()).as(w[0]).isEqualTo(4031);
+            assertThat(text(body, "msg")).contains("厨房圈");
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM community_post WHERE title = 'E2E小程序发帖'",
+                Integer.class)).as("未落库").isZero();
+
+        // 读接口不受影响
+        ResponseEntity<String> feed = http.exchange(CTX + "/community/feed", HttpMethod.GET, new HttpEntity<>(h),
+                String.class);
+        assertThat(feed.getStatusCode().value()).isEqualTo(200);
+        assertThat(om.readTree(feed.getBody()).get("code").asInt()).isZero();
+
+        // 不带 X-Client（App/H5）照常可写：点赞一条已有帖子（不存在也只是业务失败，而非 4031）
+        JsonNode appReact = post(token, "/community/posts/1/reactions", Map.of("type", "LIKE", "on", false));
+        assertThat(appReact.get("code").asInt()).isNotEqualTo(4031);
+    }
+
     private String loginAs(String username, String password) {
         Map<String, String> body = new HashMap<>();
         body.put("username", username);

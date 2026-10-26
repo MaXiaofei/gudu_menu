@@ -64,3 +64,13 @@ export function removeTogetherItem(menuId: number, menuDishId: number, guestKey?
     ...(guestKey ? { guestKey } : {}),
   })
 }
+
+/** 加入聚餐（登录身份，A.10）：POST /invite/{token}/join → {menuId, menuName}；后端校验邀请 token，按账号 upsert。 */
+export function joinTogether(token: string): Promise<{ menuId: number; menuName?: string | null }> {
+  return request({ url: `/invite/${encodeURIComponent(token)}/join`, method: 'POST', data: {} })
+}
+
+/** 改自己在这场聚餐里显示的昵称（完善资料后同步）。 */
+export function updateTogetherNickname(menuId: number, nickname: string): Promise<void> {
+  return request({ url: `/menu/${menuId}/together/nickname`, method: 'PUT', data: { nickname }, silent: true })
+}

@@ -4,6 +4,7 @@ export { BASE } from '@/config/env'
 import { BASE as BASE_URL } from '@/config/env'
 import { hasConsent } from './consent'
 import { contentSecurityMessage, type ContentScene } from './contentSecurity'
+import { currentPageTarget, loginUrl } from './loginRedirect'
 
 /** 默认请求超时（毫秒），调用方可通过 opt.timeout 覆盖。 */
 export const REQUEST_TIMEOUT = 15000
@@ -35,6 +36,17 @@ export function lastErrorId(): string {
 
 export function getToken(): string {
   return uni.getStorageSync('token') || ''
+}
+
+/** 来源端请求头（A.1）：微信小程序标 X-Client: mp-weixin，后端据此关闭小程序的厨房圈写操作。 */
+export const CLIENT_HEADER = 'X-Client'
+export function clientHeader(platform: string | undefined = process.env.UNI_PLATFORM): Record<string, string> {
+  return platform === 'mp-weixin' ? { [CLIENT_HEADER]: 'mp-weixin' } : {}
+}
+
+/** 鉴权 + 来源端头：request / uploadFile / SSE 统一用。 */
+export function authHeaders(): Record<string, string> {
+  return { Authorization: getToken(), ...clientHeader() }
 }
 
 /**
@@ -109,7 +121,7 @@ export async function request<T = any>(
       data: cleanData(opt.data) as UniApp.RequestOptions['data'],
       url: BASE_URL + opt.url,
       header: {
-        Authorization: getToken(),
+        ...authHeaders(),
         // 朋友点菜免登录凭证（对应 H5 的 X-Guest-Key）
         ...(opt.guestKey ? { 'X-Guest-Key': opt.guestKey } : {}),
         ...opt.header,
@@ -143,7 +155,8 @@ export async function request<T = any>(
       return request<T>({ ...opt, _retried: true }) // 新 token 重放一次
     }
     uni.removeStorageSync('token')
-    uni.reLaunch({ url: '/pages/login/Login' })
+    // 分享落地页等白名单页面：登录后回到当前页（A.10）
+    uni.reLaunch({ url: loginUrl(currentPageTarget()) })
     throw new Error('未登录')
   }
   if (body.code === 429) {

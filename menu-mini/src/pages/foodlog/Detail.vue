@@ -4,7 +4,7 @@
     <view class="top" :style="{ paddingTop: sb + 'px' }">
       <text class="back" @click="goBack">‹</text>
       <view style="flex: 1" />
-      <view v-if="detail" class="share" data-testid="share-community" @click="shareToCommunity">
+      <view v-if="detail && FEATURES.community" class="share" data-testid="share-community" @click="shareToCommunity">
         <ui-icon name="users" tone="primary" :size="14" /><text class="share-txt">晒到厨房圈</text>
       </view>
     </view>
@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import { PAGES, withQuery } from '@/utils/nav'
+import { FEATURES } from '@/config/features'
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { foodLogDetail, copyMenu, type FoodLogDetail } from '@/api/foodlog'

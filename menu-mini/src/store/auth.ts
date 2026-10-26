@@ -16,6 +16,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = r.token
       this.nickname = r.nickname
       uni.setStorageSync('token', r.token)
+      uni.setStorageSync('nickname', r.nickname || '') // 首次完善资料判断默认昵称用（A.7）
       uni.setStorageSync('login_via', 'account') // 账号用户 401 不静默重登（防串号到微信新号）
       uni.removeStorageSync('logged_out')
     },

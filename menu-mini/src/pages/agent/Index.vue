@@ -124,13 +124,16 @@
         <view class="ipt-btn" aria-label="拍照识别" @click="go(PAGES.scan)"><ui-icon name="camera" :size="20" /></view>
       </view>
       <view v-if="text.trim()" class="mic" aria-label="发送" data-testid="agent-send" @click="send"><ui-icon name="send" tone="white" :size="20" /></view>
-      <view v-else class="mic" aria-label="语音" data-testid="agent-voice" @click="go(PAGES.agentVoice)"><ui-icon name="mic" tone="white" :size="20" /></view>
+      <view v-else-if="FEATURES.voice" class="mic" aria-label="语音" data-testid="agent-voice" @click="go(PAGES.agentVoice)"><ui-icon name="mic" tone="white" :size="20" /></view>
+      <!-- 小程序不开放语音（A.9）：空输入时发送键置灰 -->
+      <view v-else class="mic off" aria-label="发送" data-testid="agent-send"><ui-icon name="send" tone="white" :size="20" /></view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { AI_ASSISTANT_INTRO } from '@/utils/aiLabel'
+import { FEATURES } from '@/config/features'
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { agentSuggestions, listSessions, setCurrentSession, type AgentSessionItem } from '@/api/agent'
@@ -659,6 +662,10 @@ function goDish(id: number) {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(var(--sh), 0.3);
+}
+.mic.off {
+  opacity: 0.4;
+  box-shadow: none;
 }
 .ai-intro {
   display: flex;

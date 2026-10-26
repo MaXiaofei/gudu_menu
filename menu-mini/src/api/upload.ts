@@ -1,5 +1,5 @@
 import { BASE } from '@/utils/request'
-import { getToken } from '@/utils/request'
+import { authHeaders } from '@/utils/request'
 import { contentSecurityMessage } from '@/utils/contentSecurity'
 
 export interface UploadResult {
@@ -43,7 +43,7 @@ export async function uploadImage(path: string, usage?: 'avatar' | 'post' | 'fee
       filePath,
       name: 'file',
       formData: usage ? { filename: 'upload.jpg', usage } : { filename: 'upload.jpg' },
-      header: { Authorization: getToken() },
+      header: authHeaders(),
       success: (res) => {
         try {
           const body = JSON.parse(res.data)

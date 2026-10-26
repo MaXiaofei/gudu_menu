@@ -3,23 +3,28 @@ import { onLaunch, onShow } from "@dcloudio/uni-app";
 import { silentLogin } from "@/api/auth";
 import { initTheme, applyTabBar } from "@/utils/theme";
 import { hasConsent } from "@/utils/consent";
+import { launchTarget, redirectToLogin, trackLaunchAuth } from "@/utils/loginRedirect";
 onShow(() => applyTabBar());
-onLaunch(async () => {
+onLaunch((options) => {
   initTheme();
-  const token = uni.getStorageSync("token");
-  const loggedOut = uni.getStorageSync("logged_out");
-  if (!token) {
-    if (loggedOut || !hasConsent()) {
-      // 主动退出过 / 尚未勾选协议：不发起任何登录（含 wx.login），进登录页先同意协议
-      uni.reLaunch({ url: "/pages/login/Login" });
-      return;
-    }
-    // 已同意协议的老用户：wx.login 静默登录（无感），失败才进账号登录页
-    const ok = await silentLogin();
-    if (!ok) {
-      uni.reLaunch({ url: "/pages/login/Login" });
-    }
-  }
+  // 分享落地页（聚餐点菜 / 菜谱详情…）：带着原始页面与参数去登录，登录后回到原页（A.10）
+  const target = launchTarget(options as any);
+  // 同步登记启动登录流程：落地页 ensureLogin() 会等它结束再决定是否发请求
+  trackLaunchAuth(
+    (async () => {
+      const token = uni.getStorageSync("token");
+      const loggedOut = uni.getStorageSync("logged_out");
+      if (token) return;
+      if (loggedOut || !hasConsent()) {
+        // 主动退出过 / 尚未勾选协议：不发起任何登录（含 wx.login），进登录页先同意协议
+        redirectToLogin(target);
+        return;
+      }
+      // 已同意协议的老用户：wx.login 静默登录（无感），失败才进账号登录页
+      const ok = await silentLogin();
+      if (!ok) redirectToLogin(target);
+    })(),
+  );
 });
 </script>
 

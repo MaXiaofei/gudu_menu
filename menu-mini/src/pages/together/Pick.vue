@@ -1,6 +1,6 @@
 <template>
   <page-meta :page-style="gdThemeStyle" />
-  <!-- 朋友点菜落地页：分享卡片/小程序码进入，免登录（token 凭证） -->
+  <!-- 朋友点菜落地页：分享卡片/小程序码进入。需登录（A.10）：未登录带邀请参数去登录，登录后回到本页；不再走访客 guestKey -->
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">
       <text class="title">一起点菜</text>
@@ -19,9 +19,10 @@
       </view>
 
       <!-- 我的身份 -->
-      <view class="me-row">
+      <view class="me-row" data-testid="pick-me">
         <text class="me-label">我是</text>
-        <input v-model="nickname" class="me-ipt" placeholder="输入昵称" placeholder-class="ph" />
+        <text class="me-name">{{ nickname || '我' }}</text>
+        <text class="me-edit" @click="editProfile">改昵称</text>
       </view>
 
       <!-- 加菜 -->
@@ -64,20 +65,32 @@
       </view>
       <view style="height: 24px" />
     </scroll-view>
+    <!-- 首次登录完善资料（A.7）：设置后同步到本场聚餐的显示昵称 -->
+    <ui-profile-setup @done="onProfileDone" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
-import { getTogether, addTogetherItem, removeTogetherItem, type TogetherVO, type TogetherDish } from '@/api/together'
+import {
+  getTogether,
+  addTogetherItem,
+  removeTogetherItem,
+  joinTogether,
+  updateTogetherNickname,
+  type TogetherVO,
+  type TogetherDish,
+} from '@/api/together'
 import { searchDishes, type Dish } from '@/api/dish'
 import { navInset } from '@/utils/token'
+import { buildTarget, ensureLogin } from '@/utils/loginRedirect'
 
+const PICK_PATH = '/pages/together/Pick'
 const sb = navInset()
 
 const menuId = ref(0)
-const guestKey = ref('')
+const inviteToken = ref('')
 const nickname = ref('')
 const kw = ref('')
 const results = ref<Dish[]>([])
@@ -86,29 +99,40 @@ const loading = ref(true)
 const error = ref('')
 let timer: ReturnType<typeof setInterval> | null = null
 
-onLoad((options) => {
-  menuId.value = Number(options?.menuId || 0)
-  guestKey.value = options?.token || ''
-  nickname.value = uni.getStorageSync('guest_nickname') || ''
-  if (!menuId.value || !guestKey.value) {
+onLoad(async (options) => {
+  inviteToken.value = String(options?.token || '')
+  if (!inviteToken.value) {
     loading.value = false
     error.value = '缺少邀请凭证'
     return
   }
-  load()
+  // 未登录 / 未同意协议：带着邀请参数去登录，登录后回到本页（A.10）
+  if (!(await ensureLogin(buildTarget(PICK_PATH, { menuId: options?.menuId, token: inviteToken.value })))) return
+  nickname.value = uni.getStorageSync('nickname') || ''
+  try {
+    // 用登录身份加入：后端校验邀请 token 并按账号 upsert，menuId 以邀请为准（不信任链接里的 menuId）
+    const r = await joinTogether(inviteToken.value)
+    menuId.value = Number(r?.menuId || 0)
+  } catch (e: any) {
+    loading.value = false
+    error.value = e?.message || '邀请链接无效或已失效'
+    return
+  }
+  await load()
+  startPolling()
 })
 
 onShow(() => {
-  if (menuId.value && guestKey.value && !error.value) startPolling()
+  if (menuId.value && !error.value) startPolling()
 })
 onHide(stopPolling)
 
 async function load() {
   try {
-    together.value = await getTogether(menuId.value, guestKey.value)
+    together.value = await getTogether(menuId.value)
     error.value = ''
   } catch (e: any) {
-    error.value = e?.message || '凭证失效'
+    error.value = e?.message || '加载失败'
     stopPolling()
   }
   loading.value = false
@@ -125,15 +149,19 @@ function stopPolling() {
   }
 }
 
-/** 加菜前确保有昵称（记进本地，动态里显示谁点的）。 */
-function ensureNickname(): boolean {
-  const n = nickname.value.trim()
-  if (!n) {
-    uni.showToast({ title: '先输入昵称', icon: 'none' })
-    return false
-  }
-  uni.setStorageSync('guest_nickname', n)
-  return true
+function editProfile() {
+  uni.navigateTo({ url: '/pages/profile/Edit' })
+}
+
+/** 完善资料后：本场聚餐里的显示昵称同步成新昵称。 */
+async function onProfileDone(v: { saved: boolean; name?: string }) {
+  if (!v.saved || !v.name) return
+  nickname.value = v.name
+  if (!menuId.value) return
+  try {
+    await updateTogetherNickname(menuId.value, v.name)
+    load()
+  } catch {}
 }
 
 async function onSearch() {
@@ -149,9 +177,8 @@ async function onSearch() {
 }
 
 async function addDish(d: Dish) {
-  if (!ensureNickname()) return
   try {
-    await addTogetherItem(menuId.value, { dishId: d.id, note: nickname.value.trim() }, guestKey.value)
+    await addTogetherItem(menuId.value, { dishId: d.id })
     uni.showToast({ title: `已加「${d.name}」`, icon: 'none' })
     kw.value = ''
     results.value = []
@@ -164,7 +191,6 @@ async function addDish(d: Dish) {
 async function quickAddCustom() {
   const q = kw.value.trim()
   if (!q) return
-  if (!ensureNickname()) return
   // 先搜：命中唯一结果直接加菜库里的；否则按自定义名加
   try {
     const r = await searchDishes({ keyword: q, pageNum: 1 })
@@ -174,7 +200,7 @@ async function quickAddCustom() {
     }
   } catch {}
   try {
-    await addTogetherItem(menuId.value, { customName: q, note: nickname.value.trim() }, guestKey.value)
+    await addTogetherItem(menuId.value, { customName: q })
     uni.showToast({ title: `已加「${q}」`, icon: 'none' })
     kw.value = ''
     results.value = []
@@ -193,7 +219,7 @@ async function removeDish(d: TogetherDish) {
     success: async ({ confirm }) => {
       if (!confirm) return
       try {
-        await removeTogetherItem(menuId.value, d.id, guestKey.value)
+        await removeTogetherItem(menuId.value, d.id)
         load()
       } catch (e: any) {
         uni.showToast({ title: e?.message || '删除失败', icon: 'none' })
@@ -231,14 +257,15 @@ async function removeDish(d: TogetherDish) {
   margin: 10px 0 4px;
 }
 .me-label { font-size: var(--fs-sm); color: var(--body); }
-.me-ipt {
+.me-name {
   flex: 1;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 8px 12px;
   font-size: var(--fs-md);
+  font-weight: 700;
   color: var(--title);
+}
+.me-edit {
+  font-size: var(--fs-sm);
+  color: var(--primary);
 }
 .sec-label {
   display: block;

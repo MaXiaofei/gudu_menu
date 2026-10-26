@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { TABS, PAGES, isTabPath, go, goProfile, withQuery } from '@/utils/nav'
 import { TAB_ICONS } from '@/utils/theme'
 import { __testUni } from '../setup'
+import { loadPagesJson } from '../helpers/pagesJson'
 
-const pagesJson = JSON.parse(readFileSync(resolve(__dirname, '../../src/pages.json'), 'utf8'))
+// vitest 下 UNI_PLATFORM 未定义 → FEATURES 全开，对应 H5 构建
+const pagesJson = loadPagesJson('H5')
 
 describe('utils/nav 主导航改版', () => {
   beforeEach(() => {
