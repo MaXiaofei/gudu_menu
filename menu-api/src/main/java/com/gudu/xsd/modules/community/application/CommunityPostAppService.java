@@ -35,6 +35,8 @@ import com.gudu.xsd.modules.community.domain.repository.TopicRepository;
 import com.gudu.xsd.modules.community.domain.service.PostModerator;
 import com.gudu.xsd.modules.community.domain.service.PostTextWriter;
 import com.gudu.xsd.modules.community.domain.service.ReportPolicy;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
+import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import com.gudu.xsd.modules.cookbook.application.CookingRecordAppService;
 import com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef;
 import com.gudu.xsd.modules.dish.Dish;
@@ -88,6 +90,7 @@ public class CommunityPostAppService {
     private final CookingRecordAppService cookingRecords;
     private final NotificationService notificationService;
     private final Clock clock;
+    private final ContentSecurityAppService contentSecurity;
 
     // ============================ 发布 ============================
 
@@ -132,7 +135,8 @@ public class CommunityPostAppService {
         if (!topicIds.isEmpty() && topics.findByIds(topicIds).size() != topicIds.stream().distinct().count()) {
             throw new BizException("话题不存在");
         }
-        moderator.assertPublishable(cmd.title(), cmd.text());
+        // 内容安全（A.6）：禁发词规则先行 + 有 openid 时微信 msgSecCheck；微信不可用降级到规则
+        contentSecurity.assertText(userId, ContentPurpose.POST, joinText(cmd.title(), cmd.text()));
         Post post = Post.publish(userId, cmd.title(), cmd.text(), images, dishId, topicIds,
                 PostVisibility.of(cmd.visibility()), sourceRecordId, cmd.city(), cmd.coverRatio(), now);
         post.applyVerdict(moderator.review(post.title(), post.text(), post.images()));
@@ -178,7 +182,14 @@ public class CommunityPostAppService {
         }
         return new PostDetail(p.id(), card.author(), p.title(), p.cover(), p.coverRatio(), p.images().size(),
                 c.likes(), card.liked(), c.copies(), card.tags(), p.text(), p.images(), topicRefs, recipe,
-                c.comments(), c.collects(), collected, following, p.createTime(), p.city(), p.status().name());
+                c.comments(), c.collects(), collected, following, p.createTime(), p.city(), p.status().name(),
+                statusReason(p, viewerId));
+    }
+
+    /** 给作者看的处置原因：目前只回「图片未通过审核」（其余审核原因是运营内部信息，不外露）。 */
+    static String statusReason(Post p, Long viewerId) {
+        return p.isAuthor(viewerId) && p.status() != PostStatus.PUBLISHED && p.imageBlocked()
+                ? Post.IMAGE_BLOCKED_REASON : null;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -294,7 +305,7 @@ public class CommunityPostAppService {
         Post p = visiblePost(userId, postId);
         Comment parent = parentId == null ? null : comments.findById(parentId)
                 .orElseThrow(() -> new BizException("回复的评论不存在"));
-        moderator.assertPublishable(null, text);
+        contentSecurity.assertText(userId, ContentPurpose.COMMENT, text);
         Comment c = Comment.write(p.id(), userId, text, parent, LocalDateTime.now(clock).withNano(0));
         comments.save(c);
         counters.incr(p.id(), PostCounter.COMMENT, 1);
@@ -412,5 +423,9 @@ public class CommunityPostAppService {
 
     private static String abbreviate(String s) {
         return s.length() <= 40 ? s : s.substring(0, 40) + "…";
+    }
+
+    private static String joinText(String title, String text) {
+        return (title == null ? "" : title) + "\n" + (text == null ? "" : text);
     }
 }

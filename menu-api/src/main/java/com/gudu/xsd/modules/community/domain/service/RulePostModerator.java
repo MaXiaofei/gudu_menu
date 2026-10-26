@@ -1,6 +1,7 @@
 package com.gudu.xsd.modules.community.domain.service;
 
 import com.gudu.xsd.common.domain.DomainException;
+import com.gudu.xsd.common.domain.SensitiveWords;
 import com.gudu.xsd.modules.community.domain.model.ModerationVerdict;
 import com.gudu.xsd.modules.community.domain.model.RiskLevel;
 import com.gudu.xsd.modules.community.domain.model.RiskScore;
@@ -20,8 +21,8 @@ import java.util.regex.Pattern;
  */
 public final class RulePostModerator implements PostModerator {
 
-    /** 禁发词：命中即拒绝发布（示例词表，生产应接入运营可维护的词库）。 */
-    static final List<String> BLOCKED = List.of("赌博", "博彩", "毒品", "代开发票", "枪支");
+    /** 禁发词：命中即拒绝发布——与内容安全规则兜底共用 {@link SensitiveWords}（A.6 合并为一份词表）。 */
+    static final List<String> BLOCKED = SensitiveWords.BLOCKED;
 
     /** 广告/导流词。 */
     static final List<String> AD_WORDS = List.of("加微信", "加v", "加我v", "私聊", "代购", "优惠券", "返现", "低价出",
@@ -35,9 +36,8 @@ public final class RulePostModerator implements PostModerator {
 
     @Override
     public void assertPublishable(String title, String text) {
-        String all = join(title, text);
-        for (String w : BLOCKED) {
-            if (all.contains(w)) throw new DomainException("内容包含不允许发布的词，请修改后再发");
+        if (SensitiveWords.firstHit(join(title, text)).isPresent()) {
+            throw new DomainException("内容包含不允许发布的词，请修改后再发");
         }
     }
 

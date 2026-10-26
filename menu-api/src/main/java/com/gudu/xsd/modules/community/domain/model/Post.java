@@ -145,6 +145,28 @@ public final class Post extends AggregateRoot<Long> {
         return true;
     }
 
+    /** 内容安全：图片未通过审核时记入审核原因、展示给作者的提示。 */
+    public static final String IMAGE_BLOCKED_REASON = "图片未通过审核";
+
+    /**
+     * 帖子里有图片被内容安全判违规：隐藏（仅作者可见）并回到人工复核队列（与举报隐藏同一状态），
+     * 审核原因记「图片未通过审核」。返回是否发生了变化（已删除 / 已记过的不重复处理）。
+     */
+    public boolean hideForBlockedImage() {
+        if (status == PostStatus.DELETED) return false;
+        if (status == PostStatus.HIDDEN && imageBlocked()) return false;
+        List<String> reasons = new ArrayList<>(moderation.reasons());
+        if (!reasons.contains(IMAGE_BLOCKED_REASON)) reasons.add(0, IMAGE_BLOCKED_REASON);
+        this.moderation = new ModerationState(RiskLevel.HIGH, reasons, moderation.scores(), false);
+        this.status = PostStatus.HIDDEN;
+        return true;
+    }
+
+    /** 是否因图片违规被处置过。 */
+    public boolean imageBlocked() {
+        return moderation.reasons().contains(IMAGE_BLOCKED_REASON);
+    }
+
     /** 申诉前置条件：只有作者能对「被隐藏」的帖子申诉（一次性由仓储唯一键保证）。 */
     public void checkAppealable(Long userId) {
         if (!isAuthor(userId)) throw new DomainException("只能对自己的帖子申诉");

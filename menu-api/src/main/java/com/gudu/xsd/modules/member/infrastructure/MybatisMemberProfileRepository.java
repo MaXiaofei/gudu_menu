@@ -1,5 +1,6 @@
 package com.gudu.xsd.modules.member.infrastructure;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.gudu.xsd.modules.member.AdminChecker;
 import com.gudu.xsd.modules.member.Member;
@@ -9,6 +10,8 @@ import com.gudu.xsd.modules.member.mapper.MemberMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -24,6 +27,15 @@ public class MybatisMemberProfileRepository implements MemberProfileRepository {
         if (m == null) return Optional.empty();
         return Optional.of(MemberProfile.rehydrate(m.getId(), m.getName(), m.getAvatarUrl(), m.getPhone(),
                 AdminChecker.isAdmin(m)));
+    }
+
+    @Override
+    public List<MemberProfile> findByAvatarUrls(Collection<String> avatarUrls) {
+        if (avatarUrls == null || avatarUrls.isEmpty()) return List.of();
+        return mapper.selectList(new QueryWrapper<Member>().in("avatar_url", avatarUrls)).stream()
+                .map(m -> MemberProfile.rehydrate(m.getId(), m.getName(), m.getAvatarUrl(), m.getPhone(),
+                        AdminChecker.isAdmin(m)))
+                .toList();
     }
 
     @Override

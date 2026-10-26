@@ -3,6 +3,8 @@ package com.gudu.xsd.modules.feedback.application;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
+import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import com.gudu.xsd.modules.feedback.domain.model.Feedback;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackPage;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackStatus;
@@ -32,6 +34,7 @@ public class FeedbackAppService {
     private final FeedbackRepository repository;
     private final MemberService memberService;
     private final Clock clock;
+    private final ContentSecurityAppService contentSecurity;
 
     @Transactional(rollbackFor = Exception.class)
     public Long submit(Long memberId, String content, String contact, List<String> images, String clientInfo) {
@@ -40,6 +43,8 @@ public class FeedbackAppService {
             throw BizException.tooManyRequests("今天反馈次数已达上限，明天再来吧");
         }
         Feedback f = Feedback.submit(memberId, content, contact, images, clientInfo, now);
+        // 内容安全（A.6）：违规拒绝；微信不可用降级到规则（反馈仅运营可见，不 fail-closed）
+        contentSecurity.assertText(memberId, ContentPurpose.FEEDBACK, f.content());
         repository.save(f);
         return f.id();
     }

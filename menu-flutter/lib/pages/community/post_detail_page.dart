@@ -209,7 +209,11 @@ class _PostDetailPageState extends State<PostDetailPage> {
                       if (p.status != 'PUBLISHED')
                         Padding(
                           padding: const EdgeInsets.only(bottom: AppTokens.sp8),
-                          child: ToneBadge(p.status == 'REVIEWING' ? '审核中，仅自己可见' : '已隐藏', tone: BadgeTone.warning),
+                          child: ToneBadge(
+                              p.statusReason != null
+                                  ? '${p.statusReason}，仅自己可见'
+                                  : (p.status == 'REVIEWING' ? '审核中，仅自己可见' : '已隐藏'),
+                              tone: BadgeTone.warning),
                         ),
                       _authorRow(t, p),
                       const SizedBox(height: AppTokens.sp12),

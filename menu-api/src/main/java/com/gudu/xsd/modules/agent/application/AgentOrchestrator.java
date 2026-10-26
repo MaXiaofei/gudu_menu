@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -72,9 +73,16 @@ public class AgentOrchestrator {
      *
      * @param toolErrors 评测注入：工具名 → 错误（如 TIMEOUT），该工具直接返回失败
      */
-    public record Env(Kitchen kitchen, ActionDesk desk, ModelGateway gateway, Map<String, String> toolErrors) {
+    public record Env(Kitchen kitchen, ActionDesk desk, ModelGateway gateway, Map<String, String> toolErrors,
+                      AgentContentGate contentGate) {
         public Env {
             toolErrors = toolErrors == null ? Map.of() : toolErrors;
+            contentGate = contentGate == null ? AgentContentGate.PASS : contentGate;
+        }
+
+        /** 不做内容安全检测（评测 / 单测）。 */
+        public Env(Kitchen kitchen, ActionDesk desk, ModelGateway gateway, Map<String, String> toolErrors) {
+            this(kitchen, desk, gateway, toolErrors, AgentContentGate.PASS);
         }
     }
 
@@ -92,6 +100,16 @@ public class AgentOrchestrator {
         if (violation != null) {
             turn.status = TraceStatus.GUARDED;
             return finish(req, turn, violation, sink);
+        }
+
+        // 1b. 内容安全（A.6）：发给模型前检测，违规直接拒绝
+        long c0 = System.currentTimeMillis();
+        String unsafe = env.contentGate().inputViolation(req.text()).orElse(null);
+        turn.span(SpanType.GUARD, "guard.content_input", c0, unsafe == null, Map.of("length", len(req.text())),
+                unsafe == null ? Map.of("pass", true) : Map.of("blocked", true), 0, BigDecimal.ZERO);
+        if (unsafe != null) {
+            turn.status = TraceStatus.GUARDED;
+            return finish(req, turn, unsafe, sink);
         }
 
         // 2. 口头确认：用户只说「确认 / 好的 / 可以」且上一轮留下了待确认卡片 → 直接执行这些卡片（等同点确认），不交给模型
@@ -134,8 +152,8 @@ public class AgentOrchestrator {
                     }
                     continue;
                 }
-                reply = res.content();
-                turn.reasoning = res.reply().reasoningContent();
+                reply = reviewReply(res.content(), env, turn);
+                turn.reasoning = Objects.equals(reply, res.content()) ? res.reply().reasoningContent() : null;
                 break;
             }
         } catch (ModelUnavailableException e) {
@@ -149,6 +167,19 @@ public class AgentOrchestrator {
         }
         if (turn.status == TraceStatus.OK && turn.degraded) turn.status = TraceStatus.DEGRADED;
         return finish(req, turn, reply, sink);
+    }
+
+    /**
+     * 内容安全（A.6）：模型回复在放出任何 token 之前复核；违规替换为安全提示，思考过程一并丢弃（不落库）。
+     */
+    private static String reviewReply(String content, Env env, Turn turn) {
+        if (content == null || content.isBlank()) return content;
+        long r0 = System.currentTimeMillis();
+        String reviewed = env.contentGate().reviewReply(content);
+        boolean pass = content.equals(reviewed);
+        turn.span(SpanType.GUARD, "guard.content_output", r0, pass, Map.of("length", content.length()),
+                pass ? Map.of("pass", true) : Map.of("replaced", true), 0, BigDecimal.ZERO);
+        return reviewed;
     }
 
     private String runTool(ToolCall call, ToolContext ctx, Env env, TurnRequest req, Turn turn, AgentEventSink sink) {

@@ -100,6 +100,19 @@ public class MybatisPostRepository implements PostRepository {
     }
 
     @Override
+    public List<Post> findByImageUrls(Collection<String> urls) {
+        List<String> list = urls == null ? List.of() : urls.stream().filter(u -> u != null && !u.isBlank()).toList();
+        if (list.isEmpty()) return List.of();
+        QueryWrapper<CommunityPostPO> q = new QueryWrapper<CommunityPostPO>().ne("status", PostStatus.DELETED.name());
+        // images 存 JSON 数组字符串：先按带引号的地址 LIKE 粗筛，再在内存里精确匹配（地址里的 _ 是 LIKE 通配符）
+        q.and(w -> {
+            for (String u : list) w.or().like("images", "\"" + u + "\"");
+        });
+        return toDomain(mapper.selectList(q)).stream()
+                .filter(p -> p.images().stream().anyMatch(list::contains)).toList();
+    }
+
+    @Override
     public List<Post> recentPublic(LocalDateTime since, int cap) {
         return toDomain(mapper.selectList(publicPublished().ge("create_time", since)
                 .orderByDesc("create_time").orderByDesc("id").last("LIMIT " + cap)));

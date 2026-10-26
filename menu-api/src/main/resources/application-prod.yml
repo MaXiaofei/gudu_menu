@@ -14,6 +14,10 @@ spring:
 
 gudu:
   upload-dir: /app/uploads/prod
+  # 生产开启微信内容安全（A.6）；隔离目录默认 /app/uploads/prod-quarantine（同卷、不对外服务）
+  content-security:
+    wx-enabled: ${GUDU_CONTENT_SECURITY_WX:true}
+    media-base-url: ${GUDU_MEDIA_BASE_URL:https://imxf.cloud}
   ai:
     provider: ${GUDU_AI_PROVIDER:deepseek}
     deepseek:

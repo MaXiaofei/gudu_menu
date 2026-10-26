@@ -19,5 +19,5 @@ export function submitFeedback(p: FeedbackPayload): Promise<number> {
   if (p.clientInfo) data.clientInfo = p.clientInfo.slice(0, 200)
   if (p.type) data.type = p.type
   if (p.errorId) data.errorId = p.errorId
-  return request<number>({ url: '/feedback', method: 'POST', data })
+  return request<number>({ url: '/feedback', method: 'POST', data, contentScene: 'feedback' })
 }
