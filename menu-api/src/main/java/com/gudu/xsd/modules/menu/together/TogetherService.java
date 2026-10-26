@@ -324,7 +324,7 @@ public class TogetherService {
             // 以食集所属家庭身份校验：只能加公共菜谱或该家庭的私有菜谱
             Dish dish = dishService.getById(dishId);
             if (dish == null || dish.getName() == null || !DishVisibility.isVisible(dish.getFamilyId())) {
-                throw new BizException("菜品不存在");
+                throw BizException.notFound("菜品不存在");
             }
             dishName = dish.getName();
         } else {

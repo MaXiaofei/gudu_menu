@@ -158,21 +158,25 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
     /** 一笔 dish 用量：dish_id + 份数系数（menu/dish 默认 1）。 */
     private record DishUsage(Long dishId, BigDecimal servingFactor) {}
 
-    /** 菜谱可见性校验经 dish 上下文服务（multi-tenant-family）；setter + @Lazy 注入保持单测构造器。 */
-    private com.gudu.xsd.modules.dish.DishService dishService;
+    /** 菜谱可见性守卫（multi-tenant-family E.1）：别家私有菜谱 404；setter 注入保持既有构造器与单测。 */
+    private com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public void setDishService(@org.springframework.context.annotation.Lazy com.gudu.xsd.modules.dish.DishService dishService) {
-        this.dishService = dishService;
+    public void setDishGuard(com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard) {
+        this.dishGuard = dishGuard;
+    }
+
+    private void requireVisible(Long dishId) {
+        if (dishGuard != null) dishGuard.requireVisible(dishId);
+    }
+
+    private void requireAllVisible(java.util.Collection<Long> dishIds) {
+        if (dishGuard != null) dishGuard.requireAllVisible(dishIds);
     }
 
     /** 只能按「公共 + 本家」菜谱生成采购：别家私有菜谱 id 视为不存在（防止读出别家菜谱用料）。 */
     private void assertDishesVisible(List<Long> dishIds) {
-        if (dishService == null || dishIds == null) return;
-        List<Long> ids = dishIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
-        if (!ids.isEmpty() && dishService.listByIds(ids).size() != ids.size()) {
-            throw com.gudu.xsd.common.BizException.notFound("菜谱不存在");
-        }
+        requireAllVisible(dishIds);
     }
 
     /** 根据数据源类型解析涉及的 dish_id 列表（含份数系数）。 */

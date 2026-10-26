@@ -118,12 +118,14 @@ public class DishController {
 
     @DeleteMapping("/{id}/history/{hid}")
     public R<?> deleteHistory(@PathVariable Long id, @PathVariable Long hid) {
+        svc.requireVisible(id);
         querySvc.deleteHistory(id, hid);
         return R.ok(null);
     }
 
     @DeleteMapping("/{id}/history")
     public R<?> clearHistory(@PathVariable Long id) {
+        svc.requireVisible(id);
         querySvc.clearHistory(id);
         return R.ok(null);
     }

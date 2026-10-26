@@ -465,4 +465,18 @@ class TogetherServiceTest {
     private static <T> T argThat(org.mockito.ArgumentMatcher<T> matcher) {
         return org.mockito.ArgumentMatchers.argThat(matcher);
     }
+
+    // ===================== 菜谱可见性（multi-tenant-family E.1） =====================
+
+    @Test
+    void 加菜_别家私有菜谱_404不落库_公共菜谱可加() {
+        MenuJoin me = join(null, "guest-1", "小王");
+        given(joinMapper.selectOne(any())).willReturn(me);
+        given(dishService.getById(99L)).willReturn(null); // 可见性插件：别家私有菜谱读不到
+
+        assertThatThrownBy(() -> svc.addItem(7L, TogetherService.Identity.guest("guest-1"), 99L, null, null))
+                .isInstanceOfSatisfying(com.gudu.xsd.common.BizException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(404));
+        verify(menuDishMapper, never()).insert(any(MenuDish.class));
+    }
 }

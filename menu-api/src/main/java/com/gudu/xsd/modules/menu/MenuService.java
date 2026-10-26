@@ -86,24 +86,25 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         }
     }
 
-    /** 菜谱可见性校验经 dish 上下文服务（multi-tenant-family）；setter + @Lazy 注入避免循环依赖、保持单测构造器。 */
-    private com.gudu.xsd.modules.dish.DishService dishService;
+    /** 菜谱可见性守卫（multi-tenant-family E.1）：别家私有菜谱 404；setter 注入保持既有构造器与单测。 */
+    private com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public void setDishService(@org.springframework.context.annotation.Lazy com.gudu.xsd.modules.dish.DishService dishService) {
-        this.dishService = dishService;
+    public void setDishGuard(com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard) {
+        this.dishGuard = dishGuard;
     }
 
-    /**
-     * 只能把「公共 + 本家」菜谱放进食集：别家私有菜谱 id 一律视为不存在（防止借食集备菜 / 采购读出别家菜谱用料）。
-     */
+    private void requireVisible(Long dishId) {
+        if (dishGuard != null) dishGuard.requireVisible(dishId);
+    }
+
+    private void requireAllVisible(java.util.Collection<Long> dishIds) {
+        if (dishGuard != null) dishGuard.requireAllVisible(dishIds);
+    }
+
+    /** 只能把「公共 + 本家」菜谱放进食集：别家私有菜谱 id 一律视为不存在（防止借食集备菜 / 采购读出别家菜谱用料）。 */
     void assertDishesVisible(java.util.Collection<Long> dishIds) {
-        if (dishService == null || dishIds == null) return;
-        List<Long> ids = dishIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
-        if (ids.isEmpty()) return;
-        if (dishService.listByIds(ids).size() != ids.size()) {
-            throw com.gudu.xsd.common.BizException.notFound("菜谱不存在");
-        }
+        requireAllVisible(dishIds);
     }
 
     /** 保存菜单并整体替换其菜品关联。更新时食集必须属于当前家庭（否则 404）。 */

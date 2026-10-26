@@ -127,7 +127,7 @@ public class CommunityPostAppService {
                 }
             }
         }
-        if (dishId != null && dishService.getById(dishId) == null) throw new BizException("关联的菜谱不存在");
+        if (dishId != null && dishService.getById(dishId) == null) throw BizException.notFound("关联的菜谱不存在");
         List<Long> topicIds = cmd.topicIds() == null ? List.of() : cmd.topicIds();
         if (!topicIds.isEmpty() && topics.findByIds(topicIds).size() != topicIds.stream().distinct().count()) {
             throw new BizException("话题不存在");

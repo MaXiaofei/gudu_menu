@@ -6,6 +6,8 @@ import com.gudu.xsd.common.tenant.TenantContextHolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -86,12 +88,40 @@ class TenantInterceptorSqlTest {
         as(7);
         String sql = dish.parserSingle("SELECT * FROM dish WHERE id = 1", null);
         assertThat(sql).contains("family_id IS NULL").contains("family_id = 7");
-        // 写不改写（权限由 DishService 校验）
-        assertThat(dish.parserSingle("UPDATE dish SET name = 'x' WHERE id = 1", null))
+        // 改 / 删同样只能触达公共或本家菜谱（公共菜谱仅运营可写由 DishAccessGuard 校验）
+        assertThat(dish.parserSingle("UPDATE dish SET name = 'x', family_id = 7 WHERE id = 1", null))
+                .contains("family_id IS NULL OR family_id = 7");
+        assertThat(dish.parserSingle("DELETE FROM dish WHERE id = 1", null)).contains("family_id = 7");
+        // 插入不改写
+        assertThat(dish.parserSingle("INSERT INTO dish (name, family_id) VALUES ('x', 7)", null))
+                .doesNotContain("IS NULL");
+        // 无关表不动
+        assertThat(dish.parserSingle("SELECT * FROM ingredient WHERE id = 1", null))
                 .doesNotContainIgnoringCase("family_id");
-        // 非 dish 表不动
-        assertThat(dish.parserSingle("SELECT * FROM dish_step WHERE dish_id = 1", null))
-                .doesNotContainIgnoringCase("family_id");
+    }
+
+    @Test
+    void 菜谱子表_读改删都追加EXISTS可见菜谱() {
+        as(7);
+        for (String t : List.of("dish_ingredient", "dish_step", "dish_dict")) {
+            assertThat(dish.parserSingle("SELECT * FROM " + t + " WHERE dish_id = 5", null))
+                    .as(t).contains("EXISTS (SELECT 1 FROM dish vd WHERE vd.id = " + t + ".dish_id")
+                    .contains("vd.family_id IS NULL OR vd.family_id = 7");
+            assertThat(dish.parserSingle("DELETE FROM " + t + " WHERE dish_id = 5", null)).as(t).contains("EXISTS");
+            assertThat(dish.parserSingle("UPDATE " + t + " SET dish_id = 6 WHERE dish_id = 5", null)).as(t)
+                    .contains("EXISTS");
+        }
+        // 别名 + JOIN（跨模块存量写法：按菜 id 批量取用料）
+        String join = dish.parserSingle("SELECT di.ingredient_id FROM cooking_record cr "
+                + "JOIN dish_ingredient di ON di.dish_id = cr.dish_id WHERE cr.member_id = 1", null);
+        assertThat(join).contains("vd.id = di.dish_id");
+        // 游客只认公共菜谱
+        TenantContextHolder.clear();
+        assertThat(dish.parserSingle("SELECT * FROM dish_step WHERE dish_id = 5", null))
+                .contains("vd.family_id IS NULL").doesNotContain("vd.family_id =");
+        // 系统模式不改写
+        assertThat(TenantContextHolder.callAsSystem(() -> dish.parserSingle("SELECT * FROM dish_step", null)))
+                .doesNotContain("EXISTS");
     }
 
     @Test

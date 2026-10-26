@@ -26,10 +26,27 @@ public class CookbookService {
 
     private final FavoriteMapper favoriteMapper;
     private final DishMapper dishMapper;
+
+    /** 菜谱可见性守卫（multi-tenant-family E.1）：别家私有菜谱 404；setter 注入保持既有构造器与单测。 */
+    private com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setDishGuard(com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard) {
+        this.dishGuard = dishGuard;
+    }
+
+    private void requireVisible(Long dishId) {
+        if (dishGuard != null) dishGuard.requireVisible(dishId);
+    }
+
+    private void requireAllVisible(java.util.Collection<Long> dishIds) {
+        if (dishGuard != null) dishGuard.requireAllVisible(dishIds);
+    }
     private final DishIngredientMapper dishIngredientMapper;
 
     /** 收藏（幂等：已收藏则跳过）。 */
     public void favorite(Long memberId, Long dishId) {
+        requireVisible(dishId);
         Long cnt = favoriteMapper.selectCount(new QueryWrapper<Favorite>()
                 .eq("member_id", memberId).eq("dish_id", dishId));
         if (cnt == 0) {
@@ -41,6 +58,7 @@ public class CookbookService {
     }
 
     public void unfavorite(Long memberId, Long dishId) {
+        requireVisible(dishId);
         favoriteMapper.delete(new QueryWrapper<Favorite>()
                 .eq("member_id", memberId).eq("dish_id", dishId));
     }

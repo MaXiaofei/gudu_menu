@@ -60,6 +60,23 @@ import java.util.stream.Collectors;
 @Service
 public class MealPlanAppService {
 
+    /** 菜谱可见性守卫（multi-tenant-family E.1）：别家私有菜谱 404；setter 注入保持既有构造器与单测。 */
+    private com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setDishGuard(com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard) {
+        this.dishGuard = dishGuard;
+    }
+
+    private void requireVisible(Long dishId) {
+        if (dishGuard != null) dishGuard.requireVisible(dishId);
+    }
+
+    private void requireAllVisible(java.util.Collection<Long> dishIds) {
+        if (dishGuard != null) dishGuard.requireAllVisible(dishIds);
+    }
+
+
     public static final int MAX_ALTERNATIVES = 3;
     static final int MIN_EXPIRING_WINDOW = 3;
     static final int MAX_EXPIRING_WINDOW = 14;
@@ -166,6 +183,7 @@ public class MealPlanAppService {
 
     @Transactional(rollbackFor = Exception.class)
     public MealPlanDraftView replace(Long memberId, Long draftId, Long slotId, Long dishId) {
+        requireVisible(dishId); // 别家私有菜谱 404（先于任何读写）
         MealPlanDraft draft = owned(memberId, draftId);
         DraftSlot slot = draft.slot(slotId);
         DishCatalog.Snapshot snap = catalog.load();

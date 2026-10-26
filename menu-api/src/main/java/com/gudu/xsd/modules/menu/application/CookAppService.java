@@ -37,7 +37,7 @@ public class CookAppService {
     public CookDishResult cookDish(Long dishId, Long memberId, BigDecimal servings,
                                    List<Long> usedUp, List<Long> partiallyUsed, String note) {
         if (dishId == null || dishService.getById(dishId) == null) {
-            throw new BizException("菜谱不存在");
+            throw BizException.notFound("菜谱不存在");
         }
         CookSession session = CookSession.forDish(memberId, dishId, servings, usedUp, partiallyUsed, note);
         DishCookedEvent event = session.complete();

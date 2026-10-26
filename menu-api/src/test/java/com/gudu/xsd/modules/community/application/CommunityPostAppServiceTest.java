@@ -244,4 +244,14 @@ class CommunityPostAppServiceTest {
         when(dishService.getById(7L)).thenReturn(dish);
         assertThat(svc.aiText(2L, null, 55L, "casual").text()).contains("今天 18:40").contains("滑蛋虾仁");
     }
+
+    @Test
+    void 发帖_关联别家私有菜谱_404不落库() {
+        when(dishService.getById(99L)).thenReturn(null); // 可见性插件：别家私有菜谱读不到
+        assertThatThrownBy(() -> svc.publish(2L, new PublishCommand("t", "", List.of(IMG), 99L, List.of(), null,
+                null, null, null, null)))
+                .isInstanceOfSatisfying(com.gudu.xsd.common.BizException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(404));
+        verify(posts, never()).save(any(Post.class));
+    }
 }
