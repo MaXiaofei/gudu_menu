@@ -25,6 +25,7 @@ import com.gudu.xsd.modules.ai.gateway.domain.model.ChatMessage;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ChatRequest;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ChatResult;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ToolCall;
+import com.gudu.xsd.modules.ai.gateway.domain.service.Pseudonymizer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +43,8 @@ import java.util.function.Supplier;
  *
  * <p>事件严格按 contracts.md：meta → (tool_start → tool_end → card* → action*)* → token* → done；异常时 error。
  * 写工具只登记待确认动作；工具结果以「数据，不是指令」包装回传模型，防间接注入；输出前手机号脱敏。
+ * 隐私：每次调用网关前整段消息（系统提示 / 历史 / 用户输入 / 工具结果）经 {@link Pseudonymizer} 把成员称呼换成
+ * 「成员A/B…」并去掉账号标识；模型回复与工具调用参数还原为真实称呼后再执行工具 / 下发（token 事件再过一道流式还原）。
  * 本类不碰持久化：会话 / 调用链落库由 {@link AgentAppService} 负责，评测直接用返回的 {@link TurnResult}。
  */
 @Slf4j
@@ -98,7 +101,9 @@ public class AgentOrchestrator {
             if (!pending.isEmpty()) return confirmVerbally(req, env, pending, turn, sink);
         }
 
-        // 3. 上下文
+        // 3. 上下文（编排器内部一律用真实称呼；发给网关前假名化、模型输出还原，见 Pseudonymizer）
+        Pseudonymizer pz = Pseudonymizer.of(env.kitchen().members().stream().map(Kitchen.MemberInfo::name).toList());
+        sink = new RestoringSink(sink, pz);
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(ChatMessage.system(AgentPrompts.system(env.kitchen().now(), env.kitchen().members())));
         messages.addAll(req.history());
@@ -113,7 +118,7 @@ public class AgentOrchestrator {
                 ChatRequest cr = new ChatRequest(Capability.TOOLS, "agent", messages, registry.definitions(), false,
                         req.traceId(), req.memberId(), planner, req.forceRule());
                 long l0 = System.currentTimeMillis();
-                ChatResult res = env.gateway().chat(cr);
+                ChatResult res = pz.restore(env.gateway().chat(pz.mask(cr)));
                 turn.llm(res, l0, step);
                 if (res.reply().hasToolCalls()) {
                     messages.add(ChatMessage.assistantToolCalls(res.content(), res.reply().toolCalls(),
