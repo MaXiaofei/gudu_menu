@@ -48,7 +48,24 @@ class GuduE2ECoverageTest {
     @Autowired
     private TestRestTemplate http;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Autowired
+    private com.gudu.xsd.config.WxProperties wxProps;
+
+    @Autowired
+    private com.gudu.xsd.common.upload.UploadUrlSigner uploadSigner;
+
+    @org.springframework.beans.factory.annotation.Value("${gudu.upload-dir}")
+    private String uploadDir;
+
     private final ObjectMapper om = new ObjectMapper();
+
+    /** 去掉上传地址签名（A.3），用于比较入库的规范地址。 */
+    private static String unsigned(String url) {
+        return com.gudu.xsd.common.upload.UploadUrlSigner.strip(url);
+    }
 
     private static final long DISH_FANQIE = 1L;   // 番茄炒蛋（种子）
     private static final long ING_TOMATO = 1L;    // 番茄（种子）
@@ -796,6 +813,67 @@ class GuduE2ECoverageTest {
         assertThat(data.has("thumbnailUrl")).isTrue();
     }
 
+    // ===================== Q2. 上传文件访问控制（A.3：UUID 文件名 + 短时签名 URL） =====================
+
+    @Test
+    void Q2_上传文件_UUID文件名_签名可读_未签名或篡改403_入参未签名拒绝() {
+        String token = loginAdmin();
+        byte[] png = java.util.Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", new ByteArrayResource(png) {
+            @Override
+            public String getFilename() { return "e2e-sign.png"; }
+        });
+        JsonNode up = post(token, "/file/upload", form);
+        assertThat(up.get("code").asInt()).as("上传 msg=" + text(up, "msg")).isZero();
+        String url = up.get("data").get("url").asText();
+        String thumb = up.get("data").get("thumbnailUrl").asText();
+        // 随机 UUID 文件名（不可按时间枚举）+ 短时签名
+        assertThat(url).matches("^/gudu/uploads/original/\\d{8}/[0-9a-f]{32}\\.png\\?e=\\d+&s=[A-Za-z0-9_\\-]+$");
+
+        String served = url.replaceFirst("^/gudu", "");
+        String servedThumb = thumb.replaceFirst("^/gudu", "");
+        assertThat(http.getForEntity(CTX + served, byte[].class).getStatusCode().value()).as("带签名可读").isEqualTo(200);
+        assertThat(http.getForEntity(CTX + servedThumb, byte[].class).getStatusCode().value()).isEqualTo(200);
+        // 前端把 /original/ 换成 /thumbnail/ 取缩略图：签名同样有效
+        assertThat(http.getForEntity(CTX + served.replace("/original/", "/thumbnail/"), byte[].class)
+                .getStatusCode().value()).isEqualTo(200);
+        assertThat(http.getForEntity(CTX + unsigned(served), byte[].class).getStatusCode().value())
+                .as("未签名 403").isEqualTo(403);
+        assertThat(http.getForEntity(CTX + served.replaceFirst("s=", "s=x"), byte[].class).getStatusCode().value())
+                .as("篡改签名 403").isEqualTo(403);
+        assertThat(http.getForEntity(CTX + served.replaceFirst("e=\\d+", "e=4102444800"), byte[].class)
+                .getStatusCode().value()).as("篡改过期时间 403").isEqualTo(403);
+
+        // 存量时间戳文件：同样需要签名
+        java.nio.file.Path legacyDir = java.nio.file.Paths.get(uploadDir, "original", "20260101");
+        try {
+            java.nio.file.Files.createDirectories(legacyDir);
+            java.nio.file.Files.write(legacyDir.resolve("1767225600123.png"), png);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        String legacy = "/uploads/original/20260101/1767225600123.png";
+        assertThat(http.getForEntity(CTX + legacy, byte[].class).getStatusCode().value()).isEqualTo(403);
+        assertThat(http.getForEntity(CTX + uploadSigner.sign(legacy), byte[].class).getStatusCode().value())
+                .isEqualTo(200);
+
+        // 入参：服务端签发的地址可保存（入库为规范地址）；猜出来的未签名地址拒绝
+        String oldAvatar = text(get(token, "/member/me").get("data"), "avatarUrl");
+        try {
+            assertThat(put(token, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).isZero();
+            String back = text(get(token, "/member/me").get("data"), "avatarUrl");
+            assertThat(back).contains("?e=");
+            assertThat(unsigned(back)).isEqualTo(unsigned(url));
+            JsonNode guessed = put(token, "/member/me", Map.of("avatarUrl", "/gudu" + legacy));
+            assertThat(guessed.get("code").asInt()).as("未签名地址应拒绝").isNotZero();
+            assertThat(text(guessed, "msg")).contains("图片地址已失效");
+        } finally {
+            put(token, "/member/me", Map.of("avatarUrl", oldAvatar));
+        }
+    }
+
     // ===================== P. 余量保质期（feature-gaps-closure G2/G6） =====================
 
     @Test
@@ -966,11 +1044,13 @@ class GuduE2ECoverageTest {
         assertThat(me.get("data").has("phone")).isTrue();
 
         try {
-            JsonNode up = put(token, "/member/me", Map.of("name", "掌勺改名测试", "avatarUrl", "/gudu/uploads/e2e/a.jpg"));
+            JsonNode up = put(token, "/member/me", Map.of("name", "掌勺改名测试",
+                    "avatarUrl", uploadSigner.sign("/gudu/uploads/e2e/a.jpg")));
             assertThat(up.get("code").asInt()).as("put me msg=" + text(up, "msg")).isEqualTo(0);
             JsonNode me2 = get(token, "/member/me").get("data");
             assertThat(me2.get("name").asText()).isEqualTo("掌勺改名测试");
-            assertThat(me2.get("avatarUrl").asText()).isEqualTo("/gudu/uploads/e2e/a.jpg");
+            assertThat(me2.get("avatarUrl").asText()).as("出参带签名").contains("?e=");
+            assertThat(unsigned(me2.get("avatarUrl").asText())).isEqualTo("/gudu/uploads/e2e/a.jpg");
 
             assertThat(put(token, "/member/me", Map.of("avatarUrl", "https://evil.com/a.jpg")).get("code").asInt())
                     .as("外链头像应拒绝").isNotEqualTo(0);
@@ -991,7 +1071,7 @@ class GuduE2ECoverageTest {
         assertThat(bad.get("code").asInt()).as("内容过短应拒绝").isNotEqualTo(0);
 
         JsonNode created = post(token, "/feedback", Map.of("content", "E2E反馈：希望增加菜谱导出",
-                "contact", "e2e@example.com", "images", List.of("/gudu/uploads/e2e/f.jpg"), "clientInfo", "e2e"));
+                "contact", "e2e@example.com", "images", List.of(uploadSigner.sign("/gudu/uploads/e2e/f.jpg")), "clientInfo", "e2e"));
         assertThat(created.get("code").asInt()).as("feedback msg=" + text(created, "msg")).isEqualTo(0);
         long id = created.get("data").asLong();
 
@@ -1002,7 +1082,7 @@ class GuduE2ECoverageTest {
             if (f.get("id").asLong() == id) mine = f;
         }
         assertThat(mine).as("NEW 列表应含刚提交的反馈").isNotNull();
-        assertThat(mine.get("images").get(0).asText()).isEqualTo("/gudu/uploads/e2e/f.jpg");
+        assertThat(unsigned(mine.get("images").get(0).asText())).isEqualTo("/gudu/uploads/e2e/f.jpg");
         assertThat(mine.get("memberName").isNull()).isFalse();
 
         assertThat(put(token, "/feedback/" + id + "/status", Map.of("status", "DONE")).get("code").asInt()).isEqualTo(0);
@@ -1122,5 +1202,136 @@ class GuduE2ECoverageTest {
                 assertThat(c.get("coverUrl")).isEqualTo(c.get("coverImage"));
             }
         }
+    }
+    // ===================== X. 内容安全（mini-release-compliance A.6） =====================
+
+    /**
+     * test profile 关闭微信真实调用（gudu.content-security.wx-enabled=false），admin 为账号密码登录（无 openid）：
+     * 文本走规则兜底；图片回调用签名推送模拟微信（自建 E2E 前缀 trace_id，seed 兜底清理）。
+     */
+    @Test
+    void X_内容安全_昵称反馈规则兜底_图片违规回调_头像清空_帖子隐藏_占位图_对话输入拦截() throws Exception {
+        String token = loginAdmin();
+
+        // 1. 昵称命中禁发词：451，不保存
+        String oldName = get(token, "/member/me").get("data").get("name").asText();
+        JsonNode bad = put(token, "/member/me", Map.of("name", "网赌一哥"));
+        assertThat(bad.get("code").asInt()).as("昵称违规 msg=" + text(bad, "msg")).isEqualTo(451);
+        assertThat(text(bad, "msg")).contains("昵称").doesNotContain("网赌");
+        assertThat(get(token, "/member/me").get("data").get("name").asText()).isEqualTo(oldName);
+
+        // 2. 反馈命中禁发词：451，不落库；正常反馈不受影响
+        JsonNode fb = post(token, "/feedback", Map.of("content", "E2E反馈：有人在评论区代开发票"));
+        assertThat(fb.get("code").asInt()).as("反馈违规 msg=" + text(fb, "msg")).isEqualTo(451);
+        assertThat(post(token, "/feedback", Map.of("content", "E2E反馈：希望增加菜谱导出")).get("code").asInt())
+                .isEqualTo(0);
+
+        // 3. 上传一张图，模拟已提交微信检测（trace_id E2E 前缀）
+        byte[] png = java.util.Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", new ByteArrayResource(png) {
+            @Override
+            public String getFilename() { return "e2e-cs.png"; }
+        });
+        form.add("usage", "avatar");
+        JsonNode up = post(token, "/file/upload", form);
+        assertThat(up.get("code").asInt()).as("上传 msg=" + text(up, "msg")).isEqualTo(0);
+        String url = up.get("data").get("url").asText();
+        String servedPath = url.replaceFirst("^/gudu", "");
+        assertThat(http.getForEntity(CTX + servedPath, byte[].class).getStatusCode().value()).isEqualTo(200);
+        String traceId = "E2E-" + java.util.UUID.randomUUID();
+        jdbc.update("INSERT INTO content_media_check(trace_id, media_url, member_id, purpose, status) "
+                + "VALUES (?, ?, NULL, 'AVATAR', 'PENDING')", traceId, unsigned(url));
+
+        // 3b. 检测结果回来前：图已被用作头像、发进厨房圈（待回调的图片放行）
+        String oldAvatar = text(get(token, "/member/me").get("data"), "avatarUrl");
+        assertThat(put(token, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).isZero();
+        assertThat(unsigned(text(get(token, "/member/me").get("data"), "avatarUrl"))).isEqualTo(unsigned(url));
+        Map<String, Object> postBody = new HashMap<>();
+        postBody.put("title", "E2E内容安全帖");
+        postBody.put("text", "E2E 正文：今天的番茄炒蛋");
+        postBody.put("imageUrls", List.of(url));
+        postBody.put("coverRatio", 0.75);
+        JsonNode published = post(token, "/community/posts", postBody);
+        assertThat(published.get("code").asInt()).as("发帖 msg=" + text(published, "msg")).isZero();
+        long postId = published.get("data").get("postId").asLong();
+
+        // 4. 微信消息推送：签名不对拒绝；签名正确 + risky → 定论 RISKY、订阅方处置、文件隔离
+        String oldToken = wxProps.getToken();
+        wxProps.setToken("e2e-push-token");
+        try {
+            String ts = String.valueOf(java.time.Instant.now().getEpochSecond());
+            String pushBody = "{\"ToUserName\":\"gh_e2e\",\"FromUserName\":\"o_e2e\",\"CreateTime\":" + ts
+                    + ",\"MsgType\":\"event\",\"Event\":\"wxa_media_check\",\"appid\":\"\",\"trace_id\":\""
+                    + traceId + "\",\"version\":2,\"detail\":[],\"errcode\":0,\"errmsg\":\"ok\","
+                    + "\"result\":{\"suggest\":\"risky\",\"label\":20002}}";
+            assertThat(push("bad-sign", ts, "n1", pushBody)).isEqualTo("invalid signature");
+            assertThat(jdbc.queryForObject("SELECT status FROM content_media_check WHERE trace_id = ?", String.class,
+                    traceId)).isEqualTo("PENDING");
+            String sign = com.gudu.xsd.modules.contentsecurity.domain.service.WxPushSignature.sign(
+                    "e2e-push-token", ts, "n1");
+            assertThat(push(sign, ts, "n1", pushBody)).isEqualTo("success");
+            assertThat(push(sign, ts, "n1", pushBody)).as("重复推送幂等").isEqualTo("success");
+        } finally {
+            wxProps.setToken(oldToken);
+        }
+        assertThat(jdbc.queryForObject("SELECT status FROM content_media_check WHERE trace_id = ?", String.class,
+                traceId)).isEqualTo("RISKY");
+        // 原地址换成占位图：仍 200（菜谱 / 食记等引用处不出现坏图），但已不是原图
+        org.springframework.http.ResponseEntity<byte[]> served = http.getForEntity(CTX + servedPath, byte[].class);
+        assertThat(served.getStatusCode().value()).as("原地址换占位图").isEqualTo(200);
+        assertThat(served.getBody()).isNotEqualTo(png);
+        assertThat(javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(served.getBody())).getWidth())
+                .as("占位图 600px").isEqualTo(600);
+
+        // 头像订阅方：已清空（前端回退默认头像）
+        assertThat(text(get(token, "/member/me").get("data"), "avatarUrl")).as("违规头像已清空").isEmpty();
+
+        // 帖子订阅方：他人不可见；作者可见 HIDDEN + 「图片未通过审核」
+        String chef = loginAs("13900000088", "chef123");
+        assertThat(get(chef, "/community/posts/" + postId).get("code").asInt()).as("他人不可见").isNotZero();
+        JsonNode mine = get(token, "/community/posts/" + postId);
+        assertThat(mine.get("code").asInt()).as("作者可见 msg=" + text(mine, "msg")).isZero();
+        assertThat(mine.get("data").get("status").asText()).isEqualTo("HIDDEN");
+        assertThat(text(mine.get("data"), "statusReason")).isEqualTo("图片未通过审核");
+
+        // 5. 再用违规图片当头像：451
+        JsonNode avatar = put(token, "/member/me", Map.of("avatarUrl", url));
+        assertThat(avatar.get("code").asInt()).as("头像违规 msg=" + text(avatar, "msg")).isEqualTo(451);
+        assertThat(unsigned(text(get(token, "/member/me").get("data"), "avatarUrl"))).isNotEqualTo(unsigned(url));
+        if (!oldAvatar.isEmpty()) put(token, "/member/me", Map.of("avatarUrl", oldAvatar));
+
+        // 6. 咕嘟对话：输入命中禁发词 → 不跑工具、回内容安全提示；落库的是占位文本而非原话
+        JsonNode ses = post(token, "/agent/sessions", Map.of("title", "E2E内容安全"));
+        assertThat(ses.get("code").asInt()).as(ses.toString()).isZero();
+        String sessionId = ses.get("data").get("sessionId").asText();
+        HttpHeaders h = new HttpHeaders();
+        h.set("Authorization", token);
+        h.setContentType(MediaType.APPLICATION_JSON);
+        h.setAccept(List.of(MediaType.TEXT_EVENT_STREAM));
+        String sse = http.exchange(CTX + "/agent/sessions/" + sessionId + "/messages", HttpMethod.POST,
+                new HttpEntity<>(om.writeValueAsString(Map.of("text", "哪里能买到冰毒")), h), String.class).getBody();
+        assertThat(sse).contains("event:meta").contains("event:done").doesNotContain("event:tool_start");
+        assertThat(sse).contains("event:token");
+        JsonNode msgs = get(token, "/agent/sessions/" + sessionId + "/messages");
+        assertThat(msgs.get("code").asInt()).isZero();
+        assertThat(msgs.get("data").toString()).doesNotContain("冰毒").contains("已屏蔽").contains("内容安全检测");
+    }
+
+    private String loginAs(String username, String password) {
+        Map<String, String> body = new HashMap<>();
+        body.put("username", username);
+        body.put("password", password);
+        JsonNode r = post(null, "/auth/login", body);
+        assertThat(r.get("code").asInt()).as("登录 " + username + " msg=" + text(r, "msg")).isEqualTo(0);
+        return r.get("data").get("token").asText();
+    }
+
+    private String push(String signature, String timestamp, String nonce, String body) {
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_JSON);
+        return http.exchange(CTX + "/wx/push?signature=" + signature + "&timestamp=" + timestamp + "&nonce=" + nonce,
+                HttpMethod.POST, new HttpEntity<>(body, h), String.class).getBody();
     }
 }

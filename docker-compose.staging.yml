@@ -87,9 +87,15 @@ services:
       # 微信小程序静默登录（V50）：从服务器 .env 注入
       WX_APPID: ${WX_APPID:-}
       WX_APPSECRET: ${WX_APPSECRET:-}
+      # 内容安全（A.6）：微信拉图走 staging 域名
+      GUDU_MEDIA_BASE_URL: https://staging.imxf.cloud
       PGVECTOR_HOST: gudu-pgvector
       PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-gudu_vec_2026}
       OLLAMA_BASE_URL: http://gudu-ollama:11434
+      # 测试环境保持放开：接口文档开；上传签名默认不校验（.env 设 STAGING_UPLOAD_SIGN_ENABLED=true + 密钥可在预发演练 A.3）
+      GUDU_API_DOCS_ENABLED: "true"
+      GUDU_UPLOAD_SIGN_ENABLED: ${STAGING_UPLOAD_SIGN_ENABLED:-false}
+      GUDU_UPLOAD_SIGN_SECRET: ${STAGING_UPLOAD_SIGN_SECRET:-}
       # 上传目录覆写：与生产 /app/uploads/prod 隔离
       SPRING_APPLICATION_JSON: '{"gudu":{"upload-dir":"/app/uploads/staging"}}'
     volumes:

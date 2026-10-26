@@ -76,6 +76,11 @@ public class WxClient {
         return token;
     }
 
+    /** access_token 被微信判失效（40001 / 42001 等）时清掉中控缓存，下次重新获取。 */
+    public void invalidateAccessToken() {
+        redis.delete("wx:access_token:" + props.getAppid());
+    }
+
     private void requireConfig() {
         if (props.getAppid().isEmpty() || props.getSecret().isEmpty()) {
             throw new BizException("微信登录未配置（WX_APPID/WX_APPSECRET）");

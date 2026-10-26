@@ -3,6 +3,7 @@
 export { BASE } from '@/config/env'
 import { BASE as BASE_URL } from '@/config/env'
 import { hasConsent } from './consent'
+import { contentSecurityMessage, type ContentScene } from './contentSecurity'
 
 /** 默认请求超时（毫秒），调用方可通过 opt.timeout 覆盖。 */
 export const REQUEST_TIMEOUT = 15000
@@ -88,7 +89,14 @@ function cleanData(data: unknown): unknown {
 }
 
 export async function request<T = any>(
-  opt: UniApp.RequestOptions & { guestKey?: string; _retried?: boolean; /** 失败不弹 toast（可降级的探测性接口用） */ silent?: boolean },
+  opt: UniApp.RequestOptions & {
+    guestKey?: string
+    _retried?: boolean
+    /** 失败不弹 toast（可降级的探测性接口用） */
+    silent?: boolean
+    /** 内容安全拒绝（451/452）时按此场景给友好提示 */
+    contentScene?: ContentScene
+  },
 ): Promise<T> {
   const toast = (title: string) => {
     if (!opt.silent) uni.showToast({ title, icon: 'none' })
@@ -147,6 +155,12 @@ export async function request<T = any>(
     const msg = body.msg || '无权限访问'
     toast(msg)
     throw new Error(msg)
+  }
+  const csMsg = contentSecurityMessage(body.code, opt.contentScene)
+  if (csMsg) {
+    // 内容安全拒绝：前端文案，不展示后端原文
+    toast(csMsg)
+    throw new Error(csMsg)
   }
   if (body.code !== 0) {
     toast(body.msg || '请求失败')

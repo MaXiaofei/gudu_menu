@@ -35,6 +35,7 @@ import com.gudu.xsd.modules.agent.domain.repository.PendingActionStore;
 import com.gudu.xsd.modules.agent.domain.service.PhoneMasker;
 import com.gudu.xsd.modules.ai.gateway.application.ModelGateway;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ChatMessage;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -58,6 +60,8 @@ import java.util.UUID;
 public class AgentAppService {
 
     static final int HISTORY_MESSAGES = 20;
+    /** 未通过内容安全的用户输入不落原文（也就不会作为历史再发给模型）。 */
+    static final String BLOCKED_INPUT_PLACEHOLDER = "（该消息未通过内容安全检测，已屏蔽）";
 
     private final AgentSessionRepository sessions;
     private final AgentMessageRepository messages;
@@ -71,12 +75,14 @@ public class AgentAppService {
     private final SpeechRecognizer speech;
     private final Clock clock;
     private final int dailyLimit;
+    private final ContentSecurityAppService contentSecurity;
 
     public AgentAppService(AgentSessionRepository sessions, AgentMessageRepository messages, AgentTraceRepository traces,
                            PendingActionStore actionStore, AgentQuota quota, AgentOrchestrator orchestrator,
                            ToolRegistry registry, LiveKitchenFactory kitchens, ModelGateway gateway,
                            SpeechRecognizer speech, Clock clock,
-                           @Value("${gudu.agent.daily-limit:${gudu.ai.daily-limit:50}}") int dailyLimit) {
+                           @Value("${gudu.agent.daily-limit:${gudu.ai.daily-limit:50}}") int dailyLimit,
+                           ContentSecurityAppService contentSecurity) {
         this.sessions = sessions;
         this.messages = messages;
         this.traces = traces;
@@ -89,6 +95,7 @@ public class AgentAppService {
         this.speech = speech;
         this.clock = clock;
         this.dailyLimit = dailyLimit;
+        this.contentSecurity = contentSecurity;
     }
 
     // ================================================================== 会话
@@ -122,6 +129,13 @@ public class AgentAppService {
 
     /** 发一条消息并跑完一轮（调用方负责在后台线程执行并把 sink 接到 SSE）。 */
     public TurnResult send(Long memberId, String sessionId, SendCommand cmd, AgentEventSink sink) {
+        return send(memberId, memberId, sessionId, cmd, sink);
+    }
+
+    /**
+     * @param accountId 登录账号（内容安全按它取 openid；memberId 是当前就餐成员，可能是没有 openid 的家庭成员档案）
+     */
+    public TurnResult send(Long memberId, Long accountId, String sessionId, SendCommand cmd, AgentEventSink sink) {
         AgentSession session = own(memberId, sessionId);
         String traceId = "tr_" + uuid();
         String text = cmd.text() == null ? "" : cmd.text().trim();
@@ -129,6 +143,10 @@ public class AgentAppService {
             text = speech.transcribe(cmd.audioUrl());
             sink.send("transcript", Map.of("text", text, "mock", !speech.real()));
         }
+        // 内容安全（A.6）：输入发模型前检测（微信不可用降级规则）；违规不落原文，由编排器走 GUARDED 回复
+        Optional<String> unsafe = contentSecurity.agentInputViolation(accountId, text);
+        if (unsafe.isPresent()) text = BLOCKED_INPUT_PLACEHOLDER;
+        AgentContentGate gate = contentGate(accountId, unsafe);
         LocalDateTime at = now();
         AgentMessage userMsg = AgentMessage.user("msg_" + uuid(), sessionId, memberId, text, at);
         String assistantId = "msg_" + uuid();
@@ -136,7 +154,8 @@ public class AgentAppService {
         messages.save(userMsg);
         boolean forceRule = !quota.consume(memberId, dailyLimit);
         Kitchen kitchen = kitchens.forMember(memberId);
-        AgentOrchestrator.Env env = new AgentOrchestrator.Env(kitchen, new ActionDesk(actionStore, kitchen), gateway, Map.of());
+        AgentOrchestrator.Env env = new AgentOrchestrator.Env(kitchen, new ActionDesk(actionStore, kitchen), gateway, Map.of(),
+                gate);
         TurnResult r;
         try {
             r = orchestrator.run(new TurnRequest(sessionId, assistantId, traceId, memberId, text, cmd.context(), history,
@@ -170,6 +189,21 @@ public class AgentAppService {
         session.touch(text, r.text(), coverOf(r.cards()), done);
         sessions.save(session);
         return r;
+    }
+
+    /** 输入结论已在落库前算好（避免重复调用）；输出按登录账号复核。 */
+    private AgentContentGate contentGate(Long accountId, Optional<String> inputVerdict) {
+        return new AgentContentGate() {
+            @Override
+            public Optional<String> inputViolation(String text) {
+                return inputVerdict;
+            }
+
+            @Override
+            public String reviewReply(String reply) {
+                return contentSecurity.reviewAgentReply(accountId, reply);
+            }
+        };
     }
 
     private List<ChatMessage> history(String sessionId) {

@@ -21,6 +21,9 @@ public interface PostRepository {
 
     List<Post> findByIds(Collection<Long> ids);
 
+    /** 图片列表里含任一给定地址的帖子（不含已删除；违规图片处置用）。 */
+    List<Post> findByImageUrls(Collection<String> urls);
+
     /** 推荐流候选：since 之后发布、PUBLISHED + PUBLIC，按发布时间倒序最多 cap 条。 */
     List<Post> recentPublic(LocalDateTime since, int cap);
 

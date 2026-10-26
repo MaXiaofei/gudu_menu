@@ -56,6 +56,11 @@ public final class AssessGateways {
     // ================================================================== mock 模式
 
     public static Factory simulated() {
+        return simulated(req -> { });
+    }
+
+    /** 同 {@link #simulated()}，并把传输层实际收到的每个请求交给 probe（单测断言发给模型的内容）。 */
+    public static Factory simulated(java.util.function.Consumer<ChatRequest> probe) {
         return new Factory() {
             @Override
             public ModelGateway create(Map<String, Object> patch) {
@@ -71,7 +76,10 @@ public final class AssessGateways {
                             List.of(new RouteTarget(2L, "sim"), new RouteTarget(GatewayDefaults.MOCK_ID, "mock")),
                             1_000, 0, ThinkingMode.DISABLED, null, "assess"));
                 }
-                ModelTransport transport = faulty(patch, "SimPrimary", (ep, key, req, thinking, timeout) -> simulate(req));
+                ModelTransport transport = faulty(patch, "SimPrimary", (ep, key, req, thinking, timeout) -> {
+                    probe.accept(req);
+                    return simulate(req);
+                });
                 return build(List.of(primary, fallback, mock), routes, transport, name -> "sim", null);
             }
 

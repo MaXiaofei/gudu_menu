@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ai_label.dart';
 import '../../core/app_theme.dart';
 import '../../core/error_text.dart';
 import '../../services/vision_service.dart';
+import '../../widgets/ai_badge.dart';
 import '../../widgets/ingredient_icon.dart';
 import '../../widgets/tone_badge.dart';
 
@@ -106,6 +108,9 @@ class _ScanResultPageState extends State<ScanResultPage> {
         padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp4, AppTokens.sp16, AppTokens.sp24),
         children: [
           _summary(t, job),
+          const SizedBox(height: AppTokens.sp8),
+          // AI 标识 + 反馈（A.4）
+          Align(alignment: Alignment.centerLeft, child: AiBadge(source: AiSource.scan, feedbackRef: job.jobId)),
           if (recipe != null) ...[
             const SizedBox(height: AppTokens.sp16),
             _recipe(t, recipe),

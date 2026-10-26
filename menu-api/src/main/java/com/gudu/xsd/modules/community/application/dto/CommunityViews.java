@@ -39,7 +39,8 @@ public final class CommunityViews {
                              int imageCount, long likeCount, boolean liked, long copyCount, List<String> tags,
                              String text, List<String> images, List<TopicRef> topics, RecipeCard recipe,
                              long commentCount, long collectCount, boolean collected, boolean following,
-                             LocalDateTime createdAt, String city, String status) {
+                             LocalDateTime createdAt, String city, String status,
+                             /* 仅作者可见的处置原因，如「图片未通过审核」；无则 null */ String statusReason) {
     }
 
     public record PublishResult(Long postId, String status) {

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
 import '../../services/agent_service.dart';
+import '../../widgets/ai_badge.dart';
 import 'agent_conversation.dart';
 import 'agent_widgets.dart';
 
@@ -114,8 +115,16 @@ class _AgentChatPageState extends State<AgentChatPage> {
                 : ListView.builder(
                     controller: _scroll,
                     padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp8, AppTokens.sp16, AppTokens.sp16),
-                    itemCount: _c.messages.length,
-                    itemBuilder: (_, i) {
+                    // 第 0 项：AI 身份说明（A.4，常驻首屏）
+                    itemCount: _c.messages.length + 1,
+                    itemBuilder: (_, j) {
+                      if (j == 0) {
+                        return const Padding(
+                          padding: EdgeInsets.only(bottom: AppTokens.sp12),
+                          child: AiAssistantIntro(),
+                        );
+                      }
+                      final i = j - 1;
                       final m = _c.messages[i];
                       if (m.isUser) return UserBubble(m.text);
                       final isLast = i == _c.messages.length - 1;
@@ -173,6 +182,8 @@ class _AgentChatPageState extends State<AgentChatPage> {
         const Center(child: GuduAvatar(size: 64)),
         const SizedBox(height: AppTokens.sp16),
         Center(child: Text('我是咕嘟，你家的做饭助手', style: ts.subtitle)),
+        const SizedBox(height: AppTokens.sp8),
+        const AiAssistantIntro(),
         const SizedBox(height: AppTokens.sp8),
         Center(
           child: Text('我能查余量和菜谱、排食集、加采购、记做完了的菜。\n写操作都会先给你确认。',

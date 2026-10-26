@@ -26,6 +26,7 @@ import com.gudu.xsd.modules.ai.gateway.domain.repository.ModelProviderRepository
 import com.gudu.xsd.modules.ai.gateway.domain.repository.ModelRouteRepository;
 import com.gudu.xsd.modules.ai.gateway.domain.service.CostCalculator;
 import com.gudu.xsd.modules.ai.gateway.domain.service.KeyMasker;
+import com.gudu.xsd.modules.ai.gateway.domain.service.Pseudonymizer;
 import com.gudu.xsd.modules.ai.gateway.domain.service.RouteChainResolver;
 import com.gudu.xsd.modules.ai.gateway.domain.service.RouteChainResolver.Candidate;
 import lombok.extern.slf4j.Slf4j;
@@ -91,8 +92,13 @@ public class ModelGateway {
 
     // ===================================================================== 调用
 
-    /** 通用调用：按 request.capability 路由。 */
-    public ChatResult chat(ChatRequest request) {
+    /**
+     * 通用调用：按 request.capability 路由。出站前统一做账号标识脱敏（手机号 / openid / wx_ 占位手机号，
+     * 见 {@link Pseudonymizer#redactIdentifiers}）——所有调用点的兜底；成员称呼假名化由持有家庭上下文的调用方
+     * 用 {@link Pseudonymizer#of} 完成。
+     */
+    public ChatResult chat(ChatRequest original) {
+        ChatRequest request = Pseudonymizer.NONE.mask(original);
         Snapshot s = snapshot();
         ModelRoute route = s.routes().get(request.capability());
         if (route == null) {

@@ -19,6 +19,7 @@ import com.gudu.xsd.modules.community.domain.repository.PostCounterStore;
 import com.gudu.xsd.modules.community.domain.repository.PostRepository;
 import com.gudu.xsd.modules.community.domain.repository.TopicRepository;
 import com.gudu.xsd.modules.community.domain.service.RulePostModerator;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
 import com.gudu.xsd.modules.community.domain.service.TemplatePostTextWriter;
 import com.gudu.xsd.modules.cookbook.application.CookingRecordAppService;
 import com.gudu.xsd.modules.cookbook.domain.model.CookedRecordRef;
@@ -81,7 +82,7 @@ class CommunityPostAppServiceTest {
         cookingRecords = mock(CookingRecordAppService.class);
         svc = new CommunityPostAppService(posts, mock(CommentRepository.class), interactions, topics, moderation,
                 appeals, inbox, counters, new RulePostModerator(), new TemplatePostTextWriter(), assembler, dishService,
-                cookingRecords, mock(NotificationService.class), CLOCK);
+                cookingRecords, mock(NotificationService.class), CLOCK, mock(ContentSecurityAppService.class));
         when(moderation.bannedUntil(anyLong())).thenReturn(Optional.empty());
         when(assembler.counts(any(Post.class))).thenReturn(PostCounts.ZERO);
         doAnswer(inv -> {

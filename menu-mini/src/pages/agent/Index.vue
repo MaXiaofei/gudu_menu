@@ -23,6 +23,11 @@
           <image class="gudu" src="/static/brand/logo.png" mode="aspectFit" />
           <view class="hello-bubble"><text class="hello-txt">{{ greeting }}</text></view>
         </view>
+        <!-- AI 身份说明（A.4） -->
+        <view class="ai-intro" data-testid="ai-intro">
+          <ui-ai-badge />
+          <text class="ai-intro-txt">{{ AI_ASSISTANT_INTRO }}</text>
+        </view>
 
         <ui-state v-if="loading" mode="loading" skeleton="hero" />
         <template v-else>
@@ -125,6 +130,7 @@
 </template>
 
 <script setup lang="ts">
+import { AI_ASSISTANT_INTRO } from '@/utils/aiLabel'
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { agentSuggestions, listSessions, setCurrentSession, type AgentSessionItem } from '@/api/agent'
@@ -653,5 +659,18 @@ function goDish(id: number) {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(var(--sh), 0.3);
+}
+.ai-intro {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  margin-bottom: var(--sp-12);
+}
+.ai-intro-txt {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--caption);
+  line-height: 1.5;
 }
 </style>
