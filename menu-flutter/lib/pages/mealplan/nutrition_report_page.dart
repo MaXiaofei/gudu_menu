@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ai_label.dart';
 import '../../core/app_theme.dart';
 import '../../models/member.dart';
 import '../../services/agent_service.dart' show isNotDeployed;
 import '../../services/mealplan_service.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/ai_badge.dart';
 import '../../widgets/dish_image.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/illustration.dart';
@@ -112,6 +114,9 @@ class _NutritionReportPageState extends State<NutritionReportPage> {
         padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp4, AppTokens.sp16, AppTokens.sp32),
         children: [
           if (members.isNotEmpty) _memberChips(t, members),
+          const SizedBox(height: AppTokens.sp12),
+          // AI 标识 + 免责提示（A.4）
+          const AiBadge(disclaimer: true, source: AiSource.nutrition),
           const SizedBox(height: AppTokens.sp12),
           if (_loading)
             const SkeletonBox(height: 280, radius: AppTokens.rLg)

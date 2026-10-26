@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ai_label.dart';
 import '../../core/app_theme.dart';
 import '../../core/ingredient_icons.dart';
 import '../../models/member.dart';
 import '../../services/agent_service.dart';
 import '../../stores/auth_store.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/ai_badge.dart';
 import '../../widgets/dish_image.dart';
 import '../../widgets/ingredient_icon.dart';
 import '../../widgets/me_avatar_button.dart';
@@ -107,10 +109,15 @@ class _AgentHomePageState extends State<AgentHomePage> {
                   _header(t, members, nickname),
                   const SizedBox(height: AppTokens.sp12),
                   _greeting(t, s),
+                  const SizedBox(height: AppTokens.sp8),
+                  // AI 身份说明（A.4）
+                  const AiAssistantIntro(),
                   const SizedBox(height: AppTokens.sp20),
                   Row(
                     children: [
-                      Expanded(child: Text('今晚首推', style: ts.subtitle)),
+                      Text('今晚首推', style: ts.subtitle),
+                      const SizedBox(width: AppTokens.sp6),
+                      const Expanded(child: Align(alignment: Alignment.centerLeft, child: AiBadge(source: AiSource.recommend))),
                       InkWell(
                         onTap: () => context.push('/ai-recommend'),
                         child: Text('全部推荐 ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),

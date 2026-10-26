@@ -42,6 +42,7 @@ import '../pages/login_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/settings/about_page.dart';
 import '../pages/settings/feedback_page.dart';
+import 'ai_label.dart';
 import '../pages/settings/legal_page.dart';
 import '../pages/settings/profile_edit_page.dart';
 import '../pages/settings/theme_page.dart';
@@ -270,7 +271,9 @@ GoRouter createRouter(AuthStore auth) {
           builder: (_, __) => const ThemePage()),
       GoRoute(
           path: '/feedback',
-          builder: (_, __) => const FeedbackPage()),
+          builder: (_, s) => FeedbackPage(
+              aiSource: AiSource.parse(s.uri.queryParameters['source']),
+              aiRef: s.uri.queryParameters['ref'])),
       GoRoute(
           path: '/about',
           builder: (_, __) => const AboutPage()),
