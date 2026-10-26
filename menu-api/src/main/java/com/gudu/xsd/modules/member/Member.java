@@ -24,22 +24,44 @@ public class Member {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    /** 所属家庭（租户，multi-tenant-family）：租户插件按当前家庭自动写入与过滤，客户端不可写、不可改。 */
+    @com.baomidou.mybatisplus.annotation.TableField(
+            insertStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER,
+            updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private Long familyId;
+
+    /**
+     * 关联登录账号（account.id，V76）：有账号的家庭成员与其账号一一关联（同一家庭内唯一）；
+     * null = 无账号的成员档案（宝宝、老人）。由 family 上下文维护，客户端不可写。
+     */
+    @com.baomidou.mybatisplus.annotation.TableField(
+            insertStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER,
+            updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private Long accountId;
+
     private String name;
 
     /** 头像（V66，本站 /uploads/ 地址，可空）。 */
     private String avatarUrl;
 
-    /** 登录手机号(V29 合并 user 后,member 自带账号)。admin 用字面量 "admin"。 */
+    /**
+     * 【旧列，保留一个版本周期】登录手机号。V75+ 起登录凭证迁到 account 表，本列不再作为登录依据；
+     * 不对外输出（审计：曾经 GET /member 泄露全部用户手机号）。
+     */
+    @JsonIgnore
     private String phone;
 
-    /** 微信 openid（小程序静默登录，V50）。同一 openid = 同一账号；可空（账号密码登录的成员）。 */
+    /** 【旧列】微信 openid。V75+ 起迁到 account.wx_openid；禁止外泄。 */
+    @JsonIgnore
     private String openid;
 
-    /** BCrypt 密码哈希。null 表示该成员未开通登录(纯家庭成员)。仅服务端比对用，禁止外泄。 */
+    /** 【旧列】BCrypt 密码哈希。V75+ 起迁到 account.password_hash；禁止外泄。 */
     @JsonIgnore
     private String passwordHash;
 
-    /** 是否超管:1 绕过 @MpPerm 全权,0 走角色+个人勾选权限矩阵。 */
+    /** 【旧列】是否超管。V75+ 起平台角色以 account.platform_role 为准，本列仅兼容旧前端展示。 */
     private Integer isAdmin;
 
     /**

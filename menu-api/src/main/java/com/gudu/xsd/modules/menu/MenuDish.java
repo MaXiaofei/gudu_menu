@@ -14,6 +14,13 @@ public class MenuDish {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    /** 所属家庭（租户，multi-tenant-family）：租户插件按当前家庭自动写入与过滤，客户端不可写、不可改。 */
+    @com.baomidou.mybatisplus.annotation.TableField(
+            insertStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER,
+            updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private Long familyId;
+
     private Long menuId;
 
     /** 菜品 id（自定义菜名时为空，V45）。 */

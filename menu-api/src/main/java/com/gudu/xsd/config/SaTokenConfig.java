@@ -37,6 +37,8 @@ public class SaTokenConfig implements WebMvcConfigurer {
             "/uploads/**",
             // 聚餐：邀请链接免登录（H5 访客入口/加入），清单与加菜走身份头（member 或 X-Guest-Key）
             "/invite/**",
+            // 家庭邀请预览（multi-tenant-family）：被邀请人未登录也能看到家庭名 / 邀请人
+            "/family/invitations/*",
             "/menu/*/together",
             "/menu/*/together/**",
             "/together.html"

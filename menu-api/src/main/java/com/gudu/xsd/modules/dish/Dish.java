@@ -17,6 +17,17 @@ public class Dish {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    /**
+     * 所属家庭（V76）：null = 平台公共菜谱（所有家庭可读，仅平台运营可写）；非空 = 该家庭私有菜谱。
+     * 由 DishService 按登录身份写入，客户端不可写；读可见性由 DishVisibilityInnerInterceptor 兜底。
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private Long familyId;
+
+    /** 「复制到我家」来源菜谱 id（V76，可空）。客户端不可写。 */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private Long sourceDishId;
+
     private String name;
 
     private String note;
