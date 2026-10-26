@@ -1,5 +1,8 @@
 import { BASE } from './request'
 
+// 上传图片地址（A.3）：后端出参统一带短时签名 ?e=过期&s=签名（签名在后端 HTTP 序列化层集中生成，前端拿不到密钥），
+// 签名对原图与缩略图通用——这里只做拼前缀 / 换 thumbnail，必须原样保留查询串；保存时把收到的地址原样回传即可。
+
 /** 相对路径 → 绝对地址（同 Flutter ImageHelper.toAbsolute；已是 http(s) 原样返回）。 */
 export function toAbsolute(url?: string | null): string {
   if (!url) return ''

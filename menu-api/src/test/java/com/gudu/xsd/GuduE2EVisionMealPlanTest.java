@@ -46,12 +46,20 @@ class GuduE2EVisionMealPlanTest {
 
     private static final String IMG = "/gudu/uploads/original/20261016/e2e-vision.jpg";
 
+    /** 上传地址签名（A.3）：test profile 开启校验，请求体里的本站图片须是服务端签发的地址。 */
+    @Autowired
+    private com.gudu.xsd.common.upload.UploadUrlSigner uploadSigner;
+
+    private String img() {
+        return uploadSigner.sign(IMG);
+    }
+
     // ===================== 拍照识别 =====================
 
     @Test
     void A_冰箱识别_分级与别名对齐_放进余量只能一次() throws Exception {
         String token = loginAdmin();
-        JsonNode created = post(token, "/vision/jobs", Map.of("mode", "FRIDGE", "imageUrl", IMG));
+        JsonNode created = post(token, "/vision/jobs", Map.of("mode", "FRIDGE", "imageUrl", img()));
         assertThat(created.get("code").asInt()).as("建任务 msg=" + text(created, "msg")).isEqualTo(0);
         long jobId = created.get("data").get("jobId").asLong();
 
@@ -86,7 +94,7 @@ class GuduE2EVisionMealPlanTest {
     @Test
     void B_菜谱截图识别_外链图片被拒() throws Exception {
         String token = loginAdmin();
-        JsonNode created = post(token, "/vision/jobs", Map.of("mode", "RECIPE", "imageUrl", IMG));
+        JsonNode created = post(token, "/vision/jobs", Map.of("mode", "RECIPE", "imageUrl", img()));
         assertThat(created.get("code").asInt()).isEqualTo(0);
         JsonNode job = waitDone(token, created.get("data").get("jobId").asLong());
         assertThat(job.get("recipe").get("title").asText()).isEqualTo("滑蛋虾仁");
@@ -95,7 +103,7 @@ class GuduE2EVisionMealPlanTest {
 
         JsonNode evil = post(token, "/vision/jobs", Map.of("mode", "FRIDGE", "imageUrl", "https://evil.example/x.jpg"));
         assertThat(evil.get("code").asInt()).as("外链图片应被拒").isNotEqualTo(0);
-        JsonNode badMode = post(token, "/vision/jobs", Map.of("mode", "CAMERA", "imageUrl", IMG));
+        JsonNode badMode = post(token, "/vision/jobs", Map.of("mode", "CAMERA", "imageUrl", img()));
         assertThat(badMode.get("code").asInt()).isNotEqualTo(0);
     }
 

@@ -55,12 +55,14 @@ sa-token:
   is-share: false
   token-style: uuid
 
+# 接口文档（springdoc swagger-ui；knife4j 已弃用，见 pom）。dev/staging/test 开；生产 application-prod.yml 关闭，
+# 且关闭后 SaTokenConfig 不再放行 /swagger-ui/**、/v3/api-docs/**
 springdoc:
+  api-docs:
+    enabled: ${GUDU_API_DOCS_ENABLED:true}
   swagger-ui:
+    enabled: ${GUDU_API_DOCS_ENABLED:true}
     path: /swagger-ui.html
-
-knife4j:
-  enable: true
 
 gudu:
   upload-dir: uploads
@@ -70,6 +72,16 @@ gudu:
     # 允许跨域的源（逗号分隔，支持通配模式）；生产只放正式域名
     allowed-origins: ${GUDU_CORS_ALLOWED_ORIGINS:*}
   # 内容安全（A.6）：微信 msgSecCheck / mediaCheckAsync。关闭时文本只走规则禁发词、图片不提交（dev/test 默认关，prod 开）
+  # 上传文件短时签名 URL（A.3）：/uploads/** 须带 ?e=过期秒&s=HMAC；接口出参统一签名、入参验签（UploadAccessConfig）
+  upload-sign:
+    # 是否校验签名（访问 /uploads 与请求体里的上传地址）。dev/test 默认关；prod 开
+    enabled: ${GUDU_UPLOAD_SIGN_ENABLED:false}
+    # HMAC 密钥（≥16 位，建议 openssl rand -hex 32）；为空则不签名；enabled=true 时为空启动失败
+    secret: ${GUDU_UPLOAD_SIGN_SECRET:}
+    # 签名有效期（过期时间再向上取整到整点，同一小时内 URL 不变以便缓存）
+    ttl: ${GUDU_UPLOAD_SIGN_TTL:24h}
+    # 请求体里的上传地址签名过期后仍接受的宽限（编辑页停留较久再保存）
+    input-grace: 7d
   content-security:
     wx-enabled: ${GUDU_CONTENT_SECURITY_WX:false}
     # 微信服务器拉取图片用的公网前缀，拼上 /gudu/uploads/…；为空则图片无法提交检测（头像会被拒绝保存）

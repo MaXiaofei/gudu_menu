@@ -3,7 +3,7 @@ import { getToken } from '@/utils/request'
 import { contentSecurityMessage } from '@/utils/contentSecurity'
 
 export interface UploadResult {
-  url: string // 原图（相对路径 /gudu/uploads/original/xxx.jpg）
+  url: string // 原图（相对路径 /gudu/uploads/original/{日期}/{uuid}.jpg?e=&s=，带短时签名，原样回传保存）
   thumbnailUrl: string
   name: string
 }

@@ -2,6 +2,7 @@ package com.gudu.xsd.modules.contentsecurity.application;
 
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.domain.DomainEventPublisher;
+import com.gudu.xsd.common.upload.UploadUrlSigner;
 import com.gudu.xsd.config.WxProperties;
 import com.gudu.xsd.modules.contentsecurity.domain.event.MediaBlockedEvent;
 import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
@@ -47,6 +48,8 @@ class ContentSecurityAppServiceTest {
     static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     static final Instant NOW = Instant.parse("2026-10-26T02:00:00Z");
     static final Clock CLOCK = Clock.fixed(NOW, ZONE);
+    static final UploadUrlSigner SIGNER = new UploadUrlSigner("unit-test-upload-secret-01", java.time.Duration.ofHours(24),
+            java.time.Duration.ofDays(7), true, CLOCK);
     static final long WX_USER = 1L;      // 小程序账号（有 openid）
     static final long APP_USER = 2L;     // App / 网页账号（无 openid）
     static final String IMG = "/gudu/uploads/original/20261026/a.jpg";
@@ -76,7 +79,7 @@ class ContentSecurityAppServiceTest {
 
     ContentSecurityAppService svc(boolean wxEnabled) {
         return new ContentSecurityAppService(wechat, openids, repo, quarantine, events, Runnable::run, wx, CLOCK,
-                wxEnabled, "https://imxf.cloud/");
+                wxEnabled, "https://imxf.cloud/", SIGNER);
     }
 
     static TextVerdict wx(Suggest s) {
@@ -203,7 +206,13 @@ class ContentSecurityAppServiceTest {
             assertThat(c).get().extracting(MediaCheck::status).isEqualTo(MediaCheckStatus.PENDING);
             ArgumentCaptor<MediaCheckRequest> req = ArgumentCaptor.forClass(MediaCheckRequest.class);
             verify(wechat).submitMedia(req.capture());
-            assertThat(req.getValue().mediaUrl()).isEqualTo("https://imxf.cloud" + IMG);
+            // 微信拉图无法带登录头：media_url 带有效短时签名
+            String mediaUrl = req.getValue().mediaUrl();
+            assertThat(UploadUrlSigner.strip(mediaUrl)).isEqualTo("https://imxf.cloud" + IMG);
+            String query = mediaUrl.substring(mediaUrl.indexOf('?') + 1);
+            String e = query.replaceAll("^e=(\\d+)&s=.*$", "$1");
+            String sig = query.replaceAll("^e=\\d+&s=(.*)$", "$1");
+            assertThat(SIGNER.verifyRequest(IMG.replaceFirst("^/gudu/uploads/", ""), e, sig)).isTrue();
             assertThat(req.getValue().openid()).isEqualTo("o-wx-user");
             verify(repo).save(c.get());
         }
@@ -269,7 +278,7 @@ class ContentSecurityAppServiceTest {
         void 头像_未配置公网前缀_failClosed() {
             when(repo.latestByUrl(IMG)).thenReturn(Optional.empty());
             ContentSecurityAppService s = new ContentSecurityAppService(wechat, openids, repo, quarantine, events,
-                    Runnable::run, wx, CLOCK, true, "");
+                    Runnable::run, wx, CLOCK, true, "", SIGNER);
             assertThatThrownBy(() -> s.assertImageUsable(WX_USER, IMG, ContentPurpose.AVATAR))
                     .isInstanceOf(BizException.class);
             verify(wechat, never()).submitMedia(any());
