@@ -164,23 +164,6 @@ export function invitePath(code: string): string {
   return `/pkg-family/Invite?code=${encodeURIComponent(code)}`
 }
 
-/**
- * 冷启动来自邀请卡片（path = pkg-family/Invite?code=…）时，在 App.onLaunch 里先记下邀请码：
- * 未同意协议 / 未登录会被 reLaunch 到登录页，落地页来不及 onLoad；登录成功后 routeAfterLogin 据此回到落地页，
- * 新微信用户的静默登录也会带上 inviteCode 直接进邀请家庭。
- */
-export function rememberInviteFromLaunch(opts?: { path?: string; query?: Record<string, any> } | null): void {
-  const path = String(opts?.path || '').replace(/^\//, '')
-  const code = opts?.query?.code
-  if (path === 'pkg-family/Invite' && code) {
-    let v = String(code)
-    try {
-      v = decodeURIComponent(v)
-    } catch {}
-    uni.setStorageSync(PENDING_INVITE_KEY, v)
-  }
-}
-
 /** 首次登录引导是否已处理（按账号记，跳过也算处理过）。 */
 export function onboardKey(accountId: number | null | undefined): string {
   return `gd_onboarded_${accountId || 0}`

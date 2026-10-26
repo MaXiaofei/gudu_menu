@@ -1319,6 +1319,92 @@ class GuduE2ECoverageTest {
         assertThat(msgs.get("data").toString()).doesNotContain("冰毒").contains("已屏蔽").contains("内容安全检测");
     }
 
+    // ===================== Y. 小程序关闭厨房圈（mini-release-compliance A.1） =====================
+
+    @Test
+    void Y_小程序来源_厨房圈写接口403_读接口与其他端不受影响() throws Exception {
+        String token = loginAdmin();
+        HttpHeaders h = new HttpHeaders();
+        h.set("Authorization", token);
+        h.set("X-Client", "mp-weixin");
+        h.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> postBody = new HashMap<>();
+        postBody.put("title", "E2E小程序发帖");
+        postBody.put("text", "E2E 小程序不该发出去");
+        String[][] writes = {
+                {"/community/posts", om.writeValueAsString(postBody)},
+                {"/community/posts/1/comments", "{\"text\":\"E2E评论\"}"},
+                {"/community/posts/1/reactions", "{\"type\":\"LIKE\",\"on\":true}"},
+                {"/community/users/1/follow", "{\"on\":true}"},
+                {"/community/reports", "{\"postId\":1,\"reason\":\"E2E\"}"},
+        };
+        for (String[] w : writes) {
+            ResponseEntity<String> resp = http.exchange(CTX + w[0], HttpMethod.POST, new HttpEntity<>(w[1], h),
+                    String.class);
+            assertThat(resp.getStatusCode().value()).as("小程序写 " + w[0]).isEqualTo(403);
+            JsonNode body = om.readTree(resp.getBody());
+            assertThat(body.get("code").asInt()).as(w[0]).isEqualTo(4031);
+            assertThat(text(body, "msg")).contains("厨房圈");
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM community_post WHERE title = 'E2E小程序发帖'",
+                Integer.class)).as("未落库").isZero();
+
+        // 读接口不受影响
+        ResponseEntity<String> feed = http.exchange(CTX + "/community/feed", HttpMethod.GET, new HttpEntity<>(h),
+                String.class);
+        assertThat(feed.getStatusCode().value()).isEqualTo(200);
+        assertThat(om.readTree(feed.getBody()).get("code").asInt()).isZero();
+
+        // 不带 X-Client（App/H5）照常可写：点赞一条已有帖子（不存在也只是业务失败，而非 4031）
+        JsonNode appReact = post(token, "/community/posts/1/reactions", Map.of("type", "LIKE", "on", false));
+        assertThat(appReact.get("code").asInt()).isNotEqualTo(4031);
+    }
+
+    // ===================== Z. 厨房圈紧急关停开关（mini-release-compliance A.12） =====================
+
+    @Test
+    void Z_厨房圈紧急关停_读写暂停_审核接口不受影响_留痕_再打开恢复() {
+        String admin = loginAdmin();
+        String chef = loginAs("13900000088", "chef123");
+
+        // 非超管不能切换
+        JsonNode denied = put(chef, "/admin/community/switch", Map.of("enabled", false, "reason", "E2E越权"));
+        assertThat(denied.get("code").asInt()).as("非超管 msg=" + text(denied, "msg")).isNotZero();
+        assertThat(get(chef, "/community/feed").get("code").asInt()).as("仍开着").isZero();
+
+        try {
+            JsonNode off = put(admin, "/admin/community/switch", Map.of("enabled", false, "reason", "E2E紧急关停"));
+            assertThat(off.get("code").asInt()).as("关闭 msg=" + text(off, "msg")).isZero();
+            assertThat(off.get("data").get("enabled").asBoolean()).isFalse();
+            assertThat(text(off.get("data"), "updatedByName")).isNotEmpty();
+            assertThat(text(off.get("data"), "updatedAt")).isNotEmpty();
+
+            // 用户侧读写统一 5031「厨房圈暂停服务」
+            for (JsonNode r : List.of(get(chef, "/community/feed"), get(chef, "/community/topics"),
+                    post(chef, "/community/posts", Map.of("title", "E2E暂停期间发帖", "text", "E2E")))) {
+                assertThat(r.get("code").asInt()).isEqualTo(5031);
+                assertThat(text(r, "msg")).isEqualTo("厨房圈暂停服务");
+            }
+            // 管理后台审核接口不受影响
+            assertThat(get(admin, "/admin/community/queue").get("code").asInt()).isZero();
+            assertThat(get(admin, "/admin/community/stats").get("code").asInt()).isZero();
+
+            // 修改留痕：操作人 + 时间 + 原因
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_switch_log WHERE switch_key = 'community.enabled' "
+                    + "AND enabled = 0 AND reason = 'E2E紧急关停' AND operator_id IS NOT NULL", Integer.class))
+                    .isEqualTo(1);
+            JsonNode state = get(admin, "/admin/community/switch");
+            assertThat(state.get("data").get("recentChanges").get(0).get("reason").asText()).isEqualTo("E2E紧急关停");
+        } finally {
+            JsonNode on = put(admin, "/admin/community/switch", Map.of("enabled", true, "reason", "E2E恢复"));
+            assertThat(on.get("code").asInt()).isZero();
+        }
+        assertThat(get(chef, "/community/feed").get("code").asInt()).as("再打开恢复").isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM community_post WHERE title = 'E2E暂停期间发帖'",
+                Integer.class)).isZero();
+    }
+
     private String loginAs(String username, String password) {
         Map<String, String> body = new HashMap<>();
         body.put("username", username);

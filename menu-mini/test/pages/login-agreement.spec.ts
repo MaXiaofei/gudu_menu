@@ -7,8 +7,9 @@ const auth = vi.hoisted(() => ({ login: vi.fn(), nickname: '' }))
 const wx = vi.hoisted(() => ({ silentLogin: vi.fn() }))
 vi.mock('@/store/auth', () => ({ useAuthStore: () => auth }))
 vi.mock('@/api/auth', () => wx)
-// 登录页 onLoad 读 redirect（登录回跳）；单测环境无 uni 页面生命周期
-vi.mock('@dcloudio/uni-app', () => ({ onLoad: () => {} }))
+// onLoad：捕获回调，测试里模拟带 redirect 参数进入登录页（A.10）
+const page = vi.hoisted(() => ({ onLoad: null as null | ((o: any) => void) }))
+vi.mock('@dcloudio/uni-app', () => ({ onLoad: (fn: (o: any) => void) => (page.onLoad = fn) }))
 
 import Login from '@/pages/login/Login.vue'
 
@@ -30,6 +31,11 @@ function fill(root: HTMLElement, idx: number, v: string) {
 }
 
 describe('pages/login 协议勾选', () => {
+  /** 勾选协议（已勾选时不再点，避免反勾）。 */
+  const agree = () => {
+    const box = root.querySelector('[data-testid="agree-box"]') as HTMLElement
+    if (!box.classList.contains('on')) box.click()
+  }
   let app: App | null = null
   let root: HTMLElement
 
@@ -39,6 +45,7 @@ describe('pages/login 协议勾选', () => {
     vi.mocked(__testUni.mocks.showToast).mockClear()
     vi.mocked(__testUni.mocks.switchTab).mockClear()
     vi.mocked(__testUni.mocks.navigateTo).mockClear()
+    vi.mocked(__testUni.mocks.reLaunch).mockClear()
     root = document.createElement('div')
     document.body.appendChild(root)
     app = createApp(Login)
@@ -74,6 +81,26 @@ describe('pages/login 协议勾选', () => {
     button(root, '登录').click()
     await flush()
     expect(auth.login).toHaveBeenCalledWith('13800000001', 'pwd123')
+    expect(__testUni.mocks.switchTab).toHaveBeenCalledWith({ url: '/pages/dish/List' })
+  })
+
+  it('带 redirect 进入（分享的聚餐邀请）：登录后回到原页且参数不丢', async () => {
+    page.onLoad?.({ redirect: encodeURIComponent('/pages/together/Pick?menuId=7&token=inv1') })
+    agree()
+    await flush()
+    button(root, '登录').click()
+    await flush()
+    expect(__testUni.mocks.reLaunch).toHaveBeenCalledWith({ url: '/pages/together/Pick?menuId=7&token=inv1' })
+    expect(__testUni.mocks.switchTab).not.toHaveBeenCalled()
+  })
+
+  it('redirect 指向站外 / 非白名单：忽略，回首页', async () => {
+    page.onLoad?.({ redirect: 'https://evil.com/x' })
+    agree()
+    await flush()
+    button(root, '登录').click()
+    await flush()
+    expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
     expect(__testUni.mocks.switchTab).toHaveBeenCalledWith({ url: '/pages/dish/List' })
   })
 

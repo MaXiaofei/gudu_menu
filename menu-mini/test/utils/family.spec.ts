@@ -15,7 +15,6 @@ import {
   isFamilyDenied,
   PENDING_INVITE_KEY,
   profileIsBlank,
-  rememberInviteFromLaunch,
   roleLabel,
   saveFamilyContext,
 } from '@/utils/family'
@@ -108,13 +107,6 @@ describe('utils/family 家庭上下文', () => {
 
   it('邀请分享路径带 code（编码）', () => {
     expect(invitePath('AB 12')).toBe('/pkg-family/Invite?code=AB%2012')
-  })
-
-  it('冷启动来自邀请卡片：记下邀请码；其他页面不记', () => {
-    rememberInviteFromLaunch({ path: 'pages/dish/List', query: { code: 'X' } })
-    expect(__testUni.getStorage(PENDING_INVITE_KEY)).toBeUndefined()
-    rememberInviteFromLaunch({ path: 'pkg-family/Invite', query: { code: 'AB%2012' } })
-    expect(__testUni.getStorage(PENDING_INVITE_KEY)).toBe('AB 12')
   })
 
   it('profileIsBlank：没填任何身体 / 健康字段才算空', () => {

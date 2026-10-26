@@ -47,6 +47,7 @@ import '../pages/settings/legal_page.dart';
 import '../pages/settings/profile_edit_page.dart';
 import '../pages/settings/theme_page.dart';
 import '../stores/auth_store.dart';
+import '../widgets/community_paused_gate.dart';
 import '../widgets/main_shell.dart';
 
 /// 路由表 + 登录拦截（对应小程序 401/未登录 reLaunch 到登录页）。
@@ -106,7 +107,7 @@ GoRouter createRouter(AuthStore auth) {
           ]),
           // 3. 厨房圈
           StatefulShellBranch(routes: [
-            GoRoute(path: '/community', builder: (_, __) => const CommunityPage()),
+            GoRoute(path: '/community', builder: (_, __) => const CommunityPausedGate(showBack: false, child: CommunityPage())),
           ]),
           // 4. 我家余量
           StatefulShellBranch(routes: [
@@ -131,15 +132,16 @@ GoRouter createRouter(AuthStore auth) {
       // 厨房圈：发布（extra PostDraftSeed）/ 详情 / 话题
       GoRoute(
         path: '/community/create',
-        builder: (_, s) => PostCreatePage(seed: s.extra is PostDraftSeed ? s.extra as PostDraftSeed : const PostDraftSeed()),
+        builder: (_, s) => CommunityPausedGate(
+            child: PostCreatePage(seed: s.extra is PostDraftSeed ? s.extra as PostDraftSeed : const PostDraftSeed())),
       ),
       GoRoute(
         path: '/community/post/:id',
-        builder: (_, s) => PostDetailPage(postId: int.parse(s.pathParameters['id']!)),
+        builder: (_, s) => CommunityPausedGate(child: PostDetailPage(postId: int.parse(s.pathParameters['id']!))),
       ),
       GoRoute(
         path: '/community/topic/:id',
-        builder: (_, s) => TopicPage(topicId: int.parse(s.pathParameters['id']!)),
+        builder: (_, s) => CommunityPausedGate(child: TopicPage(topicId: int.parse(s.pathParameters['id']!))),
       ),
       // 拍照识别（?mode=fridge|receipt|recipe）→ 结果确认（extra {job, photo}）
       GoRoute(

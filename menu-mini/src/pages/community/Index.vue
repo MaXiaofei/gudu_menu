@@ -63,6 +63,8 @@
       </view>
       <text v-if="list.items.length" class="foot">{{ list.loading ? '加载中…' : list.done ? '到底了，去发一条吧' : '' }}</text>
     </view>
+    <!-- 厨房圈紧急关停（A.12）：后端返回「厨房圈暂停服务」时整页提示 -->
+    <ui-community-paused :back="false" />
   </view>
 </template>
 

@@ -5,7 +5,7 @@
  * - H5：fetch + ReadableStream。
  * 分块可能在任意字节处切断（含 UTF-8 多字节字符中间、事件中间），解析器与解码器都按流式处理。
  */
-import { BASE, getToken } from './request'
+import { BASE, authHeaders } from './request'
 
 export interface SseEvent {
   event: string
@@ -127,7 +127,7 @@ export function fetchTransport(req: SseRequest, fetchImpl: typeof fetch = fetch)
     try {
       const res = await fetchImpl(BASE + req.url, {
         method: req.method || 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', Authorization: getToken() },
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...authHeaders() },
         body: req.data === undefined ? undefined : JSON.stringify(req.data),
         signal: ctrl?.signal,
       })
@@ -160,7 +160,7 @@ export function chunkedTransport(req: SseRequest, requestImpl: any = uni.request
     enableChunked: true,
     responseType: 'arraybuffer',
     timeout: 120000,
-    header: { 'Content-Type': 'application/json', Accept: 'text/event-stream', Authorization: getToken() },
+    header: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...authHeaders() },
     success: (res: any) => {
       if (aborted) return
       if (res?.statusCode && res.statusCode !== 200) {

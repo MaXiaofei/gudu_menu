@@ -5,7 +5,7 @@
 ---
 
 ## Phase A：可独立先做（不依赖多家庭）
-- [ ] A.1 小程序关闭社区：`FEATURE_COMMUNITY` 开关，隐藏入口，`pkg-community` 不打包；后端识别 `X-Client: mp-weixin` 拒绝社区写接口
+- [x] A.1 小程序关闭社区：`FEATURE_COMMUNITY` 开关，隐藏入口，`pkg-community` 不打包；后端识别 `X-Client: mp-weixin` 拒绝社区写接口
 - [x] A.2 prod 关闭 Swagger/knife4j（`application-prod.yml`），放行名单随 profile
   - `springdoc.api-docs/swagger-ui.enabled` 随 `GUDU_API_DOCS_ENABLED`（prod 默认 false；staging/test compose 设 true）；关闭时 SaTokenConfig 不放行文档路径（未登录 401、已登录 404）；knife4j 早已弃用，删掉残留配置
 - [x] A.3 上传：UUID 文件名、去 EXIF；`/uploads/**` 改**短时签名 URL**（小程序 `<image>`、微信拉图带不了登录头）
@@ -17,12 +17,15 @@
 - [x] A.5 发给模型的家庭信息最小化：成员称呼假名化，仅传特殊人群标签 + 过敏原；单测断言 prompt 不含真实称呼/手机号/openid
 - [x] A.6 `ContentSecurity` 端口 + 微信实现（msgSecCheck v2 / mediaCheckAsync + 回调）+ 规则兜底；接入 AI 输入输出、昵称、头像、上传图片、反馈
   - 上线前手动：公众平台「消息推送」URL `https://imxf.cloud/gudu/wx/push`、Token=WX_TOKEN、明文模式 + JSON；`/uploads` 需对微信服务器可拉取（A.3 已改短时签名 URL，提交微信的 media_url 自带签名）
-- [ ] A.7 首次登录完善资料：昵称仍为「微信用户」的账号登录后弹一次头像昵称设置（`chooseAvatar` + `type="nickname"`，可跳过、跳过后不再弹）；保存前过 A.6 内容安全；Flutter 端不涉及
+- [x] A.7 首次登录完善资料：昵称仍为「微信用户」的账号登录后弹一次头像昵称设置（`chooseAvatar` + `type="nickname"`，可跳过、跳过后不再弹）；保存前过 A.6 内容安全；Flutter 端不涉及
 
 - [ ] A.8 个性化推荐开关（个人信息保护法第 24 条）：「我的 → 设置」可关闭，关闭后智荐只给不基于成员档案与饮食记录的通用推荐；mini + 后端偏好字段（Flutter 随 App 上线再做）
-- [ ] A.9 小程序隐藏语音入口（后端语音识别仍是 Mock）：只保留文字对话；隐私指引不再声明麦克风
-- [ ] A.10 聚餐邀请链接需要登录：未登录/未同意协议点开链接 → 登录页 → 登录后自动回到点菜页（保留邀请参数）；访客免登录入口在小程序端关闭
+- [x] A.9 小程序隐藏语音入口（后端语音识别仍是 Mock）：只保留文字对话；隐私指引不再声明麦克风
+- [x] A.10 聚餐邀请链接需要登录：未登录/未同意协议点开链接 → 登录页 → 登录后自动回到点菜页（保留邀请参数）；访客免登录入口在小程序端关闭
 - [ ] A.11 意见反馈闭环：反馈加类型（general / ai / complaint）与来源引用；后台可回复并标记处理；回复以站内消息推到小程序「消息与提醒」；小程序「我的反馈」看处理状态与回复
+- [x] A.12 厨房圈紧急关停开关（只用于出现内容风险时一键关闭，不用于审核后开放；小程序仍按 A.1 构建期不打包）：
+  后端运行时开关 `community.enabled`（V85 `sys_switch` + `sys_switch_log`，进程内缓存 15 秒），关闭时 `/community/**` 读写统一业务码 5031「厨房圈暂停服务」，`/admin/community/**` 审核不受影响，每次修改记操作人/时间/原因；
+  menu-admin 社区审核页顶部开关（二次确认、关停必填原因、显示状态与最后操作人、修改记录）；H5（menu-mini）与 App 收到 5031 整页显示暂停提示不报错
 
 > 2026-10-26 用户决策：协议与功能范围只写**微信小程序**（App 未上架、生产无用户网页端）；聚餐邀请需登录；语音先隐藏。
 

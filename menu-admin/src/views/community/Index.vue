@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import AvatarStack from '@/components/AvatarStack.vue'
 import DishThumb from '@/components/DishThumb.vue'
 import StatCard from '@/components/StatCard.vue'
+import SwitchBar from './SwitchBar.vue'
 import {
   getAdminPost, getCommunityStats, listQueue, moderatePost,
   type CommunityStats, type ModerateAction, type PostDetailLite, type QueueItem, type QueueStatus, type Risk,
@@ -204,6 +205,9 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- A.12 厨房圈紧急关停开关（只用于出现内容风险时一键关闭） -->
+    <SwitchBar class="switch" />
+
     <div class="kpis" data-testid="community-stats">
       <StatCard v-for="c in statCards" :key="c.label" :label="c.label" :value="c.value" :hint="c.hint" :tone="c.tone ?? 'default'" />
     </div>
@@ -383,6 +387,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.switch {
+  margin-bottom: 16px;
+}
 .kpis {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

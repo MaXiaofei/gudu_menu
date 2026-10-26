@@ -1,7 +1,7 @@
 /**
  * 咕嘟 Agent（contracts §1）：会话、SSE 消息、待确认动作、反馈、首屏建议。
  */
-import { request, BASE, getToken } from '@/utils/request'
+import { request, BASE, authHeaders } from '@/utils/request'
 import { streamSse, type SseEvent, type SseHandle } from '@/utils/sse'
 import { normalizePage, type CursorPage } from '@/utils/cursor'
 import type { CDishCard, MemberLite } from './contract'
@@ -259,7 +259,7 @@ export function uploadAudio(filePath: string): Promise<number> {
       filePath,
       name: 'file',
       formData: { filename: 'voice.mp3', kind: 'audio' },
-      header: { Authorization: getToken() },
+      header: authHeaders(),
       success: (res) => {
         try {
           const body = JSON.parse(res.data as any)

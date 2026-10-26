@@ -29,7 +29,7 @@ test.describe('H5 关于 / 协议', () => {
     await page.locator('.row-label', { hasText: '用户协议' }).click()
     await expect(page.locator('.bh-title')).toHaveText('用户协议', { timeout: 10000 })
     await expect(page.locator('.h2').first()).toContainText('服务内容')
-    await expect(page.locator('.doc')).toContainText('【运营主体】')
+    await expect(page.locator('.doc')).toContainText('马晓飞')
   })
 
   test('隐私政策页直达渲染正文', async ({ page }) => {

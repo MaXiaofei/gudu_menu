@@ -89,3 +89,24 @@ export function getAdminPost(postId: number) {
 export function moderatePost(postId: number, body: { action: ModerateAction; reason: string; note: string }) {
   return request<unknown>({ url: `/admin/community/posts/${postId}/moderate`, method: 'post', data: body })
 }
+
+/** 厨房圈紧急关停开关（A.12）：只用于出现内容风险时一键关闭。 */
+export interface SwitchChange {
+  enabled: boolean
+  updatedBy: number | null
+  updatedByName: string | null
+  updatedAt: string | null
+  reason: string | null
+}
+
+export interface CommunitySwitchState extends SwitchChange {
+  recentChanges: SwitchChange[]
+}
+
+export function getCommunitySwitch() {
+  return request<CommunitySwitchState>({ url: '/admin/community/switch', method: 'get' })
+}
+
+export function setCommunitySwitch(body: { enabled: boolean; reason?: string }) {
+  return request<CommunitySwitchState>({ url: '/admin/community/switch', method: 'put', data: body })
+}

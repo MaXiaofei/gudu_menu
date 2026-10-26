@@ -16,7 +16,8 @@ export const useAuthStore = defineStore('auth', {
       })
       this.token = r.token
       this.nickname = r.nickname || ''
-      applyLoginResult(r) // token + 家庭上下文（families / currentFamilyId）
+      // token + nickname（首次完善资料判断默认昵称用，A.7）+ 家庭上下文（families / currentFamilyId）
+      applyLoginResult({ ...r, nickname: r.nickname || '' })
       uni.setStorageSync('login_via', 'account') // 账号用户 401 不静默重登（防串号到微信新号）
       return r
     },

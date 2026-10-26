@@ -48,7 +48,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { previewInvitation, type InvitationPreview } from '@/api/family'
 import { useFamilyStore } from '@/store/family'
 import { invitePath, PENDING_INVITE_KEY } from '@/utils/family'
-import { ONBOARD_PAGE } from '@/utils/afterLogin'
+import { goAfterJoin, loginUrl } from '@/utils/loginRedirect'
 import { fmt } from './parts/dialog'
 
 const store = useFamilyStore()
@@ -68,9 +68,10 @@ const unusableText = computed(() => {
 
 onLoad((o) => {
   code.value = decodeURIComponent(String(o?.code || '')).trim()
-  // 记下邀请码：未登录 → 登录页登录后回到本页继续（utils/afterLogin.routeAfterLogin）；
-  // 新微信用户登录时随 wx-login 带上，直接进邀请家庭
-  if (code.value) uni.setStorageSync(PENDING_INVITE_KEY, code.value)
+  // 未登录：记下邀请码，登录后按「待加入邀请」优先回到本页（utils/loginRedirect.goAfterLogin），
+  // 新微信用户登录时随 wx-login 带上，直接进邀请家庭；已登录则已回到本页，清掉避免下次登录又被带回来
+  if (code.value && !uni.getStorageSync('token')) uni.setStorageSync(PENDING_INVITE_KEY, code.value)
+  else uni.removeStorageSync(PENDING_INVITE_KEY)
   load()
 })
 
@@ -91,7 +92,7 @@ async function load() {
 }
 
 function toLogin() {
-  uni.navigateTo({ url: `/pages/login/Login?redirect=${encodeURIComponent(invitePath(code.value))}` })
+  uni.navigateTo({ url: loginUrl(invitePath(code.value)) })
 }
 
 async function onJoin() {
@@ -101,8 +102,8 @@ async function onJoin() {
     await store.join(code.value)
     uni.removeStorageSync(PENDING_INVITE_KEY)
     uni.showToast({ title: `已加入「${preview.value?.familyName || '家庭'}」`, icon: 'none' })
-    // 加入时后端已自动建好本人在新家庭的档案 → 引导补充口味 / 健康信息（可跳过）
-    setTimeout(() => uni.reLaunch({ url: `${ONBOARD_PAGE}?from=join` }), 400)
+    // 加入时后端已自动建好本人在新家庭的档案 → 首次引导（先头像昵称、再成员档案，均可跳过）
+    setTimeout(goAfterJoin, 400)
   } catch (e: any) {
     if (/已在该家庭/.test(e?.message || '')) {
       uni.removeStorageSync(PENDING_INVITE_KEY)

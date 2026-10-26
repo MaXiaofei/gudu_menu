@@ -116,6 +116,8 @@
         <text v-if="dish" class="unlink" @click="pick(null)">不关联菜谱</text>
       </view>
     </view>
+    <!-- 厨房圈紧急关停（A.12）：后端返回「厨房圈暂停服务」时整页提示 -->
+    <ui-community-paused />
   </view>
 </template>
 

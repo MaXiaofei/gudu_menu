@@ -32,6 +32,7 @@
         "navigationStyle": "custom"
       }
     },
+    // #ifndef MP-WEIXIN
     {
       "path": "pages/community/Index",
       "style": {
@@ -40,6 +41,7 @@
         "onReachBottomDistance": 200
       }
     },
+    // #endif
     {
       "path": "pages/recommend/Index",
       "style": {
@@ -222,12 +224,14 @@
         "iconPath": "static/tabbar/agent-cream.png",
         "selectedIconPath": "static/tabbar/agent-cream-on.png"
       },
+      // #ifndef MP-WEIXIN
       {
         "pagePath": "pages/community/Index",
         "text": "厨房圈",
         "iconPath": "static/tabbar/community-cream.png",
         "selectedIconPath": "static/tabbar/community-cream-on.png"
       },
+      // #endif
       {
         "pagePath": "pages/pantry/List",
         "text": "我家余量",
@@ -251,20 +255,23 @@
     {
       "root": "pkg-agent",
       "pages": [
+        // #ifndef MP-WEIXIN
         {
-          "path": "Chat",
+          "path": "Voice",
           "style": {
             "navigationStyle": "custom"
           }
         },
+        // #endif
         {
-          "path": "Voice",
+          "path": "Chat",
           "style": {
             "navigationStyle": "custom"
           }
         }
       ]
     },
+    // #ifndef MP-WEIXIN
     {
       "root": "pkg-community",
       "pages": [
@@ -288,6 +295,7 @@
         }
       ]
     },
+    // #endif
     {
       "root": "pkg-ai",
       "pages": [
@@ -372,22 +380,18 @@
     }
   ],
   "preloadRule": {
-    "pages/agent/Index": {
-      "network": "all",
-      "packages": [
-        "pkg-agent"
-      ]
-    },
+    // #ifndef MP-WEIXIN
     "pages/community/Index": {
       "network": "all",
       "packages": [
         "pkg-community"
       ]
     },
-    "pages/profile/Profile": {
+    // #endif
+    "pages/agent/Index": {
       "network": "all",
       "packages": [
-        "pkg-family"
+        "pkg-agent"
       ]
     }
   }

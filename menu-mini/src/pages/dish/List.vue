@@ -107,6 +107,9 @@
     <view v-if="!selectForMenuId" class="fab" data-testid="fab-create" @click="goCreate">
       <text class="fab-plus">＋</text><text class="fab-txt">写菜谱</text>
     </view>
+    <!-- 首次登录完善资料（A.7） -->
+    <!-- 首次引导第 1 步：头像昵称（A.7）；保存后接第 2 步成员档案引导 -->
+    <ui-profile-setup @done="onProfileDone" />
   </view>
 </template>
 
@@ -121,6 +124,12 @@ import { relativeDate } from '@/utils/datetime'
 import { listDict, type DictItem } from '@/api/common'
 import { addDishToMenu } from '@/api/menu'
 import { navInset } from '@/utils/token'
+import { continueFirstRun } from '@/utils/loginRedirect'
+
+/** 头像昵称弹窗关闭：保存了接着进成员档案引导，跳过则都不再打扰。 */
+function onProfileDone(v: { saved: boolean }) {
+  continueFirstRun(v.saved)
+}
 
 const sb = navInset()
 
