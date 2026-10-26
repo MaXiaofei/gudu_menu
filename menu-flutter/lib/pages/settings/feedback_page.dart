@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/ai_label.dart';
 import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
 import '../../core/constants.dart';
@@ -13,7 +14,11 @@ import '../../widgets/action_bar.dart';
 
 /// 意见反馈（G14）：内容 5–500 字 + 联系方式（可选）+ 最多 3 张截图 → POST /feedback。
 class FeedbackPage extends StatefulWidget {
-  const FeedbackPage({super.key});
+  const FeedbackPage({super.key, this.aiSource, this.aiRef});
+
+  /// 从 AI 内容旁的「反馈」进入（A.4）：追加并默认选中「AI 内容」类型，来源标记写进 clientInfo。
+  final AiSource? aiSource;
+  final String? aiRef;
 
   @override
   State<FeedbackPage> createState() => _FeedbackPageState();
@@ -26,12 +31,15 @@ class _FeedbackPageState extends State<FeedbackPage> {
   bool _submitting = false;
 
   /// 反馈类型（原型 Feedback 四宫格；后端 type 字段上线前随 clientInfo 带上）。
-  static const _types = [
+  static const _baseTypes = [
     ('出错了', Icons.error_outline_rounded, 'bug'),
     ('想要功能', Icons.lightbulb_outline_rounded, 'feature'),
     ('菜谱有误', Icons.menu_book_outlined, 'recipe'),
     ('其他', Icons.more_horiz_rounded, 'other'),
   ];
+  static const _aiType = ('AI 内容', Icons.auto_awesome_outlined, 'ai');
+  List<(String, IconData, String)> get _types =>
+      widget.aiSource == null ? _baseTypes : [_aiType, ..._baseTypes];
   int _type = 0;
 
   /// 附带设备型号、App 版本和最近一次报错编号（默认开）。
@@ -79,11 +87,13 @@ class _FeedbackPageState extends State<FeedbackPage> {
         contact: _contact.text.trim(),
         images: urls,
         type: _types[_type].$3,
-        errorId: _attachDiag ? ApiClient.lastErrorId : null,
+        errorId: _attachDiag && widget.aiSource == null ? ApiClient.lastErrorId : null,
         clientInfo: [
+          if (widget.aiSource != null) aiSourceTag(widget.aiSource!, widget.aiRef),
           'type=${_types[_type].$3}',
           if (_attachDiag) 'flutter/${Platform.operatingSystem} v${AppConstants.appVersion}',
-          if (_attachDiag && ApiClient.lastErrorId != null) 'errorId=${ApiClient.lastErrorId}',
+          if (_attachDiag && widget.aiSource == null && ApiClient.lastErrorId != null)
+            'errorId=${ApiClient.lastErrorId}',
         ].join(' · '),
       );
       if (!mounted) return;

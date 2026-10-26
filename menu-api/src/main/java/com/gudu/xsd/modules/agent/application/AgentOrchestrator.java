@@ -25,6 +25,7 @@ import com.gudu.xsd.modules.ai.gateway.domain.model.ChatMessage;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ChatRequest;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ChatResult;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ToolCall;
+import com.gudu.xsd.modules.ai.gateway.domain.service.Pseudonymizer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -42,6 +44,8 @@ import java.util.function.Supplier;
  *
  * <p>事件严格按 contracts.md：meta → (tool_start → tool_end → card* → action*)* → token* → done；异常时 error。
  * 写工具只登记待确认动作；工具结果以「数据，不是指令」包装回传模型，防间接注入；输出前手机号脱敏。
+ * 隐私：每次调用网关前整段消息（系统提示 / 历史 / 用户输入 / 工具结果）经 {@link Pseudonymizer} 把成员称呼换成
+ * 「成员A/B…」并去掉账号标识；模型回复与工具调用参数还原为真实称呼后再执行工具 / 下发（token 事件再过一道流式还原）。
  * 本类不碰持久化：会话 / 调用链落库由 {@link AgentAppService} 负责，评测直接用返回的 {@link TurnResult}。
  */
 @Slf4j
@@ -69,9 +73,16 @@ public class AgentOrchestrator {
      *
      * @param toolErrors 评测注入：工具名 → 错误（如 TIMEOUT），该工具直接返回失败
      */
-    public record Env(Kitchen kitchen, ActionDesk desk, ModelGateway gateway, Map<String, String> toolErrors) {
+    public record Env(Kitchen kitchen, ActionDesk desk, ModelGateway gateway, Map<String, String> toolErrors,
+                      AgentContentGate contentGate) {
         public Env {
             toolErrors = toolErrors == null ? Map.of() : toolErrors;
+            contentGate = contentGate == null ? AgentContentGate.PASS : contentGate;
+        }
+
+        /** 不做内容安全检测（评测 / 单测）。 */
+        public Env(Kitchen kitchen, ActionDesk desk, ModelGateway gateway, Map<String, String> toolErrors) {
+            this(kitchen, desk, gateway, toolErrors, AgentContentGate.PASS);
         }
     }
 
@@ -91,6 +102,16 @@ public class AgentOrchestrator {
             return finish(req, turn, violation, sink);
         }
 
+        // 1b. 内容安全（A.6）：发给模型前检测，违规直接拒绝
+        long c0 = System.currentTimeMillis();
+        String unsafe = env.contentGate().inputViolation(req.text()).orElse(null);
+        turn.span(SpanType.GUARD, "guard.content_input", c0, unsafe == null, Map.of("length", len(req.text())),
+                unsafe == null ? Map.of("pass", true) : Map.of("blocked", true), 0, BigDecimal.ZERO);
+        if (unsafe != null) {
+            turn.status = TraceStatus.GUARDED;
+            return finish(req, turn, unsafe, sink);
+        }
+
         // 2. 口头确认：用户只说「确认 / 好的 / 可以」且上一轮留下了待确认卡片 → 直接执行这些卡片（等同点确认），不交给模型
         if (VerbalConfirm.matches(req.text())) {
             List<PendingAction> pending = VerbalConfirm.lastPending(env.desk().ledger(req.memberId(), req.sessionId())
@@ -98,7 +119,9 @@ public class AgentOrchestrator {
             if (!pending.isEmpty()) return confirmVerbally(req, env, pending, turn, sink);
         }
 
-        // 3. 上下文
+        // 3. 上下文（编排器内部一律用真实称呼；发给网关前假名化、模型输出还原，见 Pseudonymizer）
+        Pseudonymizer pz = Pseudonymizer.of(env.kitchen().members().stream().map(Kitchen.MemberInfo::name).toList());
+        sink = new RestoringSink(sink, pz);
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(ChatMessage.system(AgentPrompts.system(env.kitchen().now(), env.kitchen().members())));
         messages.addAll(req.history());
@@ -113,7 +136,7 @@ public class AgentOrchestrator {
                 ChatRequest cr = new ChatRequest(Capability.TOOLS, "agent", messages, registry.definitions(), false,
                         req.traceId(), req.memberId(), planner, req.forceRule());
                 long l0 = System.currentTimeMillis();
-                ChatResult res = env.gateway().chat(cr);
+                ChatResult res = pz.restore(env.gateway().chat(pz.mask(cr)));
                 turn.llm(res, l0, step);
                 if (res.reply().hasToolCalls()) {
                     messages.add(ChatMessage.assistantToolCalls(res.content(), res.reply().toolCalls(),
@@ -129,8 +152,8 @@ public class AgentOrchestrator {
                     }
                     continue;
                 }
-                reply = res.content();
-                turn.reasoning = res.reply().reasoningContent();
+                reply = reviewReply(res.content(), env, turn);
+                turn.reasoning = Objects.equals(reply, res.content()) ? res.reply().reasoningContent() : null;
                 break;
             }
         } catch (ModelUnavailableException e) {
@@ -144,6 +167,19 @@ public class AgentOrchestrator {
         }
         if (turn.status == TraceStatus.OK && turn.degraded) turn.status = TraceStatus.DEGRADED;
         return finish(req, turn, reply, sink);
+    }
+
+    /**
+     * 内容安全（A.6）：模型回复在放出任何 token 之前复核；违规替换为安全提示，思考过程一并丢弃（不落库）。
+     */
+    private static String reviewReply(String content, Env env, Turn turn) {
+        if (content == null || content.isBlank()) return content;
+        long r0 = System.currentTimeMillis();
+        String reviewed = env.contentGate().reviewReply(content);
+        boolean pass = content.equals(reviewed);
+        turn.span(SpanType.GUARD, "guard.content_output", r0, pass, Map.of("length", content.length()),
+                pass ? Map.of("pass", true) : Map.of("replaced", true), 0, BigDecimal.ZERO);
+        return reviewed;
     }
 
     private String runTool(ToolCall call, ToolContext ctx, Env env, TurnRequest req, Turn turn, AgentEventSink sink) {

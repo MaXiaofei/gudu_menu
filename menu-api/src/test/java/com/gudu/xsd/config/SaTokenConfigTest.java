@@ -36,10 +36,36 @@ class SaTokenConfigTest {
             "POST,   /auth/login,               false",
             "POST,   /auth/wx-login,            false",
             "GET,    /uploads/a.png,            false",
+            // 微信消息推送（签名校验替代登录态）
+            "GET,    /wx/push,                  false",
+            "POST,   /wx/push,                  false",
+            "POST,   /auth/wx-echo,             false",
             "GET,    /menu/5/together,          false",
             "OPTIONS,/menu/page,                false",
     })
     void rules(String method, String path, boolean expected) {
         assertThat(SaTokenConfig.requiresLogin(method.trim(), path.trim())).isEqualTo(expected);
+    }
+
+    /** A.2：接口文档只在 springdoc.api-docs.enabled=true（dev/staging/test）时放行；生产关闭文档后不在放行名单。 */
+    @ParameterizedTest(name = "{0} docsPublic={1} → requiresLogin={2}")
+    @CsvSource({
+            "/v3/api-docs,                 true,  false",
+            "/v3/api-docs/gudu,            true,  false",
+            "/v3/api-docs/swagger-config,  true,  false",
+            "/swagger-ui.html,             true,  false",
+            "/swagger-ui/index.html,       true,  false",
+            "/v3/api-docs,                 false, true",
+            "/v3/api-docs/gudu,            false, true",
+            "/v3/api-docs/swagger-config,  false, true",
+            "/swagger-ui.html,             false, true",
+            "/swagger-ui/index.html,       false, true",
+            "/swagger-resources/x,         false, true",
+            "/webjars/swagger-ui/index.html, false, true",
+            // 上传文件不靠登录态（签名校验见 UploadAccessConfig）
+            "/uploads/original/20261026/a.jpg, false, false",
+    })
+    void apiDocsFollowProfile(String path, boolean docsPublic, boolean expected) {
+        assertThat(SaTokenConfig.requiresLogin("GET", path.trim(), docsPublic)).isEqualTo(expected);
     }
 }

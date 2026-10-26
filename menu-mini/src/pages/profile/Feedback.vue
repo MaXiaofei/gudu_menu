@@ -16,7 +16,7 @@
         <text class="sec-label">是关于什么的</text>
         <view class="types">
           <view
-            v-for="t in TYPES"
+            v-for="t in types"
             :key="t.key"
             class="type"
             :class="{ on: type === t.key }"
@@ -90,6 +90,7 @@ import {
   FEEDBACK_MAX, FEEDBACK_CONTACT_MAX, FEEDBACK_IMAGES_MAX,
 } from '@/utils/validate'
 import { APP_VERSION } from '@/config/app'
+import { aiSourceTag } from '@/utils/aiLabel'
 
 const content = ref('')
 const contact = ref('')
@@ -106,12 +107,20 @@ const TYPES = [
   { key: 'recipe', label: '菜谱有误', icon: 'book' },
   { key: 'other', label: '其他', icon: 'message' },
 ]
+// AI 内容反馈（A.4）：从 AI 内容旁的「反馈」入口进来时追加，来源标记写进 clientInfo 开头（后端 type 字段上线前不丢）
+const AI_TYPE = { key: 'ai', label: 'AI 内容', icon: 'sparkle' }
 const type = ref('bug')
 const attach = ref(true)
 const errorId = ref('')
+const aiSource = ref('')
+const aiRef = ref('')
+const types = computed(() => (aiSource.value ? [AI_TYPE, ...TYPES] : TYPES))
 onLoad((o) => {
-  errorId.value = (o?.errorId && decodeURIComponent(String(o.errorId))) || lastErrorId()
-  if (o?.type && TYPES.some((t) => t.key === o.type)) type.value = String(o.type)
+  if (o?.source) aiSource.value = String(o.source).slice(0, 20)
+  if (o?.ref) aiRef.value = decodeURIComponent(String(o.ref)).slice(0, 40)
+  // 从 AI 内容反馈进来不带上一次请求的报错编号
+  errorId.value = (o?.errorId && decodeURIComponent(String(o.errorId))) || (aiSource.value ? '' : lastErrorId())
+  if (o?.type && types.value.some((t) => t.key === o.type)) type.value = String(o.type)
 })
 
 const contentLen = computed(() => charLen(content.value.trim()))
@@ -124,7 +133,7 @@ async function addImages() {
   try {
     for (const p of paths) {
       if (images.value.length >= FEEDBACK_IMAGES_MAX) break
-      const r = await uploadImage(p)
+      const r = await uploadImage(p, 'feedback')
       images.value.push({ local: p, url: r.url })
     }
   } catch {
@@ -135,8 +144,9 @@ async function addImages() {
 }
 
 function clientInfo(): string {
-  const label = TYPES.find((t) => t.key === type.value)?.label || ''
-  const head = [label && `类型:${label}`, attach.value && errorId.value ? `报错:${errorId.value}` : ''].filter(Boolean)
+  const label = types.value.find((t) => t.key === type.value)?.label || ''
+  const head = [aiSourceTag(aiSource.value, aiRef.value), label && `类型:${label}`,
+    attach.value && errorId.value ? `报错:${errorId.value}` : ''].filter(Boolean)
   if (!attach.value) return head.join(' / ')
   try {
     const s = uni.getSystemInfoSync()
@@ -305,7 +315,7 @@ function goBack() {
 }
 .types {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
   gap: var(--sp-8);
 }
 .type {

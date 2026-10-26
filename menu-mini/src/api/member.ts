@@ -44,7 +44,9 @@ export function updateMe(p: { name?: string; avatarUrl?: string }): Promise<void
   const data: Record<string, string> = {}
   if (p.name !== undefined) data.name = p.name.trim()
   if (p.avatarUrl) data.avatarUrl = p.avatarUrl
-  return request({ url: '/member/me', method: 'PUT', data })
+  // 内容安全（A.6）：后端只检有变化的昵称/头像；按本次提交内容给场景文案
+  const contentScene = p.avatarUrl ? (p.name !== undefined ? 'profile' : 'avatar') : 'nickname'
+  return request({ url: '/member/me', method: 'PUT', data, contentScene })
 }
 
 /** 「我的」统计（P0 契约 GET /me/stats）；旧后端无此接口返回 null（页面隐藏或回退本地聚合）。 */

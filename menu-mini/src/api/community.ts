@@ -47,6 +47,8 @@ export interface PostDetail extends PostCard {
   createdAt: string
   city: string | null
   status: 'PUBLISHED' | 'REVIEWING' | 'HIDDEN'
+  /** 仅作者可见的处置原因（如「图片未通过审核」） */
+  statusReason?: string | null
 }
 
 export interface Comment {
@@ -203,4 +205,10 @@ export function toggleLikeLocal<T extends { liked: boolean; likeCount: number }>
   p.liked = !p.liked
   p.likeCount = Math.max(0, p.likeCount + (p.liked ? 1 : -1))
   return p
+}
+
+/** 非公开帖子给作者的提示：有处置原因（如「图片未通过审核」）优先，其次审核中 / 已隐藏。 */
+export function postReviewText(p: Pick<PostDetail, 'status' | 'statusReason'>): string {
+  if (p.statusReason) return `${p.statusReason} · 仅自己可见`
+  return p.status === 'REVIEWING' ? '审核中 · 仅自己可见，通过后大家就能看到' : '已被隐藏'
 }

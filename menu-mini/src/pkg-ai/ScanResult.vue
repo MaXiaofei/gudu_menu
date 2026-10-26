@@ -22,6 +22,7 @@
           </view>
         </view>
         <view class="privacy"><ui-icon name="shield" :size="14" /><text class="privacy-txt">原图 24 小时后自动删除，只保留识别结果</text></view>
+        <view class="ai-row"><ui-ai-badge source="scan" :feedback-ref="job.jobId" /></view>
 
         <!-- 菜谱截图 -->
         <view v-if="job.mode === 'RECIPE' && job.recipe" class="recipe">
@@ -304,5 +305,8 @@ function again() {
   font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--on-primary);
+}
+.ai-row {
+  margin-bottom: var(--sp-12);
 }
 </style>

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ai_label.dart';
 import '../../core/app_theme.dart';
 import '../../core/error_text.dart';
 import '../../models/member.dart';
 import '../../services/agent_service.dart' show isNotDeployed;
 import '../../services/mealplan_service.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/ai_badge.dart';
 import '../../widgets/dish_image.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/illustration.dart';
@@ -237,6 +239,9 @@ class _WeekPlanPageState extends State<WeekPlanPage> {
                 )
               : ErrorView(text: '餐程生成失败', onRetry: () => _generate(), error: _error)
         else if (_d != null) ...[
+          // AI 标识 + 免责提示（A.4）
+          AiBadge(disclaimer: true, source: AiSource.weekplan, feedbackRef: _d!.draftId),
+          const SizedBox(height: AppTokens.sp12),
           _check(t, _d!),
           const SizedBox(height: AppTokens.sp12),
           _grid(t, _d!),

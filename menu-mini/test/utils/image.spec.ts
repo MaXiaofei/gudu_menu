@@ -20,6 +20,16 @@ describe('utils/image', () => {
     expect(thumbOf('/uploads/original/a.jpg')).toContain('/uploads/thumbnail/a.jpg')
   })
 
+  // A.3：后端返回的上传地址带短时签名 ?e=&s=（签名对原图与缩略图通用），拼地址时必须原样保留查询串
+  it('签名地址：toAbsolute / thumbOf / thumbList 保留 ?e=&s=', () => {
+    const signed = '/gudu/uploads/original/20261026/abc.jpg?e=1793030400&s=Ab_-9x'
+    expect(toAbsolute(signed).endsWith('/gudu/uploads/original/20261026/abc.jpg?e=1793030400&s=Ab_-9x')).toBe(true)
+    expect(thumbOf(signed).endsWith('/uploads/thumbnail/20261026/abc.jpg?e=1793030400&s=Ab_-9x')).toBe(true)
+    const two = thumbList(`${signed},/gudu/uploads/original/20261026/b.png?e=1&s=Z`)
+    expect(two).toHaveLength(2)
+    expect(two[1].endsWith('/thumbnail/20261026/b.png?e=1&s=Z')).toBe(true)
+  })
+
   it('thumbList / originalList：逗号分隔多图拆分 + 过滤空', () => {
     const urls = thumbList('/uploads/original/a.jpg,/uploads/original/b.jpg,')
     expect(urls).toHaveLength(2)

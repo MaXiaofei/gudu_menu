@@ -80,6 +80,8 @@ DELETE FROM dish_history;
 DELETE FROM ai_call_log;
 -- V67 意见反馈（每账号每日 ≤10 条限流，E2E 重复跑必须清）
 DELETE FROM feedback;
+-- V80 图片内容安全检测（trace_id 唯一约束；E2E 自建记录 trace_id 用 E2E 前缀、地址带 /e2e/）
+DELETE FROM content_media_check WHERE trace_id LIKE 'E2E%' OR media_url LIKE '%/e2e/%';
 
 -- ============================================================
 -- 静态种子自愈：把「番茄/鸡蛋」规范化到测试常量依赖的固定 id(1/2)，
