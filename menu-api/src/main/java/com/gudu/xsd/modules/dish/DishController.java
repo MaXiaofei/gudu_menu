@@ -27,6 +27,19 @@ public class DishController {
     private final RecipeImporter recipeImporter;
     private final DishVectorService vectorSvc;
     private final com.gudu.xsd.modules.dish.application.DishCoverageAppService coverageApp;
+    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+
+    /** 内容安全：菜谱名称、简介、步骤文字（用户可编辑并会展示；微信不可用降级规则）。 */
+    private void screen(DishSaveDTO dto) {
+        if (dto == null) return;
+        java.util.List<String> texts = new java.util.ArrayList<>();
+        if (dto.getDish() != null) {
+            texts.add(dto.getDish().getName());
+            texts.add(dto.getDish().getNote());
+        }
+        if (dto.getSteps() != null) dto.getSteps().forEach(s -> texts.add(s.getText()));
+        contentSecurity.assertUserText(com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose.DISH_TEXT, texts.toArray(new String[0]));
+    }
 
     /** 语义找菜请求：自然语言 query + 相似候选数/难度/时长过滤（均可选）。 */
     @lombok.Data
@@ -133,6 +146,7 @@ public class DishController {
     @PostMapping
     @MpPerm("dish.create")
     public R<?> save(@RequestBody DishSaveDTO dto) {
+        screen(dto);
         svc.saveFull(dto);
         return R.ok(dto.getDish().getId());
     }
@@ -143,6 +157,7 @@ public class DishController {
     public R<Long> importUrl(@RequestParam String url) {
         try {
             DishSaveDTO dto = recipeImporter.importFromUrl(url);
+            screen(dto);
             svc.saveFull(dto);
             return R.ok(dto.getDish().getId());
         } catch (BizException e) {
@@ -157,6 +172,7 @@ public class DishController {
     @PutMapping
     @MpPerm("dish.edit")
     public R<?> update(@RequestBody DishSaveDTO dto) {
+        screen(dto);
         if (dto.getDish().getId() != null) {
             svc.checkWritable(dto.getDish().getId()); // 先校验写权限（别家 404 / 公共菜谱非运营 403），再写历史快照
             querySvc.snapshotBeforeUpdate(dto.getDish().getId());

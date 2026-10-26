@@ -44,6 +44,7 @@ public class MemberController {
     private final FamilyAppService familyApp;
     private final FamilyQueryApi familyQuery;
     private final ConsentAppService consentApp;
+    private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
 
     /** 本家成员档案（分页）。 */
     @GetMapping
@@ -91,6 +92,7 @@ public class MemberController {
     @PostMapping
     public R<?> add(@RequestBody @Valid MemberSaveRequest req) {
         long caller = StpUtil.getLoginIdAsLong();
+        contentSecurity.assertUserText(com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose.MEMBER_NAME, req.getName());
         boolean admin = adminChecker.isAdmin(caller);
         if (!admin && !canManage()) throw BizException.forbidden("只有主理人或管理员可以添加成员");
         assertSensitiveConsent(caller, req);
@@ -113,6 +115,7 @@ public class MemberController {
     @PutMapping
     public R<?> update(@RequestBody @Valid MemberSaveRequest req) {
         if (req.getId() == null) throw new BizException("缺少成员 id");
+        contentSecurity.assertUserText(com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose.MEMBER_NAME, req.getName());
         Member target = inFamily(req.getId());
         boolean manager = canManage();
         if (!manager && !isMine(target)) throw BizException.forbidden("只能编辑本人档案");

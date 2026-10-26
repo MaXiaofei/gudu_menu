@@ -156,6 +156,18 @@ public class MybatisAgentTraceRepository implements AgentTraceRepository {
     }
 
     @Override
+    public int anonymizeBySessions(java.util.Collection<String> sessionIds) {
+        if (sessionIds == null || sessionIds.isEmpty()) return 0;
+        List<String> ids = traceMapper.selectList(new QueryWrapper<AgentTracePO>().select("id")
+                .in("session_id", sessionIds)).stream().map(AgentTracePO::getId).toList();
+        if (ids.isEmpty()) return 0;
+        spanMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<AgentSpanPO>()
+                .in("trace_id", ids).set("input_json", null).set("output_json", null));
+        return traceMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<AgentTracePO>()
+                .in("id", ids).set("member_id", null).set("first_text", null));
+    }
+
+    @Override
     public int purgeBefore(LocalDateTime cutoff, int limit) {
         List<String> ids = traceMapper.selectList(new QueryWrapper<AgentTracePO>().select("id")
                         .lt("created_at", cutoff).orderByAsc("created_at").last("LIMIT " + Math.max(1, limit)))

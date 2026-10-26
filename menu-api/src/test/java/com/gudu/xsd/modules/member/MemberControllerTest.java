@@ -70,6 +70,9 @@ class MemberControllerTest {
     private MockMvc mvc;
 
     @MockBean
+    private com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+
+    @MockBean
     private MemberService svc;
 
     @MockBean

@@ -63,6 +63,9 @@ class ReviewControllerTest {
     @Autowired
     MockMvc mvc;
     @MockBean
+    private com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+
+    @MockBean
     ReviewService svc;
 
     /** POST /review 提交菜品评价 → 返回评价 id。 */

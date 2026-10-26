@@ -20,7 +20,19 @@ public enum ContentPurpose {
     POST(ContentScene.FORUM, false, false),
     COMMENT(ContentScene.COMMENT, false, false),
     /** 其它用户上传图片（菜谱封面、食记、拍照识别、评价图…）。 */
-    UPLOAD(ContentScene.SOCIAL_LOG, false, false);
+    UPLOAD(ContentScene.SOCIAL_LOG, false, false),
+    /** 成员档案称呼（家庭内展示；失败降级规则）。 */
+    MEMBER_NAME(ContentScene.PROFILE, false, false),
+    /** 家庭名称。 */
+    FAMILY_NAME(ContentScene.PROFILE, false, false),
+    /** 菜谱名称 / 简介 / 步骤文字。 */
+    DISH_TEXT(ContentScene.SOCIAL_LOG, false, false),
+    /** 食集（菜单）名称。 */
+    MENU_NAME(ContentScene.SOCIAL_LOG, false, false),
+    /** 点评文字。 */
+    REVIEW_TEXT(ContentScene.COMMENT, false, false),
+    /** AI 生成文本（拍照识别、一周餐程、营养估算说明）的输出检测。 */
+    AI_OUTPUT(ContentScene.SOCIAL_LOG, false, false);
 
     private final ContentScene scene;
     private final boolean failClosed;

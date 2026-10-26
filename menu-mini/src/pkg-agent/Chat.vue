@@ -9,6 +9,7 @@
         <text class="top-title">{{ title }}</text>
         <text class="top-sub"><text class="online">●</text> 咕嘟 · 已连接我家的厨房</text>
       </view>
+      <view class="new" aria-label="对话记录管理" data-testid="chat-menu" @click="openMenu"><text class="more">⋯</text></view>
       <view class="new" aria-label="新对话" data-testid="new-session" @click="newSession"><ui-icon name="plus" :size="18" /></view>
     </view>
 
@@ -77,7 +78,7 @@
 import { computed, ref, nextTick, watch } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { listMembers } from '@/api/member'
-import { ensureSession } from '@/api/agent'
+import { clearSessions, deleteSession, ensureSession, forgetCurrentSession } from '@/api/agent'
 import { useAgentChat } from '@/composables/useAgentChat'
 import { FEATURES } from '@/config/features'
 import { navInset } from '@/utils/token'
@@ -143,6 +144,37 @@ async function newSession() {
   chat.messages.splice(0)
   const id = await ensureSession(true).catch(() => '')
   if (id) await chat.init(id)
+}
+
+/** 右上角菜单：删除本对话 / 清空全部对话记录（二次确认；隐私政策 §三.2 用户可自行删除 AI 对话）。 */
+function openMenu() {
+  uni.showActionSheet({
+    itemList: ['删除本对话', '清空全部对话记录'],
+    success: ({ tapIndex }) => confirmErase(tapIndex === 1),
+  })
+}
+function confirmErase(all: boolean) {
+  uni.showModal({
+    title: all ? '清空全部对话记录？' : '删除本对话？',
+    content: all ? '你与咕嘟的所有对话记录将被永久删除，无法恢复。' : '本对话的记录将被永久删除，无法恢复。',
+    confirmText: '删除',
+    confirmColor: '#DB5A4E',
+    success: async ({ confirm }) => {
+      if (!confirm) return
+      try {
+        if (all) await clearSessions()
+        else if (chat.sessionId.value) await deleteSession(chat.sessionId.value)
+      } catch {
+        return // request.ts 已弹 toast
+      }
+      forgetCurrentSession()
+      chat.stop()
+      chat.messages.splice(0)
+      uni.showToast({ title: '已删除', icon: 'none' })
+      const id = await ensureSession(true).catch(() => '')
+      if (id) await chat.init(id)
+    },
+  })
 }
 
 function goBack() {
@@ -215,6 +247,12 @@ function goVoice() {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.more {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--title);
+  line-height: 1;
 }
 .body {
   flex: 1;

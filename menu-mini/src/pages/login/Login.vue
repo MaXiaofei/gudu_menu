@@ -24,9 +24,10 @@
       <button class="wx-btn" :disabled="wxLoading" data-testid="wx-login" @click="onWxLogin">
         {{ wxLoading ? '微信登录中…' : '微信一键登录' }}
       </button>
-      <view class="or" @click="showAccount = !showAccount"><text class="or-txt">{{ showAccount ? '收起账号登录' : '账号密码登录' }}</text></view>
       <!-- #endif -->
 
+      <!-- 小程序只提供微信登录（privacy/terms §二.1）：账号密码表单仅 H5 构建保留 -->
+      <!-- #ifndef MP-WEIXIN -->
       <view v-if="showAccount" class="account">
         <text class="welcome">欢迎回来</text>
         <view class="input-wrap">
@@ -39,10 +40,9 @@
           <text class="pwd-toggle" @click="showPwd = !showPwd">{{ showPwd ? '隐藏' : '显示' }}</text>
         </view>
         <button class="login-btn" :disabled="loading" @click="onLogin">{{ loading ? '登录中…' : '登 录' }}</button>
-        <!-- #ifndef MP-WEIXIN -->
         <button class="wx-btn ghost" :disabled="wxLoading" @click="onWxLogin">{{ wxLoading ? '微信登录中…' : '微信一键登录' }}</button>
-        <!-- #endif -->
       </view>
+      <!-- #endif -->
 
       <view v-if="!agreed" class="hint" data-testid="agree-hint">
         <text class="hint-txt">请先阅读并勾选下方协议。勾选前不会发起任何登录，也不会读取微信身份。</text>
@@ -90,9 +90,8 @@ function afterLogin(accountId?: number | null) {
   resetLoginRedirect()
   return goAfterLogin(redirect.value, accountId)
 }
-// 微信端默认展开一键登录，账号登录折叠；其他端直接展示账号表单
-const mp = process.env.UNI_PLATFORM === 'mp-weixin'
-const showAccount = ref(!mp)
+// 小程序只有微信登录；H5 直接展示账号表单
+const showAccount = ref(true)
 const collageH = nav + 230
 
 // 拼贴砖块用的食材插画 key（static/ing）
@@ -127,7 +126,7 @@ async function onWxLogin() {
       reportConsent() // B.1：登录成功即上报协议同意（静默，不阻塞跳转）
       await afterLogin(r.accountId)
     } else {
-      uni.showToast({ title: '微信登录失败，可先用账号登录', icon: 'none' })
+      uni.showToast({ title: '微信登录失败，请稍后重试', icon: 'none' })
     }
   } finally {
     wxLoading.value = false

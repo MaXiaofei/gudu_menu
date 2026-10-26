@@ -1799,6 +1799,41 @@ class GuduE2ECoverageTest {
         return r.get("data").get("token").asText();
     }
 
+    // ===================== Z. AI 对话自行删除 + 内容安全覆盖补全（mini-release-compliance） ==============
+
+    @Test
+    void Z_AI对话可自行删除_删后消息404_清空接口可用() throws Exception {
+        String token = loginAdmin();
+        JsonNode ses = post(token, "/agent/sessions", Map.of("title", "E2E待删除会话"));
+        assertThat(ses.get("code").asInt()).as(ses.toString()).isZero();
+        String sessionId = ses.get("data").get("sessionId").asText();
+
+        JsonNode del = delete(token, "/agent/sessions/" + sessionId);
+        assertThat(del.get("code").asInt()).as(del.toString()).isZero();
+        // 已物理删除：再取消息 / 再删都是 404（与「别人的会话」同一响应，不暴露存在性）
+        assertThat(get(token, "/agent/sessions/" + sessionId + "/messages").get("code").asInt()).isEqualTo(404);
+        assertThat(delete(token, "/agent/sessions/" + sessionId).get("code").asInt()).isEqualTo(404);
+
+        JsonNode clear = delete(token, "/agent/sessions");
+        assertThat(clear.get("code").asInt()).as(clear.toString()).isZero();
+        assertThat(clear.get("data").has("deleted")).isTrue();
+    }
+
+    @Test
+    void Z_内容安全补全_菜谱_食集_点评_家庭名_成员称呼命中禁发词451且不落库() throws Exception {
+        String token = loginAdmin();
+        JsonNode dish = post(token, "/dish", Map.of("dish", Map.of("name", "E2E赌博菜")));
+        assertThat(dish.get("code").asInt()).as(dish.toString()).isEqualTo(451);
+        JsonNode menu = post(token, "/menu", Map.of("menu", Map.of("name", "E2E赌博食集")));
+        assertThat(menu.get("code").asInt()).as(menu.toString()).isEqualTo(451);
+        JsonNode review = post(token, "/review", Map.of("dishId", 1, "starRating", 5, "text", "E2E这里能赌博"));
+        assertThat(review.get("code").asInt()).as(review.toString()).isEqualTo(451);
+        JsonNode member = post(token, "/member", Map.of("name", "E2E赌博成员"));
+        assertThat(member.get("code").asInt()).as(member.toString()).isEqualTo(451);
+        JsonNode family = post(token, "/family", Map.of("name", "E2E赌博之家"));
+        assertThat(family.get("code").asInt()).as(family.toString()).isEqualTo(451);
+    }
+
     private String push(String signature, String timestamp, String nonce, String body) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);

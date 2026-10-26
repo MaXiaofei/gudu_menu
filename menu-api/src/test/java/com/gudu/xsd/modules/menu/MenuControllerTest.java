@@ -64,6 +64,9 @@ class MenuControllerTest {
     private MockMvc mvc;
 
     @MockBean
+    private com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+
+    @MockBean
     private MenuService svc;
 
     private final ObjectMapper om = new ObjectMapper();
