@@ -177,7 +177,7 @@ async function addPhotos() {
   uploading.value = true
   try {
     for (const p of paths) {
-      const [up, info] = await Promise.all([uploadImage(p), uni.getImageInfo({ src: p }).catch(() => null)])
+      const [up, info] = await Promise.all([uploadImage(p, 'post'), uni.getImageInfo({ src: p }).catch(() => null)])
       images.value.push(up.url)
       const r = toCoverRatio((info as any)?.width, (info as any)?.height)
       if (r) ratios.value[up.url] = r

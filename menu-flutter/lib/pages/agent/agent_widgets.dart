@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ai_label.dart';
 import '../../core/app_theme.dart';
 import '../../core/error_text.dart';
 import '../../core/lite_markdown.dart';
 import '../../models/showcase_types.dart';
 import '../../services/agent_service.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/ai_badge.dart';
 import '../../widgets/dish_image.dart';
 import '../../widgets/ingredient_icon.dart';
 import '../../widgets/member_avatar.dart';
@@ -157,11 +159,18 @@ class AssistantMessageView extends StatelessWidget {
       padding: const EdgeInsets.only(top: AppTokens.sp6),
       child: Row(
         children: [
+          AiBadge(source: AiSource.agent, feedbackRef: message.messageId.startsWith('_') ? null : message.messageId),
+          const SizedBox(width: AppTokens.sp6),
           thumb(Icons.thumb_up_alt_outlined, Icons.thumb_up_alt, 1, '有帮助'),
           thumb(Icons.thumb_down_alt_outlined, Icons.thumb_down_alt, -1, '没帮助'),
           if (id != null) ...[
             const SizedBox(width: AppTokens.sp6),
-            Text('报错编号 $id', style: ts.meta.copyWith(color: t.body, fontWeight: FontWeight.w500)),
+            Flexible(
+              child: Text('报错编号 $id',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: ts.meta.copyWith(color: t.body, fontWeight: FontWeight.w500)),
+            ),
           ],
         ],
       ),

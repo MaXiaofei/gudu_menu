@@ -94,7 +94,7 @@ async function upload(path: string) {
   if (!path) return
   uploading.value = true
   try {
-    const r = await uploadImage(path)
+    const r = await uploadImage(path, 'avatar')
     avatarUrl.value = r.url
   } catch {
     uni.showToast({ title: '头像上传失败', icon: 'none' })

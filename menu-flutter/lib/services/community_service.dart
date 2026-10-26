@@ -86,6 +86,9 @@ class PostDetail {
   /// PUBLISHED / REVIEWING / HIDDEN
   final String status;
 
+  /// 仅作者可见的处置原因（如「图片未通过审核」），无则 null
+  final String? statusReason;
+
   const PostDetail({
     required this.card,
     this.text = '',
@@ -100,6 +103,7 @@ class PostDetail {
     this.createdAt,
     this.city,
     this.status = 'PUBLISHED',
+    this.statusReason,
   });
 
   factory PostDetail.fromJson(Map<String, dynamic> j) {
@@ -120,6 +124,7 @@ class PostDetail {
       createdAt: Json.date(j['createdAt']),
       city: Json.sOrNull(j['city']),
       status: Json.s(j['status'], 'PUBLISHED'),
+      statusReason: Json.sOrNull(j['statusReason']),
     );
   }
 
@@ -138,6 +143,7 @@ class PostDetail {
         createdAt: createdAt,
         city: city,
         status: status,
+        statusReason: statusReason,
       );
 }
 

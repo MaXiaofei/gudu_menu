@@ -20,9 +20,13 @@
 | 「AI 生成」标识（privacy §三.4、terms §五.1） | mini-release-compliance A.4 |
 | 内容安全检测（privacy §三.5、terms §三） | mini-release-compliance A.6 |
 | 关闭个性化推荐（privacy §三.6） | mini-release-compliance A.8 |
-| 上传文件需登录访问、去除图片元数据（privacy §二、§六.3） | mini-release-compliance A.3 |
+| 签名链接访问上传文件、去除图片元数据（privacy §二、§六.3） | mini-release-compliance A.3 |
 | AI 对话 180 天、反馈 1 年自动删除（privacy §三.3、§六.2） | mini-release-compliance C.1 |
 | 导出我的数据（privacy §七.4） | mini-release-compliance C.2 |
-| 小程序不提供厨房圈（privacy §二） | mini-release-compliance A.1 |
+| 协议只覆盖小程序：厨房圈、语音不在小程序提供 | mini-release-compliance A.1、A.9 |
+| 聚餐需登录（privacy §二） | mini-release-compliance A.10 |
+| 意见反馈答复经「消息与提醒」通知（privacy §九） | mini-release-compliance A.11 |
+
+范围：2026-10-26 起协议只覆盖**微信小程序**；App 上架时需扩写并升级 LEGAL_VERSION。
 
 另需人工核对：第三方公司全称（尤其智谱）以对方官网和合同为准；AI 服务若接入第三方语音识别，需更新 privacy §三.2。

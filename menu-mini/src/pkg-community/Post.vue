@@ -18,7 +18,7 @@
 
         <view class="pad">
           <view v-if="post.status !== 'PUBLISHED'" class="review">
-            <text class="review-txt">{{ post.status === 'REVIEWING' ? '审核中 · 仅自己可见，通过后大家就能看到' : '已被隐藏' }}</text>
+            <text class="review-txt">{{ reviewText(post) }}</text>
           </view>
 
           <view class="author">
@@ -145,6 +145,7 @@ import {
   react,
   report,
   deletePost,
+  postReviewText as reviewText,
   type Comment,
   type PostDetail,
 } from '@/api/community'

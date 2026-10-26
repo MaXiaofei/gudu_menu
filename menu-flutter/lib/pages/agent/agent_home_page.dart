@@ -8,6 +8,7 @@ import '../../models/member.dart';
 import '../../services/agent_service.dart';
 import '../../stores/auth_store.dart';
 import '../../stores/member_store.dart';
+import '../../widgets/ai_badge.dart';
 import '../../widgets/dish_image.dart';
 import '../../widgets/ingredient_icon.dart';
 import '../../widgets/me_avatar_button.dart';
@@ -107,6 +108,9 @@ class _AgentHomePageState extends State<AgentHomePage> {
                   _header(t, members, nickname),
                   const SizedBox(height: AppTokens.sp12),
                   _greeting(t, s),
+                  const SizedBox(height: AppTokens.sp8),
+                  // AI 身份说明（A.4）
+                  const AiAssistantIntro(),
                   const SizedBox(height: AppTokens.sp20),
                   Row(
                     children: [

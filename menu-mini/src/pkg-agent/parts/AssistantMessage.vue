@@ -98,8 +98,9 @@
         />
       </template>
 
-      <!-- 评价 + 报错编号 -->
+      <!-- AI 生成标识 + 反馈 + 评价 + 报错编号 -->
       <view v-if="!msg.streaming && msg.messageId" class="foot">
+        <ui-ai-badge source="agent" :feedback-ref="msg.messageId" />
         <view class="rate" :class="{ on: msg.rating === 1 }" data-testid="rate-up" @click="$emit('rate', msg, 1)"><ui-icon name="thumbup" :size="14" /></view>
         <view class="rate" :class="{ on: msg.rating === -1 }" data-testid="rate-down" @click="$emit('rate', msg, -1)"><ui-icon name="thumbdown" :size="14" /></view>
         <text v-if="msg.traceId" class="trace">报错编号 {{ formatErrorId(msg.traceId) }}</text>

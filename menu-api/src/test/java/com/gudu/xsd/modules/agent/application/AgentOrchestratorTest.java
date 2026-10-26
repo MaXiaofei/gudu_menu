@@ -119,4 +119,78 @@ class AgentOrchestratorTest {
         assertThat(r.tools().get(r.tools().size() - 1).ok()).isFalse();
         assertThat(r.text()).contains("暂时不可用");
     }
+
+    // ============================== 内容安全（A.6） ==============================
+
+    static AgentOrchestrator.Env gated(AgentTestKit kit, AgentContentGate gate) {
+        return new AgentOrchestrator.Env(kit.kitchen, kit.desk,
+                com.gudu.xsd.modules.agent.application.assess.AssessGateways.simulated().create(null), Map.of(), gate);
+    }
+
+    static String tokens(AgentTestKit kit) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < kit.sink.events.size(); i++) {
+            if ("token".equals(kit.sink.events.get(i))) sb.append(kit.sink.payloads.get(i).get("text"));
+        }
+        return sb.toString();
+    }
+
+    @Test
+    void 内容安全_输入违规_不调模型不跑工具_回提示() {
+        AgentTestKit kit = AgentTestKit.create();
+        AgentContentGate gate = new AgentContentGate() {
+            @Override
+            public java.util.Optional<String> inputViolation(String text) {
+                return java.util.Optional.of("这条消息没有通过内容安全检测，换个说法再问我吧。");
+            }
+
+            @Override
+            public String reviewReply(String reply) {
+                throw new AssertionError("输入被拦时不应产生模型回复");
+            }
+        };
+        TurnResult r = kit.orchestrator.run(new TurnRequest("s1", "m1", "t1", AgentTestKit.ME, "今晚吃啥", Map.of(),
+                List.of(), false), gated(kit, gate), kit.sink);
+        assertThat(r.status()).isEqualTo(TraceStatus.GUARDED);
+        assertThat(r.tools()).isEmpty();
+        assertThat(r.steps()).isZero();
+        assertThat(r.text()).contains("内容安全");
+        assertThat(kit.sink.distinctInOrder()).containsExactly("meta", "token", "done");
+        assertThat(r.spans()).anyMatch(s -> "guard.content_input".equals(s.name()) && !s.ok());
+    }
+
+    @Test
+    void 内容安全_输出违规_替换后才放出token_落库文本也是替换后的_思考丢弃() {
+        AgentTestKit kit = AgentTestKit.create();
+        String safe = "这个回答没有通过内容安全检测，已隐藏。";
+        java.util.List<String> reviewed = new java.util.ArrayList<>();
+        AgentContentGate gate = new AgentContentGate() {
+            @Override
+            public java.util.Optional<String> inputViolation(String text) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public String reviewReply(String reply) {
+                reviewed.add(reply);
+                return safe;
+            }
+        };
+        TurnResult r = kit.orchestrator.run(new TurnRequest("s1", "m1", "t1", AgentTestKit.ME,
+                "冰箱里快坏的东西今晚能做啥？", Map.of(), List.of(), false), gated(kit, gate), kit.sink);
+        assertThat(reviewed).as("模型原始回复送审").hasSize(1).first().asString().contains("鲈鱼");
+        assertThat(tokens(kit)).isEqualTo(safe).doesNotContain("鲈鱼");
+        assertThat(r.text()).isEqualTo(safe);
+        assertThat(r.reasoning()).isNull();
+        assertThat(r.spans()).anyMatch(s -> "guard.content_output".equals(s.name()) && !s.ok());
+    }
+
+    @Test
+    void 内容安全_通过时回复不变() {
+        AgentTestKit kit = AgentTestKit.create();
+        TurnResult r = kit.orchestrator.run(new TurnRequest("s1", "m1", "t1", AgentTestKit.ME,
+                "冰箱里快坏的东西今晚能做啥？", Map.of(), List.of(), false), gated(kit, AgentContentGate.PASS), kit.sink);
+        assertThat(r.text()).contains("鲈鱼");
+        assertThat(r.spans()).anyMatch(s -> "guard.content_output".equals(s.name()) && s.ok());
+    }
 }
