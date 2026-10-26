@@ -5,3 +5,7 @@
 -- ============================================================
 DELETE FROM member WHERE phone LIKE '1390000%';
 DELETE FROM member WHERE name LIKE 'E2E%';
+-- [multi-tenant-family] E2E 账号的成员关系与账号本身（家庭及其数据由下一轮 e2e-seed.sql 兜底清理；
+-- 13900000088 每轮在 seed 中重建）
+DELETE fm FROM family_membership fm JOIN account a ON a.id = fm.account_id
+  WHERE a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%';
