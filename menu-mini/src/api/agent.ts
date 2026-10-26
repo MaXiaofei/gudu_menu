@@ -5,6 +5,7 @@ import { request, BASE, getToken } from '@/utils/request'
 import { streamSse, type SseEvent, type SseHandle } from '@/utils/sse'
 import { normalizePage, type CursorPage } from '@/utils/cursor'
 import type { CDishCard, MemberLite } from './contract'
+import { contentSecurityMessage } from '@/utils/contentSecurity'
 
 export interface AgentTool {
   name: string
@@ -196,7 +197,12 @@ export function applyAgentEvent(msg: AgentMessage, e: SseEvent): AgentMessage {
       break
     case 'error':
       msg.streaming = false
-      msg.error = { code: d.code ?? -1, message: d.message || '咕嘟开小差了', errorId: d.errorId || '' }
+      msg.error = {
+        code: d.code ?? -1,
+        // 内容安全拒绝（451/452）用前端文案，不展示后端原文
+        message: contentSecurityMessage(d.code, 'agent') || d.message || '咕嘟开小差了',
+        errorId: d.errorId || '',
+      }
       break
   }
   return msg

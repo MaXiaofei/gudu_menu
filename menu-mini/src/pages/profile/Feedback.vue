@@ -124,7 +124,7 @@ async function addImages() {
   try {
     for (const p of paths) {
       if (images.value.length >= FEEDBACK_IMAGES_MAX) break
-      const r = await uploadImage(p)
+      const r = await uploadImage(p, 'feedback')
       images.value.push({ local: p, url: r.url })
     }
   } catch {
