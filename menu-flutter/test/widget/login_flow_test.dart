@@ -188,6 +188,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(LegalPage), findsOneWidget);
     expect(find.text('用户协议'), findsWidgets);
-    expect(find.textContaining('运营主体'), findsWidgets);
+    expect(find.textContaining('运营者：马晓飞'), findsWidgets);
   });
 }
