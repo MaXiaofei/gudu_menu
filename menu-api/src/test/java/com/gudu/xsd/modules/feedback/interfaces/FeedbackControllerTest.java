@@ -104,7 +104,7 @@ class FeedbackControllerTest {
             mvc.perform(get("/feedback/mine/3"))
                     .andExpect(jsonPath("$.code").value(0))
                     .andExpect(jsonPath("$.data.status").value("REPLIED"));
-            verify(adminChecker, never()).isAdmin(any(Long.class));
+            verify(accountQuery, never()).isOperator(any(Long.class));
         }
     }
 
@@ -112,7 +112,7 @@ class FeedbackControllerTest {
     void 回复_超管_回复人取登录账号() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(1L);
-            given(adminChecker.isAdmin(1L)).willReturn(true);
+            given(accountQuery.isOperator(1L)).willReturn(true);
             mvc.perform(put("/feedback/3/reply").contentType(MediaType.APPLICATION_JSON)
                             .content("{\"reply\":\"已修复\",\"markDone\":true}"))
                     .andExpect(jsonPath("$.code").value(0));
@@ -124,7 +124,7 @@ class FeedbackControllerTest {
     void 回复_非超管403() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
-            given(adminChecker.isAdmin(7L)).willReturn(false);
+            given(accountQuery.isOperator(7L)).willReturn(false);
             mvc.perform(put("/feedback/3/reply").contentType(MediaType.APPLICATION_JSON).content("{\"reply\":\"x\"}"))
                     .andExpect(jsonPath("$.code").value(403));
             verify(appService, never()).reply(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());

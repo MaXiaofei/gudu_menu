@@ -142,7 +142,7 @@ export function mediaViolationImage(id: number) {
 }
 
 export function restoreMedia(id: number, reason: string) {
-  return request<{ violation: MediaViolation; filesRestored: boolean }>({
+  return request<{ violation: MediaViolation; filesRestored: boolean; notices?: string[] }>({
     url: `/admin/content-violations/media/${id}/restore`, method: 'post', data: { reason },
   })
 }

@@ -24,7 +24,10 @@ public class PostImageRestoredListener {
         for (Post p : posts.findByImageUrls(event.urlVariants())) {
             if (p.restoreFromBlockedImage()) {
                 posts.save(p);
-                log.info("帖子图片复核恢复 post={} url={}", p.id(), event.mediaUrl());
+                if (p.hiddenByOthers()) {
+                    event.addNotice("帖子 " + p.id() + " 仍有其他处置（举报 / 人工处置），保持隐藏");
+                }
+                log.info("帖子图片复核恢复 post={} url={} stillHidden={}", p.id(), event.mediaUrl(), p.hiddenByOthers());
             }
         }
     }

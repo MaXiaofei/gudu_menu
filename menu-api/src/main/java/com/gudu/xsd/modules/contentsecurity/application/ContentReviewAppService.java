@@ -4,6 +4,7 @@ import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.domain.DomainEventPublisher;
 import com.gudu.xsd.common.tenant.TenantContextHolder;
 import com.gudu.xsd.modules.contentsecurity.application.dto.ViolationViews;
+import com.gudu.xsd.modules.contentsecurity.domain.event.MediaRestoredEvent;
 import com.gudu.xsd.modules.contentsecurity.domain.model.MediaCheck;
 import com.gudu.xsd.modules.contentsecurity.domain.model.TextViolation;
 import com.gudu.xsd.modules.contentsecurity.domain.port.UploadQuarantine;
@@ -68,10 +69,12 @@ public class ContentReviewAppService {
         MediaCheck c = loadMedia(id);
         c.restore(operatorId, LocalDateTime.now(clock));
         mediaChecks.save(c);
+        MediaRestoredEvent ev = c.peekDomainEvents().stream().filter(MediaRestoredEvent.class::isInstance)
+                .map(MediaRestoredEvent.class::cast).findFirst().orElse(null);
         TenantContextHolder.runAsSystem(() -> events.publishFrom(c));
         boolean restored = quarantine.release(c.mediaUrl());
         log.warn("违规图片人工复核恢复 id={} url={} operator={} filesRestored={}", id, c.mediaUrl(), operatorId, restored);
-        return new ViolationViews.RestoreResult(view(c), restored);
+        return new ViolationViews.RestoreResult(view(c), restored, ev == null ? null : ev.notices());
     }
 
     @Transactional(rollbackFor = Exception.class)

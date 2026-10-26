@@ -37,6 +37,13 @@ public final class ViolationViews {
     }
 
     /** 恢复结果：filesRestored = 隔离文件是否还原（隔离目录里没有时为 false，记录仍改判）。 */
-    public record RestoreResult(MediaViolation violation, boolean filesRestored) {
+    public record RestoreResult(MediaViolation violation, boolean filesRestored, List<String> notices) {
+        public RestoreResult {
+            notices = notices == null ? List.of() : List.copyOf(notices);
+        }
+
+        public RestoreResult(MediaViolation violation, boolean filesRestored) {
+            this(violation, filesRestored, List.of());
+        }
     }
 }

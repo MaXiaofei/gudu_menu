@@ -17,6 +17,8 @@ public final class MediaRestoredEvent extends AbstractDomainEvent {
     private final String mediaUrl;
     private final Long accountId;
     private final String purpose;
+    /** 订阅方回写的复核提示（如「帖子仍有其他处置」），随复核结果返回给运营。 */
+    private final List<String> notices = new java.util.ArrayList<>();
 
     public MediaRestoredEvent(String mediaUrl, Long accountId, String purpose) {
         this.mediaUrl = mediaUrl;
@@ -38,6 +40,14 @@ public final class MediaRestoredEvent extends AbstractDomainEvent {
     /** 上传账号（content_media_check.member_id，multi-tenant-family 起存的是账号 id）。 */
     public Long accountId() {
         return accountId;
+    }
+
+    public void addNotice(String notice) {
+        if (notice != null && !notices.contains(notice)) notices.add(notice);
+    }
+
+    public List<String> notices() {
+        return List.copyOf(notices);
     }
 
     public String purpose() {

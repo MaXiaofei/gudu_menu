@@ -79,7 +79,9 @@ async function submit() {
   try {
     if (dialog.kind === 'restore') {
       const r = await restoreMedia(dialog.id, dialog.reason.trim())
-      ElMessage.success(r.filesRestored ? '已恢复：原图已还原，头像 / 帖子已恢复' : '已改判恢复（隔离区无文件，原图未还原）')
+      const base = r.filesRestored ? '已恢复：原图已还原，头像 / 帖子已恢复' : '已改判恢复（隔离区无文件，原图未还原）'
+      if (r.notices?.length) ElMessage.warning(`${base}；${r.notices.join('；')}`)
+      else ElMessage.success(base)
       await loadMedia()
     } else if (dialog.kind === 'confirm-media') {
       await confirmMedia(dialog.id, dialog.reason.trim() || undefined)

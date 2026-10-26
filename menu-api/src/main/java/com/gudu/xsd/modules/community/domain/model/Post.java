@@ -134,15 +134,40 @@ public final class Post extends AggregateRoot<Long> {
         if (action == null) throw new DomainException("处置动作不合法");
         if (status == PostStatus.DELETED) throw new DomainException("帖子已被作者删除");
         this.status = action == ModerationAction.APPROVE ? PostStatus.PUBLISHED : PostStatus.HIDDEN;
-        this.moderation = moderation.markReviewed();
+        List<String> reasons = new ArrayList<>(moderation.reasons());
+        reasons.remove(REPORT_HIDDEN_REASON);
+        reasons.remove(MANUAL_HIDDEN_REASON);
+        if (status == PostStatus.HIDDEN) reasons.add(MANUAL_HIDDEN_REASON);
+        this.moderation = new ModerationState(moderation.risk(), reasons, moderation.scores(), true);
     }
 
     /** 举报达到阈值：自动隐藏并回到人工复核队列。返回是否发生了状态变化。 */
     public boolean hideByReports() {
+        if (status == PostStatus.HIDDEN && imageBlocked() && !moderation.reasons().contains(REPORT_HIDDEN_REASON)) {
+            // 已因图片被隐藏：登记举报原因，之后图片复核恢复也不会让帖子绕过举报重新公开
+            this.moderation = withReason(moderation.backToQueue(), REPORT_HIDDEN_REASON);
+            return true;
+        }
         if (status != PostStatus.PUBLISHED) return false;
         this.status = PostStatus.HIDDEN;
-        this.moderation = moderation.backToQueue();
+        this.moderation = withReason(moderation.backToQueue(), REPORT_HIDDEN_REASON);
         return true;
+    }
+
+    private static ModerationState withReason(ModerationState m, String reason) {
+        List<String> reasons = new ArrayList<>(m.reasons());
+        if (!reasons.contains(reason)) reasons.add(reason);
+        return new ModerationState(m.risk(), reasons, m.scores(), m.reviewed());
+    }
+
+    /** 隐藏原因：举报达阈值 / 运营处置隐藏（与「图片未通过审核」并存时，图片复核恢复不得把帖子改回公开）。 */
+    public static final String REPORT_HIDDEN_REASON = "举报达阈值";
+    public static final String MANUAL_HIDDEN_REASON = "运营处置隐藏";
+
+    /** 是否还有图片之外的隐藏原因（举报 / 人工处置）。 */
+    public boolean hiddenByOthers() {
+        return moderation.reasons().contains(REPORT_HIDDEN_REASON)
+                || moderation.reasons().contains(MANUAL_HIDDEN_REASON);
     }
 
     /** 内容安全：图片未通过审核时记入审核原因、展示给作者的提示。 */
@@ -163,7 +188,7 @@ public final class Post extends AggregateRoot<Long> {
     }
 
     /**
-     * 违规图片经人工复核为误判（F.3）：去掉「图片未通过审核」原因；若因此被隐藏则恢复公开（视为已复核）。
+     * 违规图片经人工复核为误判（F.3）：去掉「图片未通过审核」原因；若因此被隐藏且没有其他隐藏原因（举报 / 人工处置）则恢复公开（视为已复核），否则保持隐藏。
      * 返回是否发生了变化（未因图片被处置 / 已删除的不处理）。
      */
     public boolean restoreFromBlockedImage() {
@@ -171,8 +196,10 @@ public final class Post extends AggregateRoot<Long> {
         List<String> reasons = new ArrayList<>(moderation.reasons());
         reasons.remove(IMAGE_BLOCKED_REASON);
         RiskLevel risk = reasons.isEmpty() ? RiskLevel.LOW : moderation.risk();
-        this.moderation = new ModerationState(risk, reasons, moderation.scores(), true);
-        if (status == PostStatus.HIDDEN) this.status = PostStatus.PUBLISHED;
+        boolean others = hiddenByOthers();
+        // 仍有举报 / 人工处置等其他隐藏原因：只去掉图片原因，保持隐藏、留在复核队列
+        this.moderation = new ModerationState(risk, reasons, moderation.scores(), !others);
+        if (status == PostStatus.HIDDEN && !others) this.status = PostStatus.PUBLISHED;
         return true;
     }
 
