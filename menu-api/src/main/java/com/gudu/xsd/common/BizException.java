@@ -13,6 +13,8 @@ public class BizException extends RuntimeException {
     public static final int NOT_FOUND = 404;
     /** 状态冲突（如账号合并 ACCOUNT_WECHAT_CONFLICT）。 */
     public static final int CONFLICT = 409;
+    /** 保存敏感个人信息前缺少单独同意（B.2，见 {@link ConsentRequiredException}）。 */
+    public static final int CONSENT_REQUIRED = 428;
     /** 内容安全：内容未通过检测（客户端按场景给友好提示）。 */
     public static final int CONTENT_BLOCKED = 451;
     /** 内容安全：检测服务暂不可用且该场景失败即拒绝（昵称/头像），请稍后再试。 */

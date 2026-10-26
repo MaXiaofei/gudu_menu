@@ -82,6 +82,24 @@ gudu:
     ttl: ${GUDU_UPLOAD_SIGN_TTL:24h}
     # 请求体里的上传地址签名过期后仍接受的宽限（编辑页停留较久再保存）
     input-grace: 7d
+  # 字段级加密（B.3）：健康档案、手机号 AES-256-GCM 落库；手机号另存 HMAC 盲索引（唯一 / 登录查询）。
+  # keys = "版本:base64(32 字节)"，多个逗号分隔（轮换：追加新版本并切 active-version，旧版本保留解密，再跑 migrate=encrypt 重加密）
+  # 缺失即启动失败；dev/test 在 application-dev/test.yml 用固定测试密钥。生产：openssl rand -base64 32 / openssl rand -hex 32
+  field-crypto:
+    keys: ${GUDU_FIELD_CRYPTO_KEYS:}
+    active-version: ${GUDU_FIELD_CRYPTO_ACTIVE:1}
+    hmac-key: ${GUDU_FIELD_CRYPTO_HMAC_KEY:}
+    # 一次性存量迁移：none / encrypt / decrypt（执行完退出进程，见 FieldCryptoConfig）
+    migrate: ${GUDU_FIELD_CRYPTO_MIGRATE:none}
+  # 数据保存期限清理（C.1，隐私政策 §六.2）：每天 03:30 分批物理删除；days.<策略> 覆盖默认天数，≤0 不清理
+  retention:
+    enabled: ${GUDU_RETENTION_ENABLED:true}
+    cron: "0 30 3 * * *"
+    batch-size: 500
+    days:
+      agent-conversation: 180
+      ai-call-log: 180
+      feedback: 365
   content-security:
     wx-enabled: ${GUDU_CONTENT_SECURITY_WX:false}
     # 微信服务器拉取图片用的公网前缀，拼上 /gudu/uploads/…；为空则图片无法提交检测（头像会被拒绝保存）

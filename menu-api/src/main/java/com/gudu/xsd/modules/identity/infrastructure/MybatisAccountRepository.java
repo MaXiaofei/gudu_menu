@@ -1,6 +1,7 @@
 package com.gudu.xsd.modules.identity.infrastructure;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.gudu.xsd.common.crypto.FieldCrypto;
 import com.gudu.xsd.modules.identity.domain.model.Account;
 import com.gudu.xsd.modules.identity.domain.model.AccountStatus;
 import com.gudu.xsd.modules.identity.domain.model.PhoneNumber;
@@ -36,8 +37,13 @@ public class MybatisAccountRepository implements AccountRepository {
     @Override
     public Optional<Account> findByPhone(String phone) {
         if (phone == null || phone.isBlank()) return Optional.empty();
-        return Optional.ofNullable(mapper.selectOne(new QueryWrapper<AccountPO>().eq("phone", phone.trim())))
-                .map(MybatisAccountRepository::toDomain);
+        String p = phone.trim();
+        String hash = FieldCrypto.blindIndex(p);
+        // 手机号加密存储（B.3）：按盲索引查；存量未迁移的明文行（phone_hash 为空）兜底按明文匹配
+        return mapper.selectList(new QueryWrapper<AccountPO>()
+                        .and(w -> w.eq("phone_hash", hash).or(x -> x.isNull("phone_hash").eq("phone", p)))
+                        .orderByAsc("id"))
+                .stream().findFirst().map(MybatisAccountRepository::toDomain);
     }
 
     @Override
@@ -96,6 +102,7 @@ public class MybatisAccountRepository implements AccountRepository {
         AccountPO po = new AccountPO();
         po.setId(a.id());
         po.setPhone(a.phone() == null ? null : a.phone().value());
+        po.setPhoneHash(a.phone() == null ? null : FieldCrypto.blindIndex(a.phone().value()));
         po.setWxOpenid(a.wechat() == null ? null : a.wechat().openid());
         po.setWxUnionid(a.wechat() == null ? null : a.wechat().unionid());
         po.setPasswordHash(a.passwordHash());

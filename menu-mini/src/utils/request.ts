@@ -33,6 +33,21 @@ export function lastErrorId(): string {
   return formatErrorId(lastTraceId)
 }
 
+/** 业务错误：携带后端 R.code / R.data（如 428 CONSENT_REQUIRED 的 docTypes），调用方可按码处理。 */
+export class ApiError extends Error {
+  code: number
+  data: any
+  constructor(code: number, msg: string, data?: any) {
+    super(msg)
+    this.name = 'ApiError'
+    this.code = code
+    this.data = data ?? null
+  }
+}
+
+/** 缺少敏感信息单独同意（B.2）：由调用方弹同意窗处理，不 toast。 */
+export const CODE_CONSENT_REQUIRED = 428
+
 export function getToken(): string {
   return uni.getStorageSync('token') || ''
 }
@@ -162,9 +177,12 @@ export async function request<T = any>(
     toast(csMsg)
     throw new Error(csMsg)
   }
+  if (body.code === CODE_CONSENT_REQUIRED) {
+    throw new ApiError(body.code, body.msg || '需要您的单独同意', body.data)
+  }
   if (body.code !== 0) {
     toast(body.msg || '请求失败')
-    throw new Error(body.msg)
+    throw new ApiError(body.code, body.msg, body.data)
   }
   return body.data as T
 }

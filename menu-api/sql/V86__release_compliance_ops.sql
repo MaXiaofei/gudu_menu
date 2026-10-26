@@ -1,24 +1,12 @@
 -- ============================================================
--- V86: 发布合规 · 同意记录与后台运营配套（mini-release-compliance B.1 / F.1–F.4）
--- consent_record         协议同意 / 撤回记录（按账号；账号合并时改指主账号）
+-- V86: 发布合规 · 后台运营配套（mini-release-compliance F.1–F.3）
+-- （B.1 协议同意复用 V88 的 consent_record 表，doc_type = terms / privacy）
 -- account_ban            账号封禁（一行 = 当前封禁中；解封删行，历史见 admin_operation_log）
 -- account_deactivation   账号注销处理记录（匿名化各步骤结果、失败重试、15 个工作日时限）
 -- content_text_violation 文本内容安全违规记录（昵称 / 反馈 / AI 对话 / 社区等，只存摘录）
 -- admin_operation_log    运营后台操作日志（封禁、解封、违规复核、注销重试）
 -- 全部为全局表（不按家庭过滤）。幂等：CREATE TABLE IF NOT EXISTS。
 -- ============================================================
-CREATE TABLE IF NOT EXISTS consent_record (
-  id          BIGINT       PRIMARY KEY AUTO_INCREMENT,
-  account_id  BIGINT       NOT NULL COMMENT 'account.id',
-  doc_type    VARCHAR(16)  NOT NULL COMMENT 'TERMS / PRIVACY / HEALTH / MINOR',
-  doc_version VARCHAR(32)  NOT NULL COMMENT '协议版本（LEGAL_VERSION，如 2026-10-26）',
-  granted     TINYINT      NOT NULL DEFAULT 1 COMMENT '1 同意 / 0 撤回',
-  channel     VARCHAR(16)  NOT NULL DEFAULT 'UNKNOWN' COMMENT 'MP_WEIXIN / APP / H5 / UNKNOWN',
-  client_ip   VARCHAR(64)  NULL,
-  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_consent_account (account_id, created_at)
-) COMMENT '协议同意记录';
-
 CREATE TABLE IF NOT EXISTS account_ban (
   account_id BIGINT       PRIMARY KEY COMMENT 'account.id',
   reason     VARCHAR(200) NOT NULL,

@@ -38,6 +38,8 @@ public class SaTokenConfig implements WebMvcConfigurer {
             "/invite/**",
             // 家庭邀请预览（multi-tenant-family）：被邀请人未登录也能看到家庭名 / 邀请人
             "/family/invitations/*",
+            // 导出我的数据：小程序复制的临时下载链接在浏览器打开（无登录态），30 分钟随机凭证即授权（C.2）
+            "/account/export/download",
             "/menu/*/together",
             "/menu/*/together/**",
             "/together.html"

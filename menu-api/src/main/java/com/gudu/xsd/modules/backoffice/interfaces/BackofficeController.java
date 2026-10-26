@@ -6,7 +6,7 @@ import com.gudu.xsd.common.security.RequireOperator;
 import com.gudu.xsd.modules.backoffice.application.BackofficeAppService;
 import com.gudu.xsd.modules.backoffice.application.dto.BackofficeViews;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountSearch;
-import com.gudu.xsd.modules.consent.application.dto.ConsentView;
+import com.gudu.xsd.modules.privacy.application.ConsentAppService.ConsentHistoryView;
 import com.gudu.xsd.modules.contentsecurity.application.dto.ViolationViews;
 import com.gudu.xsd.modules.identity.application.AccountBanAppService;
 import com.gudu.xsd.modules.identity.application.AccountDeactivationAppService;
@@ -74,7 +74,7 @@ public class BackofficeController {
 
     @Operation(summary = "账号的协议同意记录（版本、同意 / 撤回、时间、端）")
     @GetMapping("/accounts/{id}/consents")
-    public R<List<ConsentView>> consents(@PathVariable Long id) {
+    public R<List<ConsentHistoryView>> consents(@PathVariable Long id) {
         return R.ok(app.consents(id));
     }
 

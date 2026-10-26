@@ -1,5 +1,6 @@
 package com.gudu.xsd.modules.backoffice.infrastructure;
 
+import com.gudu.xsd.common.crypto.FieldCrypto;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountRow;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountSearch;
 import com.gudu.xsd.modules.backoffice.domain.repository.AccountDirectoryQuery;
@@ -83,7 +84,14 @@ public class JdbcAccountDirectoryQuery implements AccountDirectoryQuery {
         return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
-    static String maskPhone(String phone) {
+    static String maskPhone(String stored) {
+        if (stored == null || stored.isBlank()) return null;
+        String phone;
+        try {
+            phone = FieldCrypto.decrypt(stored); // B.3 起 account.phone 为密文
+        } catch (RuntimeException e) {
+            return "已加密";
+        }
         if (phone == null || phone.isBlank()) return null;
         if (phone.length() < 7) return phone.charAt(0) + "***";
         return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);

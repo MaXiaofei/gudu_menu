@@ -1,4 +1,6 @@
-import { request } from '@/utils/request'
+import { request, ApiError, CODE_CONSENT_REQUIRED } from '@/utils/request'
+import { ensureSensitiveConsent } from '@/utils/sensitiveConsent'
+import type { SensitiveDocType } from '@/api/privacy'
 
 export interface Member {
   id: number
@@ -62,5 +64,43 @@ export async function meStats(): Promise<MeStats | null> {
     return r && typeof r.cookedThisMonth === 'number' ? r : null
   } catch {
     return null
+  }
+}
+
+/** 成员档案保存入参（POST/PUT /member 白名单字段）。 */
+export interface MemberProfilePayload {
+  id?: number
+  name?: string
+  healthProfile?: Record<string, any> | null
+  goal?: string | null
+  activityLevel?: string | null
+}
+
+/** 用户拒绝单独同意时抛出（页面据此保持编辑态，不提示「保存失败」）。 */
+export class ConsentDeclinedError extends Error {
+  constructor() {
+    super('未同意，未保存健康信息')
+    this.name = 'ConsentDeclinedError'
+  }
+}
+
+/**
+ * 保存成员档案（新增无 id / 编辑有 id），返回新增的档案 id（编辑返回 id 原值）。
+ * B.2：含健康档案 / 不满 14 周岁儿童信息时，先弹单独同意窗（缺哪项弹哪项），同意后才提交；
+ * 后端兜底返回 428（如同意已在别处被撤回）时，按返回的 docTypes 再弹一次并重试一次。
+ */
+export async function saveMemberProfile(p: MemberProfilePayload): Promise<number | undefined> {
+  if (!(await ensureSensitiveConsent(p))) throw new ConsentDeclinedError()
+  const submit = () =>
+    request<number | null>({ url: '/member', method: p.id ? 'PUT' : 'POST', data: { ...p } })
+  try {
+    const r = await submit()
+    return p.id ?? (r ?? undefined)
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.code !== CODE_CONSENT_REQUIRED) throw e
+    const types = (e.data?.docTypes ?? []) as SensitiveDocType[]
+    if (!(await ensureSensitiveConsent(p, types))) throw new ConsentDeclinedError()
+    const r = await submit()
+    return p.id ?? (r ?? undefined)
   }
 }

@@ -47,6 +47,11 @@ public class FamilyQueryApi {
         return profiles.findByFamilyAndAccount(familyId, accountId).map(FamilyMemberProfile::id);
     }
 
+    /** 账号在所有家庭的本人成员档案 id（导出我的数据：按档案归属的做菜记录 / 食记 / 点评 / AI 对话）。 */
+    public List<Long> profileIdsOf(Long accountId) {
+        return profiles.findByAccount(accountId).stream().map(FamilyMemberProfile::id).toList();
+    }
+
     /** 我加入的全部家庭。 */
     public List<FamilySummary> familiesOf(Long accountId) {
         return families.findActiveByAccount(accountId).stream()

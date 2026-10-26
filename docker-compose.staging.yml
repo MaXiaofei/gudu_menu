@@ -96,6 +96,9 @@ services:
       GUDU_API_DOCS_ENABLED: "true"
       GUDU_UPLOAD_SIGN_ENABLED: ${STAGING_UPLOAD_SIGN_ENABLED:-false}
       GUDU_UPLOAD_SIGN_SECRET: ${STAGING_UPLOAD_SIGN_SECRET:-}
+      # 字段级加密（B.3）：staging 与 dev / E2E 共用 gudu 库 → 默认用与 application-dev/test.yml 相同的固定测试密钥
+      GUDU_FIELD_CRYPTO_KEYS: ${STAGING_FIELD_CRYPTO_KEYS:-1:Z3VkdS1kZXYtdGVzdC1maWVsZC1rZXktMDEyMzQ1NiE=}
+      GUDU_FIELD_CRYPTO_HMAC_KEY: ${STAGING_FIELD_CRYPTO_HMAC_KEY:-gudu-dev-test-phone-hmac-0123456}
       # 上传目录覆写：与生产 /app/uploads/prod 隔离
       SPRING_APPLICATION_JSON: '{"gudu":{"upload-dir":"/app/uploads/staging"}}'
     volumes:

@@ -10,7 +10,6 @@ import com.gudu.xsd.modules.feedback.domain.model.FeedbackPage;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackStatus;
 import com.gudu.xsd.modules.feedback.domain.repository.FeedbackRepository;
 import com.gudu.xsd.modules.member.Member;
-import com.gudu.xsd.modules.member.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

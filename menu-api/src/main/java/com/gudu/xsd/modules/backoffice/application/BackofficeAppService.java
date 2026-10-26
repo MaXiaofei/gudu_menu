@@ -8,8 +8,8 @@ import com.gudu.xsd.modules.backoffice.domain.model.OperationLog;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationTarget;
 import com.gudu.xsd.modules.backoffice.domain.repository.AccountDirectoryQuery;
 import com.gudu.xsd.modules.backoffice.domain.repository.OperationLogRepository;
-import com.gudu.xsd.modules.consent.application.ConsentAppService;
-import com.gudu.xsd.modules.consent.application.dto.ConsentView;
+import com.gudu.xsd.modules.privacy.application.ConsentAppService;
+import com.gudu.xsd.modules.privacy.application.ConsentAppService.ConsentHistoryView;
 import com.gudu.xsd.modules.contentsecurity.application.ContentReviewAppService;
 import com.gudu.xsd.modules.contentsecurity.application.dto.ViolationViews;
 import com.gudu.xsd.modules.identity.application.AccountBanAppService;
@@ -126,7 +126,7 @@ public class BackofficeAppService {
 
     // ================================================================ F.4 同意记录
 
-    public List<ConsentView> consents(Long accountId) {
+    public List<ConsentHistoryView> consents(Long accountId) {
         if (accountId == null) throw new BizException("请输入账号 ID");
         return consents.history(accountId);
     }
