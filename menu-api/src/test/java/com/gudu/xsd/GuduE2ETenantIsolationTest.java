@@ -234,6 +234,45 @@ class GuduE2ETenantIsolationTest {
         ok(get(b, "/menu/" + menu1 + "/together"));
     }
 
+    /**
+     * 账号 id 与档案 id 取值范围错开（V91）+ 通知按收件人隔离：账号级（反馈回复）发给账号、档案级（采购清单）发给档案，
+     * 另一个家庭的用户任何一种都看不到、标不了已读；新账号 id >= 1000 万，不可能与任何档案 id 同号。
+     */
+    @Test
+    void 通知收件人隔离_账号id与档案id取值范围错开_反馈回复和采购通知互不可见() {
+        Who a = newFamily("13900000121", "E2E通知甲");
+        Who b = newFamily("13900000122", "E2E通知乙");
+        assertThat(a.accountId()).as("V91：新账号 id 恒 >= 1000 万").isGreaterThanOrEqualTo(10_000_000L);
+        assertThat(b.accountId()).isGreaterThanOrEqualTo(10_000_000L);
+        assertThat(a.profileId()).as("档案 id 与账号 id 取值范围不重叠").isLessThan(10_000_000L);
+        assertThat(b.profileId()).isLessThan(10_000_000L);
+
+        // 账号级：A 提交反馈 → 超管回复 → 只有 A 收到 feedback_reply（B 看不到、也标不了）
+        long feedbackId = okLong(post(a, "/feedback", Map.of("content", "E2E通知隔离：希望增加更多家常菜", "type", "general")));
+        String admin = loginToken("admin", "admin123");
+        assertThat(exchange(admin, "/feedback/" + feedbackId + "/reply", HttpMethod.PUT,
+                Map.of("reply", "E2E回复：已记录")).get("code").asInt()).isZero();
+        JsonNode aNotices = ok(get(a, "/notification"));
+        JsonNode reply = null;
+        for (JsonNode n : aNotices) {
+            if ("feedback_reply".equals(n.path("type").asText()) && String.valueOf(feedbackId).equals(n.path("refId").asText())) reply = n;
+        }
+        assertThat(reply).as("A 应收到反馈回复").isNotNull();
+        assertThat(reply.has("memberId")).as("接口不再暴露混用的 memberId").isFalse();
+        assertThat(ok(get(b, "/notification")).toString()).doesNotContain("E2E回复").doesNotContain("feedback_reply");
+        put(b, "/notification/" + reply.get("id").asLong() + "/read", null);
+        assertThat(ok(get(a, "/notification/unread-count")).get("count").asInt()).as("B 标已读无效").isPositive();
+
+        // 档案级：A 生成采购清单 → 采购通知发给 A 的档案；B 看不到
+        ok(post(a, "/shopping/generate", Map.of("sourceType", "dish", "sourceIds", List.of(DISH_PUBLIC))));
+        boolean aHasShopping = false;
+        for (JsonNode n : ok(get(a, "/notification"))) aHasShopping |= "shopping".equals(n.path("type").asText());
+        assertThat(aHasShopping).as("A 应收到采购清单通知").isTrue();
+        for (JsonNode n : ok(get(b, "/notification"))) {
+            assertThat(n.path("type").asText()).as("B 不应看到 A 的任何通知").isNotIn("shopping", "feedback_reply");
+        }
+    }
+
     // ===================================================================== helpers
 
     private Who newFamily(String phone, String nickname) {

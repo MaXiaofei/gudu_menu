@@ -1,7 +1,6 @@
 package com.gudu.xsd.modules.notification;
 
 import cn.dev33.satoken.stp.StpUtil;
-import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.R;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +20,7 @@ public class NotificationController {
 
     @GetMapping
     public R<List<Notification>> list() {
-        return R.ok(svc.list(recipients()));
+        return R.ok(svc.list(account(), profile()));
     }
 
     /** 手动触发临期扫描（不等 @Scheduled），便于 E2E/演示。返回发送条数。 */
@@ -33,25 +32,25 @@ public class NotificationController {
 
     @GetMapping("/unread-count")
     public R<Map<String, Object>> unreadCount() {
-        return R.ok(Map.of("count", svc.unreadCount(recipients())));
+        return R.ok(Map.of("count", svc.unreadCount(account(), profile())));
     }
 
     @PutMapping("/{id}/read")
     public R<?> markRead(@PathVariable Long id) {
-        svc.markRead(id, recipients());
+        svc.markRead(id, account(), profile());
         return R.ok(null);
     }
 
-    /** 收件人：当前就餐成员 + 登录账号（反馈回复等账号级消息发给登录账号，切到家人档案也能看到）。 */
-    private List<Long> recipients() {
-        Long current = currentMemberId();
-        long login = StpUtil.getLoginIdAsLong();
-        return current.equals(login) ? List.of(current) : List.of(current, login);
+    /** 登录账号 id（account.id）：账号级消息（反馈回复、厨房圈互动）的收件人。 */
+    private static Long account() {
+        return StpUtil.getLoginIdAsLong();
     }
 
-    private Long currentMemberId() {
-        Long id = com.gudu.xsd.common.security.CurrentMember.id();
-        if (id == null) throw new BizException("请先选择就餐成员");
-        return id;
+    /**
+     * 当前就餐档案 id（member.id）：档案级消息（临期、采购）的收件人；可空。
+     * 与账号 id 分开传给 service，各比各的列——两种 id 数值相同也不会串号。
+     */
+    private static Long profile() {
+        return com.gudu.xsd.common.security.CurrentMember.id();
     }
 }

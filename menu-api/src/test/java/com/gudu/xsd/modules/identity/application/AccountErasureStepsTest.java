@@ -139,11 +139,13 @@ class AccountErasureStepsTest {
         NotificationService notices = mock(NotificationService.class);
         ExportGuard guard = mock(ExportGuard.class);
         when(prefs.deleteByMemberId(ACC)).thenReturn(1);
-        when(notices.deleteByMember(ACC)).thenReturn(7);
+        FamilyQueryApi fam = mock(FamilyQueryApi.class);
+        when(fam.profileIdsOf(ACC)).thenReturn(PROFILES);
+        when(notices.deleteForAccount(ACC, PROFILES)).thenReturn(7);
         when(guard.revokeAll(ACC)).thenReturn(2);
 
         assertThat(new PreferenceAccountErasureStep(prefs).erase(ACC)).contains("1");
-        assertThat(new NotificationAccountErasureStep(notices).erase(ACC)).contains("7");
+        assertThat(new NotificationAccountErasureStep(notices, fam).erase(ACC)).contains("7");
         assertThat(new ExportLinkErasureStep(guard).erase(ACC)).contains("2");
     }
 
@@ -199,7 +201,7 @@ class AccountErasureStepsTest {
                 new ExportLinkErasureStep(mock(ExportGuard.class)),
                 new FeedbackAccountErasureStep(feedback, files),
                 new AvatarFileErasureStep(checks, files),
-                new NotificationAccountErasureStep(mock(NotificationService.class)),
+                new NotificationAccountErasureStep(mock(NotificationService.class), families),
                 new ConsentRetainedStep(consents)), CLOCK);
 
         svc.onDeactivated(new AccountDeactivated(ACC));

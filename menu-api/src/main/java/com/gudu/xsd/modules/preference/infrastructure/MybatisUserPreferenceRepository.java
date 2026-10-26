@@ -37,4 +37,14 @@ public class MybatisUserPreferenceRepository implements UserPreferenceRepository
             mapper.insert(po);
         }
     }
+
+    @Override
+    public int reassignAccount(Long from, Long to) {
+        if (from == null || to == null || from.equals(to) || mapper.selectById(from) == null) return 0;
+        if (mapper.selectById(to) == null) {
+            return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<UserPreferencePO>()
+                    .eq("member_id", from).set("member_id", to));
+        }
+        return mapper.deleteById(from);
+    }
 }

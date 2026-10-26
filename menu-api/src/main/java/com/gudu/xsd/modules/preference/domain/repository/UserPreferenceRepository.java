@@ -13,4 +13,7 @@ public interface UserPreferenceRepository {
 
     /** 不存在则插入，存在则更新。 */
     void save(UserPreference preference);
+
+    /** 账号合并：偏好 W → P；P 已有偏好则保留 P 的、删 W 的（member_id 是主键）。返回处理条数。 */
+    int reassignAccount(Long from, Long to);
 }

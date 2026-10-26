@@ -20,6 +20,6 @@ public class WxSubscribeChannel implements NotificationChannel {
 
     @Override
     public void send(NotificationPayload p) {
-        log.debug("[wx_subscribe] 通道未启用（V1 预留），丢弃通知：type={} memberId={}", p.type(), p.memberId());
+        log.debug("[wx_subscribe] 通道未启用（V1 预留），丢弃通知：type={} recipient={}", p.type(), p.recipient());
     }
 }

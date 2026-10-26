@@ -5,7 +5,7 @@
 --
 -- 演示家庭（scripts/seed/demo-family.mjs，recipe-content-seed 5.x）保留不清：
 --   成员 phone LIKE 'demo%'；其食集 = menu.target_member_id 指向演示成员；
---   做饭记录/收藏/通知按 member_id 归属。E2E 用例只读写自己的账号与新建数据，不受影响。
+--   做饭记录/收藏按 member_id 归属；通知按 recipient_profile_id 归属（V91）。E2E 用例只读写自己的账号与新建数据，不受影响。
 --   （NOT IN 前置 IS NULL 判断：NULL NOT IN (...) 为 NULL，不加会漏删）
 -- ============================================================
 -- [multi-tenant-family] V75–V79 之后的 E2E 前置（D.6）：
@@ -98,8 +98,11 @@ DELETE FROM shopping_list WHERE source_menu_id IS NULL OR source_menu_id NOT IN 
   SELECT m.id FROM menu m JOIN member mb ON mb.id = m.target_member_id WHERE mb.phone LIKE 'demo%');
 DELETE FROM daily_log_item;
 DELETE FROM daily_log;
-DELETE FROM notification WHERE member_id IS NULL
-  OR member_id NOT IN (SELECT id FROM member WHERE phone LIKE 'demo%');
+-- V91 起 notification 按 recipient_account_id / recipient_profile_id 归属（member_id 为遗留列）：
+--   保留演示成员（档案级）的通知；账号级通知（反馈回复 / 厨房圈）与其余全部清掉，
+--   收件账号已不存在的（E2E 账号被清理）也随之清掉。
+DELETE FROM notification WHERE recipient_profile_id IS NULL
+  OR recipient_profile_id NOT IN (SELECT id FROM member WHERE phone LIKE 'demo%');
 DELETE FROM pantry_change_log;
 DELETE FROM pantry;
 DELETE FROM review;

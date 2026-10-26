@@ -43,6 +43,7 @@ import com.gudu.xsd.modules.dish.Dish;
 import com.gudu.xsd.modules.dish.DishSaveDTO;
 import com.gudu.xsd.modules.dish.DishService;
 import com.gudu.xsd.modules.notification.NotificationPayload;
+import com.gudu.xsd.modules.notification.NotificationRecipient;
 import com.gudu.xsd.modules.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -91,6 +92,8 @@ public class CommunityPostAppService {
     private final NotificationService notificationService;
     private final Clock clock;
     private final ContentSecurityAppService contentSecurity;
+    /** 账号 → 本人成员档案 id（食记 cooking_record.member_id 是档案 id，不是账号 id）。 */
+    private final com.gudu.xsd.modules.family.application.FamilyQueryApi familyQuery;
 
     // ============================ 发布 ============================
 
@@ -117,7 +120,8 @@ public class CommunityPostAppService {
                     ? cookingRecords.refOf(sourceRecordId).map(List::of).orElse(List.of())
                     : cookingRecords.sameMealRefs(sourceRecordId);
             if (refs.isEmpty()) throw new BizException("食记不存在");
-            if (refs.stream().anyMatch(r -> !userId.equals(r.memberId()))) {
+            java.util.Set<Long> mine = ownProfileIds(userId);
+            if (refs.stream().anyMatch(r -> !mine.contains(r.memberId()))) {
                 throw BizException.forbidden("只能分享自己的食记");
             }
             if (dishId == null) dishId = refs.get(0).dishId();
@@ -363,7 +367,7 @@ public class CommunityPostAppService {
         String when = null;
         if (cookRecordId != null) {
             CookedRecordRef ref = cookingRecords.refOf(cookRecordId).orElseThrow(() -> new BizException("食记不存在"));
-            if (!userId.equals(ref.memberId())) throw BizException.forbidden("只能使用自己的食记");
+            if (!ownProfileIds(userId).contains(ref.memberId())) throw BizException.forbidden("只能使用自己的食记");
             if (did == null) did = ref.dishId();
             when = describeWhen(ref.cookedAt());
         }
@@ -395,11 +399,19 @@ public class CommunityPostAppService {
         return p;
     }
 
-    private void notify(Long memberId, String title, String content) {
+    /**
+     * 本账号名下的成员档案 id。食记（cooking_record.member_id）归属成员档案，登录账号 id 与档案 id 是两张表各自的自增，
+     * 不能直接拿 userId 去比（会把「恰好同号的别人的食记」当成自己的）。
+     */
+    private java.util.Set<Long> ownProfileIds(Long accountId) {
+        return new java.util.HashSet<>(familyQuery.profileIdsOf(accountId));
+    }
+
+    private void notify(Long accountId, String title, String content) {
         try {
-            notificationService.send(new NotificationPayload(memberId, NOTIFY_TYPE, title, content), "in_app");
+            notificationService.send(new NotificationPayload(NotificationRecipient.account(accountId), NOTIFY_TYPE, title, content), "in_app");
         } catch (RuntimeException e) {
-            log.warn("厨房圈通知发送失败 memberId={}: {}", memberId, e.getMessage());
+            log.warn("厨房圈通知发送失败 accountId={}: {}", accountId, e.getMessage());
         }
     }
 

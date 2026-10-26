@@ -97,12 +97,16 @@ Account (AggregateRoot<AccountId>)
 | menu_activity.member_id | 账号 | **改指 P**（昵称已冗余在行内） | 同上 |
 | menu_dish.added_by_member_id | 混合（聚餐 = 账号，Agent / 餐程 = 档案） | 保留：仅作留痕，展示用行内冗余的 added_by_nickname；两种 id 混存无法安全改写 | — |
 | agent_session / agent_message / agent_trace.member_id | 成员档案（currentMemberId） | 不涉及：随档案归属 | — |
-| notification.member_id、favorite.member_id、review.member_id、cooking_record.member_id、daily_log.member_id、dish_draft.user_id、menu.target_member_id、meal_plan_draft.member_id | 成员档案 | 不涉及：随档案归属 | — |
+| favorite.member_id、review.member_id、cooking_record.member_id、daily_log.member_id、dish_draft.user_id、menu.target_member_id、meal_plan_draft.member_id | 成员档案 | 不涉及：随档案归属 | — |
 | ai_call_log.member_id | 成员档案（请求里的就餐成员） | 保留（调用审计 / 计费日志，不改写） | — |
 | ai_gateway_audit.actor、ai_route.updated_by | 字符串审计（`member:{loginId}`） | 保留（审计） | — |
 | user（V01 遗留后台账号表） | 已废弃 | 不涉及 | — |
 | Redis：AI 限流计数、登录失败计数、Sa-Token 会话 | 按 loginId | W 的 token 全部下线（`StpUtil.logout(W)`），计数自然过期 | `AccountController.mergePhone` |
-| 同意记录 | 尚无表（mini-release-compliance 落地时以账号归属新增监听） | — | — |
+| notification.recipient_account_id（V91） | 账号（反馈回复、厨房圈互动） | **改指 P** | `NotificationAccountMergedListener` |
+| notification.recipient_profile_id（V91） | 成员档案（临期、采购） | 不涉及：随档案归属 | — |
+| user_preference.member_id（主键） | 账号 | **改指 P**；P 已有偏好 → 保留 P 的、删 W 的 | `PreferenceAccountMergedListener` |
+| content_media_check.member_id、content_text_violation.account_id | 账号（上传 / 违规账号） | **改指 P**（P 注销时要能找到 W 当年上传的头像文件） | `ContentSecurityAccountMergedListener` |
+| 同意记录 | 账号 | **改指 P** | `ConsentAccountMergedListener` |
 
 「以 P 为主」只决定**保留哪个账号 ID**（P 带着密码、手机号和平台角色，App 端手机号登录必须继续可用），不决定谁的数据留下：两边的家庭都保留，合并后无论用微信还是手机号登录，看到的都是同一个账号、同样的数据。
 
@@ -251,3 +255,52 @@ common/tenant/     TenantContext, TenantContextHolder, TenantInterceptor, Family
 - **应用层**：Mockito 断言事件发布与 MembershipPolicy 调用。
 - **越权 E2E 套件** `GuduE2ETenantIsolationTest`：建 E2E 家庭 A、B → B 对 A 的每个资源（菜单/库存/采购/食记/点评/草稿/成员档案/私有菜谱）执行读写删 → 全部 404；公共菜谱 B 可读不可写。
 - **迁移演练**：staging 恢复生产快照 → 执行迁移 → 校验 SQL 全过 → 三端冒烟。
+
+## 9. 账号 id 与档案 id 归属
+
+### 9.1 问题与结构性兜底
+
+系统里有两种「人」的 id：**账号 id**（`account.id` = Sa-Token loginId）与**成员档案 id**（`member.id` = `CurrentMember.id()` = 当前就餐成员）。V77 让存量账号沿用旧 `member.id`，之后新账号、新档案各自自增，**会撞号**（账号 120 与档案 120 可能是两个人）。凡是把一种 id 当另一种比较 / 查询 / 删除的地方，都会串号或误删。
+
+- **V91** 把 `account` 的 `AUTO_INCREMENT` 设为 `GREATEST(10000000, 当前自增值, MAX(id)+1)`：新账号 id 恒 ≥ 1000 万，档案 id 远小于此，**两者取值范围永不重叠**。存量账号与本人旧 member.id 相同（同一个人），无害。
+- 防回退：`AccountIdSpaceCheck`（启动自检，低于下限打 ERROR）；`AccountIdSpaceCheckTest`（V91 常量与代码常量一致，且之后的迁移不得降低 account 自增）；`scripts/local-migration-rehearsal.sh` 的 `v91_assertions`。
+- 编码约定：**一列只存一种 id**；列名带 `account` / `profile` 的即为该种；老列 `member_id` 的含义以下表为准。按档案归属的数据，账号侧要经 `FamilyQueryApi.profileIdsOf(accountId)` 取本人档案 id，**绝不能拿账号 id 直接当 member_id**。
+
+### 9.2 全量审计（表.列 / 应存 / 实际写入 / 读取 / 是否有问题 / 处理）
+
+「有问题」列带 **❌** 的是审计发现并已修复的；其余经核对一致。
+
+| 表.列 | 应存 | 实际写入 | 读取 | 有问题 | 处理 |
+|---|---|---|---|---|---|
+| notification.member_id（V13） | 混用，应拆 | 反馈回复 / 厨房圈互动写**账号 id**；临期 / 采购写**档案 id** | 控制器按「当前档案 + 登录账号」`IN (…)` 合并查两份 → 账号 id 与别人档案 id 同号时**串号**；`markRead` 同理可误标；注销 `deleteByMember(accountId)` 按 `member_id = 账号 id` 删 → **误删同号档案的通知** | ❌ | V91 拆 `recipient_account_id` / `recipient_profile_id`（二选一非空）；`NotificationRecipient` 发送方必须显式指定种类；读 / 已读 / 注销 / 合并分别比各自的列；旧列保留为可空遗留列 |
+| notification.family_id | —（账号级消息不属于任何家庭） | 管理员回复写入时落在**管理员的家庭**，收件人在自己的家庭里被租户过滤看不到 | 租户插件按当前家庭过滤 | ❌ | notification 不再是家庭域表（移出 `TenantTables`），按收件人可见；family_id 改可空遗留列 |
+| community 发帖 / AI 帮写：`cookingRecords.refOf().memberId` 与 `userId` | 档案 id ↔ 账号 id 需换算 | `cooking_record.member_id` 是**档案 id** | `CommunityPostAppService` 用 `userId.equals(ref.memberId())` 校验「只能分享自己的食记」→ 新账号永远被拒、同号时**能分享别人的食记** | ❌ | 改为 `familyQuery.profileIdsOf(userId).contains(ref.memberId())` |
+| user_preference.member_id（主键） | 账号 | 账号（loginId） | 账号 | 合并遗漏 ❌ | 补 `PreferenceAccountMergedListener`（P 已有则保留 P 的） |
+| content_media_check.member_id | 账号（上传者） | 账号（`FileController` loginId） | 账号（注销按账号找头像文件） | 合并遗漏 ❌ | 补 `ContentSecurityAccountMergedListener`；列注释「member.id」实指账号 id |
+| content_text_violation.account_id | 账号 | 账号 | 账号 | 合并遗漏 ❌ | 同上 |
+| account.id / member.account_id / family_membership.account_id / family.owner_account_id / family_invitation.created_by / account_merge_log.operator_id | 账号 | 账号 | 账号 | 否 | — |
+| member.id（档案）/ menu.target_member_id | 档案 | 档案 | 档案 | 否 | — |
+| cooking_record.member_id、review.member_id、favorite.member_id、daily_log.member_id | 档案 | 档案（`CurrentMember.id()`） | 档案；导出按 `profileIds`；`CookbookController` 的 `memberId` 参数由客户端传档案 id，受家庭过滤 | 否 | — |
+| dish_draft.user_id、meal_plan_draft.member_id | 档案 | 档案（`CurrentMember.id()`） | 档案 | 否（列名 / 注释易误导） | — |
+| agent_session / agent_message / agent_trace.member_id | 档案 | 档案 | 档案；注销 / 导出经 `profileIdsOf`（13e24e5 已修） | 否（上一轮已修） | — |
+| ai_call_log.member_id | 档案 | 档案（请求里的就餐成员，可空） | 仅审计 | 否 | — |
+| feedback.member_id / replied_by | 账号 / 超管账号 | 账号 | 账号；回复通知现发给**账号** | 否（回复通知见 notification 行） | — |
+| vision_job.member_id | 账号（发起人） | 账号（loginId） | 账号 | 否 | — |
+| consent_record.account_id | 账号 | 账号 | 账号；导出 / 保留 | 否 | — |
+| dish.created_by | 账号 | 账号（`AuditFieldFillHandler` 取 `TenantContext.accountId`） | 账号（导出、合并） | 否 | — |
+| community_*（author_id / user_id / reporter_id / follower_id / followee_id / operator_id）、community_ban.user_id | 账号 | 账号（controller 取 loginId） | 账号 | 否 | — |
+| menu_join.member_id、menu_activity.member_id、menu_invite.created_by | 账号（聚餐登录身份，游客为空） | 账号 | 账号 | 否 | — |
+| menu_dish.added_by_member_id | 混合（聚餐 = 账号，Agent / 餐程 = 档案） | 混合 | **无任何读取路径**（展示用行内冗余的 added_by_nickname） | 混存但无读取，无串号面 | 保留：仅作留痕，禁止作为身份依据；见 9.1 约定 |
+| account_ban.account_id、admin_operation_log.operator_id、sys_switch_log.operator_id、community_moderation_log.operator_id | 账号 | 账号（`StpUtil.getLoginIdAsLong()`） | 账号 | 否 | — |
+| 登录 / 会话：`StpUtil.getLoginIdAsLong()` 与 `CurrentMember.id()` | 前者账号、后者档案 | 控制器按场景取用 | `NotificationController` 现分别传 service，不再合并成同一个 id 列表 | 见 notification 行 | — |
+
+### 9.3 存量通知回填口径（V91）
+
+按**写入来源**判定（可从代码确认）：`type IN ('feedback_reply','community')` → 账号列；其余（`expiry` / `shopping` / `prep` …，来自临期扫描与采购生成，写的是档案 id）→ 档案列。无法判定的（type 不在已知两类内且来源不明）按旧逻辑保守视为档案级——存量中这类行只可能来自 V13 起的档案级通知。V77 之前的老数据账号 id = 档案 id（同一个人），无论落哪一列都能被本人看到。
+
+### 9.4 测试
+
+- `NotificationRecipientIsolationTest`（H2 + MyBatis-Plus 真实 SQL）：账号 120 与别人档案 120 同号 → 列表 / 未读 / 已读 / 注销 / 合并互不可见。
+- `CommunityPostAppServiceTest`：账号 5 与他人档案 5 同号不能分享对方食记；新账号分享自己档案食记放行。
+- `AccountErasureStepsTest`、`AccountMergedListenersTest`、`FeedbackAppServiceTest`、`NotificationSchedulerTest`：收件人种类断言。
+- E2E：`GuduE2ETenantIsolationTest.通知收件人隔离_…`（新账号 id ≥ 1000 万、反馈回复仅账号可见、采购通知仅档案可见）。

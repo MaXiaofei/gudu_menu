@@ -96,4 +96,10 @@ public class MybatisTextViolationRepository implements TextViolationRepository {
                 po.getLabel() == null ? 0 : po.getLabel(), source, po.getExcerpt(), po.getCreatedAt(),
                 CONFIRMED.equals(po.getReviewStatus()), po.getReviewedBy(), po.getReviewedAt());
     }
+
+    @Override
+    public int reassignAccount(Long from, Long to) {
+        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<ContentTextViolationPO>()
+                .eq("account_id", from).set("account_id", to));
+    }
 }

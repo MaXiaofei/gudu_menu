@@ -80,7 +80,7 @@ public class NotificationScheduler {
         }
         for (PantryVO p : expiring) {
             notificationService.send(
-                    new NotificationPayload(chefId, "expiry",
+                    new NotificationPayload(NotificationRecipient.profile(chefId), "expiry",
                             "食材临期提醒",
                             "「" + pantryIngredientName(p) + "」将在 " + days + " 天内过期"),
                     "in_app");

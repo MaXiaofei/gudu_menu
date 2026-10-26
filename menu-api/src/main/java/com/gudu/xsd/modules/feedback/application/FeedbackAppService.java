@@ -12,6 +12,7 @@ import com.gudu.xsd.modules.feedback.domain.model.FeedbackType;
 import com.gudu.xsd.modules.feedback.domain.repository.FeedbackRepository;
 import com.gudu.xsd.modules.member.Member;
 import com.gudu.xsd.modules.notification.NotificationPayload;
+import com.gudu.xsd.modules.notification.NotificationRecipient;
 import com.gudu.xsd.modules.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -115,7 +116,7 @@ public class FeedbackAppService {
         if (f.memberId() == null || f.memberId() == FeedbackRepository.ANONYMOUS_ACCOUNT) {
             return; // 提交人已注销（反馈已与账号解绑）：回复只保存，不发通知
         }
-        notificationService.send(new NotificationPayload(f.memberId(), NOTICE_TYPE_REPLY, "你的反馈有回复了",
+        notificationService.send(new NotificationPayload(NotificationRecipient.account(f.memberId()), NOTICE_TYPE_REPLY, "你的反馈有回复了",
                 snippet(r), String.valueOf(f.id())), "in_app");
     }
 

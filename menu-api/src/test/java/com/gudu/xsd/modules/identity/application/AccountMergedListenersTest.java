@@ -22,6 +22,16 @@ import com.gudu.xsd.modules.menu.together.mapper.MenuJoinMapper;
 import com.gudu.xsd.modules.menu.together.MenuJoin;
 import com.gudu.xsd.modules.vision.application.VisionAccountMergedListener;
 import com.gudu.xsd.modules.vision.domain.repository.VisionJobRepository;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAccountMergedListener;
+import com.gudu.xsd.modules.contentsecurity.domain.repository.MediaCheckRepository;
+import com.gudu.xsd.modules.contentsecurity.domain.repository.TextViolationRepository;
+import com.gudu.xsd.modules.notification.NotificationAccountMergedListener;
+import com.gudu.xsd.modules.notification.NotificationService;
+import com.gudu.xsd.modules.preference.application.PreferenceAccountMergedListener;
+import com.gudu.xsd.modules.preference.domain.repository.UserPreferenceRepository;
+import com.gudu.xsd.modules.preference.infrastructure.MybatisUserPreferenceRepository;
+import com.gudu.xsd.modules.preference.infrastructure.mapper.UserPreferenceMapper;
+import com.gudu.xsd.modules.preference.infrastructure.po.UserPreferencePO;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
@@ -47,6 +57,46 @@ class AccountMergedListenersTest {
         FeedbackRepository repo = mock(FeedbackRepository.class);
         new FeedbackAccountMergedListener(repo).on(EVENT);
         verify(repo).reassignAccount(W, P);
+    }
+
+    @Test
+    void 通知_账号级收件人改指P() {
+        NotificationService notifications = mock(NotificationService.class);
+        new NotificationAccountMergedListener(notifications).on(EVENT);
+        verify(notifications).reassignAccount(W, P);
+    }
+
+    @Test
+    void 用户偏好_改指P() {
+        UserPreferenceRepository repo = mock(UserPreferenceRepository.class);
+        new PreferenceAccountMergedListener(repo).on(EVENT);
+        verify(repo).reassignAccount(W, P);
+    }
+
+    @Test
+    void 用户偏好_P没有则W的改指P_P已有则保留P删W() {
+        UserPreferenceMapper mapper = mock(UserPreferenceMapper.class);
+        when(mapper.selectById(W)).thenReturn(new UserPreferencePO());
+        when(mapper.selectById(P)).thenReturn(null);
+        new MybatisUserPreferenceRepository(mapper).reassignAccount(W, P);
+        verify(mapper).update(any(), any());
+        verify(mapper, never()).deleteById(any(java.io.Serializable.class));
+
+        UserPreferenceMapper both = mock(UserPreferenceMapper.class);
+        when(both.selectById(W)).thenReturn(new UserPreferencePO());
+        when(both.selectById(P)).thenReturn(new UserPreferencePO());
+        new MybatisUserPreferenceRepository(both).reassignAccount(W, P);
+        verify(both).deleteById(W);
+        verify(both, never()).update(any(), any());
+    }
+
+    @Test
+    void 内容安全记录_图片检测与文本违规改指P() {
+        MediaCheckRepository media = mock(MediaCheckRepository.class);
+        TextViolationRepository text = mock(TextViolationRepository.class);
+        new ContentSecurityAccountMergedListener(media, text).on(EVENT);
+        verify(media).reassignAccount(W, P);
+        verify(text).reassignAccount(W, P);
     }
 
     @Test

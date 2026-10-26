@@ -66,6 +66,7 @@ class CommunityPostAppServiceTest {
     CommunityAssembler assembler;
     DishService dishService;
     CookingRecordAppService cookingRecords;
+    com.gudu.xsd.modules.family.application.FamilyQueryApi familyQuery = mock(com.gudu.xsd.modules.family.application.FamilyQueryApi.class);
     CommunityPostAppService svc;
 
     @BeforeEach
@@ -82,7 +83,9 @@ class CommunityPostAppServiceTest {
         cookingRecords = mock(CookingRecordAppService.class);
         svc = new CommunityPostAppService(posts, mock(CommentRepository.class), interactions, topics, moderation,
                 appeals, inbox, counters, new RulePostModerator(), new TemplatePostTextWriter(), assembler, dishService,
-                cookingRecords, mock(NotificationService.class), CLOCK, mock(ContentSecurityAppService.class));
+                cookingRecords, mock(NotificationService.class), CLOCK, mock(ContentSecurityAppService.class), familyQuery);
+        when(familyQuery.profileIdsOf(2L)).thenReturn(List.of(2L));
+        when(familyQuery.profileIdsOf(3L)).thenReturn(List.of(30L));
         when(moderation.bannedUntil(anyLong())).thenReturn(Optional.empty());
         when(assembler.counts(any(Post.class))).thenReturn(PostCounts.ZERO);
         doAnswer(inv -> {
@@ -189,6 +192,30 @@ class CommunityPostAppServiceTest {
         when(cookingRecords.refOf(55L)).thenReturn(Optional.of(new CookedRecordRef(55L, 3L, 7L, null)));
         assertThatThrownBy(() -> svc.publish(2L, new PublishCommand("t", "", List.of(IMG), null, List.of(), null, 55L,
                 null, null, null))).hasMessageContaining("自己的食记");
+    }
+
+    /** 串号：账号 5 与「别人的档案 5」数值相同——账号 5 的档案是 50，不能分享档案 5 的食记（旧实现拿账号 id 直接比会放行）。 */
+    @Test
+    void 账号id与别人档案id数值相同_不能分享对方的食记() {
+        when(familyQuery.profileIdsOf(5L)).thenReturn(List.of(50L));
+        when(cookingRecords.refOf(55L)).thenReturn(Optional.of(new CookedRecordRef(55L, 5L, 7L, null)));
+        assertThatThrownBy(() -> svc.publish(5L, new PublishCommand("t", "", List.of(IMG), null, List.of(), null, 55L,
+                null, null, null))).hasMessageContaining("自己的食记");
+        assertThatThrownBy(() -> svc.aiText(5L, null, 55L, "casual")).hasMessageContaining("自己的食记");
+    }
+
+    /** 新账号（id 远大于档案 id）分享自己档案的食记：按档案归属放行，不依赖两种 id 数值相同。 */
+    @Test
+    void 新账号分享自己档案的食记_放行() {
+        when(familyQuery.profileIdsOf(10000001L)).thenReturn(List.of(77L));
+        when(moderation.bannedUntil(anyLong())).thenReturn(Optional.empty());
+        when(cookingRecords.refOf(55L)).thenReturn(Optional.of(new CookedRecordRef(55L, 77L, 7L, LocalDateTime.of(2026, 10, 16, 18, 40))));
+        Dish dish = new Dish();
+        dish.setId(7L);
+        dish.setCoverUrl("https://staging.imxf.cloud/images/dish/original/huadan.jpg");
+        when(dishService.getById(7L)).thenReturn(dish);
+        assertThat(svc.publish(10000001L, new PublishCommand("t", "", null, null, List.of(), null, 55L, null, null, null))
+                .status()).isEqualTo("PUBLISHED");
     }
 
     @Test

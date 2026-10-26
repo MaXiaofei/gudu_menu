@@ -22,4 +22,7 @@ public interface TextViolationRepository {
     List<TextViolation> page(Boolean confirmed, String purpose, Long accountId, int offset, int limit);
 
     long count(Boolean confirmed, String purpose, Long accountId);
+
+    /** 账号合并：违规记录的账号 W → P（后台按账号筛选 / 累计违规都依赖它）。返回改指条数。 */
+    int reassignAccount(Long from, Long to);
 }

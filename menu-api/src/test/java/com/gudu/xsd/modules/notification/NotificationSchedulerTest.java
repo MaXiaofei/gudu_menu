@@ -66,7 +66,8 @@ class NotificationSchedulerTest {
         verify(notificationService, times(2)).send(any(NotificationPayload.class), eq("in_app"));
         // 内容里含食材名 + 天数（抽一个 payload 校验）
         verify(notificationService).send(argThat((NotificationPayload p) ->
-                p != null && p.memberId() == 99L
+                p != null && p.recipient().profileId() != null && p.recipient().profileId() == 99L
+                        && p.recipient().accountId() == null
                         && "expiry".equals(p.type())
                         && p.content().contains("番茄")
                         && p.content().contains("3")), eq("in_app"));

@@ -114,4 +114,10 @@ public class MybatisMediaCheckRepository implements MediaCheckRepository {
                 MediaCheckStatus.of(po.getStatus()), po.getLabel() == null ? 0 : po.getLabel(), po.getCreateTime(),
                 MediaReviewStatus.of(po.getReviewStatus()), po.getReviewedBy(), po.getReviewedAt());
     }
+
+    @Override
+    public int reassignAccount(Long from, Long to) {
+        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<ContentMediaCheckPO>()
+                .eq("member_id", from).set("member_id", to));
+    }
 }

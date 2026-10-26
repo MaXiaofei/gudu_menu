@@ -319,6 +319,23 @@ v77_assertions() {
        AND TABLE_NAME = 'ingredient_stock' AND INDEX_NAME = 'uk_stock_family_ingredient'"
 }
 
+# V91：账号 id 与档案 id 取值范围错开 + 通知收件人拆列
+v91_assertions() {
+  info "V91 断言（账号 / 档案 id 范围、通知收件人）"
+  table_exists notification || return 0
+  [ "$(q "SELECT COUNT(*) FROM schema_migration_log WHERE filename LIKE 'V91\_%'")" != "0" ] || return 0
+  expect_zero "account 自增起点 >= 1000 万（新账号 id 与档案 id 取值范围永不重叠）" \
+    "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account'
+       AND AUTO_INCREMENT < 10000000"
+  expect_zero "存量档案 id 全部小于 1000 万（与新账号 id 不重叠）" "SELECT COUNT(*) FROM member WHERE id >= 10000000"
+  expect_zero "notification 每行恰好一个收件人（账号 / 档案二选一非空）" \
+    "SELECT COUNT(*) FROM notification WHERE (recipient_account_id IS NULL) = (recipient_profile_id IS NULL)"
+  expect_zero "夹具通知（expiry）回填为档案级收件人" \
+    "SELECT COUNT(*) FROM notification WHERE type = 'expiry' AND (recipient_profile_id IS NULL OR recipient_account_id IS NOT NULL)"
+  expect_zero "feedback_reply / community 通知回填为账号级收件人" \
+    "SELECT COUNT(*) FROM notification WHERE type IN ('feedback_reply', 'community') AND (recipient_account_id IS NULL OR recipient_profile_id IS NOT NULL)"
+}
+
 # ------------------------------------------------------------------ 主流程
 echo "== multi-tenant-family 迁移演练：模式 ${MODE}，库 ${DB_NAME}，工作目录 ${WORK} =="
 if [ "${MODE}" = "--from-scratch" ]; then prepare_from_scratch; else prepare_existing; fi
@@ -363,6 +380,7 @@ for name in $(all_migrations); do
 done
 expect_zero "重新迁移后校验项仍全部为 0" \
   "SELECT COUNT(*) FROM (SELECT 1 FROM member WHERE family_id IS NULL UNION ALL SELECT 1 FROM menu WHERE family_id IS NULL) x"
+v91_assertions
 
 echo
 if [ "${FAILURES}" -eq 0 ]; then

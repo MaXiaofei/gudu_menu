@@ -16,7 +16,8 @@ public class InAppChannel implements NotificationChannel {
     @Override
     public void send(NotificationPayload p) {
         Notification n = new Notification();
-        n.setMemberId(p.memberId());
+        n.setRecipientAccountId(p.recipient().accountId());
+        n.setRecipientProfileId(p.recipient().profileId());
         n.setType(p.type());
         n.setChannel(channelKey());
         n.setTitle(p.title());

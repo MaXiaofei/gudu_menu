@@ -29,4 +29,7 @@ public interface MediaCheckRepository {
     List<String> urlsByAccount(Long accountId, com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose purpose);
 
     long countViolations(String review, String purpose, Long accountId);
+
+    /** 账号合并：上传账号 W → P（注销时按账号找头像文件、后台按账号筛选都依赖它）。返回改指条数。 */
+    int reassignAccount(Long from, Long to);
 }

@@ -1,24 +1,20 @@
 package com.gudu.xsd.modules.notification;
 
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.gudu.xsd.modules.notification.mapper.NotificationMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 /**
  * 通知服务单元测试：mock NotificationMapper + 假 NotificationChannel。
  * 覆盖 send（通道分发 + 未注册通道静默）、sendAll（多通道）、
- * list/unreadCount（查询）、markRead（更新）。
+ * 收件人查询 / 已读 / 注销 / 合并 的真实 SQL 语义见 NotificationRecipientIsolationTest（H2）。
  */
 class NotificationServiceTest {
 
@@ -45,7 +41,7 @@ class NotificationServiceTest {
     }
 
     private NotificationPayload payload() {
-        return new NotificationPayload(1L, "expire", "临期提醒", "牛奶明天到期");
+        return new NotificationPayload(NotificationRecipient.profile(1L), "expire", "临期提醒", "牛奶明天到期");
     }
 
     // ---------------- send / sendAll ----------------
@@ -77,48 +73,5 @@ class NotificationServiceTest {
 
         assertThat(inApp.received).hasSize(1);
         assertThat(wx.received).hasSize(1);
-    }
-
-    // ---------------- list ----------------
-
-    /** list：按 memberId 查询通知。 */
-    @Test
-    void list_按memberId查询() {
-        Notification n = new Notification();
-        n.setId(1L);
-        n.setMemberId(7L);
-        n.setTitle("临期提醒");
-        when(mapper.selectList(any())).thenReturn(List.of(n));
-
-        var result = svc.list(7L);
-
-        assertThat(result).extracting(Notification::getTitle).containsExactly("临期提醒");
-    }
-
-    // ---------------- unreadCount ----------------
-
-    /** unreadCount：返回未读数。 */
-    @Test
-    void unreadCount_返回未读数() {
-        // selectCount 返回 Long；用 doReturn 绕开泛型推断歧义
-        Mockito.doReturn(Long.valueOf(3)).when(mapper).selectCount(any(Wrapper.class));
-
-        long count = svc.unreadCount(7L);
-
-        assertThat(count).isEqualTo(3L);
-    }
-
-    // ---------------- markRead ----------------
-
-    /** markRead：调用 update 置 is_read=1，且带 memberId 条件防越权。 */
-    @Test
-    void markRead_调用update标记已读() {
-        svc.markRead(100L, 7L);
-
-        // 验证 update 被调用一次（UpdateWrapper 内部 SQL 不便断言，验证调用即可）
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Wrapper<Notification>> captor = ArgumentCaptor.forClass(Wrapper.class);
-        verify(mapper).update(isNull(), captor.capture());
-        assertThat(captor.getValue()).isNotNull();
     }
 }

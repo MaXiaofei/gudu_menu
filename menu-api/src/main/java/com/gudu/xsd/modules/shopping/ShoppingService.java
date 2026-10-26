@@ -19,6 +19,7 @@ import com.gudu.xsd.modules.pantry.PantryService;
 import com.gudu.xsd.modules.pantry.StockLog;
 import com.gudu.xsd.modules.pantry.mapper.StockLogMapper;
 import com.gudu.xsd.modules.notification.NotificationPayload;
+import com.gudu.xsd.modules.notification.NotificationRecipient;
 import com.gudu.xsd.modules.notification.NotificationService;
 import com.gudu.xsd.modules.shopping.ShoppingAggregator.Usage;
 import com.gudu.xsd.modules.shopping.mapper.ShoppingItemMapper;
@@ -219,7 +220,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         if (memberId == null) return;
         String src = "menu".equals(sourceType) ? "菜单" : "菜品";
         notificationService.send(
-                new NotificationPayload(memberId, "shopping",
+                new NotificationPayload(NotificationRecipient.profile(memberId), "shopping",
                         "采购清单已生成",
                         src + "已生成采购清单，共 " + itemCount + " 项"),
                 "in_app");

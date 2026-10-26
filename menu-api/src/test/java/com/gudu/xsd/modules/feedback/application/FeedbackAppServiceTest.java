@@ -161,7 +161,9 @@ class FeedbackAppServiceTest {
         verify(repo).save(f);
         ArgumentCaptor<NotificationPayload> msg = ArgumentCaptor.forClass(NotificationPayload.class);
         verify(notifications).send(msg.capture(), eq("in_app"));
-        assertThat(msg.getValue().memberId()).isEqualTo(7L);
+        // 反馈提交人是账号 id：通知必须发给「账号」收件人，不能落到同号的档案上
+        assertThat(msg.getValue().recipient().accountId()).isEqualTo(7L);
+        assertThat(msg.getValue().recipient().profileId()).isNull();
         assertThat(msg.getValue().type()).isEqualTo(FeedbackAppService.NOTICE_TYPE_REPLY);
         assertThat(msg.getValue().refId()).isEqualTo("3");
         assertThat(msg.getValue().content()).isEqualTo("已修复，感谢反馈");

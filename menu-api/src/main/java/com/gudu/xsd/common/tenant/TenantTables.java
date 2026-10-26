@@ -7,6 +7,7 @@ import java.util.Set;
  * 家庭域表登记（白名单）：这些表由 MyBatis-Plus TenantLineInnerInterceptor 自动追加 {@code family_id = 当前家庭}，
  * INSERT 自动补 family_id。不在名单内的表视为全局表（食材/营养/字典/单位换算/账号/家庭/社区/AI 网关等）。
  *
+ * <p>notification 也不在名单（V91）：站内通知按收件人（账号 / 档案）可见，账号级消息要跟着人走，不能被写入时的家庭截断。
  * <p>dish / dish_ingredient / dish_step 不在名单：可见性「公共 + 本家」由 dish 上下文手写（design §4.3）。
  * <p>新增家庭域表必须登记于此，并同步迁移脚本加 family_id；ArchUnit {@code TenantGuardTest} 双向校验
  * 「登记表的 PO 必须有 familyId 字段」与「有 familyId 字段的 PO 必须登记（dish 除外）」。
@@ -25,8 +26,7 @@ public final class TenantTables {
             "daily_log", "daily_log_item",
             "review", "review_score",
             "dish_draft", "dish_history",
-            "meal_plan", "meal_plan_item", "meal_plan_draft", "meal_plan_slot",
-            "notification");
+            "meal_plan", "meal_plan_item", "meal_plan_draft", "meal_plan_slot");
 
     private TenantTables() {
     }
