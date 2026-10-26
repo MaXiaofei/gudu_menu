@@ -140,7 +140,9 @@ public class MybatisFamilyRepository implements FamilyRepository {
                 r.setRevoked(inv.revoked() ? 1 : 0);
                 r.setCreatedAt(inv.createdAt());
                 invitationMapper.insert(r);
-            } else if (r.getUsedCount() != inv.usedCount() || (r.getRevoked() == 1) != inv.revoked()) {
+            } else if (r.getUsedCount() != inv.usedCount() || (r.getRevoked() == 1) != inv.revoked()
+                    || !java.util.Objects.equals(r.getCreatedBy(), inv.createdBy())) {
+                r.setCreatedBy(inv.createdBy());
                 r.setUsedCount(inv.usedCount());
                 r.setRevoked(inv.revoked() ? 1 : 0);
                 invitationMapper.updateById(r);

@@ -19,6 +19,9 @@ public interface AppealRepository {
 
     long countPending();
 
+    /** 账号合并：申诉作者改指 to。 */
+    int reassignAccount(Long from, Long to);
+
     record Appeal(Long postId, String text, LocalDateTime createdAt, boolean handled) {
     }
 }

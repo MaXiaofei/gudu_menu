@@ -73,6 +73,37 @@ Account (AggregateRoot<AccountId>)
 6. 审计：`account_merge_log(source_id, target_id, operator, created_at, detail)`，不可回滚但可追溯。
 7. 资料取舍：昵称/头像优先保留用户改过的那份（P 的为空或仍是默认值「微信用户」时取 W 的）；平台角色取 P 的（不因合并提权或降权）。
 
+**账号合并 · 数据归属表**（W = 微信账号，P = 手机号账号；全仓 grep `member_id / account_id / created_by / author_id / user_id / *_by / operator_id` 等列逐表判定）。
+归属分两类：**按账号**（列里存的是 account.id = 登录 loginId）→ 合并时改指 P；**按成员档案**（列里存的是 member.id = 当前就餐成员）→ 不改，W 的档案在 family 监听里已改指 P（P 在同家庭已有档案时，W 的档案降为无账号档案、数据随该档案保留）。
+
+| 表.列 | 归属 | 合并处理 | 实现 |
+|------|------|---------|------|
+| account（W 行） | 账号本身 | W.status=MERGED、merged_into=P，wx_openid 移到 P | `Account.absorb` |
+| account_merge_log | 审计 | 新增一行（不可回滚） | `AccountMergeAppService` |
+| family_membership.account_id | 账号 | **改指 P**；同家庭都在则保留较高角色，OWNER 随之转移 | `Family.reassignAccount` |
+| family.owner_account_id | 账号（冗余） | **改指 P**（保存时按 OWNER 成员重算） | `MybatisFamilyRepository.save` |
+| family_invitation.created_by | 账号 | **改指 P** | `Family.reassignAccount` |
+| member.account_id（成员档案） | 账号 | **改指 P**；P 在同家庭已有档案 → W 的档案 account_id 置空（无账号档案） | `FamilyAccountListener.onMerged` |
+| feedback.member_id | 账号（loginId） | **改指 P** | `FeedbackAccountMergedListener` |
+| vision_job.member_id | 账号（loginId） | **改指 P** | `VisionAccountMergedListener` |
+| community_post.author_id / community_comment.author_id | 账号 | **改指 P** | `CommunityAccountMergedListener` |
+| community_reaction.user_id、community_copy.user_id、community_report.reporter_id、community_topic_checkin.user_id | 账号（有唯一键） | **改指 P**；与 P 已有行冲突时保留 P 的、删 W 的 | `MybatisInteractionRepository.reassignAccount` |
+| community_follow.follower_id / followee_id | 账号（有唯一键） | **改指 P**（双向），去重并去掉自关注 | 同上 |
+| community_appeal.author_id | 账号 | **改指 P** | `MybatisAppealRepository.reassignAccount` |
+| community_ban.user_id | 账号（主键） | **改指 P**，解封时间取两者较晚 | `MybatisInteractionRepository.reassignAccount` |
+| community_moderation_log.operator_id | 运营人员 | 保留（审计，不改写历史） | — |
+| menu_join.member_id | 账号（聚餐登录身份） | **改指 P**；同一食集 W、P 都加入过 → 保留 P 的、删 W 的 | `TogetherAccountMergedListener` |
+| menu_invite.created_by | 账号 | **改指 P** | 同上 |
+| menu_activity.member_id | 账号 | **改指 P**（昵称已冗余在行内） | 同上 |
+| menu_dish.added_by_member_id | 混合（聚餐 = 账号，Agent / 餐程 = 档案） | 保留：仅作留痕，展示用行内冗余的 added_by_nickname；两种 id 混存无法安全改写 | — |
+| agent_session / agent_message / agent_trace.member_id | 成员档案（currentMemberId） | 不涉及：随档案归属 | — |
+| notification.member_id、favorite.member_id、review.member_id、cooking_record.member_id、daily_log.member_id、dish_draft.user_id、menu.target_member_id、meal_plan_draft.member_id | 成员档案 | 不涉及：随档案归属 | — |
+| ai_call_log.member_id | 成员档案（请求里的就餐成员） | 保留（调用审计 / 计费日志，不改写） | — |
+| ai_gateway_audit.actor、ai_route.updated_by | 字符串审计（`member:{loginId}`） | 保留（审计） | — |
+| user（V01 遗留后台账号表） | 已废弃 | 不涉及 | — |
+| Redis：AI 限流计数、登录失败计数、Sa-Token 会话 | 按 loginId | W 的 token 全部下线（`StpUtil.logout(W)`），计数自然过期 | `AccountController.mergePhone` |
+| 同意记录 | 尚无表（mini-release-compliance 落地时以账号归属新增监听） | — | — |
+
 「以 P 为主」只决定**保留哪个账号 ID**（P 带着密码、手机号和平台角色，App 端手机号登录必须继续可用），不决定谁的数据留下：两边的家庭都保留，合并后无论用微信还是手机号登录，看到的都是同一个账号、同样的数据。
 
 ### 3.2 `Family`（family 上下文，**核心不变量都在这里**）

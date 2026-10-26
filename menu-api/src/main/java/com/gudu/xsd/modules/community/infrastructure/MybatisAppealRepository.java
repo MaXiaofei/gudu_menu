@@ -41,4 +41,9 @@ public class MybatisAppealRepository implements AppealRepository {
     public long countPending() {
         return mapper.countPending();
     }
+
+    @Override
+    public int reassignAccount(Long from, Long to) {
+        return mapper.reassignAuthor(from, to);
+    }
 }

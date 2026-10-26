@@ -232,6 +232,13 @@ public final class Family extends AggregateRoot<Long> {
      * @return 是否发生变更
      */
     public boolean reassignAccount(Long from, Long to) {
+        for (int i = 0; i < invitations.size(); i++) {
+            Invitation inv = invitations.get(i);
+            if (Objects.equals(inv.createdBy(), from)) {
+                invitations.set(i, new Invitation(inv.code(), to, inv.expiresAt(), inv.maxUses(), inv.usedCount(),
+                        inv.revoked(), inv.createdAt()));
+            }
+        }
         int fi = membershipIndex(from);
         if (fi < 0 || Objects.equals(from, to)) return false;
         Membership fm = memberships.get(fi);

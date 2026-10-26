@@ -98,4 +98,51 @@ public interface CommunityRelationMapper extends BaseMapper<CommunityRelationPO>
 
     @Select("SELECT until FROM community_ban WHERE user_id = #{userId}")
     LocalDateTime bannedUntil(@Param("userId") Long userId);
+
+    // ---------------- 账号合并（AccountMerged：W 的关系行改指 P；唯一键冲突时以 P 已有的为准） ----------------
+
+    @Insert("INSERT IGNORE INTO community_reaction(post_id, user_id, type, create_time) "
+            + "SELECT post_id, #{to}, type, create_time FROM community_reaction WHERE user_id = #{from}")
+    int copyReactions(@Param("from") Long from, @Param("to") Long to);
+
+    @Delete("DELETE FROM community_reaction WHERE user_id = #{from}")
+    int deleteReactionsOf(@Param("from") Long from);
+
+    @Insert("INSERT IGNORE INTO community_follow(follower_id, followee_id, create_time) "
+            + "SELECT #{to}, followee_id, create_time FROM community_follow WHERE follower_id = #{from} AND followee_id <> #{to}")
+    int copyFollowing(@Param("from") Long from, @Param("to") Long to);
+
+    @Insert("INSERT IGNORE INTO community_follow(follower_id, followee_id, create_time) "
+            + "SELECT follower_id, #{to}, create_time FROM community_follow WHERE followee_id = #{from} AND follower_id <> #{to}")
+    int copyFollowers(@Param("from") Long from, @Param("to") Long to);
+
+    @Delete("DELETE FROM community_follow WHERE follower_id = #{from} OR followee_id = #{from}")
+    int deleteFollowsOf(@Param("from") Long from);
+
+    @Insert("INSERT IGNORE INTO community_copy(post_id, user_id, dish_id, create_time) "
+            + "SELECT post_id, #{to}, dish_id, create_time FROM community_copy WHERE user_id = #{from}")
+    int copyCopies(@Param("from") Long from, @Param("to") Long to);
+
+    @Delete("DELETE FROM community_copy WHERE user_id = #{from}")
+    int deleteCopiesOf(@Param("from") Long from);
+
+    @Insert("INSERT IGNORE INTO community_report(post_id, reporter_id, reason, create_time) "
+            + "SELECT post_id, #{to}, reason, create_time FROM community_report WHERE reporter_id = #{from}")
+    int copyReports(@Param("from") Long from, @Param("to") Long to);
+
+    @Delete("DELETE FROM community_report WHERE reporter_id = #{from}")
+    int deleteReportsOf(@Param("from") Long from);
+
+    @Insert("INSERT IGNORE INTO community_topic_checkin(topic_id, user_id, checkin_date, post_id, create_time) "
+            + "SELECT topic_id, #{to}, checkin_date, post_id, create_time FROM community_topic_checkin WHERE user_id = #{from}")
+    int copyCheckins(@Param("from") Long from, @Param("to") Long to);
+
+    @Delete("DELETE FROM community_topic_checkin WHERE user_id = #{from}")
+    int deleteCheckinsOf(@Param("from") Long from);
+
+    @Select("SELECT reason FROM community_ban WHERE user_id = #{userId}")
+    String banReason(@Param("userId") Long userId);
+
+    @Delete("DELETE FROM community_ban WHERE user_id = #{userId}")
+    int deleteBan(@Param("userId") Long userId);
 }
