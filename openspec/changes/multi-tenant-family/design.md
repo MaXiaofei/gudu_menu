@@ -143,7 +143,7 @@ FamilyMemberProfile (AggregateRoot<ProfileId>)
 ### 4.4 越权语义
 跨家庭访问资源统一返回 **404**（不泄露资源存在性）；角色不足返回 403。
 
-## 5. 数据库变更（V64+）
+## 5. 数据库变更（V75–V79）
 
 ```sql
 account(id, phone UNIQUE, wx_openid UNIQUE, wx_unionid, password_hash, nickname, avatar_url,

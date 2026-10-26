@@ -491,6 +491,160 @@ class GuduE2EFlowTest {
     // ---------------- HTTP 工具 ----------------
 
     /** POST（带 Authorization header）。 */
+    // ---------------- multi-tenant-family G.2：家庭主链路 + 账号合并 ----------------
+
+    /** 微信 code2session 打桩（E2E 不连微信）：code → openid 原样返回。 */
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.gudu.xsd.modules.auth.WxClient wxClient;
+
+    private static final String E2E_PW = "e2ePass123";
+
+    /** 超管代建手机号账号（自动建「我的家」）后登录，返回登录响应 data。 */
+    private JsonNode registerAndLogin(String phone, String nickname) {
+        String admin = loginAdmin();
+        JsonNode created = post(admin, "/account", Map.of("phone", phone, "password", E2E_PW, "nickname", nickname));
+        assertThat(created.get("code").asInt()).as("代建账号 msg=" + text(created, "msg")).isEqualTo(0);
+        JsonNode login = post("/auth/login", Map.of("username", phone, "password", E2E_PW));
+        assertThat(login.get("code").asInt()).as("登录 msg=" + text(login, "msg")).isEqualTo(0);
+        return login.get("data");
+    }
+
+    private JsonNode wxLogin(String openid, String inviteCode) {
+        org.mockito.Mockito.when(wxClient.code2session("code-" + openid)).thenReturn(openid);
+        Map<String, String> body = new HashMap<>();
+        body.put("code", "code-" + openid);
+        if (inviteCode != null) body.put("inviteCode", inviteCode);
+        JsonNode r = post("/auth/wx-login", body);
+        assertThat(r.get("code").asInt()).as("微信登录 msg=" + text(r, "msg")).isEqualTo(0);
+        return r.get("data");
+    }
+
+    @Test
+    void 家庭主链路_注册建家_邀请_加入_切换_退出() {
+        // 注册：新账号自动建「我的家」并成为 OWNER
+        JsonNode owner = registerAndLogin("13900000201", "E2E家长");
+        String ownerToken = owner.get("token").asText();
+        long familyA = owner.get("currentFamilyId").asLong();
+        assertThat(owner.get("families").get(0).get("role").asText()).isEqualTo("OWNER");
+        assertThat(put(ownerToken, "/family/" + familyA, Map.of("name", "E2E幸福一家")).get("code").asInt()).isZero();
+
+        // 邀请：生成 7 天邀请码，游客可预览
+        JsonNode inv = post(ownerToken, "/family/" + familyA + "/invitations", null);
+        assertThat(inv.get("code").asInt()).isZero();
+        String code = inv.get("data").get("code").asText();
+        JsonNode preview = get(null, "/family/invitations/" + code);
+        assertThat(preview.get("data").get("familyName").asText()).isEqualTo("E2E幸福一家");
+        assertThat(preview.get("data").get("usable").asBoolean()).isTrue();
+
+        // 加入：另一个账号凭码加入，当前家庭切到被邀请的家庭
+        JsonNode kid = registerAndLogin("13900000202", "E2E孩子");
+        String kidToken = kid.get("token").asText();
+        long kidHome = kid.get("currentFamilyId").asLong();
+        JsonNode joined = post(kidToken, "/family/join", Map.of("code", code));
+        assertThat(joined.get("code").asInt()).as("加入 msg=" + text(joined, "msg")).isZero();
+        assertThat(joined.get("data").get("familyId").asLong()).isEqualTo(familyA);
+        JsonNode cur = get(kidToken, "/family/current");
+        assertThat(cur.get("data").get("myRole").asText()).isEqualTo("MEMBER");
+        assertThat(cur.get("data").get("members")).hasSize(2);
+        // 重复加入拒绝
+        assertThat(post(kidToken, "/family/join", Map.of("code", code)).get("code").asInt()).isNotZero();
+
+        // 切换：回自己的家 → 再切回来；切到未加入的家庭 404
+        assertThat(post(kidToken, "/family/current", Map.of("familyId", kidHome)).get("code").asInt()).isZero();
+        assertThat(get(kidToken, "/family/mine").get("data").get("families")).hasSize(2);
+        assertThat(post(kidToken, "/family/current", Map.of("familyId", familyA)).get("code").asInt()).isZero();
+        assertThat(post(kidToken, "/family/current", Map.of("familyId", 999999999L)).get("code").asInt()).isEqualTo(404);
+
+        // 主理人不能退出；转让后原主理人为 ADMIN
+        assertThat(post(ownerToken, "/family/" + familyA + "/leave", null).get("code").asInt()).isNotZero();
+
+        // 退出：成员退出后家庭只剩主理人，退出者回到自己的家
+        assertThat(post(kidToken, "/family/" + familyA + "/leave", null).get("code").asInt()).isZero();
+        assertThat(get(ownerToken, "/family/current").get("data").get("members")).hasSize(1);
+        assertThat(get(kidToken, "/family/current").get("data").get("id").asLong()).isEqualTo(kidHome);
+    }
+
+    @Test
+    void 账号合并_微信建号写数据_并入手机号账号_微信重新登录进入手机号账号且数据可见() {
+        // 手机号账号 P（自己的家 F2）
+        JsonNode p = registerAndLogin("13900000203", "E2E老张");
+        long pId = p.get("accountId").asLong();
+        long f2 = p.get("currentFamilyId").asLong();
+
+        // 微信账号 W：首次登录自动建号建家 F1，并写一条数据（食集）
+        JsonNode w = wxLogin("E2E_oid_merge_1", null);
+        String wToken = w.get("token").asText();
+        long f1 = w.get("currentFamilyId").asLong();
+        assertThat(f1).isNotEqualTo(f2);
+        JsonNode menu = post(wToken, "/menu", Map.of("menu", Map.of("name", "E2E微信时期的食集", "servingCount", 1),
+                "dishes", List.of()));
+        assertThat(menu.get("code").asInt()).isZero();
+        long menuId = menu.get("data").asLong();
+
+        // 密码错误：拒绝，两个账号都不变
+        assertThat(post(wToken, "/account/merge-phone", Map.of("phone", "13900000203", "password", "wrong-pw"))
+                .get("code").asInt()).isNotZero();
+
+        // 合并：返回 P 的新 token，当前家庭沿用 F1
+        JsonNode merged = post(wToken, "/account/merge-phone", Map.of("phone", "13900000203", "password", E2E_PW));
+        assertThat(merged.get("code").asInt()).as("合并 msg=" + text(merged, "msg")).isZero();
+        assertThat(merged.get("data").get("accountId").asLong()).isEqualTo(pId);
+        assertThat(merged.get("data").get("currentFamilyId").asLong()).isEqualTo(f1);
+        assertThat(merged.get("data").get("families")).hasSize(2);
+
+        // W 的旧 token 失效
+        assertThat(get(wToken, "/account/me").get("code").asInt()).isEqualTo(401);
+
+        // 微信重新登录 → 进入 P，F1 的数据可见
+        JsonNode again = wxLogin("E2E_oid_merge_1", null);
+        assertThat(again.get("accountId").asLong()).isEqualTo(pId);
+        String newToken = again.get("token").asText();
+        assertThat(post(newToken, "/family/current", Map.of("familyId", f1)).get("code").asInt()).isZero();
+        assertThat(get(newToken, "/menu/" + menuId).get("data").get("menu").get("name").asText())
+                .isEqualTo("E2E微信时期的食集");
+        // 手机号登录同样是 P，两个家庭都在
+        JsonNode byPhone = post("/auth/login", Map.of("username", "13900000203", "password", E2E_PW));
+        assertThat(byPhone.get("data").get("families")).hasSize(2);
+    }
+
+    @Test
+    void 账号合并_手机号账号已绑定其他微信_冲突_两个账号都不变() {
+        registerAndLogin("13900000204", "E2E已绑定");
+        // 先让一个微信账号并入，使手机号账号绑定 openid-A
+        String w1 = wxLogin("E2E_oid_conflict_a", null).get("token").asText();
+        assertThat(post(w1, "/account/merge-phone", Map.of("phone", "13900000204", "password", E2E_PW))
+                .get("code").asInt()).isZero();
+        // 另一个微信账号再并入同一手机号账号 → ACCOUNT_WECHAT_CONFLICT
+        JsonNode w2 = wxLogin("E2E_oid_conflict_b", null);
+        JsonNode r = post(w2.get("token").asText(), "/account/merge-phone",
+                Map.of("phone", "13900000204", "password", E2E_PW));
+        assertThat(r.get("code").asInt()).isEqualTo(409);
+        assertThat(text(r, "msg")).contains("ACCOUNT_WECHAT_CONFLICT");
+        assertThat(get(w2.get("token").asText(), "/account/me").get("code").asInt()).as("W2 未失效").isZero();
+    }
+
+    @Test
+    void 注销_有其他成员的主理人拒绝_普通成员注销后匿名化且token失效() {
+        JsonNode owner = registerAndLogin("13900000205", "E2E注销主理人");
+        String ownerToken = owner.get("token").asText();
+        long family = owner.get("currentFamilyId").asLong();
+        String code = post(ownerToken, "/family/" + family + "/invitations", null).get("data").get("code").asText();
+        JsonNode member = registerAndLogin("13900000206", "E2E注销成员");
+        String memberToken = member.get("token").asText();
+        assertThat(post(memberToken, "/family/join", Map.of("code", code)).get("code").asInt()).isZero();
+
+        JsonNode denied = delete(ownerToken, "/account/me");
+        assertThat(denied.get("code").asInt()).isNotZero();
+        assertThat(text(denied, "msg")).contains("转让");
+
+        assertThat(delete(memberToken, "/account/me").get("code").asInt()).isZero();
+        assertThat(get(memberToken, "/account/me").get("code").asInt()).isEqualTo(401);
+        assertThat(post("/auth/login", Map.of("username", "13900000206", "password", E2E_PW)).get("code").asInt())
+                .isNotZero();
+        JsonNode cur = get(ownerToken, "/family/current").get("data");
+        assertThat(cur.get("members")).hasSize(1);
+    }
+
     private JsonNode post(String token, String path, Object body) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
