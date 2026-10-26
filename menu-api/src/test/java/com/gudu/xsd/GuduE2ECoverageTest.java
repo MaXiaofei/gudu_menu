@@ -48,8 +48,13 @@ class GuduE2ECoverageTest {
     @Autowired
     private TestRestTemplate http;
 
-    @Autowired
+    /** 业务库（MySQL，@Primary）直连；容器里唯一的 JdbcTemplate bean 是 PgVectorConfig 的 PG 向量库模板，不能直接注入。 */
     private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Autowired
+    void initJdbc(javax.sql.DataSource primaryDataSource) {
+        this.jdbc = new org.springframework.jdbc.core.JdbcTemplate(primaryDataSource);
+    }
 
     @Autowired
     private com.gudu.xsd.config.WxProperties wxProps;
@@ -69,7 +74,6 @@ class GuduE2ECoverageTest {
 
     private static final long DISH_FANQIE = 1L;   // 番茄炒蛋（种子）
     private static final long ING_TOMATO = 1L;    // 番茄（种子）
-    private static final long UNIT_G = 20L;       // g（种子字典）
     private static final long MEMBER_CHEF = 1L;   // 张爸爸 掌勺
     private static final String CTX = "";
 
@@ -168,10 +172,12 @@ class GuduE2ECoverageTest {
     void B_菜谱CRUD_保存详情搜索更新删除() {
         String token = loginAdmin();
 
+        // g 单位 id 按字典名称现查（字典 id 随库漂移，不硬编码 20）
+        long unitG = jdbc.queryForObject("SELECT id FROM sys_dict WHERE dict_group = 'unit' AND name = 'g' LIMIT 1", Long.class);
         // 保存（掌勺权限）：番茄 300g（unitId 保留，V55 不再换算克）
         Map<String, Object> dishBody = Map.of(
                 "dish", Map.of("name", "E2E覆盖菜", "difficulty", 2, "cookTime", 10),
-                "ingredients", List.of(Map.of("ingredientId", ING_TOMATO, "amount", 300, "unitId", UNIT_G)),
+                "ingredients", List.of(Map.of("ingredientId", ING_TOMATO, "amount", 300, "unitId", unitG)),
                 "steps", List.of(Map.of("seq", 1, "text", "热锅下油")),
                 "cuisineIds", List.of(), "tagIds", List.of(), "categoryIds", List.of());
         JsonNode created = post(token, "/dish", dishBody);
@@ -683,8 +689,13 @@ class GuduE2ECoverageTest {
         JsonNode me = get(token, "/auth/me");
         assertThat(me.get("code").asInt()).isEqualTo(0);
 
-        // 删除成员
-        assertThat(delete(token, "/member/" + memberId).get("code").asInt()).isEqualTo(0);
+        // 带手机号的成员 = 有登录账号：不能走档案删除（须在家庭页「移除成员」）——产品规则，必须拒绝
+        assertThat(delete(token, "/member/" + memberId).get("code").asInt())
+                .as("有账号成员不可经 DELETE /member 删除").isEqualTo(403);
+        // 纯档案成员（无账号，如宝宝/老人）可删
+        JsonNode profileOnly = post(token, "/member", Map.of("name", "E2E档案成员"));
+        assertThat(profileOnly.get("code").asInt()).as("建纯档案成员 msg=" + text(profileOnly, "msg")).isEqualTo(0);
+        assertThat(delete(token, "/member/" + profileOnly.get("data").asLong()).get("code").asInt()).isEqualTo(0);
 
         // 登出 → 旧 token 失效（me 返回非 0）
         assertThat(post(token, "/auth/logout", null).get("code").asInt()).isEqualTo(0);
@@ -1254,6 +1265,13 @@ class GuduE2ECoverageTest {
         }
         assertThat(byCat).as("分类计数之和 = 三档之和").isEqualTo(total);
 
+        // 家庭菜谱数只统计本家私有菜谱；预发库默认家庭可能一道私有菜都没有，先自建一道（E2E 前缀，种子兜底清理）
+        JsonNode own = post(token, "/dish", Map.of(
+                "dish", Map.of("name", "E2E统计菜", "difficulty", 1, "cookTime", 5),
+                "ingredients", List.of(), "steps", List.of(Map.of("seq", 1, "text", "略")),
+                "cuisineIds", List.of(), "tagIds", List.of(), "categoryIds", List.of()));
+        assertThat(own.get("code").asInt()).as("自建私有菜谱 msg=" + text(own, "msg")).isEqualTo(0);
+
         // 我的统计：做一次菜（用完明天到期的番茄）→ 做饭 +1、少扔 +1
         JsonNode before = get(token, "/me/stats");
         assertThat(before.get("code").asInt()).as("me/stats msg=" + text(before, "msg")).isEqualTo(0);
@@ -1707,7 +1725,7 @@ class GuduE2ECoverageTest {
         assertThat(rec).as("注销记录").isNotNull();
         assertThat(text(rec, "status")).isEqualTo("DONE");
         assertThat(rec.get("overdue").asBoolean()).isFalse();
-        assertThat(rec.get("steps").toString()).contains("账号匿名化与退出家庭").contains("意见反馈联系方式清除");
+        assertThat(rec.get("steps").toString()).contains("账号匿名化与退出家庭").contains("意见反馈联系方式与截图清除");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM feedback WHERE member_id = ? AND contact IS NOT NULL",
                 Integer.class, accountId)).as("反馈联系方式已清除").isZero();
         assertThat(post(admin, "/admin/deactivations/" + rec.get("id").asLong() + "/retry", null).get("code").asInt())
@@ -1745,6 +1763,9 @@ class GuduE2ECoverageTest {
         String url = post(user, "/file/upload", form).get("data").get("url").asText();
         String servedPath = url.replaceFirst("^/gudu", "");
         assertThat(put(user, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).isZero();
+        // 上传会重新编码去 EXIF（A.3），落盘字节不再等于原始 png；以「违规前实际对外提供的字节」为基准比较隔离 / 还原
+        byte[] stored = http.getForEntity(CTX + servedPath, byte[].class).getBody();
+        assertThat(stored).as("上传后原图可读").isNotEmpty();
         String traceId = "E2E-" + java.util.UUID.randomUUID();
         jdbc.update("INSERT INTO content_media_check(trace_id, media_url, member_id, purpose, status) "
                 + "VALUES (?, ?, ?, 'AVATAR', 'PENDING')", traceId, unsigned(url), accountId);
@@ -1761,7 +1782,7 @@ class GuduE2ECoverageTest {
             wxProps.setToken(oldToken);
         }
         assertThat(text(get(user, "/member/me").get("data"), "avatarUrl")).as("违规头像已清空").isEmpty();
-        assertThat(http.getForEntity(CTX + servedPath, byte[].class).getBody()).as("原地址为占位图").isNotEqualTo(png);
+        assertThat(http.getForEntity(CTX + servedPath, byte[].class).getBody()).as("原地址为占位图").isNotEqualTo(stored);
 
         // 后台列表：待复核；可查看隔离原图
         JsonNode media = get(admin, "/admin/content-violations/media?review=PENDING&accountId=" + accountId);
@@ -1777,7 +1798,7 @@ class GuduE2ECoverageTest {
                 Map.of("reason", "E2E 误判"));
         assertThat(restored.get("code").asInt()).as(restored.toString()).isZero();
         assertThat(restored.get("data").get("filesRestored").asBoolean()).isTrue();
-        assertThat(http.getForEntity(CTX + servedPath, byte[].class).getBody()).as("原图已还原").isEqualTo(png);
+        assertThat(http.getForEntity(CTX + servedPath, byte[].class).getBody()).as("原图已还原为违规前的字节").isEqualTo(stored);
         assertThat(unsigned(text(get(user, "/member/me").get("data"), "avatarUrl"))).isEqualTo(unsigned(url));
         assertThat(put(user, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).as("恢复后可再用作头像")
                 .isZero();

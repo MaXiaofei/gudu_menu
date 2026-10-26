@@ -200,10 +200,12 @@ ON DUPLICATE KEY UPDATE name = '番茄炒蛋', deleted = 0;
 
 -- ---- dish=1(番茄炒蛋) 食材挂载：清掉全部（含孤儿 16/17/18），挂 番茄(300g)+鸡蛋(180g) ----
 -- grams 列回填（V45 引入 grams 为聚合基准，NeedAggregator 跳过 grams=NULL 的行；
---   旧种子只插 amount 致 cook/summary 聚合为空）。单位 g(id=20)，amount=grams。
+--   旧种子只插 amount 致 cook/summary 聚合为空）。单位 g，amount=grams。
+-- 单位 id 按名称查（预发库字典 id 已漂移，id=20 不再是 g；查不到再退回 20）。
 DELETE FROM dish_ingredient WHERE dish_id = 1;
+SET @e2e_unit_g := COALESCE((SELECT id FROM sys_dict WHERE dict_group = 'unit' AND name = 'g' LIMIT 1), 20);
 INSERT INTO dish_ingredient(dish_id, ingredient_id, amount, unit_id, grams) VALUES
-  (1, 1, 300.00, 20, 300.00), (1, 2, 180.00, 20, 180.00);
+  (1, 1, 300.00, @e2e_unit_g, 300.00), (1, 2, 180.00, @e2e_unit_g, 180.00);
 
 -- ---- 兜底：清 ingredient_nutrition 里任何 ingredient 已不存在的孤儿行 ----
 DELETE inn FROM ingredient_nutrition inn LEFT JOIN ingredient i ON i.id = inn.ingredient_id WHERE i.id IS NULL;
@@ -215,9 +217,18 @@ DELETE inn FROM ingredient_nutrition inn LEFT JOIN ingredient i ON i.id = inn.in
 -- 用于「手机号登录」E2E 场景。每测试前幂等重置（测试库专用，覆盖安全）。
 -- BCrypt('chef123') 固定哈希，避免每条测试重新 encode。
 -- ============================================================
-UPDATE member SET phone = '13800000001',
+-- 同时复位 member 1 的「张爸爸 / 掌勺(32)」身份：预发库数据漂移曾把它改成「管理员 / role_tags=admin」，
+-- 致临期通知（收件人 = 第一位掌勺）与「成员列表含张爸爸」等断言失败。
+UPDATE member SET phone = '13800000001', name = '张爸爸', role_tags = '32', deleted = 0,
   password_hash = '$2a$10$8fMxXFI3W4XzBun3fNpUIuXT4dN9CRvHcw6K7edMJU78705ETwVrK'
 WHERE id = 1;
+
+-- 采购单位字典自愈（group=purchase_unit，V21 种子；预发库曾被清空，采购单位断言需要「个」）。幂等。
+INSERT INTO sys_dict(dict_group, name, sort)
+SELECT 'purchase_unit', t.name, t.sort FROM (
+  SELECT '斤' name, 1 sort UNION ALL SELECT '把', 2 UNION ALL SELECT '个', 3 UNION ALL SELECT '少许', 4
+  UNION ALL SELECT '盒', 5 UNION ALL SELECT '袋', 6 UNION ALL SELECT '块', 7 UNION ALL SELECT '克', 8) t
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.dict_group = 'purchase_unit' AND d.name = t.name);
 
 -- ============================================================
 -- 超管账号自愈（loginAdmin 用 admin / admin123）：预发库数据漂移曾把 phone='admin' 的账号删掉，
@@ -238,6 +249,10 @@ WHERE phone = 'admin';
 INSERT INTO ingredient_stock(family_id, ingredient_id, level, best_before, opened_at)
 VALUES (1, 1, 'ENOUGH', CURDATE() + INTERVAL 1 DAY, NULL)
 ON DUPLICATE KEY UPDATE level = 'ENOUGH', best_before = CURDATE() + INTERVAL 1 DAY, opened_at = NULL;
+-- 首页智荐「临期」只取最紧迫的前 5 条：预发库其他食材的历史保质期（已过期 / 近几天）会把番茄挤出前 5。
+-- 种子环境只保留番茄一条临期，其余临期窗口内的保质期日期清空（余量档位不动）。
+UPDATE ingredient_stock SET best_before = NULL
+ WHERE family_id = 1 AND ingredient_id <> 1 AND best_before IS NOT NULL AND best_before <= CURDATE() + INTERVAL 3 DAY;
 -- 鸡蛋（id=2）建档 ENOUGH、无保质期（单菜直做「用了一些」降档断言用）
 INSERT INTO ingredient_stock(family_id, ingredient_id, level, best_before, opened_at)
 VALUES (1, 2, 'ENOUGH', NULL, NULL)
@@ -337,7 +352,7 @@ DELETE a FROM account a JOIN member m ON m.phone = a.phone AND m.id <> a.id
 INSERT INTO account(id, phone, password_hash, nickname, platform_role, status, created_at)
 SELECT m.id, m.phone, m.password_hash, m.name, IF(m.phone = 'admin', 'SUPER_ADMIN', 'USER'), 'ACTIVE', NOW()
 FROM member m WHERE (m.id = 1 OR m.phone IN ('admin', '13900000088')) AND m.deleted = 0
-ON DUPLICATE KEY UPDATE phone = VALUES(phone), password_hash = VALUES(password_hash),
+ON DUPLICATE KEY UPDATE phone = VALUES(phone), password_hash = VALUES(password_hash), nickname = VALUES(nickname),
   platform_role = VALUES(platform_role), status = 'ACTIVE', wx_openid = NULL, merged_into = NULL, deactivated_at = NULL;
 UPDATE member m JOIN account a ON a.id = m.id SET m.account_id = a.id
   WHERE m.id = 1 OR m.phone IN ('admin', '13900000088');

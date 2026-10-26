@@ -35,6 +35,9 @@ spring:
         password: ${PGVECTOR_PASSWORD:gudu_vec_2026}
 
 gudu:
+  # 离线 E2E（向量库不可达）可置 false，避免启动时建表连库失败；向量检索类调用会运行期降级
+  vectorstore:
+    initialize-schema: ${GUDU_VECTORSTORE_INIT_SCHEMA:true}
   # 本地/测试环境：未知异常回显根因便于排查
   expose-error-detail: ${GUDU_EXPOSE_ERROR_DETAIL:true}
   # 字段加密固定测试密钥（B.3，dev / test / staging 共用 gudu 库，三者必须一致；生产另配，见 application.yml）

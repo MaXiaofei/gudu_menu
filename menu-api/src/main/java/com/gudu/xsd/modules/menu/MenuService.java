@@ -167,6 +167,8 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
      *  totalMinutes = Σ 各菜烹饪时间（原型副标题「约 N 分钟」）。 */
     public MenuDetail detail(Long id) {
         Menu menu = getById(id);
+        // 不存在或不属于当前家庭（租户插件过滤后查不到）→ 404，而不是 200 + 空壳（menu=null），与其他入口一致
+        if (menu == null) throw BizException.notFound("食集不存在");
         List<MenuDish> mds = menuDishMapper.selectList(
                 new QueryWrapper<MenuDish>().eq("menu_id", id).orderByAsc("id"));
         if (mds.isEmpty()) return new MenuDetail(menu, List.of(), 0);

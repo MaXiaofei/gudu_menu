@@ -140,6 +140,15 @@ class MenuServiceTest {
 
     // ---------------- detail ----------------
 
+    /** 食集不存在或不属于当前家庭（租户过滤后查不到）：抛 404，不再返回 menu=null 的空壳。 */
+    @Test
+    void detail_食集查不到_抛404而非空壳() {
+        Mockito.doReturn(null).when(svc).getById(99L);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.detail(99L))
+                .isInstanceOf(com.gudu.xsd.common.BizException.class);
+        verifyNoInteractions(menuDishMapper);
+    }
+
     /** detail：返回菜单 + 关联菜品，每项冗余菜名/封面（消前端 N+1）。 */
     @Test
     void detail_返回菜单和关联菜品_并冗余菜名() {

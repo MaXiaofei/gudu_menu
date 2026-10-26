@@ -96,7 +96,7 @@ class GuduE2ETenantIsolationTest {
         assertThat(ok(get(a, "/shopping/" + listId)).path("name").asText("")).isNotEqualTo("E2E被B改名");
 
         // ---------- B：余量（按食材 id 的家庭内资源：B 改的是自己家那一行） ----------
-        ok(put(b, "/pantry/" + ING_TOMATO + "/level", Map.of("level", "OUT", "note", "E2E乙")));
+        ok(put(b, "/pantry/" + ING_TOMATO + "/level", Map.of("level", "NONE", "note", "E2E乙")));
         delete(b, "/pantry/" + ING_TOMATO + "/level");
         assertThat(ok(get(a, "/pantry/item?ingredientId=" + ING_TOMATO)).get("level").asText()).isEqualTo("LOW");
 

@@ -53,11 +53,11 @@ class GuduE2EFlowTest {
     /** 静态种子 id（gudu_test 由 V01-V20 + demo 灌入，固定不变）。 */
     private static final long ADMIN_USER_ID = 1L;
     private static final long MEMBER_CHEF = 1L;        // 张爸爸 掌勺(32)
-    private static final long MEMBER_NORMAL = 2L;       // 张妈妈 普通成员(34)
+    /** 普通成员账号（非管理员，家庭 MEMBER + role=34，无 dish.create）：由 e2e-seed 重建，密码 chef123。 */
+    private static final String NORMAL_PHONE = "13900000088";
     private static final long DISH_FANQIE_CHAODAN = 1L; // 番茄炒蛋
     private static final long ING_TOMATO = 1L;          // 番茄
     private static final long UNIT_G = 20L;             // g
-    private static final long CAT_VEGETABLE = 24L;      // 蔬菜
 
     /** 后端 context-path 前缀。
      *  注：@SpringBootTest(RANDOM_PORT) 内嵌 Tomcat 不应用 server.servlet.context-path，
@@ -157,7 +157,13 @@ class GuduE2EFlowTest {
         assertThat(tomato2.get("purchaseUnitName").asText()).isEqualTo("个");
 
         // grouped 分区仍包含蔬菜品类（参考分区保留）
-        assertThat(detail2.get("data").get("grouped").has(Integer.toString((int) CAT_VEGETABLE)))
+        // 蔬菜品类 id 按字典名称现查（字典 id 随库漂移，不硬编码）
+        long catVegetable = -1L;
+        for (JsonNode d : get(token, "/dict?group=purchase_category&pageNum=1&pageSize=50").get("data").get("records")) {
+            if ("蔬菜".equals(d.get("name").asText())) { catVegetable = d.get("id").asLong(); break; }
+        }
+        assertThat(catVegetable).as("采购品类字典应含「蔬菜」").isPositive();
+        assertThat(detail2.get("data").get("grouped").has(Long.toString(catVegetable)))
                 .as("按品类分区应含「蔬菜」").isTrue();
     }
 
@@ -228,12 +234,19 @@ class GuduE2EFlowTest {
                 .isGreaterThan(0);
     }
 
-    /** 场景5：设普通成员(无 dish.create 权限)为 currentMember → 录菜被权限切面拒绝。 */
+    /**
+     * 场景5：无 dish.create 权限的普通成员账号录菜 → 被权限切面拒绝。
+     * 权限属于登录账号（E.4：平台超管 / 家庭 OWNER、ADMIN 全权，与「当前就餐成员」无关），
+     * 故必须用普通成员自己的账号登录，而不是用管理员 token 切换就餐成员（后者管理员仍全权，旧写法已过时）。
+     */
     @Test
     void 权限_普通成员录菜_被切面拒绝返回失败() {
-        String token = loginAdmin();
-        // 设普通成员（role=34，无 dish.create）
-        post(token, "/member/current?memberId=" + MEMBER_NORMAL, null);
+        Map<String, String> login = new HashMap<>();
+        login.put("username", NORMAL_PHONE);
+        login.put("password", "chef123");
+        JsonNode lr = post("/auth/login", login);
+        assertThat(lr.get("code").asInt()).as("普通成员登录 msg=" + text(lr, "msg")).isEqualTo(0);
+        String token = lr.get("data").get("token").asText();
 
         // 尝试录新菜
         Map<String, Object> dish = new HashMap<>();

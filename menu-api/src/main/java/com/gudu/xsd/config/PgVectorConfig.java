@@ -66,17 +66,18 @@ public class PgVectorConfig {
 
     /**
      * 覆盖自动配置的 vectorStore（其误用主 MySQL 数据源）。
-     * initializeSchema=true：启动自动建 vector_store 表（需 pgvector 扩展已建，
+     * initializeSchema 默认 true（gudu.vectorstore.initialize-schema 可关；离线 E2E 无向量库时关掉，避免启动即连库失败）：启动自动建 vector_store 表（需 pgvector 扩展已建，
      * 由部署脚本幂等执行 CREATE EXTENSION IF NOT EXISTS vector）。
      */
     @Bean
     public VectorStore vectorStore(@Qualifier("pgVectorJdbcTemplate") JdbcTemplate jdbcTemplate,
-                                   EmbeddingModel embeddingModel) {
+                                   EmbeddingModel embeddingModel,
+                                   @Value("${gudu.vectorstore.initialize-schema:true}") boolean initializeSchema) {
         return PgVectorStore.builder(jdbcTemplate, embeddingModel)
                 .dimensions(1024) // bge-m3 输出维度
                 .distanceType(PgVectorStore.PgDistanceType.COSINE_DISTANCE)
                 .indexType(PgVectorStore.PgIndexType.HNSW)
-                .initializeSchema(true)
+                .initializeSchema(initializeSchema)
                 .build();
     }
 }

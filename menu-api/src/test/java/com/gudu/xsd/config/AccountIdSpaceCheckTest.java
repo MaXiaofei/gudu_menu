@@ -27,6 +27,23 @@ class AccountIdSpaceCheckTest {
     }
 
     @Test
+    void 解析建表语句的表级自增起点() {
+        String ddl = "CREATE TABLE `account` (\n  `id` bigint NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n"
+                + ") ENGINE=InnoDB AUTO_INCREMENT=10000009 DEFAULT CHARSET=utf8mb4";
+        assertThat(AccountIdSpaceCheck.parseAutoIncrement(ddl)).isEqualTo(10_000_009L);
+        // 小写 / 空格写法
+        assertThat(AccountIdSpaceCheck.parseAutoIncrement(") engine=InnoDB auto_increment = 121 ;")).isEqualTo(121L);
+    }
+
+    @Test
+    void 建表语句无表级自增子句时按1处理_列定义的AUTO_INCREMENT不误匹配() {
+        String ddl = "CREATE TABLE `account` (\n  `id` bigint NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB";
+        assertThat(AccountIdSpaceCheck.parseAutoIncrement(ddl)).isEqualTo(1L);
+        assertThat(AccountIdSpaceCheck.isSafe(AccountIdSpaceCheck.parseAutoIncrement(ddl))).isFalse();
+        assertThat(AccountIdSpaceCheck.parseAutoIncrement(null)).isEqualTo(1L);
+    }
+
+    @Test
     void V91迁移把account自增抬到代码常量() throws IOException {
         String sql = Files.readString(SQL_DIR.resolve("V91__id_space_notification_recipient.sql"));
         Matcher m = Pattern.compile("GREATEST\\((\\d+),").matcher(sql);
