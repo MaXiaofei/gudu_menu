@@ -76,6 +76,12 @@ DELETE FROM account_merge_log WHERE source_id IN (SELECT id FROM account WHERE p
 DELETE FROM account WHERE phone LIKE '1390000%' OR wx_openid LIKE 'E2E%';
 -- 合并后被标 MERGED 的 E2E 微信账号（openid 已移走、手机号为空）：按昵称 E2E 清
 DELETE FROM account WHERE status = 'MERGED' AND phone IS NULL AND wx_openid IS NULL AND nickname LIKE 'E2E%';
+-- [V86/V87 运营后台 F.1–F.3] 封禁 / 注销处理 / 文本违规 / 操作日志：E2E 原因统一 'E2E' 前缀；
+-- 账号已被上面清掉的孤儿行一并清（account_ban 主键 = account_id，残留会让同 id 账号「天生封禁」）
+DELETE b FROM account_ban b LEFT JOIN account a ON a.id = b.account_id WHERE a.id IS NULL OR b.reason LIKE 'E2E%';
+DELETE d FROM account_deactivation d LEFT JOIN account a ON a.id = d.account_id WHERE a.id IS NULL;
+DELETE v FROM content_text_violation v LEFT JOIN account a ON a.id = v.account_id WHERE v.account_id IS NOT NULL AND a.id IS NULL;
+DELETE FROM admin_operation_log WHERE reason LIKE 'E2E%';
 
 -- 默认家庭
 INSERT INTO family(id, name, owner_account_id, status, version, created_at)
