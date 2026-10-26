@@ -69,6 +69,13 @@ gudu:
   cors:
     # 允许跨域的源（逗号分隔，支持通配模式）；生产只放正式域名
     allowed-origins: ${GUDU_CORS_ALLOWED_ORIGINS:*}
+  # 内容安全（A.6）：微信 msgSecCheck / mediaCheckAsync。关闭时文本只走规则禁发词、图片不提交（dev/test 默认关，prod 开）
+  content-security:
+    wx-enabled: ${GUDU_CONTENT_SECURITY_WX:false}
+    # 微信服务器拉取图片用的公网前缀，拼上 /gudu/uploads/…；为空则图片无法提交检测（头像会被拒绝保存）
+    media-base-url: ${GUDU_MEDIA_BASE_URL:}
+    # 违规图片隔离目录（不能在 upload-dir 内）；为空 = 「upload-dir」-quarantine
+    quarantine-dir: ${GUDU_QUARANTINE_DIR:}
   ai:
     # AI provider：deepseek（默认，真调 DeepSeek，失败降级 mock）/ glm（智谱 GLM）/ mock（规则表兜底）
     # 启动初值；运行时可经 PUT /ai/provider 热切换（写 Redis，重启不丢）

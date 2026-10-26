@@ -2,6 +2,8 @@ package com.gudu.xsd.modules.feedback.application;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
+import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import com.gudu.xsd.modules.feedback.domain.model.Feedback;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackPage;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackStatus;
@@ -24,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,13 +40,15 @@ class FeedbackAppServiceTest {
     FeedbackRepository repo;
     MemberService memberService;
     FeedbackAppService svc;
+    ContentSecurityAppService contentSecurity;
 
     @BeforeEach
     void setUp() {
         repo = mock(FeedbackRepository.class);
         memberService = mock(MemberService.class);
+        contentSecurity = mock(ContentSecurityAppService.class);
         svc = new FeedbackAppService(repo, memberService,
-                Clock.fixed(TODAY.atTime(9, 0).atZone(ZONE).toInstant(), ZONE));
+                Clock.fixed(TODAY.atTime(9, 0).atZone(ZONE).toInstant(), ZONE), contentSecurity);
     }
 
     @Test
@@ -97,5 +102,15 @@ class FeedbackAppServiceTest {
         assertThat(f.status()).isEqualTo(FeedbackStatus.DONE);
         verify(repo).save(f);
         assertThatThrownBy(() -> svc.changeStatus(4L, "DONE")).hasMessageContaining("反馈不存在");
+    }
+
+    @Test
+    void 提交_内容安全不通过_451且不保存() {
+        doThrow(BizException.contentBlocked("内容未通过内容安全检测，请修改后再试"))
+                .when(contentSecurity).assertText(1L, ContentPurpose.FEEDBACK, "违规的反馈内容");
+        assertThatThrownBy(() -> svc.submit(1L, "违规的反馈内容", null, null, null))
+                .isInstanceOf(BizException.class)
+                .satisfies(e -> assertThat(((BizException) e).getCode()).isEqualTo(451));
+        verify(repo, never()).save(any());
     }
 }

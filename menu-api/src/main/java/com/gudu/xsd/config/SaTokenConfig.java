@@ -29,6 +29,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
             "/auth/login",
             "/auth/wx-login", // 微信小程序静默登录
             "/auth/wx-echo",  // 微信公众平台「服务器配置」地址验证
+            "/wx/push",       // 微信消息推送（图片内容安全异步结果），靠签名校验而非登录态
             "/swagger-ui/**",
             "/swagger-resources/**",
             "/v3/api-docs/**",

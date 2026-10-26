@@ -1,6 +1,9 @@
 package com.gudu.xsd.modules.file;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.R;
+import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
+import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +26,9 @@ import java.util.Map;
  *
  * 响应格式：{ url（原图）, thumbnailUrl（缩略图）, name（原始文件名）}。
  * URL 直接入库，前端拿地址自行加载。
+ *
+ * 内容安全（A.6）：图片保存后异步提交微信 mediaCheckAsync（usage=avatar/post/… 决定场景），
+ * 违规由消息推送回调隔离文件；上传本身不等待检测结果。
  */
 @RestController
 @RequestMapping("/file")
@@ -38,8 +44,15 @@ public class FileController {
     @Value("${gudu.upload-dir:uploads}")
     private String uploadDir;
 
+    private final ContentSecurityAppService contentSecurity;
+
+    public FileController(ContentSecurityAppService contentSecurity) {
+        this.contentSecurity = contentSecurity;
+    }
+
     @PostMapping("/upload")
-    public R<Map<String, String>> upload(@RequestParam("file") MultipartFile file) throws Exception {
+    public R<Map<String, String>> upload(@RequestParam("file") MultipartFile file,
+                                         @RequestParam(value = "usage", required = false) String usage) throws Exception {
         String original = (file.getOriginalFilename() == null) ? "file" : file.getOriginalFilename();
         String ext = original.contains(".") ? original.substring(original.lastIndexOf(".")).toLowerCase() : ".jpg";
         if (AUDIO_EXTS.contains(ext)) {
@@ -74,8 +87,11 @@ public class FileController {
 
         // 带 context-path /gudu 前缀，前端 <img src> 直接可用
         String prefix = "/gudu/uploads/";
+        String url = prefix + origSub + "/" + baseName;
+        contentSecurity.submitImageLater(StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null, url,
+                ContentPurpose.ofUploadUsage(usage));
         return R.ok(Map.of(
-                "url", prefix + origSub + "/" + baseName,
+                "url", url,
                 "thumbnailUrl", prefix + thumbSub + "/" + baseName,
                 "name", original
         ));

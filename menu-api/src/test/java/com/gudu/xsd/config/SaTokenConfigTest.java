@@ -36,6 +36,10 @@ class SaTokenConfigTest {
             "POST,   /auth/login,               false",
             "POST,   /auth/wx-login,            false",
             "GET,    /uploads/a.png,            false",
+            // 微信消息推送（签名校验替代登录态）
+            "GET,    /wx/push,                  false",
+            "POST,   /wx/push,                  false",
+            "POST,   /auth/wx-echo,             false",
             "GET,    /menu/5/together,          false",
             "OPTIONS,/menu/page,                false",
     })

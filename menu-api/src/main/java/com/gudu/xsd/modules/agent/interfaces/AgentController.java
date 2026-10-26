@@ -80,6 +80,7 @@ public class AgentController {
     @PostMapping(value = "/sessions/{id}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamMessage(@PathVariable String id, @RequestBody SendCommand cmd) {
         Long member = me();
+        Long account = StpUtil.getLoginIdAsLong(); // 内容安全按登录账号取 openid（A.6）
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         AgentEventSink sink = (event, data) -> {
             try {
@@ -90,7 +91,7 @@ public class AgentController {
         };
         executor.execute(() -> {
             try {
-                svc.send(member, id, cmd, sink);
+                svc.send(member, account, id, cmd, sink);
             } catch (RuntimeException e) {
                 sink.send("error", Map.of("code", 1, "message", e.getMessage() == null ? "出错了" : e.getMessage(),
                         "errorId", ""));
