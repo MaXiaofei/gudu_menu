@@ -47,6 +47,8 @@ export class ApiError extends Error {
 
 /** 缺少敏感信息单独同意（B.2）：由调用方弹同意窗处理，不 toast。 */
 export const CODE_CONSENT_REQUIRED = 428
+/** 账号已被平台封禁（F.1）：登录与写接口统一返回，弹窗告知原因并回到登录页。 */
+export const CODE_ACCOUNT_BANNED = 423
 
 export function getToken(): string {
   return uni.getStorageSync('token') || ''
@@ -160,6 +162,15 @@ export async function request<T = any>(
     uni.removeStorageSync('token')
     uni.reLaunch({ url: '/pages/login/Login' })
     throw new Error('未登录')
+  }
+  if (body.code === CODE_ACCOUNT_BANNED) {
+    const msg = body.msg || '账号已被封禁'
+    uni.removeStorageSync('token')
+    uni.showModal({ title: '账号不可用', content: msg, showCancel: false })
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    const route = pages.length ? (pages[pages.length - 1] as any).route || '' : ''
+    if (!String(route).includes('pages/login/Login')) uni.reLaunch({ url: '/pages/login/Login' })
+    throw new ApiError(body.code, msg, body.data)
   }
   if (body.code === 429) {
     toast(MSG_TOO_FREQUENT)
