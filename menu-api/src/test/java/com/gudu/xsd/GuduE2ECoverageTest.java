@@ -1591,6 +1591,205 @@ class GuduE2ECoverageTest {
                 .isOne();
     }
 
+    // ===================== Y. 发布合规：协议同意上报 + 运营后台 F.1–F.4（mini-release-compliance） =====================
+
+    private static boolean hasRecord(JsonNode arr, String field, String value) {
+        for (JsonNode n : arr) {
+            if (value.equals(text(n, field))) return true;
+        }
+        return false;
+    }
+
+    @Test
+    void Y1_协议同意上报_后台按账号查询_非运营调后台接口403() {
+        String admin = loginAdmin();
+        JsonNode created = post(admin, "/account", Map.of("phone", "13900000301", "password", "e2etest123",
+                "nickname", "E2E同意用户"));
+        assertThat(created.get("code").asInt()).as(created.toString()).isZero();
+        long accountId = created.get("data").asLong();
+        String user = loginAs("13900000301", "e2etest123");
+
+        // B.1 登录成功后上报：默认 terms + privacy 各一条；撤回记 granted=false；单独同意类型不能走此入口
+        JsonNode c = post(user, "/consent", Map.of("docVersion", "2026-10-26", "channel", "mp-weixin"));
+        assertThat(c.get("code").asInt()).as(c.toString()).isZero();
+        assertThat(c.get("data")).hasSize(2);
+        assertThat(post(user, "/consent", Map.of("docVersion", "2026-10-26", "docTypes", List.of("privacy"),
+                "granted", false)).get("code").asInt()).isZero();
+        assertThat(post(user, "/consent", Map.of("docVersion", "2026-10-26",
+                "docTypes", List.of("sensitive_health"))).get("code").asInt()).isNotZero();
+        assertThat(post(user, "/consent", Map.of("channel", "mp-weixin")).get("code").asInt()).as("缺版本").isNotZero();
+
+        // F.4 后台按账号查询：倒序，最新一条为撤回
+        JsonNode hist = get(admin, "/admin/accounts/" + accountId + "/consents");
+        assertThat(hist.get("code").asInt()).as(hist.toString()).isZero();
+        assertThat(hist.get("data")).hasSize(3);
+        assertThat(text(hist.get("data").get(0), "docType")).isEqualTo("privacy");
+        assertThat(hist.get("data").get(0).get("granted").asBoolean()).isFalse();
+        assertThat(hasRecord(hist.get("data"), "docType", "terms")).isTrue();
+
+        // 非 OPERATOR / SUPER_ADMIN：全部后台接口 403
+        for (String path : List.of("/admin/accounts", "/admin/deactivations", "/admin/content-violations/media",
+                "/admin/content-violations/text", "/admin/operation-logs", "/admin/accounts/" + accountId + "/consents")) {
+            assertThat(get(user, path).get("code").asInt()).as(path).isEqualTo(403);
+        }
+        assertThat(post(user, "/admin/accounts/1/ban", Map.of("reason", "E2E越权")).get("code").asInt()).isEqualTo(403);
+        // 普通用户不能用 scope=admin 登录后台
+        JsonNode adminLogin = post(null, "/auth/login", Map.of("username", "13900000301", "password", "e2etest123",
+                "scope", "admin"));
+        assertThat(adminLogin.get("code").asInt()).isEqualTo(403);
+    }
+
+    @Test
+    void Y2_账号列表_封禁下线_登录与写接口423_解封恢复_操作日志() {
+        String admin = loginAdmin();
+        long accountId = post(admin, "/account", Map.of("phone", "13900000302", "password", "e2etest123",
+                "nickname", "E2E封禁用户")).get("data").asLong();
+        String user = loginAs("13900000302", "e2etest123");
+
+        // F.1 查询：昵称关键字；只返回元数据（家庭数，不含家庭数据）
+        JsonNode list = get(admin, "/admin/accounts?keyword=E2E封禁用户");
+        assertThat(list.get("code").asInt()).as(list.toString()).isZero();
+        JsonNode row = list.get("data").get("records").get(0);
+        assertThat(row.get("id").asLong()).isEqualTo(accountId);
+        assertThat(row.get("familyCount").asInt()).isGreaterThanOrEqualTo(1);
+        assertThat(row.get("banned").asBoolean()).isFalse();
+        assertThat(text(row, "maskedPhone")).isEqualTo("139****0302");
+        assertThat(row.toString()).doesNotContain("13900000302");
+
+        // 封禁：原因必填；成功后旧 token 下线、重新登录 423
+        assertThat(post(admin, "/admin/accounts/" + accountId + "/ban", Map.of("reason", " ")).get("code").asInt())
+                .isNotZero();
+        JsonNode ban = post(admin, "/admin/accounts/" + accountId + "/ban", Map.of("reason", "E2E 刷广告"));
+        assertThat(ban.get("code").asInt()).as(ban.toString()).isZero();
+        assertThat(post(user, "/feedback", Map.of("content", "E2E封禁后反馈")).get("code").asInt())
+                .as("封禁后旧 token 已下线").isEqualTo(401);
+        JsonNode relogin = post(null, "/auth/login", Map.of("username", "13900000302", "password", "e2etest123"));
+        assertThat(relogin.get("code").asInt()).isEqualTo(423);
+        assertThat(text(relogin, "msg")).contains("E2E 刷广告");
+        JsonNode bannedOnly = get(admin, "/admin/accounts?bannedOnly=true&keyword=E2E封禁用户");
+        assertThat(bannedOnly.get("data").get("records").get(0).get("banned").asBoolean()).isTrue();
+
+        // 不能封禁超管 / 自己
+        long adminId = get(admin, "/account/me").get("data").get("account").get("id").asLong();
+        assertThat(post(admin, "/admin/accounts/" + adminId + "/ban", Map.of("reason", "E2E 自封")).get("code").asInt())
+                .isNotZero();
+
+        // 解封：恢复登录与写接口
+        assertThat(post(admin, "/admin/accounts/" + accountId + "/unban", Map.of("reason", "E2E 申诉通过"))
+                .get("code").asInt()).isZero();
+        String again = loginAs("13900000302", "e2etest123");
+        assertThat(post(again, "/feedback", Map.of("content", "E2E解封后反馈")).get("code").asInt()).isZero();
+
+        // 操作日志：封禁 + 解封各一条
+        JsonNode logs = get(admin, "/admin/operation-logs?targetType=ACCOUNT&targetId=" + accountId);
+        assertThat(logs.get("code").asInt()).isZero();
+        assertThat(logs.get("data").get("total").asLong()).isEqualTo(2);
+        assertThat(hasRecord(logs.get("data").get("records"), "action", "BAN")).isTrue();
+        assertThat(hasRecord(logs.get("data").get("records"), "action", "UNBAN")).isTrue();
+    }
+
+    @Test
+    void Y3_注销处理记录_匿名化步骤完成_完成后不可重试() {
+        String admin = loginAdmin();
+        long accountId = post(admin, "/account", Map.of("phone", "13900000303", "password", "e2etest123",
+                "nickname", "E2E注销用户")).get("data").asLong();
+        String user = loginAs("13900000303", "e2etest123");
+        assertThat(post(user, "/feedback", Map.of("content", "E2E注销前反馈", "contact", "wx:e2e-dead")).get("code")
+                .asInt()).isZero();
+        assertThat(delete(user, "/account/me").get("code").asInt()).isZero();
+
+        JsonNode page = get(admin, "/admin/deactivations?pageSize=100");
+        assertThat(page.get("code").asInt()).as(page.toString()).isZero();
+        JsonNode rec = null;
+        for (JsonNode r : page.get("data").get("records")) {
+            if (r.get("accountId").asLong() == accountId) rec = r;
+        }
+        assertThat(rec).as("注销记录").isNotNull();
+        assertThat(text(rec, "status")).isEqualTo("DONE");
+        assertThat(rec.get("overdue").asBoolean()).isFalse();
+        assertThat(rec.get("steps").toString()).contains("账号匿名化与退出家庭").contains("意见反馈联系方式清除");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM feedback WHERE member_id = ? AND contact IS NOT NULL",
+                Integer.class, accountId)).as("反馈联系方式已清除").isZero();
+        assertThat(post(admin, "/admin/deactivations/" + rec.get("id").asLong() + "/retry", null).get("code").asInt())
+                .as("已完成不可重试").isNotZero();
+        assertThat(get(admin, "/admin/deactivations?overdue=true").get("code").asInt()).isZero();
+    }
+
+    @Test
+    void Y4_违规复核_文本确认_图片恢复还原文件与头像_确认违规() throws Exception {
+        String admin = loginAdmin();
+        long accountId = post(admin, "/account", Map.of("phone", "13900000304", "password", "e2etest123",
+                "nickname", "E2E违规用户")).get("data").asLong();
+        String user = loginAs("13900000304", "e2etest123");
+
+        // 文本：昵称命中禁发词 → 451 且留痕（独立事务，不随 451 回滚）
+        assertThat(put(user, "/member/me", Map.of("name", "网赌一哥")).get("code").asInt()).isEqualTo(451);
+        JsonNode texts = get(admin, "/admin/content-violations/text?accountId=" + accountId);
+        assertThat(texts.get("code").asInt()).as(texts.toString()).isZero();
+        JsonNode tv = texts.get("data").get("records").get(0);
+        assertThat(text(tv, "purpose")).isEqualTo("NICKNAME");
+        assertThat(tv.get("confirmed").asBoolean()).isFalse();
+        JsonNode tc = post(admin, "/admin/content-violations/text/" + tv.get("id").asLong() + "/confirm",
+                Map.of("reason", "E2E 确认"));
+        assertThat(tc.get("data").get("confirmed").asBoolean()).isTrue();
+
+        // 图片：上传头像 → 模拟微信回调判违规（隔离 + 清头像）
+        byte[] png = java.util.Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", new ByteArrayResource(png) {
+            @Override
+            public String getFilename() { return "e2e-review.png"; }
+        });
+        form.add("usage", "avatar");
+        String url = post(user, "/file/upload", form).get("data").get("url").asText();
+        String servedPath = url.replaceFirst("^/gudu", "");
+        assertThat(put(user, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).isZero();
+        String traceId = "E2E-" + java.util.UUID.randomUUID();
+        jdbc.update("INSERT INTO content_media_check(trace_id, media_url, member_id, purpose, status) "
+                + "VALUES (?, ?, ?, 'AVATAR', 'PENDING')", traceId, unsigned(url), accountId);
+        String oldToken = wxProps.getToken();
+        wxProps.setToken("e2e-push-token");
+        try {
+            String ts = String.valueOf(java.time.Instant.now().getEpochSecond());
+            String body = "{\"Event\":\"wxa_media_check\",\"appid\":\"\",\"trace_id\":\"" + traceId
+                    + "\",\"errcode\":0,\"result\":{\"suggest\":\"risky\",\"label\":20002}}";
+            String sign = com.gudu.xsd.modules.contentsecurity.domain.service.WxPushSignature.sign(
+                    "e2e-push-token", ts, "n2");
+            assertThat(push(sign, ts, "n2", body)).isEqualTo("success");
+        } finally {
+            wxProps.setToken(oldToken);
+        }
+        assertThat(text(get(user, "/member/me").get("data"), "avatarUrl")).as("违规头像已清空").isEmpty();
+        assertThat(http.getForEntity(CTX + servedPath, byte[].class).getBody()).as("原地址为占位图").isNotEqualTo(png);
+
+        // 后台列表：待复核；可查看隔离原图
+        JsonNode media = get(admin, "/admin/content-violations/media?review=PENDING&accountId=" + accountId);
+        assertThat(media.get("code").asInt()).as(media.toString()).isZero();
+        long mid = media.get("data").get("records").get(0).get("id").asLong();
+        assertThat(text(get(admin, "/admin/content-violations/media/" + mid + "/image"), "data"))
+                .startsWith("data:image/png;base64,");
+
+        // 恢复（误判）：原因必填；还原文件、恢复头像；再恢复拒绝；恢复后不能确认违规
+        assertThat(post(admin, "/admin/content-violations/media/" + mid + "/restore", Map.of("reason", ""))
+                .get("code").asInt()).isNotZero();
+        JsonNode restored = post(admin, "/admin/content-violations/media/" + mid + "/restore",
+                Map.of("reason", "E2E 误判"));
+        assertThat(restored.get("code").asInt()).as(restored.toString()).isZero();
+        assertThat(restored.get("data").get("filesRestored").asBoolean()).isTrue();
+        assertThat(http.getForEntity(CTX + servedPath, byte[].class).getBody()).as("原图已还原").isEqualTo(png);
+        assertThat(unsigned(text(get(user, "/member/me").get("data"), "avatarUrl"))).isEqualTo(unsigned(url));
+        assertThat(put(user, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).as("恢复后可再用作头像")
+                .isZero();
+        assertThat(post(admin, "/admin/content-violations/media/" + mid + "/restore", Map.of("reason", "E2E 再恢复"))
+                .get("code").asInt()).isNotZero();
+        assertThat(post(admin, "/admin/content-violations/media/" + mid + "/confirm", Map.of("reason", "E2E 改判"))
+                .get("code").asInt()).isNotZero();
+
+        JsonNode logs = get(admin, "/admin/operation-logs?targetType=MEDIA_CHECK&targetId=" + mid);
+        assertThat(hasRecord(logs.get("data").get("records"), "action", "RESTORE_MEDIA")).isTrue();
+    }
+
     private String loginAs(String username, String password) {
         Map<String, String> body = new HashMap<>();
         body.put("username", username);

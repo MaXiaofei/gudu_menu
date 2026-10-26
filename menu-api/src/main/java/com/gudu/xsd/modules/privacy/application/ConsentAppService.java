@@ -43,7 +43,7 @@ public class ConsentAppService {
 
     public ConsentStatusView status(Long accountId) {
         Map<String, ConsentStatusView.Item> items = new LinkedHashMap<>();
-        for (ConsentDocType t : ConsentDocType.values()) {
+        for (ConsentDocType t : ConsentDocType.separateTypes()) {
             items.put(t.code(), repository.latest(requireAccount(accountId), t)
                     .map(r -> new ConsentStatusView.Item(r.granted(), r.docVersion(), r.createdAt()))
                     .orElse(new ConsentStatusView.Item(false, null, null)));
@@ -62,7 +62,7 @@ public class ConsentAppService {
         if (docTypes == null || docTypes.isEmpty()) throw new BizException("请选择同意的事项");
         String version = docVersion == null || docVersion.isBlank() ? SENSITIVE_DOC_VERSION : docVersion.trim();
         LocalDateTime now = LocalDateTime.now(clock);
-        for (ConsentDocType t : docTypes.stream().map(ConsentDocType::of).distinct().toList()) {
+        for (ConsentDocType t : docTypes.stream().map(ConsentAppService::separateType).distinct().toList()) {
             repository.append(ConsentRecord.grant(accountId, t, version, channel, clientIp, now));
         }
         return status(accountId);
@@ -71,7 +71,7 @@ public class ConsentAppService {
     @Transactional(rollbackFor = Exception.class)
     public ConsentStatusView withdraw(Long accountId, String docType, String channel, String clientIp) {
         requireAccount(accountId);
-        ConsentDocType t = ConsentDocType.of(docType);
+        ConsentDocType t = separateType(docType);
         String version = repository.latest(accountId, t).map(ConsentRecord::docVersion).orElse(SENSITIVE_DOC_VERSION);
         repository.append(ConsentRecord.withdraw(accountId, t, version, channel, clientIp, LocalDateTime.now(clock)));
         events.publish(new SensitiveConsentWithdrawn(accountId, t));
@@ -93,6 +93,58 @@ public class ConsentAppService {
     /** 本次写入是否含敏感信息（含则记录提供人账号，供撤回时删除）。 */
     public static boolean containsSensitive(Map<String, Object> health, String goal, String activityLevel) {
         return !SensitiveInfoClassifier.required(health, goal, activityLevel).isEmpty();
+    }
+
+    // ================================================================ B.1 协议同意
+
+    /**
+     * 登录协议同意上报（B.1）：登录页勾选《用户协议》《隐私政策》、登录成功后上报当前 LEGAL_VERSION，
+     * 两份各追加一条；granted=false 为撤回（只留痕，不触发数据删除——撤回协议同意即停止使用，走注销）。
+     *
+     * @param docTypes 为空 = terms + privacy；只接受协议类型
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public List<ConsentHistoryView> recordLegal(Long accountId, Collection<String> docTypes, String docVersion,
+                                                boolean granted, String channel, String clientIp) {
+        requireAccount(accountId);
+        if (docVersion == null || docVersion.isBlank()) throw new BizException("缺少协议版本");
+        List<ConsentDocType> types = docTypes == null || docTypes.isEmpty() ? ConsentDocType.legalTypes()
+                : docTypes.stream().map(ConsentDocType::of).distinct().toList();
+        if (types.stream().anyMatch(ConsentDocType::separate)) {
+            throw new BizException("健康档案 / 儿童信息的单独同意请走 /consent/sensitive");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        List<ConsentHistoryView> out = new java.util.ArrayList<>();
+        for (ConsentDocType t : types) {
+            ConsentRecord r = granted ? ConsentRecord.grant(accountId, t, docVersion.trim(), channel, clientIp, now)
+                    : ConsentRecord.withdraw(accountId, t, docVersion.trim(), channel, clientIp, now);
+            repository.append(r);
+            out.add(ConsentHistoryView.of(r));
+        }
+        return out;
+    }
+
+    /** 某账号全部同意 / 撤回记录（含协议与单独同意），按时间倒序——运营后台 F.4 查询用。 */
+    public List<ConsentHistoryView> history(Long accountId) {
+        List<ConsentHistoryView> list = new java.util.ArrayList<>(repository.history(requireAccount(accountId)).stream()
+                .map(ConsentHistoryView::of).toList());
+        java.util.Collections.reverse(list);
+        return list;
+    }
+
+    /** 同意 / 撤回记录视图。 */
+    public record ConsentHistoryView(Long id, Long accountId, String docType, String docVersion, boolean granted,
+                                     String channel, String clientIp, LocalDateTime createdAt) {
+        static ConsentHistoryView of(ConsentRecord r) {
+            return new ConsentHistoryView(r.id(), r.accountId(), r.docType().code(), r.docVersion(), r.granted(),
+                    r.channel(), r.clientIp(), r.createdAt());
+        }
+    }
+
+    private static ConsentDocType separateType(String code) {
+        ConsentDocType t = ConsentDocType.of(code);
+        if (!t.separate()) throw new com.gudu.xsd.common.domain.DomainException("协议同意请走 POST /consent");
+        return t;
     }
 
     private static Long requireAccount(Long accountId) {

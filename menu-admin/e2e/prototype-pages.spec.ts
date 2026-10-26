@@ -31,7 +31,7 @@ test.describe('侧栏', () => {
     await page.route(/\/gudu\/ops\/stats/, (route) => route.fulfill(ok({ totals: { feedbackOpen: 2 }, last7d: {}, trend: [] })))
     await page.goto('/dish')
     const sidebar = page.locator('.sidebar')
-    for (const t of ['仪表盘', '公共菜谱库', '食材与营养', '意见反馈', '账号与家庭', 'AI 用量与限额', '系统健康', '内容与基础数据', '菜谱', '家庭成员', '配置中心']) {
+    for (const t of ['仪表盘', '公共菜谱库', '食材与营养', '意见反馈', '账号与家庭', '注销处理', '内容安全复核', '操作日志', 'AI 用量与限额', '系统健康', '内容与基础数据', '菜谱', '配置中心']) {
       await expect(sidebar.getByText(t, { exact: true })).toBeVisible()
     }
     await expect(page.getByTestId('badge-feedback')).toHaveText('2')
@@ -169,7 +169,7 @@ test.describe('系统健康 / 账号与家庭', () => {
     await expect(page.getByText('待接入')).toHaveCount(4)
   })
 
-  test('账号与家庭：账号/成员用 /ops/stats，家庭列表接口待上线', async ({ page }) => {
+  test('账号与家庭：账号/成员用 /ops/stats，账号列表走 /admin/accounts', async ({ page }) => {
     await page.route(/\/gudu\//, (route) => route.fulfill(ok({})))
     await page.route(/\/gudu\/ops\/stats/, (route) => route.fulfill(ok({
       totals: { members: 12, accounts: 8, dishes: 0, cookRecords: 0, feedbackOpen: 0 },
@@ -180,6 +180,6 @@ test.describe('系统健康 / 账号与家庭', () => {
     await expect(page.getByTestId('tn-accounts')).toContainText('8')
     await expect(page.getByTestId('tn-accounts')).toContainText('近 7 天 +2')
     await expect(page.getByTestId('tn-members')).toContainText('12')
-    await expect(page.getByTestId('pending-api')).toContainText('multi-tenant-family')
+    await expect(page.getByTestId('acc-table')).toBeVisible()
   })
 })

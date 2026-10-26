@@ -6,8 +6,8 @@ import com.gudu.xsd.modules.feedback.application.FeedbackAppService;
 import com.gudu.xsd.modules.feedback.application.FeedbackSubmitCommand;
 import com.gudu.xsd.modules.feedback.application.FeedbackView;
 import com.gudu.xsd.modules.feedback.application.MyFeedbackView;
-import com.gudu.xsd.modules.member.AdminChecker;
-import com.gudu.xsd.modules.member.AdminGuardAspect;
+import com.gudu.xsd.modules.identity.application.AccountQueryApi;
+import com.gudu.xsd.modules.identity.interfaces.OperatorGuardAspect;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -43,13 +43,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 意见反馈接口：提交取登录身份；列表/改状态经 AdminGuardAspect（@RequireAdmin）校验超管。 */
+/** 意见反馈接口：提交取登录身份；列表/改状态经 OperatorGuardAspect（@RequireOperator）校验平台运营。 */
 @WebMvcTest(
         value = FeedbackController.class,
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE,
                 classes = com.gudu.xsd.config.SaTokenConfig.class))
-@Import({FeedbackControllerTest.TestSqlConfig.class, AdminGuardAspect.class})
+@Import({FeedbackControllerTest.TestSqlConfig.class, OperatorGuardAspect.class})
 @ImportAutoConfiguration(AopAutoConfiguration.class)
 class FeedbackControllerTest {
 
@@ -69,7 +69,7 @@ class FeedbackControllerTest {
 
     @Autowired MockMvc mvc;
     @MockBean FeedbackAppService appService;
-    @MockBean AdminChecker adminChecker;
+    @MockBean AccountQueryApi accountQuery;
 
     @Test
     void 提交_身份取登录账号() throws Exception {
@@ -135,7 +135,7 @@ class FeedbackControllerTest {
     void 列表_超管可见() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(1L);
-            given(adminChecker.isAdmin(1L)).willReturn(true);
+            given(accountQuery.isOperator(1L)).willReturn(true);
             Page<FeedbackView> page = new Page<>(1, 10);
             page.setTotal(1);
             page.setRecords(List.of(new FeedbackView(3L, 7L, "张妈妈", "ai", "agent:m1", "内容够长了", null, List.of(),
@@ -156,7 +156,7 @@ class FeedbackControllerTest {
     void 列表与改状态_非超管403() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
-            given(adminChecker.isAdmin(7L)).willReturn(false);
+            given(accountQuery.isOperator(7L)).willReturn(false);
             mvc.perform(get("/feedback")).andExpect(jsonPath("$.code").value(403));
             mvc.perform(put("/feedback/3/status").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"DONE\"}"))
                     .andExpect(jsonPath("$.code").value(403));
@@ -169,7 +169,7 @@ class FeedbackControllerTest {
     void 改状态_超管() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(1L);
-            given(adminChecker.isAdmin(1L)).willReturn(true);
+            given(accountQuery.isOperator(1L)).willReturn(true);
             mvc.perform(put("/feedback/3/status").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"DONE\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(0));

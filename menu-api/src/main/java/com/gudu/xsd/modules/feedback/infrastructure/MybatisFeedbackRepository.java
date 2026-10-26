@@ -120,6 +120,15 @@ public class MybatisFeedbackRepository implements FeedbackRepository {
     }
 
     @Override
+    public int anonymizeAccount(Long accountId) {
+        if (accountId == null) return 0;
+        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<FeedbackPO>()
+                .eq("member_id", accountId)
+                .and(w -> w.isNotNull("contact").or().isNotNull("client_info"))
+                .set("contact", null).set("client_info", null));
+    }
+
+    @Override
     public int deleteDoneBefore(LocalDateTime cutoff, int limit) {
         return mapper.delete(new QueryWrapper<FeedbackPO>().eq("status", FeedbackStatus.DONE.name())
                 .lt("update_time", cutoff).last("LIMIT " + Math.max(1, limit)));

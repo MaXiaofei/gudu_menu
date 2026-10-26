@@ -3,7 +3,7 @@ package com.gudu.xsd.modules.feedback.interfaces;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gudu.xsd.common.R;
-import com.gudu.xsd.common.security.RequireAdmin;
+import com.gudu.xsd.common.security.RequireOperator;
 import com.gudu.xsd.modules.feedback.application.FeedbackAppService;
 import com.gudu.xsd.modules.feedback.application.FeedbackSubmitCommand;
 import com.gudu.xsd.modules.feedback.application.FeedbackView;
@@ -75,7 +75,7 @@ public class FeedbackController {
     }
 
     @GetMapping
-    @RequireAdmin
+    @RequireOperator
     public R<IPage<FeedbackView>> page(@RequestParam(required = false) String type,
                                        @RequestParam(required = false) String status,
                                        @RequestParam(required = false) Integer pageNum,
@@ -84,14 +84,14 @@ public class FeedbackController {
     }
 
     @PutMapping("/{id}/reply")
-    @RequireAdmin
+    @RequireOperator
     public R<Void> reply(@PathVariable Long id, @RequestBody ReplyReq req) {
         appService.reply(StpUtil.getLoginIdAsLong(), id, req.getReply(), Boolean.TRUE.equals(req.getMarkDone()));
         return R.ok(null);
     }
 
     @PutMapping("/{id}/status")
-    @RequireAdmin
+    @RequireOperator
     public R<Void> changeStatus(@PathVariable Long id, @RequestBody StatusReq req) {
         appService.changeStatus(id, req.getStatus());
         return R.ok(null);

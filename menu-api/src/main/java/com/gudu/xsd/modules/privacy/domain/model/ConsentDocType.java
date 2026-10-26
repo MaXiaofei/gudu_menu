@@ -2,26 +2,48 @@ package com.gudu.xsd.modules.privacy.domain.model;
 
 import com.gudu.xsd.common.domain.DomainException;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
- * 同意记录的文档类型（consent_record.doc_type）。本 change 落地两类「单独同意」（个人信息保护法第 29、31 条）：
+ * 同意记录的文档类型（consent_record.doc_type）。
  * <ul>
- *   <li>{@link #SENSITIVE_HEALTH}：成员健康档案（身高体重、过敏、特殊饮食人群等）；</li>
- *   <li>{@link #CHILD_INFO}：不满十四周岁儿童信息（含宝宝辅食档案），由监护人同意。</li>
+ *   <li>单独同意（个人信息保护法第 29、31 条，B.2）：{@link #SENSITIVE_HEALTH} 成员健康档案；
+ *       {@link #CHILD_INFO} 不满十四周岁儿童信息（监护人同意）；</li>
+ *   <li>协议同意（B.1）：{@link #TERMS} 用户协议、{@link #PRIVACY} 隐私政策——登录页勾选、登录成功后上报。</li>
  * </ul>
- * 协议同意（terms / privacy，B.1）合入时在此扩展。
  */
 public enum ConsentDocType {
-    SENSITIVE_HEALTH("sensitive_health"),
-    CHILD_INFO("child_info");
+    SENSITIVE_HEALTH("sensitive_health", true),
+    CHILD_INFO("child_info", true),
+    TERMS("terms", false),
+    PRIVACY("privacy", false);
 
     private final String code;
+    private final boolean separate;
 
-    ConsentDocType(String code) {
+    ConsentDocType(String code, boolean separate) {
         this.code = code;
+        this.separate = separate;
     }
 
     public String code() {
         return code;
+    }
+
+    /** 是否「单独同意」类（敏感信息弹窗）；否则为登录协议同意。 */
+    public boolean separate() {
+        return separate;
+    }
+
+    /** 单独同意类型（B.2 状态接口只返回这些）。 */
+    public static List<ConsentDocType> separateTypes() {
+        return Arrays.stream(values()).filter(ConsentDocType::separate).toList();
+    }
+
+    /** 登录协议类型（B.1）。 */
+    public static List<ConsentDocType> legalTypes() {
+        return Arrays.stream(values()).filter(t -> !t.separate).toList();
     }
 
     public static ConsentDocType of(String code) {

@@ -37,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -70,6 +71,7 @@ class ContentSecurityAppServiceTest {
         when(openids.openidOf(APP_USER)).thenReturn(Optional.empty());
         repo = mock(MediaCheckRepository.class);
         quarantine = mock(UploadQuarantine.class);
+        recorder = mock(TextViolationRecorder.class);
         published = new ArrayList<>();
         events = published::add;
         wx = new WxProperties();
@@ -77,9 +79,11 @@ class ContentSecurityAppServiceTest {
         wx.setToken("tok");
     }
 
+    TextViolationRecorder recorder;
+
     ContentSecurityAppService svc(boolean wxEnabled) {
         return new ContentSecurityAppService(wechat, openids, repo, quarantine, events, Runnable::run, wx, CLOCK,
-                wxEnabled, "https://imxf.cloud/", SIGNER);
+                wxEnabled, "https://imxf.cloud/", SIGNER, recorder);
     }
 
     static TextVerdict wx(Suggest s) {
@@ -106,6 +110,19 @@ class ContentSecurityAppServiceTest {
                     .isInstanceOf(BizException.class)
                     .hasMessage(ContentSecurityAppService.MSG_NICKNAME)
                     .satisfies(e -> assertThat(((BizException) e).getCode()).isEqualTo(BizException.CONTENT_BLOCKED));
+        }
+
+        @Test
+        void 拦截时留痕违规记录_放行不留痕() {
+            when(wechat.checkText(any())).thenReturn(wx(Suggest.RISKY));
+            assertThatThrownBy(() -> svc(true).assertText(WX_USER, ContentPurpose.NICKNAME, "某昵称"))
+                    .isInstanceOf(BizException.class);
+            verify(recorder).record(eq(WX_USER), eq(ContentPurpose.NICKNAME), any(), eq("某昵称"));
+            org.mockito.Mockito.clearInvocations(recorder);
+            when(wechat.checkText(any())).thenReturn(wx(Suggest.REVIEW));
+            assertThatCode(() -> svc(true).assertText(WX_USER, ContentPurpose.FEEDBACK, "希望加个导出"))
+                    .doesNotThrowAnyException();
+            verify(recorder, never()).record(any(), any(), any(), any());
         }
 
         @Test
@@ -278,7 +295,7 @@ class ContentSecurityAppServiceTest {
         void 头像_未配置公网前缀_failClosed() {
             when(repo.latestByUrl(IMG)).thenReturn(Optional.empty());
             ContentSecurityAppService s = new ContentSecurityAppService(wechat, openids, repo, quarantine, events,
-                    Runnable::run, wx, CLOCK, true, "", SIGNER);
+                    Runnable::run, wx, CLOCK, true, "", SIGNER, recorder);
             assertThatThrownBy(() -> s.assertImageUsable(WX_USER, IMG, ContentPurpose.AVATAR))
                     .isInstanceOf(BizException.class);
             verify(wechat, never()).submitMedia(any());

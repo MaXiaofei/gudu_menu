@@ -9,4 +9,14 @@ public interface UploadQuarantine {
 
     /** @return 是否移走了至少一个文件 */
     boolean quarantine(String uploadedUrl);
+
+    /**
+     * 人工复核为误判（F.3）：把隔离的原图 + 同名缩略图移回原地址（覆盖占位图）。
+     *
+     * @return 是否还原了至少一个文件（隔离目录里没有 → false）
+     */
+    boolean release(String uploadedUrl);
+
+    /** 读取隔离中的原图（运营复核查看，原地址已是占位图）；不在隔离目录 → empty。 */
+    java.util.Optional<byte[]> readQuarantined(String uploadedUrl);
 }

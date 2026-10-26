@@ -8,6 +8,7 @@ import com.gudu.xsd.modules.family.application.FamilyQueryApi;
 import com.gudu.xsd.modules.family.application.dto.FamilyViews.FamilySummary;
 import com.gudu.xsd.modules.family.application.dto.FamilyViews.SessionFamily;
 import com.gudu.xsd.modules.identity.application.AccountAppService;
+import com.gudu.xsd.modules.identity.application.AccountBanAppService;
 import com.gudu.xsd.modules.identity.application.dto.AccountView;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -31,7 +32,8 @@ class AuthServiceTest {
     private final FamilyAppService familyApp = mock(FamilyAppService.class);
     private final FamilyQueryApi familyQuery = mock(FamilyQueryApi.class);
     private final WxClient wx = mock(WxClient.class);
-    private final AuthService svc = new AuthService(accounts, familyApp, familyQuery, wx);
+    private final AccountBanAppService bans = mock(AccountBanAppService.class);
+    private final AuthService svc = new AuthService(accounts, familyApp, familyQuery, wx, bans);
 
     private static AccountView acc(long id, String nick, String role) {
         return new AccountView(id, nick, null, "138****0001", false, true, role, "ACTIVE");
@@ -113,5 +115,32 @@ class AuthServiceTest {
         when(familyApp.resolveSession(eq(10L), eq(8L))).thenReturn(new SessionFamily(8L, 82L, "MEMBER"));
         Map<String, Object> r = withStp(() -> svc.establish(acc(10L, "老张", "USER"), null, 8L), mock(SaSession.class));
         assertThat(r).containsEntry("currentFamilyId", 8L).containsEntry("currentMemberId", 82L);
+    }
+
+    @Test
+    void 后台登录_平台运营_可登录_响应isOperator() {
+        when(accounts.authenticate("13800000002", "pw123")).thenReturn(acc(12L, "运营小李", "OPERATOR"));
+        when(familyApp.resolveSession(12L, null)).thenReturn(new SessionFamily(4L, 41L, "OWNER"));
+        Map<String, Object> r = withStp(() -> svc.login(new LoginDTO("13800000002", "pw123", "admin")),
+                mock(SaSession.class));
+        assertThat(r).containsEntry("isAdmin", false).containsEntry("isOperator", true)
+                .containsEntry("platformRole", "OPERATOR");
+    }
+
+    @Test
+    void 封禁账号_手机号与微信登录均被拒_423_不签发token() {
+        when(accounts.authenticate("13800000001", "pw123")).thenReturn(acc(10L, "测试员", "USER"));
+        when(wx.code2session("c1")).thenReturn("oid-1");
+        when(accounts.loginOrRegisterByWechat("oid-1", null, null)).thenReturn(acc(10L, "测试员", "USER"));
+        doThrow(BizException.accountBanned("发布违规内容")).when(bans).assertNotBanned(10L);
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            assertThatThrownBy(() -> svc.login(new LoginDTO("13800000001", "pw123")))
+                    .isInstanceOf(BizException.class)
+                    .hasMessageContaining("发布违规内容")
+                    .extracting(e -> ((BizException) e).getCode()).isEqualTo(BizException.ACCOUNT_BANNED);
+            assertThatThrownBy(() -> svc.wxLogin("c1", null))
+                    .extracting(e -> ((BizException) e).getCode()).isEqualTo(BizException.ACCOUNT_BANNED);
+            stp.verify(() -> StpUtil.login(any()), never());
+        }
     }
 }

@@ -37,10 +37,10 @@ public class MemberProfileAppService {
     }
 
     /** 内容安全（A.6）：只检有变化的昵称 / 头像；不通过或检测不可用（fail-closed）抛业务异常，不保存。 */
-    private void screen(Long memberId, MemberProfile p, String oldName, String oldAvatar) {
-        if (!Objects.equals(p.name(), oldName)) contentSecurity.assertText(memberId, ContentPurpose.NICKNAME, p.name());
+    private void screen(Long accountId, MemberProfile p, String oldName, String oldAvatar) {
+        if (!Objects.equals(p.name(), oldName)) contentSecurity.assertText(accountId, ContentPurpose.NICKNAME, p.name());
         if (p.avatarUrl() != null && !p.avatarUrl().isEmpty() && !Objects.equals(p.avatarUrl(), oldAvatar)) {
-            contentSecurity.assertImageUsable(memberId, p.avatarUrl(), ContentPurpose.AVATAR);
+            contentSecurity.assertImageUsable(accountId, p.avatarUrl(), ContentPurpose.AVATAR);
         }
     }
 

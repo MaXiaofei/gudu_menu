@@ -7,6 +7,7 @@ import com.gudu.xsd.modules.family.application.FamilyAppService;
 import com.gudu.xsd.modules.family.application.FamilyQueryApi;
 import com.gudu.xsd.modules.family.application.dto.FamilyViews.SessionFamily;
 import com.gudu.xsd.modules.identity.application.AccountAppService;
+import com.gudu.xsd.modules.identity.application.AccountBanAppService;
 import com.gudu.xsd.modules.identity.application.dto.AccountView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,13 +30,16 @@ public class AuthService {
     private final FamilyAppService familyApp;
     private final FamilyQueryApi familyQuery;
     private final WxClient wxClient;
+    private final AccountBanAppService bans;
 
     /** 管理后台登录场景。 */
     static final String SCOPE_ADMIN = TenantSession.SCOPE_ADMIN;
 
     public Map<String, Object> login(LoginDTO dto) {
         AccountView a = accounts.authenticate(dto.getUsername(), dto.getPassword());
-        if (SCOPE_ADMIN.equals(dto.getScope()) && !a.superAdmin()) {
+        bans.assertNotBanned(a.id());
+        // 运营后台：平台运营或超管可登录（multi-tenant-family F.3）；超管专属页面由 @RequireAdmin 再拦
+        if (SCOPE_ADMIN.equals(dto.getScope()) && !a.operator()) {
             throw BizException.forbidden("无后台权限");
         }
         return establish(a, SCOPE_ADMIN.equals(dto.getScope()) ? SCOPE_ADMIN : null, null);
@@ -49,6 +53,7 @@ public class AuthService {
     public Map<String, Object> wxLogin(String code, String inviteCode) {
         String openid = wxClient.code2session(code);
         AccountView a = accounts.loginOrRegisterByWechat(openid, null, inviteCode);
+        bans.assertNotBanned(a.id());
         return establish(a, null, null);
     }
 
@@ -63,6 +68,7 @@ public class AuthService {
         out.put("accountId", a.id());
         out.put("nickname", a.nickname());
         out.put("isAdmin", a.superAdmin());
+        out.put("isOperator", a.operator());
         out.put("platformRole", a.platformRole());
         out.put("families", familyQuery.familiesOf(a.id()));
         out.put("currentFamilyId", sf.familyId());

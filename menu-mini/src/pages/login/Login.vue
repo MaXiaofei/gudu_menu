@@ -70,7 +70,7 @@ import { navInset } from '@/utils/token'
 import { useAuthStore } from '@/store/auth'
 import { silentLogin } from '@/api/auth'
 import { agreementError } from '@/utils/validate'
-import { hasConsent, setConsent } from '@/utils/consent'
+import { hasConsent, reportConsent, setConsent } from '@/utils/consent'
 
 const auth = useAuthStore()
 const nav = navInset()
@@ -124,6 +124,7 @@ async function onWxLogin() {
   try {
     const r = await silentLogin()
     if (r) {
+      reportConsent() // B.1：登录成功即上报协议同意（静默，不阻塞跳转）
       await afterLogin(r.accountId)
     } else {
       uni.showToast({ title: '微信登录失败，可先用账号登录', icon: 'none' })
@@ -142,6 +143,7 @@ async function onLogin() {
   loading.value = true
   try {
     const r = await auth.login(form.username, form.password)
+    reportConsent() // B.1：登录成功即上报协议同意（静默，不阻塞跳转）
     await afterLogin(r?.accountId)
   } catch {
     // request.ts 已弹 toast

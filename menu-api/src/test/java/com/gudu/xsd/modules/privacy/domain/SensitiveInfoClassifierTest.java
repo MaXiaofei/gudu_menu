@@ -62,7 +62,10 @@ class SensitiveInfoClassifierTest {
     void 同意类型编码_同意记录校验() {
         assertThat(ConsentDocType.of("sensitive_health")).isEqualTo(SENSITIVE_HEALTH);
         assertThat(ConsentDocType.of(" CHILD_INFO ")).isEqualTo(CHILD_INFO);
-        assertThatThrownBy(() -> ConsentDocType.of("privacy")).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> ConsentDocType.of("cookie")).isInstanceOf(DomainException.class);
+        // B.1 协议同意类型：可解析，但不属于单独同意
+        assertThat(ConsentDocType.of("privacy").separate()).isFalse();
+        assertThat(ConsentDocType.separateTypes()).containsExactly(SENSITIVE_HEALTH, CHILD_INFO);
         LocalDateTime now = LocalDateTime.of(2026, 10, 26, 9, 0);
         ConsentRecord r = ConsentRecord.grant(1L, CHILD_INFO, "2026-10-26", "mp-weixin-extra-long-channel", " ", now);
         assertThat(r.granted()).isTrue();

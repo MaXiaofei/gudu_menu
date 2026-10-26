@@ -30,7 +30,9 @@
 > 2026-10-26 用户决策：协议与功能范围只写**微信小程序**（App 未上架、生产无用户网页端）；聚餐邀请需登录；语音先隐藏。
 
 ## Phase B：同意与敏感信息
-- [ ] B.1 `consent_record` 表 + `POST /consent` + 登录流程上报协议同意（含版本）
+- [x] B.1 `consent_record` 表 + `POST /consent` + 登录流程上报协议同意（含版本）
+  - 复用 V88 `consent_record`（privacy 上下文），doc_type 扩展 `terms` / `privacy`（单独同意状态接口仍只返回 sensitive_health / child_info）；`POST /consent {docTypes?, docVersion, granted?, channel?}`：默认两份各记一条，`granted=false` 记撤回（只留痕，不触发数据删除）；账号合并改指沿用 privacy 的 `ConsentAccountMergedListener`
+  - mini：登录页勾选后、微信 / 账号登录成功即 `reportConsent()` 上报当前 `LEGAL_VERSION`（静默，失败下次登录再报）
 - [x] B.2 健康档案 / 不满 14 周岁成员单独同意弹窗（mini + Flutter），撤回即删除对应字段
   - 后端 privacy 上下文：`consent_record`（V88 自建，B.1 合入时复用；doc_type = sensitive_health / child_info）+ `GET/POST /consent/sensitive`、`POST /consent/sensitive/withdraw`；`/member` 新增/编辑含健康档案或不满 14 周岁信息时无同意记录 → 428 `CONSENT_REQUIRED`（data.docTypes），不保存
   - 撤回即删除：`member.health_consent_account_id` 记录提供人；撤回 sensitive_health 清空本人档案 + 其提供的全部档案的健康档案/目标/活动水平，撤回 child_info 只清其中儿童档案；称呼/头像保留；`AccountMerged` 改指提供人与同意记录
@@ -53,11 +55,18 @@
 - [ ] D.3 AI 功能审核材料清单（类目、模型备案号来源、内容安全措施说明）
 
 ## Phase F：后台运营配套（上线前必须，依赖 multi-tenant-family 合入）
-- [ ] F.1 账号列表与封禁：按昵称/openid 尾号/家庭查询，查看账号状态与所属家庭（不展示家庭私有数据）；封禁/解封带原因，封禁账号登录与写接口拒绝；操作留痕
-- [ ] F.2 注销申请处理：查看注销记录与匿名化执行结果，失败重试；隐私政策「15 个工作日」时限提醒
-- [ ] F.3 内容安全违规记录：查看文本/图片违规记录（来源、用途、结论、时间），人工复核「恢复」（还原隔离文件、恢复头像/帖子）或「确认违规」
-- [ ] F.4 同意记录查询：按账号查询协议版本与同意时间（依赖 B.1）
-- [ ] F.5 下线家庭私有数据页面：库存、家庭成员、食集、采购、周计划（周计划页调用的 /mealplan、/mealplan/templates 等接口后端不存在）从路由与菜单删除；运营端只保留只读统计（即 multi-tenant-family F.3）
+- [x] F.1 账号列表与封禁：按昵称/openid 尾号/家庭查询，查看账号状态与所属家庭（不展示家庭私有数据）；封禁/解封带原因，封禁账号登录与写接口拒绝；操作留痕
+  - `GET /admin/accounts`（只读全局表 account / account_ban / family_membership / family；手机号脱敏、openid 只出末 6 位、只给家庭数）；`POST /admin/accounts/{id}/ban|unban {reason}`；封禁表 `account_ban`（V86）；封禁即 `StpUtil.logout` 下线，登录（手机号 / 微信）与写接口（`BannedAccountInterceptor`）统一 **423 ACCOUNT_BANNED**，小程序弹窗提示原因回登录页；超管不可封、运营只能由超管封
+  - 后台操作日志 `admin_operation_log`（V86）+ `GET /admin/operation-logs`（封禁、解封、恢复、确认违规、重试注销）
+- [x] F.2 注销申请处理：查看注销记录与匿名化执行结果，失败重试；隐私政策「15 个工作日」时限提醒
+  - `account_deactivation`（V86）：注销同事务受理（第一步「账号匿名化与退出家庭」），提交后执行各上下文 `AccountErasureStep`（系统模式、幂等；当前：意见反馈联系方式 / 设备信息清除），失败 FAILED 可 `POST /admin/deactivations/{id}/retry`；截止 = 受理后第 15 个工作日（只跳周末，偏严），超期高亮 + 顶部告警
+- [x] F.3 内容安全违规记录：查看文本/图片违规记录（来源、用途、结论、时间），人工复核「恢复」（还原隔离文件、恢复头像/帖子）或「确认违规」
+  - 文本：拦截即写 `content_text_violation`（V86，独立事务不随 451 回滚，只存前 100 字摘录）；图片：`content_media_check` 加复核字段（V87），`MediaCheck.restore/confirmViolation`；恢复发 `MediaRestoredEvent`（头像恢复到上传账号各家庭档案中被清空的头像、帖子恢复公开）后 `UploadQuarantine.release` 还原文件；隔离原图可在后台查看
+  - 顺带修复：图片违规回调无登录态（游客租户），订阅方改在系统模式执行，否则多家庭后清不到头像；openid 解析改读 account 表
+- [x] F.4 同意记录查询：按账号查询协议版本与同意时间（依赖 B.1）——`GET /admin/accounts/{id}/consents`（协议与单独同意全部记录，倒序），后台账号列表「同意记录」抽屉
+- [x] F.5 下线家庭私有数据页面：库存、家庭成员、食集、采购、周计划（周计划页调用的 /mealplan、/mealplan/templates 等接口后端不存在）从路由与菜单删除；运营端只保留只读统计（即 multi-tenant-family F.3）
+  - menu-admin 删除 views/member、menu、mealplan、pantry、shopping 与 api/member、menu、mealplan、pantry、shopping；后端无「仅后台使用」的家庭数据接口（这些页面调用的都是按家庭过滤的通用接口）
+  - 后台鉴权改 OPERATOR / SUPER_ADMIN：`scope=admin` 登录接受平台运营；新增 `@RequireOperator`（运营后台、仪表盘、意见反馈、社区审核），模型网关 / AI 日志 / Agent 调用链与评测 / 配置中心仍 `@RequireAdmin`，前端对运营隐藏
 
 ## Phase G：上线后一个月内
 - [ ] G.1 站内公告推送（停服、协议升级等通知到「消息与提醒」）

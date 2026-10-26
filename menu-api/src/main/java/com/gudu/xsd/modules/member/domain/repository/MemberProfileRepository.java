@@ -15,6 +15,9 @@ public interface MemberProfileRepository {
     /** 头像地址在给定集合内的成员（违规图片清头像用）。 */
     List<MemberProfile> findByAvatarUrls(Collection<String> avatarUrls);
 
+    /** 该账号在各家庭的关联档案（违规图片复核恢复头像用；调用方以系统模式运行才能跨家庭）。 */
+    List<MemberProfile> findAllByAccount(Long accountId);
+
     /** 只写资料字段（name / avatar_url，avatar 可置空）。 */
     void save(MemberProfile profile);
 }
