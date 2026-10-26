@@ -232,13 +232,41 @@ class TogetherInviteCredentialTest {
         me.setMemberId(100L);
         me.setNickname("外人");
         given(joinMapper.selectOne(any())).willReturn(me);
-        given(inviteMapper.selectOne(any())).willReturn(null);
 
         TogetherService.TogetherVO vo = svc.together(MENU, TogetherService.Identity.member(100L));
 
         assertThat(vo).isNotNull();
         verify(joinMapper).updateById(me); // 心跳
         assertThat(TenantContextHolder.familyIdOrNull()).isEqualTo(9L);
+    }
+
+    @Test
+    void 已加入的外部用户_清单不返回邀请token() {
+        asOutsider();
+        given(joinMapper.selectCount(any())).willReturn(1L);
+        MenuJoin me = new MenuJoin();
+        me.setMenuId(MENU);
+        me.setMemberId(100L);
+        given(joinMapper.selectOne(any())).willReturn(me);
+
+        TogetherService.TogetherVO vo = svc.together(MENU, TogetherService.Identity.member(100L));
+
+        assertThat(vo.invite()).isNull();
+        verify(inviteMapper, never()).selectOne(any());
+    }
+
+    @Test
+    void 本家成员_清单返回邀请token() {
+        asFamilyMember();
+        given(joinMapper.selectOne(any())).willReturn(null);
+        given(joinMapper.insert(any(MenuJoin.class))).willReturn(1);
+        given(inviteMapper.selectOne(any())).willReturn(
+                invite(MENU, "tok", LocalDateTime.now().plusDays(3), 0));
+
+        TogetherService.TogetherVO vo = svc.together(MENU, TogetherService.Identity.member(200L));
+
+        assertThat(vo.invite()).isNotNull();
+        assertThat(vo.invite().token()).isEqualTo("tok");
     }
 
     // ===================== 生成 / 刷新 / 撤销 =====================

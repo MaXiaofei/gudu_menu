@@ -293,8 +293,9 @@ public class TogetherService {
                 .map(a -> new ActivityVO(a.getNickname(), a.getAction(), a.getDishName(), a.getCreateTime()))
                 .toList();
 
-        MenuInvite inv = inviteMapper.selectOne(
-                new QueryWrapper<MenuInvite>().eq("menu_id", menuId));
+        // 邀请凭证（明文 token / 口令）只给食集所属家庭的成员；已加入的外部用户不返回，防止二次扩散
+        MenuInvite inv = familyMember ? inviteMapper.selectOne(
+                new QueryWrapper<MenuInvite>().eq("menu_id", menuId)) : null;
         InviteVO inviteVO = inv == null ? null : new InviteVO(inv.getCode(), inv.getToken());
         return new TogetherVO(members, dishes, activities, inviteVO);
     }

@@ -255,7 +255,6 @@ class TogetherServiceTest {
         act.setAction(MenuActivity.ACTION_ADD);
         act.setDishName("红烧肉");
         given(activityMapper.selectList(any())).willReturn(List.of(act));
-        given(inviteMapper.selectOne(any())).willReturn(invite("ABC123", "tok"));
 
         TogetherService.TogetherVO vo = svc.together(7L, TogetherService.Identity.guest("guest-1"));
 
@@ -265,7 +264,7 @@ class TogetherServiceTest {
         assertThat(vo.dishes().get(0).dishName()).isEqualTo("红烧肉");
         assertThat(vo.dishes().get(0).addedByNickname()).isEqualTo("小王");
         assertThat(vo.activities()).hasSize(1);
-        assertThat(vo.invite().code()).isEqualTo("ABC123");
+        assertThat(vo.invite()).as("访客不返回邀请凭证").isNull();
         verify(joinMapper).updateById(me); // 心跳
     }
 
