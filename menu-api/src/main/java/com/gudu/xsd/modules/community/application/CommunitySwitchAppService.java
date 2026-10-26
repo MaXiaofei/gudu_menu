@@ -1,5 +1,6 @@
 package com.gudu.xsd.modules.community.application;
 
+import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.community.application.dto.CommunityViews.UserLite;
 import com.gudu.xsd.modules.community.domain.model.CommunitySwitch;
 import com.gudu.xsd.modules.community.domain.repository.CommunitySwitchRepository;
@@ -76,6 +77,7 @@ public class CommunitySwitchAppService {
     /** 管理后台：切换（记录操作人、时间、原因），本实例缓存立即失效。 */
     @Transactional(rollbackFor = Exception.class)
     public SwitchView set(Long operatorId, boolean enabled, String reason) {
+        if (!enabled && (reason == null || reason.isBlank())) throw new BizException("关停厨房圈请填写原因");
         Map<Long, UserLite> users = assembler.users(List.of(operatorId));
         UserLite op = users.get(operatorId);
         CommunitySwitch next = CommunitySwitch.change(enabled, operatorId, op == null ? null : op.nickname(),

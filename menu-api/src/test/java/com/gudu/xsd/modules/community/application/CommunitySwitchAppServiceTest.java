@@ -130,11 +130,19 @@ class CommunitySwitchAppServiceTest {
 
     @Test
     void 读库失败_沿用上次已知值() {
-        svc.set(7L, false, null);
+        svc.set(7L, false, "测试关停");
         assertThat(svc.isEnabled()).isFalse();
         clock.advance(Duration.ofMinutes(1));
         repo.failing = true;
         assertThat(svc.isEnabled()).as("关着的继续关着").isFalse();
+    }
+
+    @Test
+    void 关停必须填原因_打开可以不填() {
+        assertThatThrownBy(() -> svc.set(7L, false, null)).isInstanceOf(com.gudu.xsd.common.BizException.class);
+        assertThatThrownBy(() -> svc.set(7L, false, "   ")).isInstanceOf(com.gudu.xsd.common.BizException.class);
+        assertThat(repo.logs).isEmpty();
+        assertThat(svc.set(7L, true, null).enabled()).isTrue();
     }
 
     @Test
