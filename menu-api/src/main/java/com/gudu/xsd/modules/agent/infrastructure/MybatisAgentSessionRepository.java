@@ -63,8 +63,13 @@ public class MybatisAgentSessionRepository implements AgentSessionRepository {
     }
 
     @Override
-    public List<String> idsByMember(Long memberId) {
-        return memberId == null ? List.of() : mapper.selectIdsByMember(memberId);
+    public List<String> idsByMembers(java.util.Collection<Long> memberIds) {
+        return memberIds == null || memberIds.isEmpty() ? List.of() : mapper.selectIdsByMembers(memberIds);
+    }
+
+    @Override
+    public int reassignMember(Long from, Long to) {
+        return from == null || to == null ? 0 : mapper.reassignMember(from, to);
     }
 
     @Override

@@ -42,6 +42,7 @@ class FamilyAppServiceTest {
     final FamilyRepository families = mock(FamilyRepository.class);
     final ProfileRepository profiles = mock(ProfileRepository.class);
     final AccountQueryApi accountQuery = mock(AccountQueryApi.class);
+    final com.gudu.xsd.common.privacy.UploadedFileEraser files = mock(com.gudu.xsd.common.privacy.UploadedFileEraser.class);
     final AccountAppService accounts = mock(AccountAppService.class);
     final DomainEventPublisher events = mock(DomainEventPublisher.class, CALLS_REAL_METHODS);
     final Clock clock = Clock.fixed(Instant.parse("2026-10-26T04:00:00Z"), ZoneId.of("Asia/Shanghai"));
@@ -130,7 +131,7 @@ class FamilyAppServiceTest {
 
     @Test
     void 合并监听_W的成员关系转给P_档案改指P_P已有档案则W的降为无账号档案() {
-        FamilyAccountListener listener = new FamilyAccountListener(svc, families, profiles, accountQuery, events, clock);
+        FamilyAccountListener listener = new FamilyAccountListener(svc, families, profiles, accountQuery, files, events, clock);
         Family f1 = family(10L, 2L);           // W 是 F1 主理人
         Family f2 = family(11L, 1L, 2L);       // P 与 W 都在 F2
         when(families.findActiveByAccount(2L)).thenReturn(List.of(f1, f2));
@@ -148,6 +149,31 @@ class FamilyAppServiceTest {
         assertThat(f2.isMember(2L)).isFalse();
         assertThat(wp1.accountId()).isEqualTo(1L);
         assertThat(wp2.accountId()).isNull();
+        verify(events).publish(argThat(e -> e instanceof com.gudu.xsd.modules.family.domain.event.ProfileMerged m
+                && m.fromProfileId() == 22L && m.toProfileId() == 12L));
         verify(events, atLeastOnce()).publish(argThat(e -> e instanceof MemberLeft));
+    }
+
+    @Test
+    void 注销监听_匿名化前收集账号与档案头像并删文件_档案保留accountId供后续步骤使用() {
+        FamilyAccountListener listener = new FamilyAccountListener(svc, families, profiles, accountQuery, files, events, clock);
+        when(families.findActiveByAccount(5L)).thenReturn(List.of());
+        FamilyMemberProfile p = FamilyMemberProfile.rehydrate(31L, FamilyId.of(10L), 5L, "阿美",
+                "/gudu/uploads/original/p.png", null, null, null);
+        when(profiles.findByAccount(5L)).thenReturn(List.of(p));
+        java.util.List<String> erased = new java.util.ArrayList<>();
+        when(files.erase(any())).thenAnswer(inv -> {
+            erased.add(inv.getArgument(0));
+            assertThat(p.avatarUrl()).as("文件在档案匿名化之前删除").isNotNull();
+            return 1;
+        });
+
+        listener.onDeactivated(new com.gudu.xsd.modules.identity.domain.event.AccountDeactivated(5L,
+                "/gudu/uploads/original/a.png"));
+
+        assertThat(erased).containsExactly("/gudu/uploads/original/a.png", "/gudu/uploads/original/p.png");
+        assertThat(p.deactivated()).isTrue();
+        assertThat(p.avatarUrl()).isNull();
+        assertThat(p.accountId()).isEqualTo(5L);
     }
 }

@@ -48,6 +48,32 @@ public class FamilyQueryApi {
     }
 
     /** 账号在所有家庭的本人成员档案 id（导出我的数据：按档案归属的做菜记录 / 食记 / 点评 / AI 对话）。 */
+    /**
+     * 称呼脱敏用（后台调用链摘要）：该档案（= 对话发生时的就餐成员）所在家庭的全部成员称呼；
+     * 家庭取不到时退回该档案所属账号的全部家庭的成员称呼；档案不存在返回空。已注销成员不计。
+     */
+    public List<String> memberNamesAround(Long profileId) {
+        FamilyMemberProfile p = profiles.findById(profileId).orElse(null);
+        if (p == null) return List.of();
+        java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        List<FamilyMemberProfile> inFamily = p.familyId() == null ? List.of() : profiles.findByFamily(p.familyId().value());
+        if (!inFamily.isEmpty()) {
+            inFamily.forEach(x -> addName(names, x));
+        } else {
+            addName(names, p);
+            for (FamilyMemberProfile mine : p.accountId() == null ? List.<FamilyMemberProfile>of()
+                    : profiles.findByAccount(p.accountId())) {
+                profiles.findByFamily(mine.familyId().value()).forEach(x -> addName(names, x));
+            }
+        }
+        return List.copyOf(names);
+    }
+
+    private static void addName(java.util.Set<String> names, FamilyMemberProfile p) {
+        String n = p.displayName();
+        if (n != null && !n.isBlank() && !p.deactivated()) names.add(n);
+    }
+
     public List<Long> profileIdsOf(Long accountId) {
         return profiles.findByAccount(accountId).stream().map(FamilyMemberProfile::id).toList();
     }

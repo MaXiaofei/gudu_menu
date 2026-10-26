@@ -19,8 +19,11 @@ public interface AgentSessionRepository {
     /** 保存期限清理（C.1）：updatedAt 早于 cutoff 的会话 id（含已软删除），最多 limit 个。 */
     List<String> idsUpdatedBefore(LocalDateTime cutoff, int limit);
 
-    /** 注销：该账号的全部会话 id（含已软删除）。 */
-    List<String> idsByMember(Long memberId);
+    /** 账号合并：把 from 档案的会话（含已软删除）改指 to 档案。 */
+    int reassignMember(Long from, Long to);
+
+    /** 注销：这些档案的全部会话 id（含已软删除）。 */
+    List<String> idsByMembers(java.util.Collection<Long> memberIds);
 
     /** 物理删除会话（绕过逻辑删除）。 */
     int hardDelete(java.util.Collection<String> ids);

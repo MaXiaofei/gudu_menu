@@ -63,14 +63,32 @@ public final class FamilyMemberProfile extends AggregateRoot<Long> {
         this.accountId = null;
     }
 
-    /** 账号注销：匿名化（清名字 / 头像 / 健康档案），解除账号关联。 */
+    /**
+     * 账号注销：匿名化（清名字 / 头像 / 健康档案）。<b>保留 accountId</b>（此时账号本身已匿名化，只是一个无个人信息的 id）：
+     * 注销后续步骤（AI 对话等按成员档案 id 归属的个人数据）要靠它找回本人档案，后台重试时同样需要。
+     */
     public void anonymize() {
-        this.accountId = null;
         this.displayName = DEACTIVATED_NAME;
         this.avatarUrl = null;
         this.health = null;
         this.goal = null;
         this.activityLevel = null;
+    }
+
+    /** 是否已被注销匿名化。 */
+    public boolean deactivated() {
+        return DEACTIVATED_NAME.equals(displayName);
+    }
+
+    /**
+     * 账号合并且目标账号在同家庭已有档案：本档案降为无账号档案，其按档案归属的个人数据（AI 对话等）改指目标档案。
+     * 登记 {@link com.gudu.xsd.modules.family.domain.event.ProfileMerged}。
+     */
+    public void mergeInto(Long targetProfileId) {
+        this.accountId = null;
+        if (id != null && targetProfileId != null && !id.equals(targetProfileId)) {
+            registerEvent(new com.gudu.xsd.modules.family.domain.event.ProfileMerged(id, targetProfileId));
+        }
     }
 
     public void updateHealth(HealthProfile newHealth, String newGoal, String newActivityLevel) {

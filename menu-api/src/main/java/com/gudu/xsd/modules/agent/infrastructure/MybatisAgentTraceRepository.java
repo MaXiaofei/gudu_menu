@@ -137,10 +137,17 @@ public class MybatisAgentTraceRepository implements AgentTraceRepository {
     }
 
     @Override
-    public int anonymizeByMember(Long memberId) {
-        if (memberId == null) return 0;
+    public int reassignMember(Long from, Long to) {
+        if (from == null || to == null) return 0;
+        return traceMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<AgentTracePO>()
+                .eq("member_id", from).set("member_id", to));
+    }
+
+    @Override
+    public int anonymizeByMembers(java.util.Collection<Long> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) return 0;
         List<String> ids = traceMapper.selectList(new QueryWrapper<AgentTracePO>().select("id")
-                .eq("member_id", memberId)).stream().map(AgentTracePO::getId).toList();
+                .in("member_id", memberIds)).stream().map(AgentTracePO::getId).toList();
         if (ids.isEmpty()) return 0;
         spanMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<AgentSpanPO>()
                 .in("trace_id", ids).set("input_json", null).set("output_json", null));

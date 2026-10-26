@@ -163,6 +163,7 @@ public final class Account extends AggregateRoot<Long> {
      */
     public void deactivate(LocalDateTime now) {
         ensureActive();
+        String oldAvatar = this.avatarUrl;
         this.phone = null;
         this.wechat = null;
         this.passwordHash = null;
@@ -171,7 +172,7 @@ public final class Account extends AggregateRoot<Long> {
         this.lastFamilyId = null;
         this.status = AccountStatus.DEACTIVATED;
         this.deactivatedAt = now;
-        registerEvent(new AccountDeactivated(id));
+        registerEvent(new AccountDeactivated(id, oldAvatar));
     }
 
     /**

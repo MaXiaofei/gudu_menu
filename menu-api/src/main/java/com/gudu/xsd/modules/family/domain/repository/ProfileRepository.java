@@ -13,6 +13,12 @@ public interface ProfileRepository {
 
     Optional<FamilyMemberProfile> findInFamily(Long familyId, Long profileId);
 
+    /** 按档案 id 取（不限家庭，系统模式；后台脱敏摘要用）。 */
+    Optional<FamilyMemberProfile> findById(Long profileId);
+
+    /** 家庭全部成员档案（系统模式）。 */
+    List<FamilyMemberProfile> findByFamily(Long familyId);
+
     Optional<FamilyMemberProfile> findByFamilyAndAccount(Long familyId, Long accountId);
 
     /** 某账号在所有家庭的关联档案。 */

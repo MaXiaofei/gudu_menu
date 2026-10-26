@@ -18,6 +18,9 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * family 上下文对 identity 事件与自身 MemberJoined 的同步消费（同事务，异常整体回滚）。
@@ -38,6 +41,7 @@ public class FamilyAccountListener {
     private final FamilyRepository families;
     private final ProfileRepository profiles;
     private final AccountQueryApi accountQuery;
+    private final com.gudu.xsd.common.privacy.UploadedFileEraser files;
     private final DomainEventPublisher events;
     private final Clock clock;
 
@@ -65,7 +69,22 @@ public class FamilyAccountListener {
             families.save(f);
             events.publishFrom(f);
         }
-        for (FamilyMemberProfile p : profiles.findByAccount(e.accountId())) {
+        List<FamilyMemberProfile> mine = profiles.findByAccount(e.accountId());
+        // 头像文件：地址在匿名化清空字段之前收集（账号头像来自事件，档案头像取自档案），逐个删除；
+        // 失败只记日志，不影响注销（曾上传过的头像另由「头像文件删除」步骤按上传记录补删，后台可重试）
+        Set<String> avatars = new LinkedHashSet<>();
+        if (e.avatarUrl() != null && !e.avatarUrl().isBlank()) avatars.add(e.avatarUrl());
+        for (FamilyMemberProfile p : mine) {
+            if (p.avatarUrl() != null && !p.avatarUrl().isBlank()) avatars.add(p.avatarUrl());
+        }
+        for (String url : avatars) {
+            try {
+                files.erase(url);
+            } catch (RuntimeException ex) {
+                log.error("注销头像文件删除失败 account={} url={}: {}", e.accountId(), url, ex.getMessage());
+            }
+        }
+        for (FamilyMemberProfile p : mine) {
             p.anonymize();
             profiles.save(p);
         }
@@ -83,12 +102,14 @@ public class FamilyAccountListener {
         }
         for (FamilyMemberProfile wp : profiles.findByAccount(w)) {
             Long familyId = wp.familyId().value();
-            if (profiles.findByFamilyAndAccount(familyId, p).isPresent()) {
-                wp.unlinkAccount();
+            var target = profiles.findByFamilyAndAccount(familyId, p);
+            if (target.isPresent()) {
+                wp.mergeInto(target.get().id());
             } else {
                 wp.linkAccount(p);
             }
             profiles.save(wp);
+            events.publishFrom(wp);
         }
         log.info("账号合并：家庭成员关系与档案 {} → {}", w, p);
     }

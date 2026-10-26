@@ -13,6 +13,7 @@ import com.gudu.xsd.modules.agent.domain.model.TraceSpan;
 import com.gudu.xsd.modules.agent.domain.model.TraceStatus;
 import com.gudu.xsd.modules.agent.domain.repository.AgentMessageRepository;
 import com.gudu.xsd.modules.agent.domain.repository.AgentTraceRepository;
+import com.gudu.xsd.modules.family.application.FamilyQueryApi;
 import com.gudu.xsd.modules.member.Member;
 import com.gudu.xsd.modules.member.MemberService;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,8 @@ class AgentTracePrivacyTest {
     final AgentMessageRepository messages = mock(AgentMessageRepository.class);
     final AgentAppService agent = mock(AgentAppService.class);
     final MemberService members = mock(MemberService.class);
-    final AgentTraceAppService svc = new AgentTraceAppService(traces, messages, agent, members,
+    final FamilyQueryApi families = mock(FamilyQueryApi.class);
+    final AgentTraceAppService svc = new AgentTraceAppService(traces, messages, agent, members, families,
             Clock.fixed(Instant.parse("2026-10-26T02:00:00Z"), ZoneId.of("Asia/Shanghai")));
 
     AgentTrace trace() {
@@ -57,6 +59,8 @@ class AgentTracePrivacyTest {
         m.setId(7L);
         m.setName("阿美");
         when(members.listByIds(any())).thenReturn(List.of(m));
+        // 对话发生时所在家庭的全部成员（本人 + 老公 + 宝宝）
+        when(families.memberNamesAround(7L)).thenReturn(List.of("阿美", "大壮", "糯糯"));
     }
 
     @Test
@@ -71,6 +75,30 @@ class AgentTracePrivacyTest {
         assertThat(row.firstText()).contains("成员A").hasSizeLessThanOrEqualTo(AgentTraceAppService.BRIEF_FIRST_TEXT + 1);
         assertThat(row.user().nickname()).isEqualTo("用户7");
         assertThat(row.user().avatarUrl()).isNull();
+    }
+
+    @Test
+    void 摘要_家庭里其他成员的称呼也被替换() {
+        givenOwner();
+        AgentTrace t = new AgentTrace("t1", "s1", "m1", 7L, "大壮不吃辣，糯糯想吃鱼", TraceStatus.OK, "deepseek", "flash",
+                "v1", false, 900, 300L, 10, 20, BigDecimal.ONE, 0, null, NOW);
+        when(traces.page(any(), any(), any(), any(), anyInt())).thenReturn(List.of(t));
+        when(traces.find("t1")).thenReturn(Optional.of(t));
+        when(traces.spans("t1")).thenReturn(List.of(new TraceSpan("a", null, SpanType.LLM, "llm.plan", 0, 10, 5,
+                BigDecimal.ZERO, true, Map.of("text", "给糯糯和大壮做饭"), Map.of())));
+        AgentMessage raw = mock(AgentMessage.class);
+        when(messages.all("s1")).thenReturn(List.of(raw));
+        when(agent.view(raw)).thenReturn(new MessageView("m1", "user", "大壮说糯糯发烧了", List.of(), List.of(),
+                List.of(), "t1", null, NOW));
+
+        String first = svc.page(null, 10, null, null).items().get(0).firstText();
+        assertThat(first).doesNotContain("大壮").doesNotContain("糯糯").contains("成员B").contains("成员C");
+        TraceDetail d = svc.detail("t1");
+        assertThat(d.trace().firstText()).doesNotContain("大壮").doesNotContain("糯糯");
+        assertThat((String) d.spans().get(0).input().get("text")).doesNotContain("大壮").doesNotContain("糯糯");
+        assertThat(svc.conversation("t1").get(0).text()).doesNotContain("大壮").doesNotContain("糯糯");
+        // 全文不替换
+        assertThat(svc.full("t1").detail().trace().firstText()).contains("大壮");
     }
 
     @Test

@@ -108,9 +108,16 @@ public class MybatisAgentMessageRepository implements AgentMessageRepository {
     }
 
     @Override
-    public int deleteByMember(Long memberId) {
-        if (memberId == null) return 0;
-        return mapper.delete(new QueryWrapper<AgentMessagePO>().eq("member_id", memberId));
+    public int deleteByMembers(java.util.Collection<Long> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) return 0;
+        return mapper.delete(new QueryWrapper<AgentMessagePO>().in("member_id", memberIds));
+    }
+
+    @Override
+    public int reassignMember(Long from, Long to) {
+        if (from == null || to == null) return 0;
+        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<AgentMessagePO>()
+                .eq("member_id", from).set("member_id", to));
     }
 
     @Override

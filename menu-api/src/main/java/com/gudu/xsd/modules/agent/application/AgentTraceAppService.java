@@ -18,6 +18,7 @@ import com.gudu.xsd.modules.agent.domain.model.TraceSpan;
 import com.gudu.xsd.modules.agent.domain.model.TraceStatus;
 import com.gudu.xsd.modules.agent.domain.repository.AgentMessageRepository;
 import com.gudu.xsd.modules.agent.domain.repository.AgentTraceRepository;
+import com.gudu.xsd.modules.family.application.FamilyQueryApi;
 import com.gudu.xsd.modules.member.Member;
 import com.gudu.xsd.modules.member.MemberService;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +50,7 @@ public class AgentTraceAppService {
     private final AgentMessageRepository messages;
     private final AgentAppService agent;
     private final MemberService members;
+    private final FamilyQueryApi families;
     private final Clock clock;
 
     /** 列表摘要首句最大长度。 */
@@ -61,11 +63,11 @@ public class AgentTraceAppService {
         int n = Cursor.size(size);
         TraceStatus st = status == null || status.isBlank() ? null : TraceStatus.valueOf(status.trim().toUpperCase());
         List<AgentTrace> list = traces.page(rating, st, c.at(), c.id(), n);
-        Map<Long, UserLite> users = users(list.stream().map(AgentTrace::memberId).toList());
+        Map<Long, Pseudonymizer> pseudo = new java.util.HashMap<>();
         String next = list.size() < n ? null
                 : Cursor.encode(list.get(list.size() - 1).createdAt(), list.get(list.size() - 1).traceId());
         return new PageView<>(list.stream().map(t -> new TraceRow(t.traceId(), anonymousUser(t.memberId()),
-                brief(t.firstText(), pseudonymizer(users.get(t.memberId())), BRIEF_FIRST_TEXT), t.ms(),
+                brief(t.firstText(), pseudonymizer(pseudo, t.memberId()), BRIEF_FIRST_TEXT), t.ms(),
                 t.status().name(), t.createdAt())).toList(), next);
     }
 
@@ -94,7 +96,7 @@ public class AgentTraceAppService {
 
     private TraceDetail detail(AgentTrace t, boolean full) {
         UserLite owner = users(List.of(t.memberId())).get(t.memberId());
-        Pseudonymizer p = pseudonymizer(owner);
+        Pseudonymizer p = pseudonymizer(new java.util.HashMap<>(), t.memberId());
         TraceHeader h = new TraceHeader(t.traceId(), t.sessionId(), full ? owner : anonymousUser(t.memberId()),
                 full ? t.firstText() : brief(t.firstText(), p, BRIEF_FIRST_TEXT), t.status().name(), t.ms(),
                 t.firstTokenMs(), t.tokens(), t.costFen(), t.promptVersion(), t.provider(), t.model(), t.phoneMasked(),
@@ -107,7 +109,7 @@ public class AgentTraceAppService {
 
     private List<MessageView> conversation(AgentTrace t, boolean full) {
         if (t.sessionId() == null) return List.of();
-        Pseudonymizer p = pseudonymizer(users(List.of(t.memberId())).get(t.memberId()));
+        Pseudonymizer p = pseudonymizer(new java.util.HashMap<>(), t.memberId());
         return messages.all(t.sessionId()).stream().map(agent::view)
                 .map(m -> full ? m : new MessageView(m.messageId(), m.role(), brief(m.text(), p, BRIEF_TEXT), List.of(),
                         List.of(), List.of(), m.traceId(), m.rating(), m.createdAt())).toList();
@@ -120,9 +122,13 @@ public class AgentTraceAppService {
         return memberId == null ? null : new UserLite(memberId, "用户" + memberId, null);
     }
 
-    /** 对话所属人的称呼 → 「成员A」；其余称呼无法确定，靠账号标识脱敏 + 截断兜底。 */
-    static Pseudonymizer pseudonymizer(UserLite owner) {
-        return owner == null || owner.nickname() == null ? Pseudonymizer.NONE : Pseudonymizer.of(List.of(owner.nickname()));
+    /**
+     * 用对话发生时所在家庭的全部成员称呼构建（提问人本人 + 其他成员都替换为「成员A / 成员B …」，与发给模型时同一规则）；
+     * 家庭取不到时退回该账号所属全部家庭的成员称呼，见 {@link FamilyQueryApi#memberNamesAround}。
+     */
+    private Pseudonymizer pseudonymizer(Map<Long, Pseudonymizer> cache, Long profileId) {
+        if (profileId == null) return Pseudonymizer.NONE;
+        return cache.computeIfAbsent(profileId, id -> Pseudonymizer.of(families.memberNamesAround(id)));
     }
 
     /** 脱敏（称呼、手机号、openid）后截断到 max 字。 */

@@ -38,6 +38,21 @@ public class MybatisProfileRepository implements ProfileRepository {
     }
 
     @Override
+    public Optional<FamilyMemberProfile> findById(Long profileId) {
+        if (profileId == null) return Optional.empty();
+        return TenantContextHolder.callAsSystem(() -> Optional.ofNullable(mapper.selectOne(
+                new QueryWrapper<FamilyProfilePO>().eq("id", profileId)))).map(MybatisProfileRepository::toDomain);
+    }
+
+    @Override
+    public List<FamilyMemberProfile> findByFamily(Long familyId) {
+        if (familyId == null) return List.of();
+        return TenantContextHolder.callAsSystem(() -> mapper.selectList(new QueryWrapper<FamilyProfilePO>()
+                        .eq("family_id", familyId).orderByAsc("id")))
+                .stream().map(MybatisProfileRepository::toDomain).toList();
+    }
+
+    @Override
     public Optional<FamilyMemberProfile> findByFamilyAndAccount(Long familyId, Long accountId) {
         if (familyId == null || accountId == null) return Optional.empty();
         return TenantContextHolder.callAsSystem(() -> mapper.selectList(new QueryWrapper<FamilyProfilePO>()
@@ -73,7 +88,7 @@ public class MybatisProfileRepository implements ProfileRepository {
             } else {
                 mapper.update(po, new UpdateWrapper<FamilyProfilePO>()
                         .eq("id", p.id()).eq("family_id", p.familyId().value()));
-                if (p.accountId() == null) {
+                if (p.accountId() == null || p.deactivated()) {
                     // 解除账号关联 / 注销匿名化：旧凭证列（保留一个版本周期）同步清空，防止旧数据泄露
                     mapper.update(null, new UpdateWrapper<FamilyProfilePO>()
                             .eq("id", p.id()).eq("family_id", p.familyId().value())

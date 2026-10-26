@@ -16,9 +16,14 @@ public interface AgentSessionMapper extends BaseMapper<AgentSessionPO> {
     @Select("SELECT id FROM agent_session WHERE updated_at < #{cutoff} ORDER BY updated_at LIMIT #{limit}")
     List<String> selectIdsUpdatedBefore(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
 
-    /** 注销：账号的全部会话 id，含已逻辑删除的。 */
-    @Select("SELECT id FROM agent_session WHERE member_id = #{memberId}")
-    List<String> selectIdsByMember(@Param("memberId") Long memberId);
+    /** 注销：这些档案的全部会话 id，含已逻辑删除的。 */
+    @Select("<script>SELECT id FROM agent_session WHERE member_id IN "
+            + "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
+    List<String> selectIdsByMembers(@Param("ids") Collection<Long> memberIds);
+
+    /** 账号合并：含已逻辑删除的会话。 */
+    @org.apache.ibatis.annotations.Update("UPDATE agent_session SET member_id = #{to} WHERE member_id = #{from}")
+    int reassignMember(@Param("from") Long from, @Param("to") Long to);
 
     /** 物理删除（BaseMapper.delete 在 @TableLogic 实体上是逻辑删除）。 */
     @Delete("<script>DELETE FROM agent_session WHERE id IN "

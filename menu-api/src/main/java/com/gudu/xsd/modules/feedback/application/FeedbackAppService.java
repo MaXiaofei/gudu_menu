@@ -90,7 +90,7 @@ public class FeedbackAppService {
         Map<Long, String> names = memberIds.isEmpty() ? Map.of() : accountQuery.nicknames(memberIds);
         Page<FeedbackView> out = new Page<>(pn, ps);
         out.setTotal(p.total());
-        out.setRecords(p.records().stream().map(f -> new FeedbackView(f.id(), f.memberId(), names.get(f.memberId()),
+        out.setRecords(p.records().stream().map(f -> new FeedbackView(f.id(), f.memberId(), submitterName(f, names),
                 f.type().code(), f.sourceRef(), f.content(), f.contact(), f.images(), f.clientInfo(),
                 f.status().name(), f.reply(), f.repliedAt(), f.repliedBy(), f.createTime())).toList());
         return out;
@@ -112,9 +112,20 @@ public class FeedbackAppService {
         String r = f.replyBy(adminId, text, LocalDateTime.now(clock));
         if (markDone) f.changeStatus(FeedbackStatus.DONE);
         repository.save(f);
+        if (f.memberId() == null || f.memberId() == FeedbackRepository.ANONYMOUS_ACCOUNT) {
+            return; // 提交人已注销（反馈已与账号解绑）：回复只保存，不发通知
+        }
         notificationService.send(new NotificationPayload(f.memberId(), NOTICE_TYPE_REPLY, "你的反馈有回复了",
                 snippet(r), String.valueOf(f.id())), "in_app");
     }
+
+    /** 后台显示的提交人：已注销（member_id=0）显示「提交人已注销」，否则取账号昵称。 */
+    static String submitterName(Feedback f, Map<Long, String> names) {
+        if (f.memberId() != null && f.memberId() == FeedbackRepository.ANONYMOUS_ACCOUNT) return SUBMITTER_DEACTIVATED;
+        return names.get(f.memberId());
+    }
+
+    static final String SUBMITTER_DEACTIVATED = "提交人已注销";
 
     private Feedback load(Long id) {
         return repository.findById(id).orElseThrow(() -> new BizException(404, "反馈不存在"));

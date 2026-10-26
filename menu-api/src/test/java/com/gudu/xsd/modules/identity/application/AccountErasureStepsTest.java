@@ -10,6 +10,7 @@ import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import com.gudu.xsd.modules.contentsecurity.domain.repository.MediaCheckRepository;
 import com.gudu.xsd.modules.feedback.application.FeedbackAccountErasureStep;
 import com.gudu.xsd.modules.feedback.domain.repository.FeedbackRepository;
+import com.gudu.xsd.modules.family.application.FamilyQueryApi;
 import com.gudu.xsd.modules.identity.application.dto.DeactivationView;
 import com.gudu.xsd.modules.identity.domain.event.AccountDeactivated;
 import com.gudu.xsd.modules.identity.domain.model.DeactivationStatus;
@@ -49,29 +50,42 @@ class AccountErasureStepsTest {
     static final long ACC = 9L;
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-26T02:00:00Z"), ZoneId.of("Asia/Shanghai"));
 
+    static final List<Long> PROFILES = List.of(31L, 32L);
+
     @Test
-    void AI对话_删消息和会话_含软删除_调用链去标识() {
+    void AI对话_按本人档案id删_不用账号id_含软删除会话_调用链去标识() {
         AgentMessageRepository messages = mock(AgentMessageRepository.class);
         AgentSessionRepository sessions = mock(AgentSessionRepository.class);
         AgentTraceRepository traces = mock(AgentTraceRepository.class);
-        when(messages.deleteByMember(ACC)).thenReturn(5);
-        when(sessions.idsByMember(ACC)).thenReturn(List.of("s1", "s2"));
+        FamilyQueryApi families = mock(FamilyQueryApi.class);
+        when(families.profileIdsOf(ACC)).thenReturn(PROFILES);
+        when(messages.deleteByMembers(PROFILES)).thenReturn(5);
+        when(sessions.idsByMembers(PROFILES)).thenReturn(List.of("s1", "s2"));
         when(sessions.hardDelete(List.of("s1", "s2"))).thenReturn(2);
-        when(traces.anonymizeByMember(ACC)).thenReturn(3);
+        when(traces.anonymizeByMembers(PROFILES)).thenReturn(3);
 
-        String r = new AgentAccountErasureStep(messages, sessions, traces).erase(ACC);
+        String r = new AgentAccountErasureStep(messages, sessions, traces, families).erase(ACC);
 
         assertThat(r).contains("消息 5").contains("会话 2").contains("调用链去标识 3");
         verify(messages).deleteBySessions(List.of("s1", "s2"));
+        // 账号 id 可能与别人的档案 id 撞号：任何仓储都不得以账号 id 查询
+        verify(messages, never()).deleteByMembers(List.of(ACC));
+        verify(sessions, never()).idsByMembers(List.of(ACC));
     }
 
     @Test
-    void AI对话_无数据时幂等() {
+    void AI对话_无本人档案或无数据时幂等() {
         AgentMessageRepository messages = mock(AgentMessageRepository.class);
         AgentSessionRepository sessions = mock(AgentSessionRepository.class);
-        when(sessions.idsByMember(ACC)).thenReturn(List.of());
-        String r = new AgentAccountErasureStep(messages, sessions, mock(AgentTraceRepository.class)).erase(ACC);
-        assertThat(r).contains("消息 0").contains("会话 0");
+        FamilyQueryApi families = mock(FamilyQueryApi.class);
+        when(families.profileIdsOf(ACC)).thenReturn(List.of());
+        AgentAccountErasureStep step = new AgentAccountErasureStep(messages, sessions, mock(AgentTraceRepository.class), families);
+        assertThat(step.erase(ACC)).contains("无");
+        verify(messages, never()).deleteByMembers(any());
+
+        when(families.profileIdsOf(ACC)).thenReturn(PROFILES);
+        when(sessions.idsByMembers(PROFILES)).thenReturn(List.of());
+        assertThat(step.erase(ACC)).contains("消息 0").contains("会话 0");
         verify(messages, never()).deleteBySessions(any());
     }
 
@@ -168,7 +182,9 @@ class AccountErasureStepsTest {
         FeedbackRepository feedback = mock(FeedbackRepository.class);
         when(feedback.imageUrlsOfAccount(ACC)).thenReturn(List.of("/gudu/uploads/original/a.png"));
         AgentSessionRepository sessions = mock(AgentSessionRepository.class);
-        when(sessions.idsByMember(ACC)).thenReturn(List.of());
+        FamilyQueryApi families = mock(FamilyQueryApi.class);
+        when(families.profileIdsOf(ACC)).thenReturn(PROFILES);
+        when(sessions.idsByMembers(PROFILES)).thenReturn(List.of());
         MediaCheckRepository checks = mock(MediaCheckRepository.class);
         when(checks.urlsByAccount(ACC, ContentPurpose.AVATAR)).thenReturn(List.of());
         ConsentRepository consents = mock(ConsentRepository.class);
@@ -177,7 +193,7 @@ class AccountErasureStepsTest {
         when(jobs.findByMember(ACC)).thenReturn(List.of());
 
         AccountDeactivationAppService svc = new AccountDeactivationAppService(repo, List.of(
-                new AgentAccountErasureStep(mock(AgentMessageRepository.class), sessions, mock(AgentTraceRepository.class)),
+                new AgentAccountErasureStep(mock(AgentMessageRepository.class), sessions, mock(AgentTraceRepository.class), families),
                 new VisionAccountErasureStep(jobs, mock(ImageStore.class)),
                 new PreferenceAccountErasureStep(mock(UserPreferenceRepository.class)),
                 new ExportLinkErasureStep(mock(ExportGuard.class)),

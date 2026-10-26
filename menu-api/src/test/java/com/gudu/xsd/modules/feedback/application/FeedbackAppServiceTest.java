@@ -179,6 +179,24 @@ class FeedbackAppServiceTest {
     }
 
     @Test
+    void 回复已注销提交人的反馈_只保存不发通知_后台显示提交人已注销() {
+        Feedback f = stored(3L, FeedbackRepository.ANONYMOUS_ACCOUNT);
+        when(repo.findById(3L)).thenReturn(Optional.of(f));
+
+        svc.reply(1L, 3L, "已修复", false);
+
+        assertThat(f.reply()).isEqualTo("已修复");
+        verify(repo).save(f);
+        verify(notifications, never()).send(any(), any());
+
+        when(repo.page(eq(null), eq(null), anyInt(), anyInt()))
+                .thenReturn(new FeedbackPage(List.of(f, stored(4L, 7L)), 2, 1, 10));
+        when(accountQuery.nicknames(any())).thenReturn(java.util.Map.of(7L, "阿美"));
+        IPage<FeedbackView> p = svc.page(null, null, 1, 10);
+        assertThat(p.getRecords()).extracting(FeedbackView::memberName).containsExactly("提交人已注销", "阿美");
+    }
+
+    @Test
     void 回复_空内容拒绝_不发消息() {
         when(repo.findById(3L)).thenReturn(Optional.of(stored(3L, 7L)));
         assertThatThrownBy(() -> svc.reply(1L, 3L, " ", false)).isInstanceOf(DomainException.class);
