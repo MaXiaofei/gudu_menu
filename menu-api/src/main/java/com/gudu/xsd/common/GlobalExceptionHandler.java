@@ -35,6 +35,13 @@ public class GlobalExceptionHandler {
         return new R<>(e.getCode(), e.getMessage(), null);
     }
 
+    /** 缺少敏感信息单独同意（B.2）：code=428，data = {reason: CONSENT_REQUIRED, docTypes: [...]}，前端据此弹同意窗后重试。 */
+    @ExceptionHandler(ConsentRequiredException.class)
+    public R<?> consentRequired(ConsentRequiredException e) {
+        return new R<>(e.getCode(), e.getMessage(),
+                java.util.Map.of("reason", ConsentRequiredException.REASON, "docTypes", e.docTypes()));
+    }
+
     /** 家庭访问被拒（multi-tenant-family）：code=403，data.reason=FAMILY_ACCESS_DENIED，前端据此回到家庭选择。 */
     @ExceptionHandler(com.gudu.xsd.common.tenant.TenantAccessDeniedException.class)
     public R<?> familyDenied(com.gudu.xsd.common.tenant.TenantAccessDeniedException e) {

@@ -10,6 +10,7 @@ import com.gudu.xsd.common.tenant.TenantContext;
 import com.gudu.xsd.common.tenant.TenantContextHolder;
 import com.gudu.xsd.modules.family.application.FamilyAppService;
 import com.gudu.xsd.modules.family.application.FamilyQueryApi;
+import com.gudu.xsd.modules.privacy.application.ConsentAppService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class MemberController {
     private final AdminChecker adminChecker;
     private final FamilyAppService familyApp;
     private final FamilyQueryApi familyQuery;
+    private final ConsentAppService consentApp;
 
     /** 本家成员档案（分页）。 */
     @GetMapping
@@ -91,16 +93,17 @@ public class MemberController {
         long caller = StpUtil.getLoginIdAsLong();
         boolean admin = adminChecker.isAdmin(caller);
         if (!admin && !canManage()) throw BizException.forbidden("只有主理人或管理员可以添加成员");
+        assertSensitiveConsent(caller, req);
         if (admin && notBlank(req.getPhone()) && notBlank(req.getPassword())) {
             Long familyId = TenantContextHolder.requireFamilyId();
             Long accountId = familyApp.registerPhoneAccount(req.getPhone(), req.getPassword(), req.getName(), familyId);
             Long profileId = familyQuery.profileIdOf(familyId, accountId).orElseThrow();
-            Member m = toEntity(req, true);
+            Member m = toEntity(req, true, caller);
             m.setId(profileId);
             svc.updateById(m);
             return R.ok(profileId);
         }
-        Member m = toEntity(req, true);
+        Member m = toEntity(req, true, caller);
         m.setId(null);
         svc.save(m);
         return R.ok(m.getId());
@@ -113,7 +116,9 @@ public class MemberController {
         Member target = inFamily(req.getId());
         boolean manager = canManage();
         if (!manager && !isMine(target)) throw BizException.forbidden("只能编辑本人档案");
-        svc.updateById(toEntity(req, manager));
+        Long caller = loginIdOrNull();
+        assertSensitiveConsent(caller, req);
+        svc.updateById(toEntity(req, manager, caller));
         return R.ok(null);
     }
 
@@ -175,6 +180,14 @@ public class MemberController {
         }
     }
 
+    /**
+     * B.2 单独同意：本次写入含健康档案 → 操作账号须已同意 sensitive_health；含不满 14 周岁儿童信息 → 另须 child_info。
+     * 缺少则 428（前端弹窗同意后重试），不保存任何字段。
+     */
+    private void assertSensitiveConsent(Long caller, MemberSaveRequest req) {
+        consentApp.assertAllowed(caller, req.getHealthProfile(), req.getGoal(), req.getActivityLevel());
+    }
+
     private static boolean notBlank(String s) {
         return s != null && !s.isBlank();
     }
@@ -183,13 +196,16 @@ public class MemberController {
      * 入参 → 实体：只拷白名单档案字段；角色标签 / 档案级功能勾选仅 OWNER/ADMIN（manager）可写。
      * 账号字段（phone/password/isAdmin）一律不写入 member（V75 起凭证在 account 表）。
      */
-    private Member toEntity(MemberSaveRequest req, boolean manager) {
+    private Member toEntity(MemberSaveRequest req, boolean manager, Long caller) {
         Member m = new Member();
         m.setId(req.getId());
         m.setName(req.getName());
         m.setHealthProfile(req.getHealthProfile());
         m.setGoal(req.getGoal());
         m.setActivityLevel(req.getActivityLevel());
+        if (caller != null && ConsentAppService.containsSensitive(req.getHealthProfile(), req.getGoal(), req.getActivityLevel())) {
+            m.setHealthConsentAccountId(caller); // 记录提供人：其撤回同意时删除（B.2）
+        }
         if (manager) {
             m.setRoleTags(req.getRoleTags());
             m.setMpPermissions(req.getMpPermissions());

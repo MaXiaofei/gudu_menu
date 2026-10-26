@@ -135,4 +135,14 @@ public class MybatisAgentTraceRepository implements AgentTraceRepository {
     private static String clip(String s) {
         return s == null || s.length() <= 8000 ? s : s.substring(0, 8000);
     }
+
+    @Override
+    public int purgeBefore(LocalDateTime cutoff, int limit) {
+        List<String> ids = traceMapper.selectList(new QueryWrapper<AgentTracePO>().select("id")
+                        .lt("created_at", cutoff).orderByAsc("created_at").last("LIMIT " + Math.max(1, limit)))
+                .stream().map(AgentTracePO::getId).toList();
+        if (ids.isEmpty()) return 0;
+        spanMapper.delete(new QueryWrapper<AgentSpanPO>().in("trace_id", ids));
+        return traceMapper.deleteByIds(ids);
+    }
 }

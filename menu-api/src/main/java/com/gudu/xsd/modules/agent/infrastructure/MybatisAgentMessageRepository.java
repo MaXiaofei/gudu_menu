@@ -101,4 +101,23 @@ public class MybatisAgentMessageRepository implements AgentMessageRepository {
                 json.list(p.getActionsJson(), PendingAction.class), p.getTraceId(), p.getReasoning(), p.getRating(),
                 p.getCreatedAt());
     }
+
+    @Override
+    public int deleteCreatedBefore(LocalDateTime cutoff, int limit) {
+        return mapper.delete(new QueryWrapper<AgentMessagePO>().lt("created_at", cutoff).last("LIMIT " + Math.max(1, limit)));
+    }
+
+    @Override
+    public int deleteBySessions(java.util.Collection<String> sessionIds) {
+        if (sessionIds == null || sessionIds.isEmpty()) return 0;
+        return mapper.delete(new QueryWrapper<AgentMessagePO>().in("session_id", sessionIds));
+    }
+
+    @Override
+    public List<AgentMessage> allBySessions(java.util.Collection<String> sessionIds) {
+        if (sessionIds == null || sessionIds.isEmpty()) return List.of();
+        return mapper.selectList(new QueryWrapper<AgentMessagePO>().in("session_id", sessionIds)
+                        .orderByAsc("created_at").orderByAsc("id"))
+                .stream().map(this::toDomain).toList();
+    }
 }

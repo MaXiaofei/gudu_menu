@@ -56,4 +56,23 @@ public class MybatisAgentSessionRepository implements AgentSessionRepository {
         return AgentSession.restore(p.getId(), p.getMemberId(), p.getTitle(), p.getLastMessage(), p.getCoverUrl(),
                 p.getCreatedAt(), p.getUpdatedAt());
     }
+
+    @Override
+    public List<String> idsUpdatedBefore(LocalDateTime cutoff, int limit) {
+        return mapper.selectIdsUpdatedBefore(cutoff, Math.max(1, limit));
+    }
+
+    @Override
+    public int hardDelete(java.util.Collection<String> ids) {
+        if (ids == null || ids.isEmpty()) return 0;
+        return mapper.hardDeleteByIds(ids);
+    }
+
+    @Override
+    public List<AgentSession> listByMembers(java.util.Collection<Long> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) return List.of();
+        return mapper.selectList(new QueryWrapper<AgentSessionPO>().in("member_id", memberIds)
+                        .orderByDesc("updated_at").orderByDesc("id"))
+                .stream().map(MybatisAgentSessionRepository::toDomain).toList();
+    }
 }

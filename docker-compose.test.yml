@@ -54,6 +54,9 @@ services:
       # 测试环境保持放开：接口文档开、上传签名不校验（项目决策）
       GUDU_API_DOCS_ENABLED: "true"
       GUDU_UPLOAD_SIGN_ENABLED: "false"
+      # 字段级加密（B.3）：测试环境固定测试密钥
+      GUDU_FIELD_CRYPTO_KEYS: "1:Z3VkdS1kZXYtdGVzdC1maWVsZC1rZXktMDEyMzQ1NiE="
+      GUDU_FIELD_CRYPTO_HMAC_KEY: "gudu-dev-test-phone-hmac-0123456"
       # 测试环境上传目录隔离：覆写 gudu.upload-dir 为 /app/uploads/test
       SPRING_APPLICATION_JSON: '{"gudu":{"upload-dir":"/app/uploads/test"}}'
     volumes:

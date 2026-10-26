@@ -149,6 +149,12 @@
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 内存库（MySQL 模式）：字段加密存量迁移等 JDBC 逻辑的单测，不连真实数据库 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- 架构守护：DDD 分层依赖 + 阿里 Java 开发规约（ArchUnit，纯字节码分析不依赖 Spring 上下文/DB） -->
         <dependency>
             <groupId>com.tngtech.archunit</groupId>

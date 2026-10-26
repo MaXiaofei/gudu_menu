@@ -15,4 +15,13 @@ public interface AgentSessionRepository {
 
     /** 按 updatedAt 倒序；游标为上一页最后一条的 (updatedAt, id)。 */
     List<AgentSession> listByMember(Long memberId, LocalDateTime beforeUpdatedAt, String beforeId, int size);
+
+    /** 保存期限清理（C.1）：updatedAt 早于 cutoff 的会话 id（含已软删除），最多 limit 个。 */
+    List<String> idsUpdatedBefore(LocalDateTime cutoff, int limit);
+
+    /** 物理删除会话（绕过逻辑删除）。 */
+    int hardDelete(java.util.Collection<String> ids);
+
+    /** 这些档案的全部未删除会话（导出我的数据，按更新时间倒序）。 */
+    List<AgentSession> listByMembers(java.util.Collection<Long> memberIds);
 }

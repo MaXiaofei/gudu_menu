@@ -24,6 +24,11 @@ spring:
 gudu:
   # 本地/测试环境：未知异常回显根因便于排查
   expose-error-detail: ${GUDU_EXPOSE_ERROR_DETAIL:true}
+  # 字段加密固定测试密钥（B.3，dev / test / staging 共用 gudu 库，三者必须一致；生产另配，见 application.yml）
+  # e2e-seed.sql 里的手机号 HMAC 常量由下面的 hmac-key 推导，改密钥须同步（FieldCryptoSeedConsistencyTest 校验）
+  field-crypto:
+    keys: ${GUDU_FIELD_CRYPTO_KEYS:1:Z3VkdS1kZXYtdGVzdC1maWVsZC1rZXktMDEyMzQ1NiE=}
+    hmac-key: ${GUDU_FIELD_CRYPTO_HMAC_KEY:gudu-dev-test-phone-hmac-0123456}
   ai:
     provider: ${GUDU_AI_PROVIDER:deepseek}
     deepseek:

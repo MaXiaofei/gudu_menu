@@ -28,6 +28,15 @@ public class Dish {
     @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
     private Long sourceDishId;
 
+    /**
+     * 创建人账号 account.id（V89，「导出我的数据」按此归属本人创建的菜谱）。新增时由 AuditFieldFillHandler 从登录态自动填充，
+     * 之后不可改；V89 之前的存量菜谱为 null。不对外输出。
+     */
+    @TableField(fill = com.baomidou.mybatisplus.annotation.FieldFill.INSERT,
+            updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Long createdBy;
+
     private String name;
 
     private String note;

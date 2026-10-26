@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 家庭成员。healthProfile 存 JSON（身高/体重/忌口/特殊人群/营养约束等），用 JacksonTypeHandler 映射成 Map。
+ * 家庭成员。healthProfile 存 JSON（身高/体重/忌口/特殊人群/营养约束等），AES-GCM 加密落库（B.3，EncryptedJsonMapTypeHandler）。
  */
 @Data
 @TableName(value = "member", autoResultMap = true)
@@ -51,6 +51,7 @@ public class Member {
      * 不对外输出（审计：曾经 GET /member 泄露全部用户手机号）。
      */
     @JsonIgnore
+    @TableField(typeHandler = com.gudu.xsd.common.crypto.EncryptedStringTypeHandler.class)
     private String phone;
 
     /** 【旧列】微信 openid。V75+ 起迁到 account.wx_openid；禁止外泄。 */
@@ -75,9 +76,16 @@ public class Member {
     /** 角色标签，逗号分隔（关联 sys_dict role）。 */
     private String roleTags;
 
-    /** 健康档案 JSON，灵活存三高指标/忌口/特殊人群/营养约束。 */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    /** 健康档案 JSON，灵活存三高指标/忌口/特殊人群/营养约束。敏感个人信息：加密存储，保存前须有单独同意（B.2）。 */
+    @TableField(typeHandler = com.gudu.xsd.common.crypto.EncryptedJsonMapTypeHandler.class)
     private Map<String, Object> healthProfile;
+
+    /**
+     * 提供（并单独同意）本档案健康信息的账号（V88，B.2）：撤回同意时据此删除其提供的健康档案。
+     * 服务端按登录账号写入，客户端不可写、不输出。
+     */
+    @JsonIgnore
+    private Long healthConsentAccountId;
 
     /** 体控目标：MAINTAIN(维持) / LOSE(减脂) / GAIN(增肌)。null 为未设定。 */
     private String goal;
