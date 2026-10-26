@@ -82,6 +82,11 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD required}
       GUDU_CORS_ALLOWED_ORIGINS: https://imxf.cloud
       GUDU_EXPOSE_ERROR_DETAIL: "false"
+      # 生产关闭接口文档（A.2），写死不从 .env 读
+      GUDU_API_DOCS_ENABLED: "false"
+      # 上传文件短时签名（A.3）：生产强制校验；密钥必填（openssl rand -hex 32），更换密钥会让已下发的图片地址立即失效
+      GUDU_UPLOAD_SIGN_ENABLED: "true"
+      GUDU_UPLOAD_SIGN_SECRET: ${GUDU_UPLOAD_SIGN_SECRET:?GUDU_UPLOAD_SIGN_SECRET required}
     volumes:
       - uploads:/app/uploads
       - ./logs:/app/logs

@@ -92,6 +92,10 @@ services:
       PGVECTOR_HOST: gudu-pgvector
       PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-gudu_vec_2026}
       OLLAMA_BASE_URL: http://gudu-ollama:11434
+      # 测试环境保持放开：接口文档开；上传签名默认不校验（.env 设 STAGING_UPLOAD_SIGN_ENABLED=true + 密钥可在预发演练 A.3）
+      GUDU_API_DOCS_ENABLED: "true"
+      GUDU_UPLOAD_SIGN_ENABLED: ${STAGING_UPLOAD_SIGN_ENABLED:-false}
+      GUDU_UPLOAD_SIGN_SECRET: ${STAGING_UPLOAD_SIGN_SECRET:-}
       # 上传目录覆写：与生产 /app/uploads/prod 隔离
       SPRING_APPLICATION_JSON: '{"gudu":{"upload-dir":"/app/uploads/staging"}}'
     volumes:

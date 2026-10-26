@@ -6,12 +6,17 @@
 
 ## Phase A：可独立先做（不依赖多家庭）
 - [ ] A.1 小程序关闭社区：`FEATURE_COMMUNITY` 开关，隐藏入口，`pkg-community` 不打包；后端识别 `X-Client: mp-weixin` 拒绝社区写接口
-- [ ] A.2 prod 关闭 Swagger/knife4j（`application-prod.yml`），放行名单随 profile
-- [ ] A.3 上传：UUID 文件名、去 EXIF；`/uploads/**` 改登录可读 + 公共/分享图例外
+- [x] A.2 prod 关闭 Swagger/knife4j（`application-prod.yml`），放行名单随 profile
+  - `springdoc.api-docs/swagger-ui.enabled` 随 `GUDU_API_DOCS_ENABLED`（prod 默认 false；staging/test compose 设 true）；关闭时 SaTokenConfig 不放行文档路径（未登录 401、已登录 404）；knife4j 早已弃用，删掉残留配置
+- [x] A.3 上传：UUID 文件名、去 EXIF；`/uploads/**` 改**短时签名 URL**（小程序 `<image>`、微信拉图带不了登录头）
+  - 格式 `?e=过期秒&s=base64url(HMAC-SHA256(secret, 规范路径+"\n"+e))[:16B]`，规范路径把 thumbnail/ 归一为 original/（缩略图共用签名）；默认 24h、过期取整到整点（同小时 URL 稳定可缓存）
+  - 出参签名、入参验签剥签名集中在 HTTP Jackson 转换器（`UploadUrlJacksonModule`，不影响入库/Redis 的 ObjectMapper）；入参未签名地址拒绝（防拿猜到的旧时间戳文件名「引用」他人图片）；微信 media_url 同样签名
+  - 公开内容不另设免签目录：公共菜谱图在 nginx `/images/`（本就不经 /uploads）；用户/后台上传图都经接口下发、统一签名；存量时间戳文件同样须签名
+  - 上线：`.env` 配 `GUDU_UPLOAD_SIGN_SECRET`（prod compose 必填）；dev/test/staging 默认不校验
 - [x] A.4 AI 标识组件（mini `ui-ai-badge` / Flutter `AiBadge`）接入 Agent 对话、拍照识别结果、营养报告、智荐、周餐程；营养/特殊人群页加免责提示；Agent 首屏 AI 身份说明；AI 内容反馈入口
 - [x] A.5 发给模型的家庭信息最小化：成员称呼假名化，仅传特殊人群标签 + 过敏原；单测断言 prompt 不含真实称呼/手机号/openid
 - [x] A.6 `ContentSecurity` 端口 + 微信实现（msgSecCheck v2 / mediaCheckAsync + 回调）+ 规则兜底；接入 AI 输入输出、昵称、头像、上传图片、反馈
-  - 上线前手动：公众平台「消息推送」URL `https://imxf.cloud/gudu/wx/push`、Token=WX_TOKEN、明文模式 + JSON；`/uploads` 需对微信服务器可拉取（A.3 收紧时保留例外或改签名 URL）
+  - 上线前手动：公众平台「消息推送」URL `https://imxf.cloud/gudu/wx/push`、Token=WX_TOKEN、明文模式 + JSON；`/uploads` 需对微信服务器可拉取（A.3 已改短时签名 URL，提交微信的 media_url 自带签名）
 - [ ] A.7 首次登录完善资料：昵称仍为「微信用户」的账号登录后弹一次头像昵称设置（`chooseAvatar` + `type="nickname"`，可跳过、跳过后不再弹）；保存前过 A.6 内容安全；Flutter 端不涉及
 
 - [ ] A.8 个性化推荐开关（个人信息保护法第 24 条）：「我的 → 设置」可关闭，关闭后智荐只给不基于成员档案与饮食记录的通用推荐；mini + 后端偏好字段（Flutter 随 App 上线再做）

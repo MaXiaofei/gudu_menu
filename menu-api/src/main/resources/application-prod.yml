@@ -12,8 +12,18 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD:}   # 与 compose 中 gudu-redis --requirepass 同源（.env REDIS_PASSWORD）
 
+# 生产关闭接口文档（A.2）；staging/test 也用 prod profile，由 compose 设 GUDU_API_DOCS_ENABLED=true 打开
+springdoc:
+  api-docs:
+    enabled: ${GUDU_API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${GUDU_API_DOCS_ENABLED:false}
+
 gudu:
   upload-dir: /app/uploads/prod
+  # 上传文件签名校验（A.3）：生产必须开，密钥 GUDU_UPLOAD_SIGN_SECRET 必填（缺失启动失败）
+  upload-sign:
+    enabled: ${GUDU_UPLOAD_SIGN_ENABLED:true}
   # 生产开启微信内容安全（A.6）；隔离目录默认 /app/uploads/prod-quarantine（同卷、不对外服务）
   content-security:
     wx-enabled: ${GUDU_CONTENT_SECURITY_WX:true}

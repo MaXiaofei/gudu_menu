@@ -51,6 +51,9 @@ services:
       GLM_API_KEY: ${GLM_API_KEY:-}
       GUDU_AI_PROVIDER: ${GUDU_AI_PROVIDER:-deepseek}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # 测试环境保持放开：接口文档开、上传签名不校验（项目决策）
+      GUDU_API_DOCS_ENABLED: "true"
+      GUDU_UPLOAD_SIGN_ENABLED: "false"
       # 测试环境上传目录隔离：覆写 gudu.upload-dir 为 /app/uploads/test
       SPRING_APPLICATION_JSON: '{"gudu":{"upload-dir":"/app/uploads/test"}}'
     volumes:

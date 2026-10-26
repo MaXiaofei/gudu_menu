@@ -4,13 +4,16 @@ import cn.dev33.satoken.exception.NotLoginException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理。
@@ -50,11 +53,22 @@ public class GlobalExceptionHandler {
         return R.fail(fe != null && fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "参数不合法");
     }
 
+    /** 路径不存在（含生产关闭的接口文档 /v3/api-docs、/swagger-ui）：HTTP 404，不当作服务端异常记 ERROR。 */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public R<?> notFound(NoResourceFoundException e) {
+        return new R<>(404, "接口不存在", null);
+    }
+
     @ExceptionHandler({HttpMessageNotReadableException.class,
             MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class})
     public R<?> badRequest(Exception e) {
         log.info("请求参数错误：{}", e.getMessage());
+        // 请求体里的上传地址签名缺失/失效（A.3，由 UploadUrlJacksonModule 反序列化时抛出、Jackson 包了一层）
+        for (Throwable t = e; t != null && t.getCause() != t; t = t.getCause()) {
+            if (t instanceof com.gudu.xsd.common.upload.UploadUrlRejectedException) return R.fail(t.getMessage());
+        }
         return R.fail("参数不合法");
     }
 

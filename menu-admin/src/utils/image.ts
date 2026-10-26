@@ -1,5 +1,6 @@
 // 图片 URL 规则（与 Flutter core/image_helper.dart、小程序 utils/image.ts 一致）：
 // 后端返回绝对地址或 /gudu 前缀的相对地址，原样使用；缩略图把路径里的 /original/ 换成 /thumbnail/。
+// 上传图片地址带短时签名 ?e=&s=（A.3，后端统一签发、对缩略图通用），必须原样保留查询串。
 
 /** 取缩略图地址；空值返回空串（组件据此回退首字占位）。 */
 export function thumbOf(url: string | null | undefined): string {

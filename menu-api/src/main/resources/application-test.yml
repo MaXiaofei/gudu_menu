@@ -38,6 +38,10 @@ gudu:
   # 本地/测试环境：未知异常回显根因便于排查
   expose-error-detail: ${GUDU_EXPOSE_ERROR_DETAIL:true}
   upload-dir: /tmp/gudu-test-uploads
+  # E2E 开启上传签名校验（固定测试密钥），覆盖签名 URL 链路
+  upload-sign:
+    enabled: ${GUDU_UPLOAD_SIGN_ENABLED:true}
+    secret: ${GUDU_UPLOAD_SIGN_SECRET:e2e-upload-sign-secret-0123456789}
   ai:
     provider: mock
 

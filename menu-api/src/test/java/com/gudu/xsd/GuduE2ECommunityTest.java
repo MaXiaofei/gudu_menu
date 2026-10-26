@@ -46,6 +46,14 @@ class GuduE2ECommunityTest {
     private static final long TOPIC_CHALLENGE = 1L; // V71 种子：#一周不重样
     private static final String IMG = "/gudu/uploads/e2e/community-a.jpg";
 
+    /** 上传地址签名（A.3）：test profile 开启校验，请求体里的本站图片须是服务端签发的地址。 */
+    @Autowired
+    private com.gudu.xsd.common.upload.UploadUrlSigner uploadSigner;
+
+    private String img() {
+        return uploadSigner.sign(IMG);
+    }
+
     // ===================== HTTP helper（同 GuduE2EFlowTest 范式） =====================
 
     private String login(String username, String password) {
@@ -98,7 +106,7 @@ class GuduE2ECommunityTest {
         Map<String, Object> body = new HashMap<>();
         body.put("title", title);
         body.put("text", "E2E 正文：火候是关键");
-        body.put("imageUrls", List.of(IMG));
+        body.put("imageUrls", List.of(img()));
         body.put("dishId", DISH_FANQIE);
         body.put("topicIds", List.of(TOPIC_CHALLENGE));
         body.put("coverRatio", 0.75);
@@ -228,7 +236,7 @@ class GuduE2ECommunityTest {
         assertThat(item.get("authorHistory").get("posts").asLong()).isPositive();
 
         // 站外图片被拦截：管理员详情能看到 blockedImages
-        long ext = publish(bob, "E2E带外链图", Map.of("imageUrls", List.of(IMG, "https://evil.example.com/x.png")));
+        long ext = publish(bob, "E2E带外链图", Map.of("imageUrls", List.of(img(), "https://evil.example.com/x.png")));
         JsonNode extDetail = ok(get(admin, "/admin/community/posts/" + ext), "管理员详情");
         assertThat(extDetail.get("blockedImages").get(0).asText()).isEqualTo("https://evil.example.com/x.png");
         assertThat(extDetail.get("images").size()).isEqualTo(1);
@@ -275,7 +283,7 @@ class GuduE2ECommunityTest {
                 Map.of("action", "BAN_7D", "reason", "多次违规")), "封禁");
         Map<String, Object> body = new HashMap<>();
         body.put("title", "E2E封禁后发帖");
-        body.put("imageUrls", List.of(IMG));
+        body.put("imageUrls", List.of(img()));
         assertThat(post(bob, "/community/posts", body).get("code").asInt()).as("封禁期不能发帖").isNotEqualTo(0);
         assertThat(ok(get(admin, "/admin/community/posts/" + normal), "详情").get("authorHistory").get("bans").asLong())
                 .isEqualTo(1);

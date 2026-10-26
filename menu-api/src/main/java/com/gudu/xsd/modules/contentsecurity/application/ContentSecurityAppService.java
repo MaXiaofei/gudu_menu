@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.domain.DomainEventPublisher;
 import com.gudu.xsd.common.domain.UploadedImageUrl;
+import com.gudu.xsd.common.upload.UploadUrlSigner;
 import com.gudu.xsd.config.WxProperties;
 import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import com.gudu.xsd.modules.contentsecurity.domain.model.MediaCheck;
@@ -67,13 +68,15 @@ public class ContentSecurityAppService {
     private final Clock clock;
     private final boolean wxEnabled;
     private final String mediaBaseUrl;
+    private final UploadUrlSigner uploadSigner;
 
     public ContentSecurityAppService(ContentSecurity wechat, OpenidResolver openids, MediaCheckRepository mediaChecks,
                                      UploadQuarantine quarantine, DomainEventPublisher events,
                                      @Qualifier("contentSecurityExecutor") Executor executor, WxProperties wxProps,
                                      Clock clock,
                                      @Value("${gudu.content-security.wx-enabled:false}") boolean wxEnabled,
-                                     @Value("${gudu.content-security.media-base-url:}") String mediaBaseUrl) {
+                                     @Value("${gudu.content-security.media-base-url:}") String mediaBaseUrl,
+                                     UploadUrlSigner uploadSigner) {
         this.wechat = wechat;
         this.openids = openids;
         this.mediaChecks = mediaChecks;
@@ -84,6 +87,7 @@ public class ContentSecurityAppService {
         this.clock = clock;
         this.wxEnabled = wxEnabled;
         this.mediaBaseUrl = mediaBaseUrl == null ? "" : mediaBaseUrl.trim().replaceAll("/+$", "");
+        this.uploadSigner = uploadSigner;
     }
 
     // ================================================================ 文本
@@ -158,8 +162,9 @@ public class ContentSecurityAppService {
             check = MediaCheck.submitFailed(uploadedUrl, accountId, purpose, now);
         } else {
             try {
-                String traceId = wechat.submitMedia(new MediaCheckRequest(mediaBaseUrl + uploadedUrl, purpose.scene(),
-                        openid.get()));
+                // 微信服务器拉图无法带登录头：media_url 带短时签名（A.3）；留痕与回调匹配仍用不带签名的规范地址
+                String traceId = wechat.submitMedia(new MediaCheckRequest(mediaBaseUrl + uploadSigner.sign(uploadedUrl),
+                        purpose.scene(), openid.get()));
                 check = MediaCheck.submitted(traceId, uploadedUrl, accountId, purpose, now);
             } catch (ContentSecurityUnavailableException e) {
                 log.warn("提交微信图片检测不可用 url={}: {}", uploadedUrl, e.getMessage());

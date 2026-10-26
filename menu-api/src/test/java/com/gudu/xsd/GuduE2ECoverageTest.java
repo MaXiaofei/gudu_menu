@@ -54,7 +54,18 @@ class GuduE2ECoverageTest {
     @Autowired
     private com.gudu.xsd.config.WxProperties wxProps;
 
+    @Autowired
+    private com.gudu.xsd.common.upload.UploadUrlSigner uploadSigner;
+
+    @org.springframework.beans.factory.annotation.Value("${gudu.upload-dir}")
+    private String uploadDir;
+
     private final ObjectMapper om = new ObjectMapper();
+
+    /** 去掉上传地址签名（A.3），用于比较入库的规范地址。 */
+    private static String unsigned(String url) {
+        return com.gudu.xsd.common.upload.UploadUrlSigner.strip(url);
+    }
 
     private static final long DISH_FANQIE = 1L;   // 番茄炒蛋（种子）
     private static final long ING_TOMATO = 1L;    // 番茄（种子）
@@ -802,6 +813,67 @@ class GuduE2ECoverageTest {
         assertThat(data.has("thumbnailUrl")).isTrue();
     }
 
+    // ===================== Q2. 上传文件访问控制（A.3：UUID 文件名 + 短时签名 URL） =====================
+
+    @Test
+    void Q2_上传文件_UUID文件名_签名可读_未签名或篡改403_入参未签名拒绝() {
+        String token = loginAdmin();
+        byte[] png = java.util.Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", new ByteArrayResource(png) {
+            @Override
+            public String getFilename() { return "e2e-sign.png"; }
+        });
+        JsonNode up = post(token, "/file/upload", form);
+        assertThat(up.get("code").asInt()).as("上传 msg=" + text(up, "msg")).isZero();
+        String url = up.get("data").get("url").asText();
+        String thumb = up.get("data").get("thumbnailUrl").asText();
+        // 随机 UUID 文件名（不可按时间枚举）+ 短时签名
+        assertThat(url).matches("^/gudu/uploads/original/\\d{8}/[0-9a-f]{32}\\.png\\?e=\\d+&s=[A-Za-z0-9_\\-]+$");
+
+        String served = url.replaceFirst("^/gudu", "");
+        String servedThumb = thumb.replaceFirst("^/gudu", "");
+        assertThat(http.getForEntity(CTX + served, byte[].class).getStatusCode().value()).as("带签名可读").isEqualTo(200);
+        assertThat(http.getForEntity(CTX + servedThumb, byte[].class).getStatusCode().value()).isEqualTo(200);
+        // 前端把 /original/ 换成 /thumbnail/ 取缩略图：签名同样有效
+        assertThat(http.getForEntity(CTX + served.replace("/original/", "/thumbnail/"), byte[].class)
+                .getStatusCode().value()).isEqualTo(200);
+        assertThat(http.getForEntity(CTX + unsigned(served), byte[].class).getStatusCode().value())
+                .as("未签名 403").isEqualTo(403);
+        assertThat(http.getForEntity(CTX + served.replaceFirst("s=", "s=x"), byte[].class).getStatusCode().value())
+                .as("篡改签名 403").isEqualTo(403);
+        assertThat(http.getForEntity(CTX + served.replaceFirst("e=\\d+", "e=4102444800"), byte[].class)
+                .getStatusCode().value()).as("篡改过期时间 403").isEqualTo(403);
+
+        // 存量时间戳文件：同样需要签名
+        java.nio.file.Path legacyDir = java.nio.file.Paths.get(uploadDir, "original", "20260101");
+        try {
+            java.nio.file.Files.createDirectories(legacyDir);
+            java.nio.file.Files.write(legacyDir.resolve("1767225600123.png"), png);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        String legacy = "/uploads/original/20260101/1767225600123.png";
+        assertThat(http.getForEntity(CTX + legacy, byte[].class).getStatusCode().value()).isEqualTo(403);
+        assertThat(http.getForEntity(CTX + uploadSigner.sign(legacy), byte[].class).getStatusCode().value())
+                .isEqualTo(200);
+
+        // 入参：服务端签发的地址可保存（入库为规范地址）；猜出来的未签名地址拒绝
+        String oldAvatar = text(get(token, "/member/me").get("data"), "avatarUrl");
+        try {
+            assertThat(put(token, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).isZero();
+            String back = text(get(token, "/member/me").get("data"), "avatarUrl");
+            assertThat(back).contains("?e=");
+            assertThat(unsigned(back)).isEqualTo(unsigned(url));
+            JsonNode guessed = put(token, "/member/me", Map.of("avatarUrl", "/gudu" + legacy));
+            assertThat(guessed.get("code").asInt()).as("未签名地址应拒绝").isNotZero();
+            assertThat(text(guessed, "msg")).contains("图片地址已失效");
+        } finally {
+            put(token, "/member/me", Map.of("avatarUrl", oldAvatar));
+        }
+    }
+
     // ===================== P. 余量保质期（feature-gaps-closure G2/G6） =====================
 
     @Test
@@ -972,11 +1044,13 @@ class GuduE2ECoverageTest {
         assertThat(me.get("data").has("phone")).isTrue();
 
         try {
-            JsonNode up = put(token, "/member/me", Map.of("name", "掌勺改名测试", "avatarUrl", "/gudu/uploads/e2e/a.jpg"));
+            JsonNode up = put(token, "/member/me", Map.of("name", "掌勺改名测试",
+                    "avatarUrl", uploadSigner.sign("/gudu/uploads/e2e/a.jpg")));
             assertThat(up.get("code").asInt()).as("put me msg=" + text(up, "msg")).isEqualTo(0);
             JsonNode me2 = get(token, "/member/me").get("data");
             assertThat(me2.get("name").asText()).isEqualTo("掌勺改名测试");
-            assertThat(me2.get("avatarUrl").asText()).isEqualTo("/gudu/uploads/e2e/a.jpg");
+            assertThat(me2.get("avatarUrl").asText()).as("出参带签名").contains("?e=");
+            assertThat(unsigned(me2.get("avatarUrl").asText())).isEqualTo("/gudu/uploads/e2e/a.jpg");
 
             assertThat(put(token, "/member/me", Map.of("avatarUrl", "https://evil.com/a.jpg")).get("code").asInt())
                     .as("外链头像应拒绝").isNotEqualTo(0);
@@ -997,7 +1071,7 @@ class GuduE2ECoverageTest {
         assertThat(bad.get("code").asInt()).as("内容过短应拒绝").isNotEqualTo(0);
 
         JsonNode created = post(token, "/feedback", Map.of("content", "E2E反馈：希望增加菜谱导出",
-                "contact", "e2e@example.com", "images", List.of("/gudu/uploads/e2e/f.jpg"), "clientInfo", "e2e"));
+                "contact", "e2e@example.com", "images", List.of(uploadSigner.sign("/gudu/uploads/e2e/f.jpg")), "clientInfo", "e2e"));
         assertThat(created.get("code").asInt()).as("feedback msg=" + text(created, "msg")).isEqualTo(0);
         long id = created.get("data").asLong();
 
@@ -1008,7 +1082,7 @@ class GuduE2ECoverageTest {
             if (f.get("id").asLong() == id) mine = f;
         }
         assertThat(mine).as("NEW 列表应含刚提交的反馈").isNotNull();
-        assertThat(mine.get("images").get(0).asText()).isEqualTo("/gudu/uploads/e2e/f.jpg");
+        assertThat(unsigned(mine.get("images").get(0).asText())).isEqualTo("/gudu/uploads/e2e/f.jpg");
         assertThat(mine.get("memberName").isNull()).isFalse();
 
         assertThat(put(token, "/feedback/" + id + "/status", Map.of("status", "DONE")).get("code").asInt()).isEqualTo(0);
@@ -1168,12 +1242,12 @@ class GuduE2ECoverageTest {
         assertThat(http.getForEntity(CTX + servedPath, byte[].class).getStatusCode().value()).isEqualTo(200);
         String traceId = "E2E-" + java.util.UUID.randomUUID();
         jdbc.update("INSERT INTO content_media_check(trace_id, media_url, member_id, purpose, status) "
-                + "VALUES (?, ?, NULL, 'AVATAR', 'PENDING')", traceId, url);
+                + "VALUES (?, ?, NULL, 'AVATAR', 'PENDING')", traceId, unsigned(url));
 
         // 3b. 检测结果回来前：图已被用作头像、发进厨房圈（待回调的图片放行）
         String oldAvatar = text(get(token, "/member/me").get("data"), "avatarUrl");
         assertThat(put(token, "/member/me", Map.of("avatarUrl", url)).get("code").asInt()).isZero();
-        assertThat(text(get(token, "/member/me").get("data"), "avatarUrl")).isEqualTo(url);
+        assertThat(unsigned(text(get(token, "/member/me").get("data"), "avatarUrl"))).isEqualTo(unsigned(url));
         Map<String, Object> postBody = new HashMap<>();
         postBody.put("title", "E2E内容安全帖");
         postBody.put("text", "E2E 正文：今天的番茄炒蛋");
@@ -1225,7 +1299,7 @@ class GuduE2ECoverageTest {
         // 5. 再用违规图片当头像：451
         JsonNode avatar = put(token, "/member/me", Map.of("avatarUrl", url));
         assertThat(avatar.get("code").asInt()).as("头像违规 msg=" + text(avatar, "msg")).isEqualTo(451);
-        assertThat(text(get(token, "/member/me").get("data"), "avatarUrl")).isNotEqualTo(url);
+        assertThat(unsigned(text(get(token, "/member/me").get("data"), "avatarUrl"))).isNotEqualTo(unsigned(url));
         if (!oldAvatar.isEmpty()) put(token, "/member/me", Map.of("avatarUrl", oldAvatar));
 
         // 6. 咕嘟对话：输入命中禁发词 → 不跑工具、回内容安全提示；落库的是占位文本而非原话
