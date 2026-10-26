@@ -1019,6 +1019,82 @@ class GuduE2ECoverageTest {
         assertThat(done).isTrue();
     }
 
+    @Test
+    void U2_意见反馈闭环_类型来源_回复发站内消息_我的反馈可见() {
+        String token = loginAdmin();
+        assertThat(post(token, "/feedback", Map.of("content", "E2E反馈：类型非法", "type", "bug"))
+                .get("code").asInt()).as("非法类型应拒绝").isNotEqualTo(0);
+
+        JsonNode created = post(token, "/feedback", Map.of("content", "E2E反馈：AI 回答的做法不对",
+                "type", "ai", "sourceRef", "agent:E2E-m1", "clientInfo", "e2e"));
+        assertThat(created.get("code").asInt()).as("feedback msg=" + text(created, "msg")).isEqualTo(0);
+        long id = created.get("data").asLong();
+
+        // 超管按类型 + 状态筛选
+        JsonNode ai = get(token, "/feedback?type=ai&status=NEW&pageSize=50").get("data").get("records");
+        JsonNode row = null;
+        for (JsonNode f : ai) {
+            assertThat(f.get("type").asText()).isEqualTo("ai");
+            if (f.get("id").asLong() == id) row = f;
+        }
+        assertThat(row).as("ai+NEW 筛选应含刚提交的反馈").isNotNull();
+        assertThat(row.get("sourceRef").asText()).isEqualTo("agent:E2E-m1");
+        for (JsonNode f : get(token, "/feedback?type=complaint").get("data").get("records")) {
+            assertThat(f.get("id").asLong()).isNotEqualTo(id);
+        }
+
+        // 回复 → REPLIED + 提交人收到站内消息（ref 指向反馈）
+        assertThat(put(token, "/feedback/" + id + "/reply", Map.of("reply", " ")).get("code").asInt())
+                .as("空回复应拒绝").isNotEqualTo(0);
+        assertThat(put(token, "/feedback/" + id + "/reply", Map.of("reply", "E2E回复：已修正菜谱")).get("code").asInt())
+                .isEqualTo(0);
+        JsonNode detail = get(token, "/feedback/mine/" + id).get("data");
+        assertThat(detail.get("status").asText()).isEqualTo("REPLIED");
+        assertThat(detail.get("reply").asText()).isEqualTo("E2E回复：已修正菜谱");
+        assertThat(detail.get("repliedAt").isNull()).isFalse();
+        boolean listed = false;
+        for (JsonNode f : get(token, "/feedback/mine").get("data").get("records")) {
+            listed |= f.get("id").asLong() == id;
+        }
+        assertThat(listed).as("我的反馈列表应含该条").isTrue();
+        JsonNode notice = null;
+        for (JsonNode n : get(token, "/notification").get("data")) {
+            if ("feedback_reply".equals(text(n, "type")) && String.valueOf(id).equals(text(n, "refId"))) notice = n;
+        }
+        assertThat(notice).as("回复后应有 feedback_reply 站内消息").isNotNull();
+        assertThat(text(notice, "content")).contains("已修正菜谱");
+
+        // 回复并标记处理 → DONE
+        assertThat(put(token, "/feedback/" + id + "/reply", Map.of("reply", "E2E回复：补充说明", "markDone", true))
+                .get("code").asInt()).isEqualTo(0);
+        assertThat(get(token, "/feedback/mine/" + id).get("data").get("status").asText()).isEqualTo("DONE");
+    }
+
+    @Test
+    void U3_个性化推荐开关_默认开_关闭后智荐与首屏只给通用推荐() {
+        String token = loginAdmin();
+        assertThat(get(token, "/preference").get("data").get("personalizedRecommend").asBoolean())
+                .as("默认开启").isTrue();
+        try {
+            JsonNode off = put(token, "/preference", Map.of("personalizedRecommend", false));
+            assertThat(off.get("code").asInt()).isEqualTo(0);
+            assertThat(get(token, "/preference").get("data").get("personalizedRecommend").asBoolean()).isFalse();
+
+            JsonNode home = get(token, "/recommend/home").get("data");
+            assertThat(home.get("personalized").asBoolean()).isFalse();
+            assertThat(home.get("expiring")).isEmpty();
+            assertThat(home.get("expiringPicks")).isEmpty();
+            assertThat(home.get("frequent")).isEmpty();
+
+            JsonNode sug = get(token, "/agent/suggestions").get("data");
+            assertThat(sug.get("expiring")).isEmpty();
+            assertThat(text(sug, "greeting")).doesNotContain("，");
+        } finally {
+            put(token, "/preference", Map.of("personalizedRecommend", true));
+        }
+        assertThat(get(token, "/recommend/home").get("data").get("personalized").asBoolean()).isTrue();
+    }
+
     // ===================== V. 运营仪表盘（G12） =====================
 
     @Test

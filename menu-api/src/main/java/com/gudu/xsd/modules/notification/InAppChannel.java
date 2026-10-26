@@ -21,6 +21,7 @@ public class InAppChannel implements NotificationChannel {
         n.setChannel(channelKey());
         n.setTitle(p.title());
         n.setContent(p.content());
+        n.setRefId(p.refId());
         n.setIsRead(0);
         notificationMapper.insert(n);
     }

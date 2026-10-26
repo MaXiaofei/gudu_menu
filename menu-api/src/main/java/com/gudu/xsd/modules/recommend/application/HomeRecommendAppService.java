@@ -12,6 +12,7 @@ import com.gudu.xsd.modules.nutrition.IngredientService;
 import com.gudu.xsd.modules.pantry.application.StockAppService;
 import com.gudu.xsd.modules.pantry.application.dto.CoverageView;
 import com.gudu.xsd.modules.pantry.application.dto.ExpiringItemView;
+import com.gudu.xsd.modules.preference.application.UserPreferenceAppService;
 import com.gudu.xsd.modules.recommend.application.dto.DishCard;
 import com.gudu.xsd.modules.recommend.application.dto.HomeRecommendView;
 import com.gudu.xsd.modules.recommend.domain.model.DishScore;
@@ -46,6 +47,7 @@ public class HomeRecommendAppService {
     static final int PICKS_MAX = 3;
     static final int FREQUENT_MAX = 6;
     static final int SEASONAL_MAX = 6;
+    static final int POPULAR_MAX = 6;
     /** 候选池上限（防止热门食材牵出过多菜）。 */
     static final int POOL_CAP = 120;
 
@@ -55,10 +57,56 @@ public class HomeRecommendAppService {
     private final CookingRecordAppService cookingRecordAppService;
     private final IngredientService ingredientService;
     private final Clock clock;
+    private final UserPreferenceAppService preferences;
     private final RecommendRanker ranker = new RecommendRanker();
     private final SeasonalIngredientPolicy seasonalPolicy = new SeasonalIngredientPolicy();
 
+    /**
+     * 首页智荐。账号关闭个性化推荐（A.8，个人信息保护法第 24 条）时走 {@link #generic()}：
+     * 不读库存、做饭记录、成员档案，只给时令 + 大家常做。
+     *
+     * @param memberId 登录账号 id
+     */
     public HomeRecommendView home(Long memberId) {
+        if (!preferences.personalizedRecommendEnabled(memberId)) return generic();
+        return personalized(memberId);
+    }
+
+    /** 通用推荐：时令菜（完整菜谱优先）+ 大家常做（全站做菜次数聚合）；临期/你常做为空，不带覆盖率。 */
+    public HomeRecommendView generic() {
+        List<Long> seasonalPool = cap(dishService.dishIdsUsingIngredients(seasonalIngredientIds()));
+        List<Dish> popularDishes = dishService.hotDishes(POPULAR_MAX);
+        Map<Long, Dish> dishById = seasonalPool.isEmpty() ? Map.of() : dishService.listByIds(seasonalPool).stream()
+                .collect(Collectors.toMap(Dish::getId, Function.identity(), (a, b) -> a));
+        List<Long> visible = seasonalPool.stream().filter(dishById::containsKey).toList();
+        Set<Long> withSteps = visible.isEmpty() ? Set.of() : dishService.dishIdsWithSteps(visible);
+        Set<Long> complete = visible.stream()
+                .filter(id -> withSteps.contains(id) && hasCover(dishById.get(id)))
+                .collect(Collectors.toSet());
+        List<Long> seasonalIds = ranker.topByCoverage(scores(visible, dishById, Map.of(), Map.of(), complete, Map.of()),
+                Set.of(), SEASONAL_MAX);
+        Set<Long> seasonalSet = new HashSet<>(seasonalIds);
+        List<DishCard> popular = popularDishes.stream().filter(d -> d != null && !seasonalSet.contains(d.getId()))
+                .limit(POPULAR_MAX).map(HomeRecommendAppService::genericCard).toList();
+        return new HomeRecommendView(List.of(), List.of(), List.of(),
+                seasonalIds.stream().map(dishById::get).filter(Objects::nonNull)
+                        .map(HomeRecommendAppService::genericCard).toList(),
+                popular, false);
+    }
+
+    /** 通用推荐里取前 N 道（时令在前、大家常做在后），供咕嘟首屏「今晚推荐」用。 */
+    public List<DishCard> genericPicks(int limit) {
+        HomeRecommendView g = generic();
+        List<DishCard> out = new ArrayList<>(g.seasonal());
+        out.addAll(g.popular());
+        return out.stream().limit(Math.max(limit, 0)).toList();
+    }
+
+    private static DishCard genericCard(Dish d) {
+        return new DishCard(d.getId(), d.getName(), d.getCoverUrl(), cookMinutes(d), d.getDifficulty(), 0, null);
+    }
+
+    private HomeRecommendView personalized(Long memberId) {
         List<ExpiringItemView> expiringAll = stockAppService.expiring(EXPIRING_DAYS);
         List<ExpiringItemView> expiring = expiringAll.stream().limit(EXPIRING_MAX).toList();
 

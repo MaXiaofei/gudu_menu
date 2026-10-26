@@ -36,6 +36,9 @@ import com.gudu.xsd.modules.agent.domain.service.PhoneMasker;
 import com.gudu.xsd.modules.ai.gateway.application.ModelGateway;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ChatMessage;
 import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
+import com.gudu.xsd.modules.preference.application.UserPreferenceAppService;
+import com.gudu.xsd.modules.recommend.application.HomeRecommendAppService;
+import com.gudu.xsd.modules.recommend.application.dto.DishCard;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -76,13 +79,18 @@ public class AgentAppService {
     private final Clock clock;
     private final int dailyLimit;
     private final ContentSecurityAppService contentSecurity;
+    private final UserPreferenceAppService preferences;
+    private final HomeRecommendAppService homeRecommend;
 
     public AgentAppService(AgentSessionRepository sessions, AgentMessageRepository messages, AgentTraceRepository traces,
                            PendingActionStore actionStore, AgentQuota quota, AgentOrchestrator orchestrator,
                            ToolRegistry registry, LiveKitchenFactory kitchens, ModelGateway gateway,
                            SpeechRecognizer speech, Clock clock,
                            @Value("${gudu.agent.daily-limit:${gudu.ai.daily-limit:50}}") int dailyLimit,
-                           ContentSecurityAppService contentSecurity) {
+                           ContentSecurityAppService contentSecurity, UserPreferenceAppService preferences,
+                           HomeRecommendAppService homeRecommend) {
+        this.preferences = preferences;
+        this.homeRecommend = homeRecommend;
         this.sessions = sessions;
         this.messages = messages;
         this.traces = traces;
@@ -321,13 +329,48 @@ public class AgentAppService {
         if (m.traceId() != null) traces.updateFeedback(m.traceId(), rating);
     }
 
+    /**
+     * 咕嘟首屏建议。登录账号关闭个性化推荐（A.8）时走 {@link #genericSuggestions()}：
+     * 不建厨房上下文（不读成员档案、库存、做饭记录），只给通用问候、时令/大家常做的一道菜和通用快捷提问。
+     *
+     * @param memberId  当前就餐成员
+     * @param accountId 登录账号（偏好按账号存）
+     */
+    public SuggestionsView suggestions(Long memberId, Long accountId) {
+        if (!preferences.personalizedRecommendEnabled(accountId)) return genericSuggestions();
+        return suggestions(memberId);
+    }
+
+    /** 不针对个人特征的首屏建议。 */
+    SuggestionsView genericSuggestions() {
+        List<DishCard> picks = homeRecommend.genericPicks(1);
+        Map<String, Object> tonight = null;
+        if (!picks.isEmpty()) {
+            DishCard d = picks.get(0);
+            tonight = new LinkedHashMap<>();
+            tonight.put("id", d.dishId());
+            tonight.put("name", d.name());
+            tonight.put("coverUrl", d.coverUrl());
+            tonight.put("minutes", d.cookMinutes());
+            tonight.put("difficulty", d.difficulty());
+            tonight.put("coverage", Map.of("have", 0, "total", 0, "missing", List.of()));
+            tonight.put("tags", List.of());
+        }
+        return new SuggestionsView(greeting(now().getHour()), tonight, List.of(), GENERIC_PROMPTS);
+    }
+
+    static final List<String> GENERIC_PROMPTS = List.of("今天吃什么", "下周一周怎么吃", "有什么时令菜", "拍冰箱入库");
+
+    private static String greeting(int h) {
+        return h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
+    }
+
     public SuggestionsView suggestions(Long memberId) {
         Kitchen k = kitchens.forMember(memberId);
         LocalDateTime now = k.now();
         List<MemberInfo> members = k.members();
         String me = members.stream().filter(MemberInfo::me).map(MemberInfo::name).findFirst().orElse("");
-        int h = now.getHour();
-        String hello = h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
+        String hello = greeting(now.getHour());
         List<ExpiringView> expiring = k.pantry().stream()
                 .filter(p -> p.daysLeft() != null && p.daysLeft() <= 3 && !"OUT".equals(p.status()))
                 .sorted((a, b) -> Integer.compare(a.daysLeft(), b.daysLeft())).limit(5)

@@ -12,7 +12,9 @@ import com.gudu.xsd.modules.ai.dto.MenuCandidate;
 import com.gudu.xsd.modules.ai.dto.MenuRecommendRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillResponse;
+import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.modules.member.MpPerm;
+import com.gudu.xsd.modules.preference.application.UserPreferenceAppService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +36,7 @@ public class AiController {
     private final AiService svc;
     private final AiClientRouter router;
     private final AiCallLogService callLogSvc;
+    private final UserPreferenceAppService preferences;
 
     /** 营养补全：按食材名返回 per100g 6 项指标（可选 ingredientId 落库到该食材）。 */
     @PostMapping("/nutrition/fill")
@@ -49,14 +52,14 @@ public class AiController {
     public R<List<MenuCandidate>> defaultRecommend(
             @RequestParam(required = false) Long memberId,
             @RequestParam(defaultValue = "3") int topN) {
-        return R.ok(svc.defaultRecommend(memberId, topN));
+        return R.ok(svc.defaultRecommend(memberId, topN, personalized()));
     }
 
     @PostMapping("/menu/recommend")
     @AiRateLimited
     @MpPerm("ai.use")
     public R<List<MenuCandidate>> recommendMenu(@RequestBody MenuRecommendRequest req) {
-        return R.ok(svc.recommendMenu(req));
+        return R.ok(svc.recommendMenu(req, personalized()));
     }
 
     /** 菜品/一餐营养估算：文字描述 → AI 估算该餐总营养（V2 方案2，纯文本）。 */
@@ -110,5 +113,10 @@ public class AiController {
     @RequireAdmin
     public R<List<Map<String, Object>>> usage(@RequestParam(defaultValue = "7") int days) {
         return R.ok(callLogSvc.usage(days));
+    }
+
+    /** 登录账号是否开启个性化推荐（A.8；关闭则不读口味画像）。 */
+    private boolean personalized() {
+        return preferences.personalizedRecommendEnabled(StpUtil.getLoginIdAsLong());
     }
 }

@@ -10,6 +10,7 @@ import com.gudu.xsd.modules.nutrition.IngredientService;
 import com.gudu.xsd.modules.pantry.application.StockAppService;
 import com.gudu.xsd.modules.pantry.application.dto.CoverageView;
 import com.gudu.xsd.modules.pantry.application.dto.ExpiringItemView;
+import com.gudu.xsd.modules.preference.application.UserPreferenceAppService;
 import com.gudu.xsd.modules.recommend.application.dto.DishCard;
 import com.gudu.xsd.modules.recommend.application.dto.HomeRecommendView;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +55,51 @@ class HomeRecommendAppServiceTest {
         records = mock(CookingRecordAppService.class);
         ingredientService = mock(IngredientService.class);
         Clock clock = Clock.fixed(TODAY.atStartOfDay(ZONE).toInstant(), ZONE);
-        svc = new HomeRecommendAppService(stock, dishService, coverage, records, ingredientService, clock);
+        preferences = mock(UserPreferenceAppService.class);
+        when(preferences.personalizedRecommendEnabled(any())).thenReturn(true);
+        svc = new HomeRecommendAppService(stock, dishService, coverage, records, ingredientService, clock, preferences);
+    }
+
+    UserPreferenceAppService preferences;
+
+    @Test
+    void 关闭个性化_不读库存做饭记录覆盖率_只给时令与大家常做() {
+        when(preferences.personalizedRecommendEnabled(7L)).thenReturn(false);
+        when(ingredientService.list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(List.of(ing(200)));
+        when(dishService.dishIdsUsingIngredients(List.of(200L))).thenReturn(List.of(6L, 1L));
+        Dish six = dish(6);
+        six.setCoverUrl("/c6.jpg");
+        when(dishService.listByIds(any())).thenReturn(List.of(dish(1), six));
+        when(dishService.dishIdsWithSteps(any())).thenReturn(java.util.Set.of(6L));
+        Dish hot = dish(8);
+        hot.setCookedCount(30);
+        when(dishService.hotDishes(6)).thenReturn(List.of(dish(1), hot));
+
+        HomeRecommendView v = svc.home(7L);
+
+        assertThat(v.personalized()).isFalse();
+        assertThat(v.expiring()).isEmpty();
+        assertThat(v.expiringPicks()).isEmpty();
+        assertThat(v.frequent()).isEmpty();
+        assertThat(v.seasonal()).extracting(DishCard::dishId).containsExactly(6L, 1L); // 完整菜谱优先
+        assertThat(v.popular()).extracting(DishCard::dishId).containsExactly(8L);       // 1 已在时令，去重
+        assertThat(v.popular().get(0).cookedCount()).isZero();
+        assertThat(v.seasonal().get(0).coverage()).isNull();
+        // 个人数据一律不碰：库存（临期/覆盖率）、做饭记录
+        org.mockito.Mockito.verifyNoInteractions(stock, coverage, records);
+    }
+
+    @Test
+    void 开启个性化_标记personalized_popular为空() {
+        when(stock.expiring(3)).thenReturn(List.of());
+        when(dishService.dishIdsUsingIngredients(any())).thenReturn(List.of());
+        when(records.mostCooked(7L, 6)).thenReturn(List.of());
+        when(ingredientService.list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
+        HomeRecommendView v = svc.home(7L);
+        assertThat(v.personalized()).isTrue();
+        assertThat(v.popular()).isEmpty();
+        verify(dishService, never()).hotDishes(org.mockito.ArgumentMatchers.anyInt());
     }
 
     private static Dish dish(long id) {

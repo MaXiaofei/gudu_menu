@@ -56,7 +56,9 @@ class AgentAppServiceContentSecurityTest {
         svc = new AgentAppService(sessions, messages, mock(AgentTraceRepository.class), mock(PendingActionStore.class),
                 mock(AgentQuota.class), orchestrator, new ToolRegistry(), kitchens, mock(ModelGateway.class),
                 mock(SpeechRecognizer.class), Clock.fixed(Instant.parse("2026-10-26T02:00:00Z"), ZoneId.of("Asia/Shanghai")),
-                50, contentSecurity);
+                50, contentSecurity,
+                mock(com.gudu.xsd.modules.preference.application.UserPreferenceAppService.class),
+                mock(com.gudu.xsd.modules.recommend.application.HomeRecommendAppService.class));
     }
 
     @Test

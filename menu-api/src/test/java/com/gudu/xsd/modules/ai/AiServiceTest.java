@@ -137,6 +137,31 @@ class AiServiceTest {
     }
 
     @Test
+    void 关闭个性化_组合推荐不读口味画像_召回只用本次偏好() {
+        when(dishVectorService.semanticSearch(any(), anyInt(), any(), any())).thenReturn(List.of());
+        var req = new MenuRecommendRequest(1L, "DAY", "清淡下饭", null, null, null, null, null);
+        svc.recommendMenu(req, false);
+        verifyNoInteractions(tasteProfileService);
+        var cq = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(dishVectorService).semanticSearch(cq.capture(), anyInt(), any(), any());
+        assertThat(cq.getValue()).isEqualTo("清淡下饭");
+    }
+
+    @Test
+    void 关闭个性化_默认推荐不读口味画像_只推最新录入() {
+        when(dishService.count()).thenReturn(100L);
+        when(dishService.latestDishes(3)).thenReturn(List.of(dish(20L, "新菜")));
+        when(dishQueryService.nutrition(anyLong(), any())).thenReturn(java.util.Map.of());
+
+        var out = svc.defaultRecommend(1L, 3, false);
+
+        verifyNoInteractions(tasteProfileService, dishVectorService);
+        verify(dishService, never()).hotDishes(anyInt());
+        assertThat(out).hasSize(1);
+        assertThat(out.get(0).dishes().get(0).dishId()).isEqualTo(20L);
+    }
+
+    @Test
     void 菜单推荐_召回为空_返回空列表() {
         when(dishVectorService.semanticSearch(any(), anyInt(), any(), any()))
                 .thenReturn(List.of());

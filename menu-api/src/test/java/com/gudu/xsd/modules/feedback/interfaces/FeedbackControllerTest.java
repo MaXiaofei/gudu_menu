@@ -3,7 +3,9 @@ package com.gudu.xsd.modules.feedback.interfaces;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gudu.xsd.modules.feedback.application.FeedbackAppService;
+import com.gudu.xsd.modules.feedback.application.FeedbackSubmitCommand;
 import com.gudu.xsd.modules.feedback.application.FeedbackView;
+import com.gudu.xsd.modules.feedback.application.MyFeedbackView;
 import com.gudu.xsd.modules.member.AdminChecker;
 import com.gudu.xsd.modules.member.AdminGuardAspect;
 import org.apache.ibatis.mapping.Environment;
@@ -73,13 +75,59 @@ class FeedbackControllerTest {
     void 提交_身份取登录账号() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
-            given(appService.submit(7L, "希望能导出菜谱", "wx:abc", List.of("/gudu/uploads/a.jpg"), "mini"))
-                    .willReturn(12L);
+            given(appService.submit(7L, new FeedbackSubmitCommand("希望能导出菜谱", "wx:abc",
+                    List.of("/gudu/uploads/a.jpg"), "mini", "ai", "agent:m1"))).willReturn(12L);
             mvc.perform(post("/feedback").contentType(MediaType.APPLICATION_JSON)
                             .content("{\"content\":\"希望能导出菜谱\",\"contact\":\"wx:abc\","
-                                    + "\"images\":[\"/gudu/uploads/a.jpg\"],\"clientInfo\":\"mini\"}"))
+                                    + "\"images\":[\"/gudu/uploads/a.jpg\"],\"clientInfo\":\"mini\","
+                                    + "\"type\":\"ai\",\"sourceRef\":\"agent:m1\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data").value(12));
+        }
+    }
+
+    @Test
+    void 我的反馈_列表与详情_身份取登录账号_无需超管() throws Exception {
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            MyFeedbackView v = new MyFeedbackView(3L, "ai", "agent:m1", "内容够长了", List.of(), "REPLIED", "已修复",
+                    LocalDateTime.of(2026, 10, 17, 9, 0), LocalDateTime.of(2026, 10, 16, 8, 0));
+            Page<MyFeedbackView> page = new Page<>(1, 10);
+            page.setTotal(1);
+            page.setRecords(List.of(v));
+            given(appService.mine(7L, null, null)).willReturn(page);
+            given(appService.mineDetail(7L, 3L)).willReturn(v);
+
+            mvc.perform(get("/feedback/mine"))
+                    .andExpect(jsonPath("$.code").value(0))
+                    .andExpect(jsonPath("$.data.records[0].reply").value("已修复"));
+            mvc.perform(get("/feedback/mine/3"))
+                    .andExpect(jsonPath("$.code").value(0))
+                    .andExpect(jsonPath("$.data.status").value("REPLIED"));
+            verify(adminChecker, never()).isAdmin(any(Long.class));
+        }
+    }
+
+    @Test
+    void 回复_超管_回复人取登录账号() throws Exception {
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(1L);
+            given(adminChecker.isAdmin(1L)).willReturn(true);
+            mvc.perform(put("/feedback/3/reply").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"reply\":\"已修复\",\"markDone\":true}"))
+                    .andExpect(jsonPath("$.code").value(0));
+            verify(appService).reply(1L, 3L, "已修复", true);
+        }
+    }
+
+    @Test
+    void 回复_非超管403() throws Exception {
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            given(adminChecker.isAdmin(7L)).willReturn(false);
+            mvc.perform(put("/feedback/3/reply").contentType(MediaType.APPLICATION_JSON).content("{\"reply\":\"x\"}"))
+                    .andExpect(jsonPath("$.code").value(403));
+            verify(appService, never()).reply(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
         }
     }
 
@@ -90,11 +138,12 @@ class FeedbackControllerTest {
             given(adminChecker.isAdmin(1L)).willReturn(true);
             Page<FeedbackView> page = new Page<>(1, 10);
             page.setTotal(1);
-            page.setRecords(List.of(new FeedbackView(3L, 7L, "张妈妈", "内容够长了", null, List.of(), null, "NEW",
-                    LocalDateTime.of(2026, 10, 16, 8, 0))));
-            given(appService.page("NEW", 1, 10)).willReturn(page);
+            page.setRecords(List.of(new FeedbackView(3L, 7L, "张妈妈", "ai", "agent:m1", "内容够长了", null, List.of(),
+                    null, "NEW", null, null, null, LocalDateTime.of(2026, 10, 16, 8, 0))));
+            given(appService.page("ai", "NEW", 1, 10)).willReturn(page);
 
-            mvc.perform(get("/feedback").param("status", "NEW").param("pageNum", "1").param("pageSize", "10"))
+            mvc.perform(get("/feedback").param("type", "ai").param("status", "NEW")
+                            .param("pageNum", "1").param("pageSize", "10"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(0))
                     .andExpect(jsonPath("$.data.records[0].memberName").value("张妈妈"))
@@ -111,7 +160,7 @@ class FeedbackControllerTest {
             mvc.perform(get("/feedback")).andExpect(jsonPath("$.code").value(403));
             mvc.perform(put("/feedback/3/status").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"DONE\"}"))
                     .andExpect(jsonPath("$.code").value(403));
-            verify(appService, never()).page(any(), any(), any());
+            verify(appService, never()).page(any(), any(), any(), any());
             verify(appService, never()).changeStatus(any(), any());
         }
     }

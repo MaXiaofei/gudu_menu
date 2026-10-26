@@ -14,7 +14,10 @@ import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.defaults.DefaultSqlSessionFactory;
 import org.apache.ibatis.transaction.TransactionFactory;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
+import cn.dev33.satoken.stp.StpUtil;
+import com.gudu.xsd.modules.preference.application.UserPreferenceAppService;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -34,6 +37,8 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -79,6 +84,9 @@ class AiControllerTest {
     @MockBean
     private AiCallLogService callLogSvc;
 
+    @MockBean
+    private UserPreferenceAppService preferences;
+
     private final ObjectMapper om = new ObjectMapper();
 
     @Test
@@ -100,16 +108,33 @@ class AiControllerTest {
         MenuCandidate.DishItem item = new MenuCandidate.DishItem(1L, "番茄炒蛋", BigDecimal.ONE);
         MenuCandidate c = new MenuCandidate(List.of(item),
                 Map.of(1L, new BigDecimal("300")), 12.5, List.of("蛋白高"), "mock");
-        given(svc.recommendMenu(any(MenuRecommendRequest.class))).willReturn(List.of(c));
+        given(svc.recommendMenu(any(MenuRecommendRequest.class), eq(true))).willReturn(List.of(c));
+        given(preferences.personalizedRecommendEnabled(7L)).willReturn(true);
 
         String body = "{\"memberId\":1,\"scope\":\"DAY\"}";
-        mvc.perform(post("/ai/menu/recommend").contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data[0].dishes[0].dishId").value(1))
-                .andExpect(jsonPath("$.data[0].dishes[0].name").value("番茄炒蛋"))
-                .andExpect(jsonPath("$.data[0].source").value("mock"))
-                .andExpect(jsonPath("$.data[0].reasons[0]").value("蛋白高"));
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            mvc.perform(post("/ai/menu/recommend").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(0))
+                    .andExpect(jsonPath("$.data[0].dishes[0].dishId").value(1))
+                    .andExpect(jsonPath("$.data[0].dishes[0].name").value("番茄炒蛋"))
+                    .andExpect(jsonPath("$.data[0].source").value("mock"))
+                    .andExpect(jsonPath("$.data[0].reasons[0]").value("蛋白高"));
+        }
+    }
+
+    @Test
+    void 默认推荐_关闭个性化_透传personalized为false() throws Exception {
+        given(preferences.personalizedRecommendEnabled(7L)).willReturn(false);
+        given(svc.defaultRecommend(null, 3, false)).willReturn(List.of());
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            mvc.perform(get("/ai/menu/recommend/default"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(0));
+        }
+        verify(svc).defaultRecommend(null, 3, false);
     }
 
     @Test

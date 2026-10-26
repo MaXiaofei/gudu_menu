@@ -21,7 +21,7 @@ public class NotificationController {
 
     @GetMapping
     public R<List<Notification>> list() {
-        return R.ok(svc.list(currentMemberId()));
+        return R.ok(svc.list(recipients()));
     }
 
     /** 手动触发临期扫描（不等 @Scheduled），便于 E2E/演示。返回发送条数。 */
@@ -33,13 +33,20 @@ public class NotificationController {
 
     @GetMapping("/unread-count")
     public R<Map<String, Object>> unreadCount() {
-        return R.ok(Map.of("count", svc.unreadCount(currentMemberId())));
+        return R.ok(Map.of("count", svc.unreadCount(recipients())));
     }
 
     @PutMapping("/{id}/read")
     public R<?> markRead(@PathVariable Long id) {
-        svc.markRead(id, currentMemberId());
+        svc.markRead(id, recipients());
         return R.ok(null);
+    }
+
+    /** 收件人：当前就餐成员 + 登录账号（反馈回复等账号级消息发给登录账号，切到家人档案也能看到）。 */
+    private List<Long> recipients() {
+        Long current = currentMemberId();
+        long login = StpUtil.getLoginIdAsLong();
+        return current.equals(login) ? List.of(current) : List.of(current, login);
     }
 
     private Long currentMemberId() {

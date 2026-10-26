@@ -37,17 +37,33 @@ public class NotificationService {
     }
 
     public List<Notification> list(Long memberId) {
+        return list(List.of(memberId));
+    }
+
+    /**
+     * 多个收件人的消息合并（当前就餐成员 + 登录账号：反馈回复等账号级消息发给登录账号，
+     * 切换到家人档案时也要能看到）。
+     */
+    public List<Notification> list(Collection<Long> memberIds) {
         return notificationMapper.selectList(
-            new QueryWrapper<Notification>().eq("member_id", memberId).orderByDesc("create_time"));
+            new QueryWrapper<Notification>().in("member_id", memberIds).orderByDesc("create_time"));
     }
 
     public long unreadCount(Long memberId) {
+        return unreadCount(List.of(memberId));
+    }
+
+    public long unreadCount(Collection<Long> memberIds) {
         return notificationMapper.selectCount(new QueryWrapper<Notification>()
-            .eq("member_id", memberId).eq("is_read", 0));
+            .in("member_id", memberIds).eq("is_read", 0));
     }
 
     public void markRead(Long id, Long memberId) {
+        markRead(id, List.of(memberId));
+    }
+
+    public void markRead(Long id, Collection<Long> memberIds) {
         notificationMapper.update(null, new UpdateWrapper<Notification>()
-            .eq("id", id).eq("member_id", memberId).set("is_read", 1));
+            .eq("id", id).in("member_id", memberIds).set("is_read", 1));
     }
 }
