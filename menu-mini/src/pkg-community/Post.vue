@@ -128,6 +128,8 @@
         </button>
       </view>
     </template>
+    <!-- 厨房圈紧急关停（A.12）：后端返回「厨房圈暂停服务」时整页提示 -->
+    <ui-community-paused />
   </view>
 </template>
 

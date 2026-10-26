@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'constants.dart';
 import 'api_response.dart';
+import 'community_status.dart';
 import 'connectivity.dart';
 
 /// dio 单例：对应小程序 menu-mini/src/utils/request.ts。
@@ -58,6 +59,15 @@ class ApiClient {
         final body = response.data;
         if (body is Map<String, dynamic> && body.containsKey('code')) {
           final api = ApiResponse.fromJson(body);
+          CommunityStatus.note(response.requestOptions.path, api.code);
+          if (api.code == CommunityStatus.suspendedCode) {
+            // 厨房圈紧急关停（A.12）：页面由 CommunityPausedGate 显示暂停提示，不弹报错
+            handler.reject(DioException(
+              requestOptions: response.requestOptions,
+              message: CommunityStatus.message,
+            ));
+            return;
+          }
           if (api.code == 401) {
             token = null;
             // 读实例字段（动态），而非 init 闭包捕获的局部参数——

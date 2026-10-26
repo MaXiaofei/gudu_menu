@@ -62,6 +62,24 @@ test.describe('A.7 首次登录完善资料', () => {
   })
 })
 
+test.describe('A.12 厨房圈紧急关停（H5）', () => {
+  test('后端返回 5031：整页显示「厨房圈暂停服务」，不弹报错', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('token', 'h5-token')
+      localStorage.setItem('nickname', '小张')
+    })
+    await mockApi(page)
+    await page.route(/\/gudu\/community\//, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{"code":5031,"msg":"厨房圈暂停服务","data":null}' }),
+    )
+    await page.goto('/#/pages/community/Index')
+    const paused = page.locator('[data-testid="community-paused"]')
+    await expect(paused).toBeVisible({ timeout: 15000 })
+    await expect(paused).toContainText('厨房圈暂停服务')
+    await expect(page.locator('.uni-toast')).toHaveCount(0)
+  })
+})
+
 test.describe('A.10 聚餐邀请需登录', () => {
   test('未登录打开邀请链接：去登录页且带回跳参数', async ({ page }) => {
     await mockApi(page)

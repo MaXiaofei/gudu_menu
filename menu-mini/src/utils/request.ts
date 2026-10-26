@@ -5,6 +5,7 @@ import { BASE as BASE_URL } from '@/config/env'
 import { hasConsent } from './consent'
 import { contentSecurityMessage, type ContentScene } from './contentSecurity'
 import { currentPageTarget, loginUrl } from './loginRedirect'
+import { COMMUNITY_SUSPENDED, MSG_COMMUNITY_SUSPENDED, noteCommunityResponse } from './communityStatus'
 
 /** 默认请求超时（毫秒），调用方可通过 opt.timeout 覆盖。 */
 export const REQUEST_TIMEOUT = 15000
@@ -158,6 +159,11 @@ export async function request<T = any>(
     // 分享落地页等白名单页面：登录后回到当前页（A.10）
     uni.reLaunch({ url: loginUrl(currentPageTarget()) })
     throw new Error('未登录')
+  }
+  noteCommunityResponse(opt.url, body.code)
+  if (body.code === COMMUNITY_SUSPENDED) {
+    // 厨房圈紧急关停（A.12）：页面整页显示暂停提示，不弹报错
+    throw new Error(MSG_COMMUNITY_SUSPENDED)
   }
   if (body.code === 429) {
     toast(MSG_TOO_FREQUENT)

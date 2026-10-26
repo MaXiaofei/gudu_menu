@@ -34,6 +34,9 @@ DELETE FROM ai_call_log;
 DELETE FROM feedback;
 -- V80 图片内容安全检测（trace_id 唯一约束；E2E 自建记录 trace_id 用 E2E 前缀、地址带 /e2e/）
 DELETE FROM content_media_check WHERE trace_id LIKE 'E2E%' OR media_url LIKE '%/e2e/%';
+-- V85 厨房圈紧急关停开关：E2E 会关再开，兜底恢复为开（防中途失败把 staging 厨房圈关着），清 E2E 日志
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('community.enabled', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+DELETE FROM sys_switch_log WHERE reason LIKE 'E2E%';
 
 -- ============================================================
 -- 静态种子自愈：把「番茄/鸡蛋」规范化到测试常量依赖的固定 id(1/2)，
