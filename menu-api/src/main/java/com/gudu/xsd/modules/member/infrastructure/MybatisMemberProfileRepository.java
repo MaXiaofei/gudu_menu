@@ -49,6 +49,15 @@ public class MybatisMemberProfileRepository implements MemberProfileRepository {
     }
 
     @Override
+    public List<MemberProfile> findAllByAccount(Long accountId) {
+        if (accountId == null) return List.of();
+        return mapper.selectList(new QueryWrapper<Member>().eq("account_id", accountId)).stream()
+                .map(m -> MemberProfile.rehydrate(m.getId(), m.getName(), m.getAvatarUrl(), m.getPhone(),
+                        AdminChecker.isAdmin(m)))
+                .toList();
+    }
+
+    @Override
     public void save(MemberProfile p) {
         mapper.update(null, new UpdateWrapper<Member>()
                 .eq("id", p.id())

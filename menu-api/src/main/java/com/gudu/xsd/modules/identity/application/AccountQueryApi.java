@@ -33,6 +33,20 @@ public class AccountQueryApi {
         return hasRole(accountId, PlatformRole.OPERATOR);
     }
 
+    /** 微信 openid（内容安全调用微信接口用）；未绑定微信 / 非 ACTIVE 返回 empty。 */
+    public Optional<String> openidOf(Long accountId) {
+        if (accountId == null) return Optional.empty();
+        return repository.findById(accountId)
+                .filter(a -> a.status() == AccountStatus.ACTIVE && a.wechat() != null)
+                .map(a -> a.wechat().openid());
+    }
+
+    /** 平台角色（不存在返回 empty）。 */
+    public Optional<PlatformRole> platformRoleOf(Long accountId) {
+        if (accountId == null) return Optional.empty();
+        return repository.findById(accountId).map(Account::platformRole);
+    }
+
     public Map<Long, String> nicknames(Collection<Long> accountIds) {
         return repository.nicknames(accountIds);
     }

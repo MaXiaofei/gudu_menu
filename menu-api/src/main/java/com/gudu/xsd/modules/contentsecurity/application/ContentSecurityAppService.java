@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.domain.DomainEventPublisher;
 import com.gudu.xsd.common.domain.UploadedImageUrl;
+import com.gudu.xsd.common.tenant.TenantContextHolder;
 import com.gudu.xsd.common.upload.UploadUrlSigner;
 import com.gudu.xsd.config.WxProperties;
 import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
@@ -69,6 +70,7 @@ public class ContentSecurityAppService {
     private final boolean wxEnabled;
     private final String mediaBaseUrl;
     private final UploadUrlSigner uploadSigner;
+    private final TextViolationRecorder violations;
 
     public ContentSecurityAppService(ContentSecurity wechat, OpenidResolver openids, MediaCheckRepository mediaChecks,
                                      UploadQuarantine quarantine, DomainEventPublisher events,
@@ -76,7 +78,7 @@ public class ContentSecurityAppService {
                                      Clock clock,
                                      @Value("${gudu.content-security.wx-enabled:false}") boolean wxEnabled,
                                      @Value("${gudu.content-security.media-base-url:}") String mediaBaseUrl,
-                                     UploadUrlSigner uploadSigner) {
+                                     UploadUrlSigner uploadSigner, TextViolationRecorder violations) {
         this.wechat = wechat;
         this.openids = openids;
         this.mediaChecks = mediaChecks;
@@ -88,6 +90,7 @@ public class ContentSecurityAppService {
         this.wxEnabled = wxEnabled;
         this.mediaBaseUrl = mediaBaseUrl == null ? "" : mediaBaseUrl.trim().replaceAll("/+$", "");
         this.uploadSigner = uploadSigner;
+        this.violations = violations;
     }
 
     // ================================================================ 文本
@@ -96,15 +99,15 @@ public class ContentSecurityAppService {
     public TextVerdict checkText(Long accountId, ContentPurpose purpose, String text) {
         if (text == null || text.isBlank()) return TextVerdict.pass(TextVerdict.Source.RULE);
         TextVerdict byRule = rule.checkText(new TextCheck(text, purpose.scene(), null));
-        if (byRule.blocks(purpose)) return record(accountId, purpose, byRule);
+        if (byRule.blocks(purpose)) return record(accountId, purpose, byRule, text);
         Optional<String> openid = wechatOpenid(accountId);
         if (openid.isEmpty()) return byRule;
         try {
-            return record(accountId, purpose, wechat.checkText(new TextCheck(text, purpose.scene(), openid.get())));
+            return record(accountId, purpose, wechat.checkText(new TextCheck(text, purpose.scene(), openid.get())), text);
         } catch (ContentSecurityUnavailableException e) {
             log.warn("微信内容安全不可用 purpose={} account={}: {}", purpose, accountId, e.getMessage());
             return purpose.failClosed() ? TextVerdict.unavailable(e.getMessage())
-                    : byRule.withSource(TextVerdict.Source.RULE_FALLBACK);
+                    : record(accountId, purpose, byRule.withSource(TextVerdict.Source.RULE_FALLBACK), text);
         }
     }
 
@@ -226,7 +229,8 @@ public class ContentSecurityAppService {
         MediaCheck check = found.get();
         boolean blocked = check.resolve(result);
         mediaChecks.save(check);
-        events.publishFrom(check);
+        // 推送回调无登录态（游客租户上下文）：订阅方要按地址跨家庭清头像 / 隐藏帖子，以系统模式执行（SQL 自带地址条件）
+        TenantContextHolder.runAsSystem(() -> events.publishFrom(check));
         if (blocked) {
             boolean moved = quarantine.quarantine(check.mediaUrl());
             log.warn("图片违规已隔离 url={} label={} moved={}", check.mediaUrl(), check.label(), moved);
@@ -267,7 +271,8 @@ public class ContentSecurityAppService {
         };
     }
 
-    private static TextVerdict record(Long accountId, ContentPurpose purpose, TextVerdict v) {
+    private TextVerdict record(Long accountId, ContentPurpose purpose, TextVerdict v, String text) {
+        if (v.blocks(purpose) && violations != null) violations.record(accountId, purpose, v, text);
         if (v.suggest() != Suggest.PASS) {
             log.info("内容安全 purpose={} account={} suggest={} label={} source={} reason={} trace={}", purpose,
                     accountId, v.suggest(), v.label(), v.source(), v.reason(), v.traceId());

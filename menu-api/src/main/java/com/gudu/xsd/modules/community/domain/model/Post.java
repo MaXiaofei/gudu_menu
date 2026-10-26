@@ -162,6 +162,20 @@ public final class Post extends AggregateRoot<Long> {
         return true;
     }
 
+    /**
+     * 违规图片经人工复核为误判（F.3）：去掉「图片未通过审核」原因；若因此被隐藏则恢复公开（视为已复核）。
+     * 返回是否发生了变化（未因图片被处置 / 已删除的不处理）。
+     */
+    public boolean restoreFromBlockedImage() {
+        if (status == PostStatus.DELETED || !imageBlocked()) return false;
+        List<String> reasons = new ArrayList<>(moderation.reasons());
+        reasons.remove(IMAGE_BLOCKED_REASON);
+        RiskLevel risk = reasons.isEmpty() ? RiskLevel.LOW : moderation.risk();
+        this.moderation = new ModerationState(risk, reasons, moderation.scores(), true);
+        if (status == PostStatus.HIDDEN) this.status = PostStatus.PUBLISHED;
+        return true;
+    }
+
     /** 是否因图片违规被处置过。 */
     public boolean imageBlocked() {
         return moderation.reasons().contains(IMAGE_BLOCKED_REASON);

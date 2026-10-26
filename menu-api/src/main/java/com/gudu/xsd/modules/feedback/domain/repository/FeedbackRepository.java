@@ -20,4 +20,7 @@ public interface FeedbackRepository {
 
     /** 账号合并（AccountMerged）：把归属 {@code from} 账号的记录改指 {@code to}。返回改动条数。 */
     int reassignAccount(Long from, Long to);
+
+    /** 账号注销（mini-release-compliance F.2）：清除该账号反馈里的联系方式与设备信息（幂等）。返回改动条数。 */
+    int anonymizeAccount(Long accountId);
 }

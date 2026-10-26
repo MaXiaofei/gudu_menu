@@ -3,7 +3,7 @@ package com.gudu.xsd.modules.feedback.interfaces;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gudu.xsd.common.R;
-import com.gudu.xsd.common.security.RequireAdmin;
+import com.gudu.xsd.common.security.RequireOperator;
 import com.gudu.xsd.modules.feedback.application.FeedbackAppService;
 import com.gudu.xsd.modules.feedback.application.FeedbackView;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -49,7 +49,7 @@ public class FeedbackController {
     }
 
     @GetMapping
-    @RequireAdmin
+    @RequireOperator
     public R<IPage<FeedbackView>> page(@RequestParam(required = false) String status,
                                        @RequestParam(required = false) Integer pageNum,
                                        @RequestParam(required = false) Integer pageSize) {
@@ -57,7 +57,7 @@ public class FeedbackController {
     }
 
     @PutMapping("/{id}/status")
-    @RequireAdmin
+    @RequireOperator
     public R<Void> changeStatus(@PathVariable Long id, @RequestBody StatusReq req) {
         appService.changeStatus(id, req.getStatus());
         return R.ok(null);

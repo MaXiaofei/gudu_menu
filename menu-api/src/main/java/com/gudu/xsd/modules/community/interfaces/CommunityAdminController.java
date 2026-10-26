@@ -2,7 +2,7 @@ package com.gudu.xsd.modules.community.interfaces;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.R;
-import com.gudu.xsd.common.security.RequireAdmin;
+import com.gudu.xsd.common.security.RequireOperator;
 import com.gudu.xsd.modules.community.application.CommunityAdminAppService;
 import com.gudu.xsd.modules.community.application.dto.CommunityViews.AdminPostDetail;
 import com.gudu.xsd.modules.community.application.dto.CommunityViews.AdminStats;
@@ -25,7 +25,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/admin/community")
 @RequiredArgsConstructor
-@RequireAdmin
+@RequireOperator
 @Tag(name = "社区审核")
 public class CommunityAdminController {
 

@@ -13,4 +13,10 @@ public record AccountView(Long id, String nickname, String avatarUrl, String mas
     public boolean superAdmin() {
         return "SUPER_ADMIN".equals(platformRole);
     }
+
+    /** 平台运营及以上（运营后台可登录）；非 ACTIVE 账号不算。 */
+    public boolean operator() {
+        return ("OPERATOR".equals(platformRole) || "SUPER_ADMIN".equals(platformRole))
+                && (status == null || "ACTIVE".equals(status));
+    }
 }

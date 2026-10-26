@@ -35,6 +35,8 @@ class TenantGuardTest {
             "com.gudu.xsd.config.PgVectorConfig",
             // 运营统计：平台级聚合（仅超管可调），全局计数
             "com.gudu.xsd.modules.ops.infrastructure.JdbcOpsStatsQuery",
+            // 运营后台账号目录：只读全局表 account / account_ban / family_membership / family（不碰家庭域表）
+            "com.gudu.xsd.modules.backoffice.infrastructure.JdbcAccountDirectoryQuery",
             // 食材使用频次：显式带 cooking_record.family_id 与 dish 可见性条件
             "com.gudu.xsd.modules.nutrition.infrastructure.JdbcIngredientUsageStats",
             // 厨房圈：全局 UGC 表（community_*），不属于任何家庭

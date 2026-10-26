@@ -51,6 +51,43 @@ public class LocalUploadQuarantine implements UploadQuarantine {
         return moved;
     }
 
+    @Override
+    public boolean release(String uploadedUrl) {
+        if (!UploadedImageUrl.isValid(uploadedUrl)) return false;
+        String rel = uploadedUrl.replaceFirst("^(/gudu)?/uploads/", "");
+        boolean restored = moveBack(rel);
+        if (rel.startsWith("original/")) restored |= moveBack("thumbnail/" + rel.substring("original/".length()));
+        return restored;
+    }
+
+    @Override
+    public java.util.Optional<byte[]> readQuarantined(String uploadedUrl) {
+        if (!UploadedImageUrl.isValid(uploadedUrl)) return java.util.Optional.empty();
+        String rel = uploadedUrl.replaceFirst("^(/gudu)?/uploads/", "");
+        Path src = quarantineRoot.resolve(rel).normalize();
+        if (!src.startsWith(quarantineRoot) || !Files.isRegularFile(src)) return java.util.Optional.empty();
+        try {
+            return java.util.Optional.of(Files.readAllBytes(src));
+        } catch (IOException e) {
+            log.warn("读取隔离图片失败 {}: {}", src, e.getMessage());
+            return java.util.Optional.empty();
+        }
+    }
+
+    private boolean moveBack(String rel) {
+        Path src = quarantineRoot.resolve(rel).normalize();
+        Path dst = root.resolve(rel).normalize();
+        if (!src.startsWith(quarantineRoot) || !dst.startsWith(root) || !Files.isRegularFile(src)) return false;
+        try {
+            Files.createDirectories(dst.getParent());
+            Files.move(src, dst, StandardCopyOption.REPLACE_EXISTING);
+            return true;
+        } catch (IOException e) {
+            log.error("还原隔离图片失败 {}: {}", src, e.getMessage());
+            return false;
+        }
+    }
+
     private boolean move(String rel) {
         Path src = root.resolve(rel).normalize();
         Path dst = quarantineRoot.resolve(rel).normalize();

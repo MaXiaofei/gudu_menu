@@ -17,6 +17,8 @@ public class BizException extends RuntimeException {
     public static final int CONTENT_BLOCKED = 451;
     /** 内容安全：检测服务暂不可用且该场景失败即拒绝（昵称/头像），请稍后再试。 */
     public static final int CONTENT_CHECK_UNAVAILABLE = 452;
+    /** 账号已被平台封禁：登录与写接口统一返回此码（客户端提示原因并回到登录页）。 */
+    public static final int ACCOUNT_BANNED = 423;
 
     private final int code;
 
@@ -47,6 +49,10 @@ public class BizException extends RuntimeException {
 
     public static BizException contentCheckUnavailable(String msg) {
         return new BizException(CONTENT_CHECK_UNAVAILABLE, msg);
+    }
+
+    public static BizException accountBanned(String reason) {
+        return new BizException(ACCOUNT_BANNED, "账号已被封禁" + (reason == null || reason.isBlank() ? "" : "：" + reason));
     }
 
     public int getCode() {

@@ -95,4 +95,13 @@ public class MybatisFeedbackRepository implements FeedbackRepository {
         return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<FeedbackPO>()
                 .eq("member_id", from).set("member_id", to));
     }
+
+    @Override
+    public int anonymizeAccount(Long accountId) {
+        if (accountId == null) return 0;
+        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<FeedbackPO>()
+                .eq("member_id", accountId)
+                .and(w -> w.isNotNull("contact").or().isNotNull("client_info"))
+                .set("contact", null).set("client_info", null));
+    }
 }

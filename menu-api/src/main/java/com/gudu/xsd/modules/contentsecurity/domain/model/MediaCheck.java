@@ -3,6 +3,7 @@ package com.gudu.xsd.modules.contentsecurity.domain.model;
 import com.gudu.xsd.common.domain.AggregateRoot;
 import com.gudu.xsd.common.domain.DomainException;
 import com.gudu.xsd.modules.contentsecurity.domain.event.MediaBlockedEvent;
+import com.gudu.xsd.modules.contentsecurity.domain.event.MediaRestoredEvent;
 
 import java.time.LocalDateTime;
 
@@ -21,6 +22,10 @@ public final class MediaCheck extends AggregateRoot<Long> {
     private MediaCheckStatus status;
     private int label;
     private final LocalDateTime createTime;
+    /** 人工复核结论（F.3）：null 未复核。 */
+    private MediaReviewStatus reviewStatus;
+    private Long reviewedBy;
+    private LocalDateTime reviewedAt;
 
     private MediaCheck(Long id, String traceId, String mediaUrl, Long memberId, ContentPurpose purpose,
                        MediaCheckStatus status, int label, LocalDateTime createTime) {
@@ -53,6 +58,42 @@ public final class MediaCheck extends AggregateRoot<Long> {
         return new MediaCheck(id, traceId, mediaUrl, memberId, purpose, status, label, createTime);
     }
 
+    /** 含人工复核字段的还原（V87）。 */
+    public static MediaCheck rehydrate(Long id, String traceId, String mediaUrl, Long memberId, ContentPurpose purpose,
+                                       MediaCheckStatus status, int label, LocalDateTime createTime,
+                                       MediaReviewStatus reviewStatus, Long reviewedBy, LocalDateTime reviewedAt) {
+        MediaCheck c = new MediaCheck(id, traceId, mediaUrl, memberId, purpose, status, label, createTime);
+        c.reviewStatus = reviewStatus;
+        c.reviewedBy = reviewedBy;
+        c.reviewedAt = reviewedAt;
+        return c;
+    }
+
+    // ------------------------------------------------------------------ 人工复核（F.3）
+
+    /** 复核确认违规：保持隔离。只能对检测判违规且未被恢复的记录操作；重复确认幂等。 */
+    public void confirmViolation(Long operatorId, LocalDateTime now) {
+        if (status != MediaCheckStatus.RISKY) throw new DomainException("该图片未被判违规，无需复核");
+        if (reviewStatus == MediaReviewStatus.RESTORED) throw new DomainException("该图片已恢复，不能再确认违规");
+        if (reviewStatus == MediaReviewStatus.CONFIRMED) return;
+        reviewStatus = MediaReviewStatus.CONFIRMED;
+        reviewedBy = operatorId;
+        reviewedAt = now;
+    }
+
+    /**
+     * 复核为误判并恢复：不再视为违规（可再用作头像），登记 {@link MediaRestoredEvent}
+     * （订阅方恢复头像 / 帖子可见性；应用层还原隔离文件）。已确认违规的也可改判恢复；重复恢复拒绝。
+     */
+    public void restore(Long operatorId, LocalDateTime now) {
+        if (status != MediaCheckStatus.RISKY) throw new DomainException("该图片未被判违规，无需恢复");
+        if (reviewStatus == MediaReviewStatus.RESTORED) throw new DomainException("该图片已恢复");
+        reviewStatus = MediaReviewStatus.RESTORED;
+        reviewedBy = operatorId;
+        reviewedAt = now;
+        registerEvent(new MediaRestoredEvent(mediaUrl, memberId, purpose.name()));
+    }
+
     /**
      * 回调定论。
      *
@@ -80,7 +121,7 @@ public final class MediaCheck extends AggregateRoot<Long> {
 
     /** 该图片已判违规（引用处不可用）。 */
     public boolean blocked() {
-        return status == MediaCheckStatus.RISKY;
+        return status == MediaCheckStatus.RISKY && reviewStatus != MediaReviewStatus.RESTORED;
     }
 
     /** 检测未生效（提交失败 / 微信检测失败），需要重新提交。 */
@@ -124,5 +165,17 @@ public final class MediaCheck extends AggregateRoot<Long> {
 
     public LocalDateTime createTime() {
         return createTime;
+    }
+
+    public MediaReviewStatus reviewStatus() {
+        return reviewStatus;
+    }
+
+    public Long reviewedBy() {
+        return reviewedBy;
+    }
+
+    public LocalDateTime reviewedAt() {
+        return reviewedAt;
     }
 }
