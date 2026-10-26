@@ -273,4 +273,10 @@ public class MybatisPostRepository implements PostRepository {
             return List.of();
         }
     }
+
+    @Override
+    public int reassignAccount(Long from, Long to) {
+        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<CommunityPostPO>()
+                .eq("author_id", from).set("author_id", to));
+    }
 }

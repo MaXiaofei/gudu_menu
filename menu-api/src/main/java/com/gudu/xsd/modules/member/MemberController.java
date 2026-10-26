@@ -5,82 +5,75 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.PageQuery;
 import com.gudu.xsd.common.R;
+import com.gudu.xsd.common.security.TenantSession;
+import com.gudu.xsd.common.tenant.TenantContext;
+import com.gudu.xsd.common.tenant.TenantContextHolder;
+import com.gudu.xsd.modules.family.application.FamilyAppService;
+import com.gudu.xsd.modules.family.application.FamilyQueryApi;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
+/**
+ * 本家成员档案（multi-tenant-family E.5）。member 表按当前家庭自动过滤：跨家庭 id 一律「不存在」（404）。
+ *
+ * <ul>
+ *   <li>读：本家成员；</li>
+ *   <li>写：OWNER/ADMIN 可写本家任意档案；普通成员只能改本人档案；</li>
+ *   <li>账号字段（手机号 / 密码 / 超管）不再经此接口写——走 /account；
+ *       唯一例外：平台超管带 phone+password 新增 = 代建手机号账号并加入当前家庭（兼容旧后台与 E2E）。</li>
+ * </ul>
+ */
 @RestController
 @RequestMapping("/member")
 @RequiredArgsConstructor
 @Tag(name = "家庭成员")
 public class MemberController {
 
+    static final String NOT_FOUND = "成员不存在";
+
     private final MemberService svc;
     private final MpPermissionService permSvc;
     private final AdminChecker adminChecker;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final FamilyAppService familyApp;
+    private final FamilyQueryApi familyQuery;
 
-    // ========== Mifflin-St Jeor BMR 常量 ==========
-    private static final double MALE_BMR_CONST = 5;
-    private static final double FEMALE_BMR_CONST = -161;
-
-    /**
-     * 成员列表：平台超管（后台）看全部；App 侧普通成员只看本家成员档案（排除超管账号、E2E 测试成员、
-     * 未建档的纯登录账号），见 {@link MemberService#household}。
-     */
+    /** 本家成员档案（分页）。 */
     @GetMapping
     public R<IPage<Member>> list(PageQuery q) {
-        Long me = loginIdOrNull();
-        if (me == null || adminChecker.isAdmin(me)) return R.ok(svc.page(q));
-        java.util.List<Member> all = svc.household(me);
-        long size = q.getPageSize();
-        long from = Math.min(all.size(), (long) (q.getPageNum() - 1) * size);
-        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Member> page =
-                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(q.getPageNum(), size, all.size());
-        page.setRecords(all.subList((int) from, (int) Math.min(all.size(), from + size)));
-        return R.ok(page);
-    }
-
-    private static Long loginIdOrNull() {
-        try {
-            return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
-        } catch (RuntimeException e) { // 无 Sa-Token 上下文（如非 Web 线程）按未登录处理
-            return null;
-        }
+        return R.ok(svc.page(q));
     }
 
     /**
-     * 切换当前就餐成员（存 Sa-Token session）。
-     * 仅能切到本人或纯成员档案（宝宝/老人等无账号成员）；超管可切任意成员。
-     * 注：功能权限按登录账号判定，就餐成员只决定「谁在吃」。
+     * 切换当前就餐成员（只决定「谁在吃」，权限仍按登录账号）。只能切到本家成员：
+     * 本人或无账号档案；OWNER/ADMIN 可切到本家任意成员。
      */
     @PostMapping("/current")
     public R<?> setCurrent(@RequestParam Long memberId) {
-        long caller = StpUtil.getLoginIdAsLong();
-        if (memberId != caller && !adminChecker.isAdmin(caller)) {
-            Member target = svc.getById(memberId);
-            if (!AdminChecker.isProfileOnly(target)) {
-                throw BizException.forbidden("只能切换为本人或家庭成员档案");
-            }
+        Member target = inFamily(memberId);
+        if (!canManage() && !isMine(target) && !AdminChecker.isProfileOnly(target)) {
+            throw BizException.forbidden("只能切换为本人或家庭成员档案");
         }
-        StpUtil.getSession().set("currentMemberId", memberId);
+        TenantSession.setCurrentMember(memberId);
         return R.ok(null);
     }
 
-    /** 读取当前就餐成员 id。 */
+    /** 读取当前就餐成员 id（本人在当前家庭的档案，或切换后的档案）。 */
     @GetMapping("/current")
     public R<Long> getCurrent() {
-        return R.ok(StpUtil.getSession().getLong("currentMemberId"));
+        Long id = TenantContextHolder.profileIdOrNull();
+        return R.ok(id != null ? id : TenantSession.currentMemberId());
     }
 
-    /** 解析某成员最终权限集合(角色默认 + 个人勾选并集)。供前端按钮显隐。 */
+    /** 解析本家某成员最终权限集合(家庭角色默认 + 档案勾选)。供前端按钮显隐。 */
     @GetMapping("/{id}/permissions")
     public R<Set<String>> permissions(@PathVariable Long id) {
+        inFamily(id);
         return R.ok(permSvc.resolveByMemberId(id));
     }
 
@@ -90,157 +83,117 @@ public class MemberController {
         return R.ok(MpPermissionService.allPermLabels());
     }
 
-    /** 新增成员。非超管只能建纯成员档案（账号/权限字段被忽略）。 */
+    /**
+     * 新增本家成员档案（OWNER/ADMIN）。平台超管带 phone+password：代建手机号账号并加入当前家庭，返回其档案 id。
+     */
     @PostMapping
     public R<?> add(@RequestBody @Valid MemberSaveRequest req) {
-        boolean admin = adminChecker.isAdmin(StpUtil.getLoginIdAsLong());
-        Member m = toEntity(req, admin);
+        long caller = StpUtil.getLoginIdAsLong();
+        boolean admin = adminChecker.isAdmin(caller);
+        if (!admin && !canManage()) throw BizException.forbidden("只有主理人或管理员可以添加成员");
+        if (admin && notBlank(req.getPhone()) && notBlank(req.getPassword())) {
+            Long familyId = TenantContextHolder.requireFamilyId();
+            Long accountId = familyApp.registerPhoneAccount(req.getPhone(), req.getPassword(), req.getName(), familyId);
+            Long profileId = familyQuery.profileIdOf(familyId, accountId).orElseThrow();
+            Member m = toEntity(req, true);
+            m.setId(profileId);
+            svc.updateById(m);
+            return R.ok(profileId);
+        }
+        Member m = toEntity(req, true);
         m.setId(null);
         svc.save(m);
         return R.ok(m.getId());
     }
 
-    /** 编辑成员。超管可改任意成员全部字段；其他人只能改本人或纯成员档案的档案字段。 */
+    /** 编辑本家成员档案：OWNER/ADMIN 任意；普通成员只能改本人档案。 */
     @PutMapping
     public R<?> update(@RequestBody @Valid MemberSaveRequest req) {
         if (req.getId() == null) throw new BizException("缺少成员 id");
-        long caller = StpUtil.getLoginIdAsLong();
-        boolean admin = adminChecker.isAdmin(caller);
-        if (!admin && req.getId() != caller && !AdminChecker.isProfileOnly(svc.getById(req.getId()))) {
-            throw BizException.forbidden("只能编辑本人或家庭成员档案");
-        }
-        svc.updateById(toEntity(req, admin));
+        Member target = inFamily(req.getId());
+        boolean manager = canManage();
+        if (!manager && !isMine(target)) throw BizException.forbidden("只能编辑本人档案");
+        svc.updateById(toEntity(req, manager));
         return R.ok(null);
     }
 
-    /** 删除成员。超管可删任意成员（除本人）；其他人只能删纯成员档案。 */
+    /** 删除本家无账号的成员档案（OWNER/ADMIN）；有账号的成员请在家庭页「移除成员」。 */
     @DeleteMapping("/{id}")
     public R<?> del(@PathVariable Long id) {
-        long caller = StpUtil.getLoginIdAsLong();
-        if (id == caller) throw BizException.forbidden("不能删除自己");
-        if (!adminChecker.isAdmin(caller) && !AdminChecker.isProfileOnly(svc.getById(id))) {
-            throw BizException.forbidden("只能删除家庭成员档案");
-        }
+        Member target = inFamily(id);
+        if (isMine(target)) throw BizException.forbidden("不能删除自己");
+        if (!canManage()) throw BizException.forbidden("只有主理人或管理员可以删除成员");
+        if (!AdminChecker.isProfileOnly(target)) throw BizException.forbidden("有账号的成员请在家庭页移除");
         svc.removeById(id);
         return R.ok(null);
     }
 
     /**
-     * 入参 → 实体：只拷白名单字段；非超管丢弃账号与权限字段。
-     * 未拷字段保持 null，updateById 按非空字段更新，不会覆盖现有值。
+     * 本家成员每日营养目标（BMR × 活动系数 + 体控目标调整，见 NutritionTargetCalculator）。
+     * 资料不全或档案不属于本家 → data=null。
      */
-    private Member toEntity(MemberSaveRequest req, boolean admin) {
+    @GetMapping("/{id}/nutrition-target")
+    public R<NutritionTargetResponse> nutritionTarget(@PathVariable Long id) {
+        Long familyId = TenantContextHolder.familyIdOrNull();
+        return R.ok(familyQuery.nutritionTarget(familyId, id).map(t -> {
+            NutritionTargetResponse rsp = new NutritionTargetResponse();
+            rsp.setCalorieTarget(t.calorieTarget());
+            rsp.setProteinTarget(t.proteinTarget());
+            rsp.setCarbTarget(t.carbTarget());
+            rsp.setFatTarget(t.fatTarget());
+            rsp.setGoal(t.goal());
+            rsp.setBmr(t.bmr());
+            return rsp;
+        }).orElse(null));
+    }
+
+    // ------------------------------------------------------------------
+
+    /** 本家成员（租户插件已按当前家庭过滤）；查不到 = 不存在或不属于本家 → 404。 */
+    private Member inFamily(Long id) {
+        Member m = id == null ? null : svc.getById(id);
+        if (m == null) throw BizException.notFound(NOT_FOUND);
+        return m;
+    }
+
+    private static boolean canManage() {
+        TenantContext ctx = TenantContextHolder.get();
+        return ctx != null && ctx.canManage();
+    }
+
+    private static boolean isMine(Member m) {
+        TenantContext ctx = TenantContextHolder.get();
+        Long me = ctx != null && ctx.accountId() != null ? ctx.accountId() : loginIdOrNull();
+        return me != null && Objects.equals(me, m.getAccountId());
+    }
+
+    private static Long loginIdOrNull() {
+        try {
+            return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
+
+    /**
+     * 入参 → 实体：只拷白名单档案字段；角色标签 / 档案级功能勾选仅 OWNER/ADMIN（manager）可写。
+     * 账号字段（phone/password/isAdmin）一律不写入 member（V75 起凭证在 account 表）。
+     */
+    private Member toEntity(MemberSaveRequest req, boolean manager) {
         Member m = new Member();
         m.setId(req.getId());
         m.setName(req.getName());
         m.setHealthProfile(req.getHealthProfile());
         m.setGoal(req.getGoal());
         m.setActivityLevel(req.getActivityLevel());
-        if (admin) {
-            m.setPhone(req.getPhone());
-            m.setIsAdmin(req.getIsAdmin());
+        if (manager) {
             m.setRoleTags(req.getRoleTags());
             m.setMpPermissions(req.getMpPermissions());
-            if (req.getPassword() != null && !req.getPassword().isBlank()) {
-                m.setPasswordHash(passwordEncoder.encode(req.getPassword()));
-            }
         }
         return m;
-    }
-
-    /**
-     * 计算成员每日营养目标（BMR × 活动系数 + 体控目标调整）。
-     *
-     * 高度数据从 healthProfile JSON 中取 height(cm)/weight(kg)/age/gender。
-     * 目标从 goal 字段取，活动水平从 activityLevel 字段取。
-     * 任一缺失返回 null（data=null），前端据此判断是否支持精准模式。
-     */
-    @GetMapping("/{id}/nutrition-target")
-    public R<NutritionTargetResponse> nutritionTarget(@PathVariable Long id) {
-        Member m = svc.getById(id);
-        if (m == null) return R.ok(null);
-
-        Map<String, Object> hp = m.getHealthProfile();
-        if (hp == null) return R.ok(null);
-
-        Object weightObj = hp.get("weight");
-        Object heightObj = hp.get("height");
-        Object ageObj = hp.get("age");
-        Object genderObj = hp.get("gender");
-
-        if (weightObj == null || heightObj == null || ageObj == null) return R.ok(null);
-
-        double weight = toDouble(weightObj);
-        double height = toDouble(heightObj);
-        int age = toInt(ageObj);
-        String gender = genderObj != null ? genderObj.toString() : "male";
-
-        if (weight <= 0 || height <= 0 || age <= 0) return R.ok(null);
-
-        // Mifflin-St Jeor BMR
-        double bmr = 10 * weight + 6.25 * height - 5 * age;
-        bmr += "female".equalsIgnoreCase(gender) ? FEMALE_BMR_CONST : MALE_BMR_CONST;
-
-        // 活动系数
-        String al = m.getActivityLevel();
-        double activityMultiplier = activityMultiplier(al);
-
-        double tdee = bmr * activityMultiplier;
-
-        // 体控目标调整
-        String goal = m.getGoal();
-        double goalAdjust = goalAdjust(goal);
-        int calorieTarget = (int) Math.round(tdee + goalAdjust);
-
-        // 蛋白目标：体重(kg) × 系数
-        double proteinPerKg = "GAIN".equalsIgnoreCase(goal) ? 2.0
-                : "LOSE".equalsIgnoreCase(goal) ? 2.0 : 1.6;
-        int proteinTarget = (int) Math.round(weight * proteinPerKg);
-
-        // 脂肪：总热量 × 25%
-        int fatTarget = (int) Math.round(calorieTarget * 0.25 / 9);
-
-        // 碳水：剩余热量
-        int carbTarget = (int) Math.round((calorieTarget - proteinTarget * 4 - fatTarget * 9) / 4.0);
-        if (carbTarget < 0) carbTarget = 0;
-
-        NutritionTargetResponse rsp = new NutritionTargetResponse();
-        rsp.setCalorieTarget(calorieTarget);
-        rsp.setProteinTarget(proteinTarget);
-        rsp.setCarbTarget(carbTarget);
-        rsp.setFatTarget(fatTarget);
-        rsp.setGoal(goal);
-        rsp.setBmr((int) Math.round(bmr));
-        return R.ok(rsp);
-    }
-
-    private double activityMultiplier(String level) {
-        if (level == null) return 1.2;
-        return switch (level.toUpperCase()) {
-            case "SEDENTARY" -> 1.2;
-            case "LIGHT" -> 1.375;
-            case "MODERATE" -> 1.55;
-            case "ACTIVE" -> 1.725;
-            default -> 1.2;
-        };
-    }
-
-    private double goalAdjust(String goal) {
-        if (goal == null) return 0;
-        return switch (goal.toUpperCase()) {
-            case "LOSE" -> -500;
-            case "GAIN" -> 300;
-            default -> 0;
-        };
-    }
-
-    private double toDouble(Object v) {
-        if (v instanceof Number n) return n.doubleValue();
-        try { return Double.parseDouble(v.toString()); } catch (Exception e) { return 0; }
-    }
-
-    private int toInt(Object v) {
-        if (v instanceof Number n) return n.intValue();
-        try { return Integer.parseInt(v.toString()); } catch (Exception e) { return 0; }
     }
 }

@@ -19,6 +19,13 @@ public class MenuInvite {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    /** 所属家庭（租户，multi-tenant-family）：租户插件按当前家庭自动写入与过滤，客户端不可写、不可改。 */
+    @com.baomidou.mybatisplus.annotation.TableField(
+            insertStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER,
+            updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private Long familyId;
+
     private Long menuId;
 
     /** 6 位口令（短码分享）。 */
@@ -30,5 +37,16 @@ public class MenuInvite {
     /** 房主 member_id（邀请生成人）。 */
     private Long createdBy;
 
+    /** 凭证有效期截止（V90）；为空视为已过期（fail closed）。 */
+    private LocalDateTime expiresAt;
+
+    /** 是否已撤销（V90）：房主主动撤销，或刷新邀请时旧凭证作废。 */
+    private Integer revoked;
+
     private LocalDateTime createTime;
+
+    /** 凭证当前是否有效：未撤销且未过期。 */
+    public boolean isUsable(LocalDateTime now) {
+        return (revoked == null || revoked == 0) && expiresAt != null && expiresAt.isAfter(now);
+    }
 }

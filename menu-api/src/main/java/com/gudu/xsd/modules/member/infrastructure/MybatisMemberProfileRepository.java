@@ -23,7 +23,17 @@ public class MybatisMemberProfileRepository implements MemberProfileRepository {
     @Override
     public Optional<MemberProfile> findById(Long memberId) {
         if (memberId == null) return Optional.empty();
-        Member m = mapper.selectById(memberId);
+        return toDomain(mapper.selectById(memberId));
+    }
+
+    @Override
+    public Optional<MemberProfile> findByAccount(Long accountId) {
+        if (accountId == null) return Optional.empty();
+        return toDomain(mapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Member>()
+                .eq("account_id", accountId).orderByAsc("id").last("LIMIT 1")));
+    }
+
+    private static Optional<MemberProfile> toDomain(Member m) {
         if (m == null) return Optional.empty();
         return Optional.of(MemberProfile.rehydrate(m.getId(), m.getName(), m.getAvatarUrl(), m.getPhone(),
                 AdminChecker.isAdmin(m)));

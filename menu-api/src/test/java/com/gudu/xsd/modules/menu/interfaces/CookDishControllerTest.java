@@ -47,6 +47,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(CookDishControllerTest.TestSqlConfig.class)
 class CookDishControllerTest {
 
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        com.gudu.xsd.common.tenant.TenantContextHolder.clear();
+    }
+
     @TestConfiguration
     static class TestSqlConfig {
         @Bean
@@ -80,7 +85,7 @@ class CookDishControllerTest {
     @Test
     void POST_做菜_身份取登录账号() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 7L, 7L, "MEMBER"));
             given(appService.cookDish(eq(1L), eq(7L), any(), any(), any(), any()))
                     .willReturn(new CookDishResult(55L, 1L));
 
@@ -97,7 +102,7 @@ class CookDishControllerTest {
     @Test
     void POST_无body_按默认值() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 7L, 7L, "MEMBER"));
             given(appService.cookDish(eq(1L), eq(7L), any(), any(), any(), any()))
                     .willReturn(new CookDishResult(56L, 1L));
             mvc.perform(post("/cook/dish/1"))
@@ -110,7 +115,7 @@ class CookDishControllerTest {
     @Test
     void POST_备注超长_参数校验拦截() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 7L, 7L, "MEMBER"));
             mvc.perform(post("/cook/dish/1").contentType(MediaType.APPLICATION_JSON)
                             .content("{\"note\":\"" + "x".repeat(201) + "\"}"))
                     .andExpect(jsonPath("$.code").value(1))

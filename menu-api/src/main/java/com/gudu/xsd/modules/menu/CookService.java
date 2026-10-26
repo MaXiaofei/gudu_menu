@@ -82,7 +82,7 @@ public class CookService {
      */
     public CookMaterialsVO dishMaterials(Long dishId, java.math.BigDecimal servings) {
         if (dishId == null || dishService.getById(dishId) == null) {
-            throw new BizException("菜谱不存在");
+            throw BizException.notFound("菜谱不存在");
         }
         MenuDish one = new MenuDish();
         one.setDishId(dishId);

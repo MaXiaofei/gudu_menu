@@ -24,6 +24,6 @@ public class CookbookRecentController {
 
     @GetMapping("/recent")
     public R<List<RecentDishView>> recent(@RequestParam(defaultValue = "10") int limit) {
-        return R.ok(appService.recent(StpUtil.getLoginIdAsLong(), limit));
+        return R.ok(appService.recent(com.gudu.xsd.common.security.CurrentMember.id(), limit));
     }
 }

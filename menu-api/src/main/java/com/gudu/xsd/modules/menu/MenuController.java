@@ -76,7 +76,7 @@ public class MenuController {
 
     private Long currentMemberId() {
         try {
-            return cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong();
+            return com.gudu.xsd.common.security.CurrentMember.id();
         } catch (Exception e) {
             return null;
         }

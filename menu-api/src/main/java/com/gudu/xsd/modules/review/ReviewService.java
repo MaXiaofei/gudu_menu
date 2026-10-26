@@ -44,6 +44,22 @@ public class ReviewService {
     private final MenuDishMapper menuDishMapper;
     private final DishMapper dishMapper;
 
+    /** 菜谱可见性守卫（multi-tenant-family E.1）：别家私有菜谱 404；setter 注入保持既有构造器与单测。 */
+    private com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setDishGuard(com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard) {
+        this.dishGuard = dishGuard;
+    }
+
+    private void requireVisible(Long dishId) {
+        if (dishGuard != null) dishGuard.requireVisible(dishId);
+    }
+
+    private void requireAllVisible(java.util.Collection<Long> dishIds) {
+        if (dishGuard != null) dishGuard.requireAllVisible(dishIds);
+    }
+
     public ReviewService(ReviewMapper reviewMapper, ReviewScoreMapper reviewScoreMapper,
                          MenuMapper menuMapper, MenuDishMapper menuDishMapper, DishMapper dishMapper) {
         this.reviewMapper = reviewMapper;
@@ -59,7 +75,8 @@ public class ReviewService {
         if ((dto.getDishId() == null) == (dto.getMenuId() == null)) {
             throw new BizException("菜品和食集评价二选一");
         }
-        Long memberId = StpUtil.getSession().getLong("currentMemberId");
+        if (dto.getDishId() != null) requireVisible(dto.getDishId());
+        Long memberId = com.gudu.xsd.common.security.CurrentMember.id();
         if (memberId == null) throw new BizException("请先选择就餐成员");
         Review r = new Review();
         r.setDishId(dto.getDishId());
@@ -84,6 +101,7 @@ public class ReviewService {
 
     /** 某菜的所有点评（最新优先）。 */
     public List<Review> listByDish(Long dishId) {
+        requireVisible(dishId);
         return reviewMapper.selectList(
             new QueryWrapper<Review>().eq("dish_id", dishId).orderByDesc("create_time"));
     }
@@ -227,7 +245,7 @@ public class ReviewService {
     /** 当前就餐成员（未登录/未选择返回 null，mine/overview 容错）。 */
     private Long currentMemberId() {
         try {
-            return StpUtil.getSession().getLong("currentMemberId");
+            return com.gudu.xsd.common.security.CurrentMember.id();
         } catch (Exception e) {
             return null;
         }

@@ -24,6 +24,6 @@ public class IngredientFrequentController {
 
     @GetMapping("/frequent")
     public R<List<FrequentIngredient>> frequent(@RequestParam(defaultValue = "8") int limit) {
-        return R.ok(appService.frequent(StpUtil.getLoginIdAsLong(), limit));
+        return R.ok(appService.frequent(com.gudu.xsd.common.security.CurrentMember.id(), limit));
     }
 }

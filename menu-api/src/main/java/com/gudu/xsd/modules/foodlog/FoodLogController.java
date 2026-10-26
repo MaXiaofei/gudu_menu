@@ -72,7 +72,7 @@ public class FoodLogController {
 
     private Long currentMemberId() {
         try {
-            return StpUtil.getLoginIdAsLong();
+            return com.gudu.xsd.common.security.CurrentMember.id();
         } catch (Exception e) {
             return null;
         }

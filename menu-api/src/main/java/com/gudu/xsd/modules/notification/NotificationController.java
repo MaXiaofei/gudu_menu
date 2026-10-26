@@ -50,7 +50,7 @@ public class NotificationController {
     }
 
     private Long currentMemberId() {
-        Long id = StpUtil.getSession().getLong("currentMemberId");
+        Long id = com.gudu.xsd.common.security.CurrentMember.id();
         if (id == null) throw new BizException("请先选择就餐成员");
         return id;
     }

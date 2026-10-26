@@ -17,4 +17,7 @@ public interface VisionJobRepository {
 
     /** 删除创建早于 createdBefore 的任务（结果到期），返回删除条数。 */
     int deleteCreatedBefore(LocalDateTime createdBefore);
+
+    /** 账号合并（AccountMerged）：把归属 {@code from} 账号的记录改指 {@code to}。返回改动条数。 */
+    int reassignAccount(Long from, Long to);
 }

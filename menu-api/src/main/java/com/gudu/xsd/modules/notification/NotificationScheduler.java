@@ -37,11 +37,31 @@ public class NotificationScheduler {
     private final NotificationService notificationService;
     private final MemberMapper memberMapper;
 
-    /** 每天早 8 点扫临期库存。 */
+    /** 家庭清单（multi-tenant-family C.3）；setter 注入以保持构造器与既有单测兼容。 */
+    private com.gudu.xsd.modules.family.application.FamilyQueryApi familyQuery;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setFamilyQuery(com.gudu.xsd.modules.family.application.FamilyQueryApi familyQuery) {
+        this.familyQuery = familyQuery;
+    }
+
+    /**
+     * 每天早 8 点扫临期库存：后台线程没有请求上下文，按家庭逐个 {@code runAsFamily}，
+     * 只读写该家庭的库存与成员（家庭域表无上下文访问会直接抛异常）。单个家庭失败不影响其他家庭。
+     */
     @Scheduled(cron = "0 0 8 * * *")
     public void scanExpiring() {
-        int n = checkExpiring(DEFAULT_EXPIRING_DAYS);
-        log.info("临期扫描完成：发送 {} 条提醒", n);
+        if (familyQuery == null) return;
+        int total = 0;
+        for (Long familyId : familyQuery.activeFamilyIds()) {
+            try {
+                total += com.gudu.xsd.common.tenant.TenantContextHolder.callAsFamily(familyId,
+                        () -> checkExpiring(DEFAULT_EXPIRING_DAYS));
+            } catch (RuntimeException e) {
+                log.warn("家庭 {} 临期扫描失败: {}", familyId, e.getMessage());
+            }
+        }
+        log.info("临期扫描完成：发送 {} 条提醒", total);
     }
 
     /**
@@ -70,8 +90,10 @@ public class NotificationScheduler {
 
     /** 找第一个 role_tags 含掌勺(32)的成员 id；没有返回 null。 */
     private Long findChefMemberId() {
-        Member m = memberMapper.selectOne(
-                new QueryWrapper<Member>().like("role_tags", CHEF_ROLE_TAG).last("LIMIT 1"));
+        // 本家（租户插件过滤）掌勺优先；新家庭没有「掌勺」标签时退回第一位有账号的成员（通常是主理人）
+        Member m = memberMapper.selectOne(new QueryWrapper<Member>()
+                .and(w -> w.like("role_tags", CHEF_ROLE_TAG).or().isNotNull("account_id"))
+                .last("ORDER BY (role_tags LIKE '%" + CHEF_ROLE_TAG + "%') DESC, id ASC LIMIT 1"));
         return m == null ? null : m.getId();
     }
 

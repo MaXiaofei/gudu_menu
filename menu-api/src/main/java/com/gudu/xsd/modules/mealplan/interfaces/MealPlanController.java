@@ -36,26 +36,26 @@ public class MealPlanController {
 
     @PostMapping
     public R<MealPlanDraftView> create(@RequestBody(required = false) CreateDraftCommand cmd) {
-        return R.ok(appService.create(StpUtil.getLoginIdAsLong(), cmd));
+        return R.ok(appService.create(com.gudu.xsd.common.security.CurrentMember.id(), cmd));
     }
 
     @GetMapping("/{id}")
     public R<MealPlanDraftView> get(@PathVariable Long id) {
-        return R.ok(appService.get(StpUtil.getLoginIdAsLong(), id));
+        return R.ok(appService.get(com.gudu.xsd.common.security.CurrentMember.id(), id));
     }
 
     @PostMapping("/{id}/slots/{slotId}/alternatives")
     public R<Map<String, List<DishCardView>>> alternatives(@PathVariable Long id, @PathVariable Long slotId) {
-        return R.ok(Map.of("items", appService.alternatives(StpUtil.getLoginIdAsLong(), id, slotId)));
+        return R.ok(Map.of("items", appService.alternatives(com.gudu.xsd.common.security.CurrentMember.id(), id, slotId)));
     }
 
     @PutMapping("/{id}/slots/{slotId}")
     public R<MealPlanDraftView> replace(@PathVariable Long id, @PathVariable Long slotId, @RequestBody ReplaceReq req) {
-        return R.ok(appService.replace(StpUtil.getLoginIdAsLong(), id, slotId, req.getDishId()));
+        return R.ok(appService.replace(com.gudu.xsd.common.security.CurrentMember.id(), id, slotId, req.getDishId()));
     }
 
     @PostMapping("/{id}/apply")
     public R<Map<String, Object>> apply(@PathVariable Long id) {
-        return R.ok(appService.apply(StpUtil.getLoginIdAsLong(), id));
+        return R.ok(appService.apply(com.gudu.xsd.common.security.CurrentMember.id(), id));
     }
 }

@@ -45,13 +45,25 @@ public class CommunityAssembler {
     private final PostCounterStore counterStore;
     private final InteractionRepository interactions;
     private final TopicRepository topics;
+    private final com.gudu.xsd.modules.identity.application.AccountQueryApi accountQuery;
 
     public Map<Long, UserLite> users(Collection<Long> ids) {
         List<Long> list = clean(ids);
         if (list.isEmpty()) return Map.of();
-        return memberService.listByIds(list).stream().collect(Collectors.toMap(Member::getId,
-                m -> new UserLite(m.getId(), m.getName() == null ? "厨友" : m.getName(), m.getAvatarUrl()),
-                (a, b) -> a));
+        // 作者 = 登录账号（跨家庭展示）：优先账号昵称 / 头像
+        Map<Long, UserLite> out = new java.util.HashMap<>();
+        if (accountQuery != null) {
+            accountQuery.views(list).forEach((id, v) -> out.put(id, new UserLite(id,
+                    v.nickname() == null || v.nickname().isBlank() ? "厨友" : v.nickname(), v.avatarUrl())));
+        }
+        List<Long> missing = list.stream().filter(id -> !out.containsKey(id)).toList();
+        if (!missing.isEmpty()) {
+            // 存量演示作者（无登录凭证、未建账号）：member 表系统模式兜底（社区是全局内容，不属于任何家庭）
+            com.gudu.xsd.common.tenant.TenantContextHolder.callAsSystem(() -> memberService.listByIds(missing))
+                    .forEach(m -> out.putIfAbsent(m.getId(), new UserLite(m.getId(),
+                            m.getName() == null ? "厨友" : m.getName(), m.getAvatarUrl())));
+        }
+        return out;
     }
 
     public UserLite user(Long id) {

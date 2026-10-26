@@ -125,6 +125,27 @@ public class MybatisInteractionRepository implements InteractionRepository {
                 .collect(Collectors.groupingBy(Report::postId));
     }
 
+    @Override
+    public void reassignAccount(Long from, Long to) {
+        if (from == null || to == null || from.equals(to)) return;
+        mapper.copyReactions(from, to);
+        mapper.deleteReactionsOf(from);
+        mapper.copyFollowing(from, to);
+        mapper.copyFollowers(from, to);
+        mapper.deleteFollowsOf(from);
+        mapper.copyCopies(from, to);
+        mapper.deleteCopiesOf(from);
+        mapper.copyReports(from, to);
+        mapper.deleteReportsOf(from);
+        mapper.copyCheckins(from, to);
+        mapper.deleteCheckinsOf(from);
+        LocalDateTime until = mapper.bannedUntil(from);
+        if (until != null) {
+            mapper.upsertBan(to, until, mapper.banReason(from));
+            mapper.deleteBan(from);
+        }
+    }
+
     private static List<Long> clean(Collection<Long> ids) {
         return ids == null ? List.of() : ids.stream().filter(Objects::nonNull).distinct().toList();
     }

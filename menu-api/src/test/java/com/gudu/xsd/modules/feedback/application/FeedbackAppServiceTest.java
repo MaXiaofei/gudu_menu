@@ -10,8 +10,7 @@ import com.gudu.xsd.modules.feedback.domain.model.FeedbackPage;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackStatus;
 import com.gudu.xsd.modules.feedback.domain.model.FeedbackType;
 import com.gudu.xsd.modules.feedback.domain.repository.FeedbackRepository;
-import com.gudu.xsd.modules.member.Member;
-import com.gudu.xsd.modules.member.MemberService;
+import com.gudu.xsd.modules.identity.application.AccountQueryApi;
 import com.gudu.xsd.modules.notification.NotificationPayload;
 import com.gudu.xsd.modules.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +44,7 @@ class FeedbackAppServiceTest {
     static final LocalDateTime NOW = TODAY.atTime(9, 0);
 
     FeedbackRepository repo;
-    MemberService memberService;
+    AccountQueryApi accountQuery;
     FeedbackAppService svc;
     ContentSecurityAppService contentSecurity;
     NotificationService notifications;
@@ -53,10 +52,10 @@ class FeedbackAppServiceTest {
     @BeforeEach
     void setUp() {
         repo = mock(FeedbackRepository.class);
-        memberService = mock(MemberService.class);
+        accountQuery = mock(AccountQueryApi.class);
         contentSecurity = mock(ContentSecurityAppService.class);
         notifications = mock(NotificationService.class);
-        svc = new FeedbackAppService(repo, memberService,
+        svc = new FeedbackAppService(repo, accountQuery,
                 Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE), contentSecurity, notifications);
     }
 
@@ -118,10 +117,7 @@ class FeedbackAppServiceTest {
     void 列表_回填成员名_分页参数夹紧_类型与状态过滤() {
         when(repo.page(eq(FeedbackType.AI), eq(FeedbackStatus.NEW), anyInt(), anyInt()))
                 .thenReturn(new FeedbackPage(List.of(stored(3L, 1L)), 1, 1, 100));
-        Member m = new Member();
-        m.setId(1L);
-        m.setName("张爸爸");
-        when(memberService.listByIds(any())).thenReturn(List.of(m));
+        when(accountQuery.nicknames(any())).thenReturn(java.util.Map.of(1L, "张爸爸"));
 
         IPage<FeedbackView> p = svc.page("ai", "NEW", 0, 1000);
 
@@ -138,7 +134,7 @@ class FeedbackAppServiceTest {
     void 列表_不传筛选_空页不查成员() {
         when(repo.page(null, null, 1, 10)).thenReturn(new FeedbackPage(List.of(), 0, 1, 10));
         assertThat(svc.page(null, null, null, null).getRecords()).isEmpty();
-        verify(memberService, never()).listByIds(any());
+        verify(accountQuery, never()).nicknames(any());
     }
 
     @Test

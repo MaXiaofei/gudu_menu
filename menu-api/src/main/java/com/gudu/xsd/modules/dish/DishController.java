@@ -106,22 +106,26 @@ public class DishController {
     @GetMapping("/{id}/nutrition")
     public R<Map<Long, BigDecimal>> nutrition(@PathVariable Long id,
                                               @RequestParam(required = false) BigDecimal serving) {
+        svc.requireVisible(id);
         return R.ok(querySvc.nutrition(id, serving));
     }
 
     @GetMapping("/{id}/history")
     public R<List<DishHistory>> history(@PathVariable Long id) {
+        svc.requireVisible(id);
         return R.ok(querySvc.history(id));
     }
 
     @DeleteMapping("/{id}/history/{hid}")
     public R<?> deleteHistory(@PathVariable Long id, @PathVariable Long hid) {
+        svc.requireVisible(id);
         querySvc.deleteHistory(id, hid);
         return R.ok(null);
     }
 
     @DeleteMapping("/{id}/history")
     public R<?> clearHistory(@PathVariable Long id) {
+        svc.requireVisible(id);
         querySvc.clearHistory(id);
         return R.ok(null);
     }
@@ -154,10 +158,17 @@ public class DishController {
     @MpPerm("dish.edit")
     public R<?> update(@RequestBody DishSaveDTO dto) {
         if (dto.getDish().getId() != null) {
+            svc.checkWritable(dto.getDish().getId()); // 先校验写权限（别家 404 / 公共菜谱非运营 403），再写历史快照
             querySvc.snapshotBeforeUpdate(dto.getDish().getId());
         }
         svc.saveFull(dto);
         return R.ok(null);
+    }
+
+    /** 复制到我家：公共菜谱（或本家菜谱）复制为当前家庭私有菜谱，记录来源；返回新菜谱 id。 */
+    @PostMapping("/{id}/fork")
+    public R<Long> fork(@PathVariable Long id) {
+        return R.ok(svc.fork(id));
     }
 
     @DeleteMapping("/{id}")

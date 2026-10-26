@@ -32,6 +32,11 @@ import static org.mockito.Mockito.when;
  */
 class ReviewServiceTest {
 
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        com.gudu.xsd.common.tenant.TenantContextHolder.clear();
+    }
+
     private final ReviewMapper reviewMapper = mock(ReviewMapper.class);
     private final ReviewScoreMapper reviewScoreMapper = mock(ReviewScoreMapper.class);
     private final MenuMapper menuMapper = mock(MenuMapper.class);
@@ -97,7 +102,7 @@ class ReviewServiceTest {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             SaSession session = mock(SaSession.class);
             stp.when(StpUtil::getSession).thenReturn(session);
-            when(session.getLong("currentMemberId")).thenReturn(1L);
+            org.mockito.Mockito.lenient().when(session.getLong("currentMemberId")).thenReturn(1L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 1L, 1L, "MEMBER"));
             when(reviewMapper.insert(any(Review.class))).thenAnswer(inv -> {
                 ((Review) inv.getArgument(0)).setId(9L);
                 return 1;
@@ -161,7 +166,7 @@ class ReviewServiceTest {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             SaSession session = mock(SaSession.class);
             stp.when(StpUtil::getSession).thenReturn(session);
-            when(session.getLong("currentMemberId")).thenReturn(1L);
+            org.mockito.Mockito.lenient().when(session.getLong("currentMemberId")).thenReturn(1L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 1L, 1L, "MEMBER"));
             // 第一次 selectList = 食集整体评价（我的最近一条）；第二次 = 菜品评价（我的最近一条）
             Review menuReview = new Review();
             menuReview.setId(3L);
@@ -237,7 +242,7 @@ class ReviewServiceTest {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             SaSession session = mock(SaSession.class);
             stp.when(StpUtil::getSession).thenReturn(session);
-            when(session.getLong("currentMemberId")).thenReturn(1L);
+            org.mockito.Mockito.lenient().when(session.getLong("currentMemberId")).thenReturn(1L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 1L, 1L, "MEMBER"));
 
             // 评价历史：1 条菜品评价 + 1 条食集评价
             Review dishReview = new Review();
@@ -288,7 +293,7 @@ class ReviewServiceTest {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
             SaSession session = mock(SaSession.class);
             stp.when(StpUtil::getSession).thenReturn(session);
-            when(session.getLong("currentMemberId")).thenReturn(1L);
+            org.mockito.Mockito.lenient().when(session.getLong("currentMemberId")).thenReturn(1L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 1L, 1L, "MEMBER"));
             when(reviewMapper.selectList(any())).thenReturn(List.of());
             when(menuMapper.selectList(any())).thenReturn(List.of());
 

@@ -46,10 +46,44 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     private final com.gudu.xsd.modules.pantry.PantryService pantryService;
     private final DishVectorService vectorService;
 
-    /** 保存菜品（新增或更新），整体替换步骤 + 菜系/标签/分类关联 + 食材用量。 */
+    /** 菜谱写权限（multi-tenant-family E.1）；setter 注入以保持构造器与既有单测兼容。 */
+    private DishAccessGuard accessGuard;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAccessGuard(DishAccessGuard accessGuard) {
+        this.accessGuard = accessGuard;
+    }
+
+    /** 修改 / 删除前的写权限校验（Controller 在写历史快照前先调）。 */
+    public void checkWritable(Long id) {
+        if (accessGuard != null) accessGuard.checkWritable(id == null ? null : getById(id));
+    }
+
+    /** 读权限：公共或本家私有菜谱，否则 404。 */
+    public Dish requireVisible(Long id) {
+        Dish d = id == null ? null : getById(id);
+        if (d == null) throw BizException.notFound("菜谱不存在");
+        return d;
+    }
+
+    /**
+     * 保存菜品（新增或更新），整体替换步骤 + 菜系/标签/分类关联 + 食材用量。
+     * 新增：归属由 {@link DishAccessGuard} 决定（平台运营后台 → 公共；否则本家私有）；
+     * 更新：先校验写权限，归属（family_id / source_dish_id）保持不变。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void saveFull(DishSaveDTO dto) {
         Dish dish = dto.getDish();
+        if (accessGuard != null) {
+            if (dish.getId() == null) {
+                accessGuard.assignOwnerForCreate(dish);
+            } else {
+                Dish existing = getById(dish.getId());
+                accessGuard.checkWritable(existing);
+                dish.setFamilyId(existing.getFamilyId());
+                dish.setSourceDishId(existing.getSourceDishId());
+            }
+        }
         saveOrUpdate(dish);
         Long dishId = dish.getId();
 
@@ -143,6 +177,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
      */
     @Transactional(rollbackFor = Exception.class)
     public void deleteFull(Long id) {
+        checkWritable(id);
         stepMapper.delete(new QueryWrapper<DishStep>().eq("dish_id", id));
         dictRelMapper.delete(new QueryWrapper<DishDict>().eq("dish_id", id));
         dishIngMapper.delete(new QueryWrapper<DishIngredient>().eq("dish_id", id));
@@ -153,8 +188,8 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
 
     /** 详情：菜品 + 步骤 + 菜系/标签/分类 ID + 食材用量。 */
     public DishDetail detail(Long id) {
-        Dish dish = getById(id);
-        if (dish == null) throw new BizException("菜谱不存在");
+        Dish dish = getById(id); // 可见性插件：别家私有菜谱读不到 → 404
+        if (dish == null) throw BizException.notFound("菜谱不存在");
         List<DishStep> steps = stepMapper.selectList(
                 new QueryWrapper<DishStep>().eq("dish_id", id).orderByAsc("sort_order", "seq"));
         List<DishDict> rels = dictRelMapper.selectList(new QueryWrapper<DishDict>().eq("dish_id", id));
@@ -279,11 +314,12 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     }
 
     /**
-     * 家庭菜谱数（「我的」统计）：排除批量导入的公共库内容（source_name=下厨房）。
-     * multi-tenant-family 落地后改为 family_id = 当前家庭。
+     * 家庭菜谱数（「我的」统计）：当前家庭的私有菜谱（family_id = 当前家庭）。
      */
     public long countFamilyDishes() {
-        return count(new QueryWrapper<Dish>().and(w -> w.isNull("source_name").or().ne("source_name", PUBLIC_IMPORT_SOURCE)));
+        Long familyId = com.gudu.xsd.common.tenant.TenantContextHolder.familyIdOrNull();
+        if (familyId == null) return 0;
+        return count(new QueryWrapper<Dish>().eq("family_id", familyId));
     }
 
     /** 批量导入的公共库来源名（recipe-content-seed）。 */
@@ -316,13 +352,49 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                 .collect(java.util.stream.Collectors.toSet());
     }
 
-    /** 当前就餐成员（session.currentMemberId；未登录 null）。 */
+    /** 当前就餐成员（成员档案 id；未登录 null）。 */
     private Long currentDinerId() {
-        try {
-            return cn.dev33.satoken.stp.StpUtil.getSession().getLong("currentMemberId");
-        } catch (Exception ignored) {
-            return null;
+        return com.gudu.xsd.common.security.CurrentMember.id();
+    }
+
+    /**
+     * 复制到我家（E.1）：把可见菜谱（通常是公共菜谱）复制为当前家庭私有菜谱，记录来源；
+     * 用料、步骤、菜系/标签/分类关联一并复制。返回新菜谱 id。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Long fork(Long sourceId) {
+        Dish src = requireVisible(sourceId);
+        Dish copy = new Dish();
+        copy.setName(src.getName());
+        copy.setNote(src.getNote());
+        copy.setCoverUrl(src.getCoverUrl());
+        copy.setPrepTime(src.getPrepTime());
+        copy.setCookTime(src.getCookTime());
+        copy.setDifficulty(src.getDifficulty());
+        copy.setSource(src.getSource());
+        copy.setSourceName(src.getSourceName());
+        copy.setSourceUrl(src.getSourceUrl());
+        copy.setFamilyId(com.gudu.xsd.common.tenant.TenantContextHolder.requireFamilyId());
+        copy.setSourceDishId(src.getId());
+        save(copy);
+        Long id = copy.getId();
+        for (DishStep s : stepMapper.selectList(new QueryWrapper<DishStep>().eq("dish_id", sourceId))) {
+            s.setId(null);
+            s.setDishId(id);
+            stepMapper.insert(s);
         }
+        for (DishIngredient ing : dishIngMapper.selectList(new QueryWrapper<DishIngredient>().eq("dish_id", sourceId))) {
+            ing.setId(null);
+            ing.setDishId(id);
+            dishIngMapper.insert(ing);
+        }
+        for (DishDict r : dictRelMapper.selectList(new QueryWrapper<DishDict>().eq("dish_id", sourceId))) {
+            r.setId(null);
+            r.setDishId(id);
+            dictRelMapper.insert(r);
+        }
+        vectorService.upsertDish(id);
+        return id;
     }
 
     private List<Dish> filterByNutrition(List<Dish> candidates, Map<Long, BigDecimal> limits) {

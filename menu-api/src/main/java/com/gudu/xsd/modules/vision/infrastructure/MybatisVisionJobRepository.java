@@ -98,4 +98,10 @@ public class MybatisVisionJobRepository implements VisionJobRepository {
             return null;
         }
     }
+
+    @Override
+    public int reassignAccount(Long from, Long to) {
+        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<VisionJobPO>()
+                .eq("member_id", from).set("member_id", to));
+    }
 }

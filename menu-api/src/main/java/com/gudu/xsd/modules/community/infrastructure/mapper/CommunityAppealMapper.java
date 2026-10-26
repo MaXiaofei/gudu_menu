@@ -28,4 +28,7 @@ public interface CommunityAppealMapper extends BaseMapper<CommunityRelationPO> {
 
     @Select("SELECT COUNT(*) FROM community_appeal WHERE handled = 0")
     long countPending();
+
+    @Update("UPDATE community_appeal SET author_id = #{to} WHERE author_id = #{from}")
+    int reassignAuthor(@Param("from") Long from, @Param("to") Long to);
 }

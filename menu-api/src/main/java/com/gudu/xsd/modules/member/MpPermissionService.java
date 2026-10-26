@@ -1,5 +1,9 @@
 package com.gudu.xsd.modules.member;
 
+import com.gudu.xsd.common.tenant.TenantContext;
+import com.gudu.xsd.common.tenant.TenantContextHolder;
+import com.gudu.xsd.modules.family.application.FamilyQueryApi;
+import com.gudu.xsd.modules.identity.application.AccountQueryApi;
 import com.gudu.xsd.modules.member.mapper.MemberMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -45,11 +49,23 @@ public class MpPermissionService {
                     "review.create", "menu.view", "menu.plan")
     );
 
+    /** 家庭普通成员（FamilyRole.MEMBER）的默认模板 = 普通成员(34)。 */
+    static final String MEMBER_DEFAULT_TAGS = "34";
+
     private final MemberMapper memberMapper;
+    private final AccountQueryApi accountQuery;
+    private final FamilyQueryApi familyQuery;
+
+    /** 纯函数单测用：不查库、不判平台 / 家庭角色。 */
+    public MpPermissionService(MemberMapper memberMapper) {
+        this(memberMapper, null, null);
+    }
 
     @Autowired
-    public MpPermissionService(MemberMapper memberMapper) {
+    public MpPermissionService(MemberMapper memberMapper, AccountQueryApi accountQuery, FamilyQueryApi familyQuery) {
         this.memberMapper = memberMapper;
+        this.accountQuery = accountQuery;
+        this.familyQuery = familyQuery;
     }
 
     /**
@@ -82,11 +98,12 @@ public class MpPermissionService {
     }
 
     /**
-     * 运行期:按 member id 查角色 + 个人勾选,解析最终权限集合。
-     * 供前端按钮显隐 / 切面校验使用。
-     *
-     * <p>超管短路:member.is_admin=1 直接返回全量功能 key(绕过 @MpPerm),
-     * 对应 admin 账号(V29 合并后 admin 落在 member 表 is_admin=1)。
+     * 运行期:本家某成员档案的最终权限集合(供前端按钮显隐)。E.4:
+     * <ul>
+     *   <li>档案关联的账号是平台超管,或在当前家庭是 OWNER/ADMIN → 全量;</li>
+     *   <li>否则 = 普通成员模板(34) ∪ 档案角色标签模板 ∪ 档案级勾选;</li>
+     *   <li>档案不在当前家庭(租户过滤查不到) → 空集。</li>
+     * </ul>
      */
     public Set<String> resolveByMemberId(Long memberId) {
         if (memberId == null || memberMapper == null) {
@@ -96,15 +113,39 @@ public class MpPermissionService {
         if (m == null) {
             return Collections.emptySet();
         }
-        if (m.getIsAdmin() != null && m.getIsAdmin() == 1) {
+        if (m.getAccountId() != null && fullAccess(m.getAccountId())) {
             return new HashSet<>(allPermKeys());
         }
-        return resolvePermissions(m.getRoleTags(), m.getMpPermissions());
+        return resolveProfile(m);
     }
 
-    /** 运行期:按 member id 判定是否拥有某权限 key。 */
-    public boolean hasPermission(Long memberId, String key) {
-        return resolveByMemberId(memberId).contains(key);
+    /**
+     * 运行期:登录账号在当前家庭是否拥有某权限 key(@MpPerm 切面)。权限属于账号,与「当前就餐成员」无关。
+     * 平台超管 / 家庭 OWNER、ADMIN 全权;普通成员按本人在当前家庭的档案解析。
+     */
+    public boolean hasPermission(Long accountId, String key) {
+        if (accountId == null) return false;
+        if (fullAccess(accountId)) return true;
+        if (memberMapper == null) return false;
+        Member own = memberMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Member>()
+                .eq("account_id", accountId).last("LIMIT 1"));
+        Set<String> perms = own == null ? resolvePermissions(MEMBER_DEFAULT_TAGS, null) : resolveProfile(own);
+        return perms.contains(key);
+    }
+
+    private Set<String> resolveProfile(Member m) {
+        Set<String> out = resolvePermissions(MEMBER_DEFAULT_TAGS, null);
+        out.addAll(resolvePermissions(m.getRoleTags(), m.getMpPermissions()));
+        return out;
+    }
+
+    /** 平台超管,或在当前家庭为 OWNER/ADMIN。 */
+    private boolean fullAccess(Long accountId) {
+        if (accountQuery != null && accountQuery.isSuperAdmin(accountId)) return true;
+        Long familyId = TenantContextHolder.familyIdOrNull();
+        if (familyQuery == null || familyId == null) return false;
+        return familyQuery.roleOf(familyId, accountId)
+                .map(r -> TenantContext.OWNER.equals(r) || TenantContext.ADMIN.equals(r)).orElse(false);
     }
 
     /** 全量功能 key 与中文映射(供前端/管理页展示)。 */

@@ -21,6 +21,6 @@ public class RecommendController {
 
     @GetMapping("/home")
     public R<HomeRecommendView> home() {
-        return R.ok(appService.home(StpUtil.getLoginIdAsLong()));
+        return R.ok(appService.home(com.gudu.xsd.common.security.CurrentMember.id()));
     }
 }

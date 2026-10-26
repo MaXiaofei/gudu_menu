@@ -765,8 +765,10 @@ class GuduE2ECoverageTest {
                 Map.of("dishId", DISH_FANQIE));
         assertThat(addItem.get("code").asInt()).as("协同点菜 msg=" + text(addItem, "msg")).isEqualTo(0);
 
-        // 菜搜索（免登录白名单）
+        // 菜搜索（须本家成员或已凭邀请加入者；未登录无身份被拒）
         assertThat(get(null, "/menu/" + menuId + "/together/dishes?keyword=番茄").get("code").asInt())
+                .isNotEqualTo(0);
+        assertThat(get(token, "/menu/" + menuId + "/together/dishes?keyword=番茄").get("code").asInt())
                 .isEqualTo(0);
 
         // 改昵称

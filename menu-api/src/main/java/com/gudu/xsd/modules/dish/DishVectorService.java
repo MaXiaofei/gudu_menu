@@ -86,6 +86,11 @@ public class DishVectorService {
 
     /** 存量全量重建（分批，每批 50 道）。 */
     public RebuildResult rebuildAll() {
+        // 全量索引（含各家庭私有菜谱；检索时按可见性过滤），故以系统模式读取
+        return com.gudu.xsd.common.tenant.TenantContextHolder.callAsSystem(this::rebuildAllInternal);
+    }
+
+    private RebuildResult rebuildAllInternal() {
         List<Long> ids = dishMapper.selectList(new QueryWrapper<Dish>()
                         .select("id").orderByAsc("id")).stream()
                 .map(Dish::getId).toList();
@@ -134,7 +139,22 @@ public class DishVectorService {
         } else if (maxMinutes != null) {
             b.filterExpression(feb.lte("cookTime", maxMinutes).build());
         }
-        return vectorStore.similaritySearch(b.build());
+        return visibleOnly(vectorStore.similaritySearch(b.build()));
+    }
+
+    /**
+     * 向量库是全局索引（含各家庭私有菜谱）：命中结果按菜谱可见性（公共 + 本家）回表过滤，
+     * 别家私有菜谱不出现在结果里（multi-tenant-family E.1）。
+     */
+    List<Document> visibleOnly(List<Document> hits) {
+        if (hits == null || hits.isEmpty()) return List.of();
+        List<Long> ids = hits.stream().map(d -> d.getMetadata().get("dishId"))
+                .filter(o -> o instanceof Number).map(o -> ((Number) o).longValue()).distinct().toList();
+        if (ids.isEmpty()) return List.of();
+        java.util.Set<Long> visible = dishMapper.selectBatchIds(ids).stream().map(Dish::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        return hits.stream().filter(d -> d.getMetadata().get("dishId") instanceof Number n
+                && visible.contains(n.longValue())).toList();
     }
 
     /** 单菜向量（口味画像聚合用）：返回该菜 embedding，无则 null。 */

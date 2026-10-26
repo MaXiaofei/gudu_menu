@@ -52,7 +52,7 @@ public class CookDishController {
     public R<CookDishResult> cook(@PathVariable Long dishId,
                                   @RequestBody(required = false) @Valid CookDishReq req) {
         CookDishReq r = req == null ? new CookDishReq() : req;
-        return R.ok(appService.cookDish(dishId, StpUtil.getLoginIdAsLong(), r.getServings(),
+        return R.ok(appService.cookDish(dishId, com.gudu.xsd.common.security.CurrentMember.id(), r.getServings(),
                 r.getUsedUp(), r.getPartiallyUsed(), r.getNote()));
     }
 }

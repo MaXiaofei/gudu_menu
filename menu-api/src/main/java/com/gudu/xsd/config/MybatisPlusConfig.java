@@ -7,7 +7,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * MyBatis-Plus 配置：注册分页插件。单页上限与 PageQuery 一致，防止单请求拖全表。
+ * MyBatis-Plus 配置：租户插件（家庭隔离，multi-tenant-family）+ 分页插件。
+ * 顺序：租户在前（先改写 SQL 加 family_id，再由分页生成 count/limit）。
+ * 单页上限与 PageQuery 一致，防止单请求拖全表。
  */
 @Configuration
 public class MybatisPlusConfig {
@@ -17,6 +19,8 @@ public class MybatisPlusConfig {
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+        interceptor.addInnerInterceptor(new GuduTenantLineInnerInterceptor());
+        interceptor.addInnerInterceptor(new DishVisibilityInnerInterceptor());
         PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.MYSQL);
         pagination.setMaxLimit(MAX_PAGE_SIZE);
         interceptor.addInnerInterceptor(pagination);

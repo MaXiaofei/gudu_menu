@@ -60,4 +60,10 @@ public class MybatisCommentRepository implements CommentRepository {
         return Comment.rehydrate(po.getId(), po.getPostId(), po.getAuthorId(), po.getParentId(), po.getText(),
                 po.getCreateTime());
     }
+
+    @Override
+    public int reassignAccount(Long from, Long to) {
+        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<CommunityCommentPO>()
+                .eq("author_id", from).set("author_id", to));
+    }
 }

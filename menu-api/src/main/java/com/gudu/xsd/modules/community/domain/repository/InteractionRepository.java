@@ -15,6 +15,12 @@ import java.util.Set;
  */
 public interface InteractionRepository {
 
+    /**
+     * 账号合并：赞 / 收藏、关注（双向）、照着做、举报、话题打卡改指 to（唯一键冲突时保留 to 已有的行，删除 from 的），
+     * 封禁取两者较晚的解封时间。
+     */
+    void reassignAccount(Long from, Long to);
+
     boolean addReaction(Long postId, Long userId, ReactionType type);
 
     boolean removeReaction(Long postId, Long userId, ReactionType type);

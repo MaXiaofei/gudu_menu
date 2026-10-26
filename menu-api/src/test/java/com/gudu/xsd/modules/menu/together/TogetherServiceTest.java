@@ -2,9 +2,8 @@ package com.gudu.xsd.modules.menu.together;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.gudu.xsd.modules.dish.Dish;
-import com.gudu.xsd.modules.dish.mapper.DishMapper;
-import com.gudu.xsd.modules.member.Member;
-import com.gudu.xsd.modules.member.mapper.MemberMapper;
+import com.gudu.xsd.modules.dish.DishService;
+import com.gudu.xsd.modules.identity.application.AccountQueryApi;
 import com.gudu.xsd.modules.menu.Menu;
 import com.gudu.xsd.modules.menu.MenuDish;
 import com.gudu.xsd.modules.menu.mapper.MenuDishMapper;
@@ -39,14 +38,20 @@ class TogetherServiceTest {
 
     @Mock MenuMapper menuMapper;
     @Mock MenuDishMapper menuDishMapper;
-    @Mock DishMapper dishMapper;
-    @Mock MemberMapper memberMapper;
+    @Mock DishService dishService;
+    @Mock AccountQueryApi accountQuery;
     @Mock MenuInviteMapper inviteMapper;
     @Mock MenuJoinMapper joinMapper;
     @Mock MenuActivityMapper activityMapper;
 
     @InjectMocks
     private TogetherService svc;
+
+    /** 食集按 id 访问先在系统模式查归属家庭（存量 / 单测 familyId=null 走旧逻辑）。 */
+    @org.junit.jupiter.api.BeforeEach
+    void menuExists() {
+        org.mockito.Mockito.lenient().when(menuMapper.selectById(7L)).thenReturn(menu(7L, "今晚的饭"));
+    }
 
     private Menu menu(long id, String name) {
         Menu m = new Menu();
@@ -61,6 +66,8 @@ class TogetherServiceTest {
         inv.setCode(code);
         inv.setToken(token);
         inv.setCreatedBy(1L);
+        inv.setExpiresAt(java.time.LocalDateTime.now().plusDays(1));
+        inv.setRevoked(0);
         return inv;
     }
 
@@ -204,10 +211,7 @@ class TogetherServiceTest {
     void 登录用户加入_按memberId建记录_昵称用账号名() {
         given(inviteMapper.selectOne(any())).willReturn(invite("ABC123", "tok"));
         given(joinMapper.selectOne(any())).willReturn(null);
-        Member member = new Member();
-        member.setId(5L);
-        member.setName("老张");
-        given(memberMapper.selectById(5L)).willReturn(member);
+        given(accountQuery.nicknames(List.of(5L))).willReturn(java.util.Map.of(5L, "老张"));
         given(joinMapper.insert(any(MenuJoin.class))).willReturn(1);
         given(menuMapper.selectById(7L)).willReturn(menu(7L, "今晚的饭"));
 
@@ -245,13 +249,12 @@ class TogetherServiceTest {
         Dish dish = new Dish();
         dish.setId(10L);
         dish.setName("红烧肉");
-        given(dishMapper.selectBatchIds(List.of(10L))).willReturn(List.of(dish));
+        given(dishService.listByIds(List.of(10L))).willReturn(List.of(dish));
         MenuActivity act = new MenuActivity();
         act.setNickname("小王");
         act.setAction(MenuActivity.ACTION_ADD);
         act.setDishName("红烧肉");
         given(activityMapper.selectList(any())).willReturn(List.of(act));
-        given(inviteMapper.selectOne(any())).willReturn(invite("ABC123", "tok"));
 
         TogetherService.TogetherVO vo = svc.together(7L, TogetherService.Identity.guest("guest-1"));
 
@@ -261,7 +264,7 @@ class TogetherServiceTest {
         assertThat(vo.dishes().get(0).dishName()).isEqualTo("红烧肉");
         assertThat(vo.dishes().get(0).addedByNickname()).isEqualTo("小王");
         assertThat(vo.activities()).hasSize(1);
-        assertThat(vo.invite().code()).isEqualTo("ABC123");
+        assertThat(vo.invite()).as("访客不返回邀请凭证").isNull();
         verify(joinMapper).updateById(me); // 心跳
     }
 
@@ -278,10 +281,7 @@ class TogetherServiceTest {
     void 清单_登录用户未加入_自动加入() {
         given(menuMapper.selectById(7L)).willReturn(menu(7L, "今晚的饭"));
         given(joinMapper.selectOne(any())).willReturn(null);
-        Member member = new Member();
-        member.setId(1L);
-        member.setName("我");
-        given(memberMapper.selectById(1L)).willReturn(member);
+        given(accountQuery.nicknames(List.of(1L))).willReturn(java.util.Map.of(1L, "我"));
         given(joinMapper.insert(any(MenuJoin.class))).willReturn(1);
         given(joinMapper.selectList(any())).willReturn(List.of());
         given(menuDishMapper.selectList(any())).willReturn(List.of());
@@ -337,9 +337,9 @@ class TogetherServiceTest {
         Dish dish2 = new Dish();
         dish2.setId(2L);
         dish2.setName("红烧排骨");
-        given(dishMapper.selectList(any())).willReturn(List.of(dish1, dish2));
+        given(dishService.list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).willReturn(List.of(dish1, dish2));
 
-        List<TogetherService.DishBrief> list = svc.searchDishes("红烧", 8);
+        List<TogetherService.DishBrief> list = svc.searchDishes(7L, TogetherService.Identity.member(5L), "红烧", 8);
 
         assertThat(list).hasSize(2);
         assertThat(list.get(0).name()).isEqualTo("红烧肉");
@@ -348,8 +348,8 @@ class TogetherServiceTest {
 
     @Test
     void 搜索菜谱_关键字为空_返回空() {
-        assertThat(svc.searchDishes("  ", 8)).isEmpty();
-        verify(dishMapper, never()).selectList(any());
+        assertThat(svc.searchDishes(7L, TogetherService.Identity.member(5L), "  ", 8)).isEmpty();
+        verify(dishService, never()).list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
     }
 
     // ===================== 加菜 =====================
@@ -361,7 +361,7 @@ class TogetherServiceTest {
         Dish dish = new Dish();
         dish.setId(10L);
         dish.setName("红烧肉");
-        given(dishMapper.selectById(10L)).willReturn(dish);
+        given(dishService.getById(10L)).willReturn(dish);
         given(menuDishMapper.insert(any(MenuDish.class))).willAnswer(inv -> {
             ((MenuDish) inv.getArgument(0)).setId(21L);
             return 1;
@@ -434,7 +434,7 @@ class TogetherServiceTest {
         Dish dish = new Dish();
         dish.setId(10L);
         dish.setName("红烧肉");
-        given(dishMapper.selectById(10L)).willReturn(dish);
+        given(dishService.getById(10L)).willReturn(dish);
         given(menuDishMapper.deleteById(21L)).willReturn(1);
         given(activityMapper.insert(any(MenuActivity.class))).willReturn(1);
 
@@ -465,5 +465,19 @@ class TogetherServiceTest {
 
     private static <T> T argThat(org.mockito.ArgumentMatcher<T> matcher) {
         return org.mockito.ArgumentMatchers.argThat(matcher);
+    }
+
+    // ===================== 菜谱可见性（multi-tenant-family E.1） =====================
+
+    @Test
+    void 加菜_别家私有菜谱_404不落库_公共菜谱可加() {
+        MenuJoin me = join(null, "guest-1", "小王");
+        given(joinMapper.selectOne(any())).willReturn(me);
+        given(dishService.getById(99L)).willReturn(null); // 可见性插件：别家私有菜谱读不到
+
+        assertThatThrownBy(() -> svc.addItem(7L, TogetherService.Identity.guest("guest-1"), 99L, null, null))
+                .isInstanceOfSatisfying(com.gudu.xsd.common.BizException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(404));
+        verify(menuDishMapper, never()).insert(any(MenuDish.class));
     }
 }

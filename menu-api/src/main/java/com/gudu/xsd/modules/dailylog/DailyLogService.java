@@ -39,7 +39,7 @@ public class DailyLogService {
 
     /** 当前就餐成员 id（session，参照 ReviewService/NotificationController）。 */
     public Long currentMemberId() {
-        return StpUtil.getSession().getLong("currentMemberId");
+        return com.gudu.xsd.common.security.CurrentMember.id();
     }
 
     /** 提交一天日志：存 log + 级联 items。返回 logId。 */

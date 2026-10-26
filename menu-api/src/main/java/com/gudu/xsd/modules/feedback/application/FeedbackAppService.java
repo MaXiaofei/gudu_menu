@@ -41,7 +41,7 @@ public class FeedbackAppService {
     static final int NOTICE_SNIPPET = 60;
 
     private final FeedbackRepository repository;
-    private final MemberService memberService;
+    private final com.gudu.xsd.modules.identity.application.AccountQueryApi accountQuery;
     private final Clock clock;
     private final ContentSecurityAppService contentSecurity;
     private final NotificationService notificationService;
@@ -87,8 +87,8 @@ public class FeedbackAppService {
         int ps = pageSize(pageSize);
         FeedbackPage p = repository.page(t, st, pn, ps);
         List<Long> memberIds = p.records().stream().map(Feedback::memberId).filter(Objects::nonNull).distinct().toList();
-        Map<Long, String> names = memberIds.isEmpty() ? Map.of() : memberService.listByIds(memberIds).stream()
-                .collect(Collectors.toMap(Member::getId, m -> m.getName() == null ? "" : m.getName(), (a, b) -> a));
+        // 提交人 = 登录账号（跨家庭），取账号昵称
+        Map<Long, String> names = memberIds.isEmpty() ? Map.of() : accountQuery.nicknames(memberIds);
         Page<FeedbackView> out = new Page<>(pn, ps);
         out.setTotal(p.total());
         out.setRecords(p.records().stream().map(f -> new FeedbackView(f.id(), f.memberId(), names.get(f.memberId()),

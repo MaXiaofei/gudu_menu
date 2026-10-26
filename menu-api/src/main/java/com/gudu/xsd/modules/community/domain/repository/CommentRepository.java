@@ -18,4 +18,7 @@ public interface CommentRepository {
 
     /** 回复，按 parentId 分组、组内 id 升序。 */
     Map<Long, List<Comment>> replies(Collection<Long> parentIds);
+
+    /** 账号合并（AccountMerged）：把归属 {@code from} 账号的记录改指 {@code to}。返回改动条数。 */
+    int reassignAccount(Long from, Long to);
 }

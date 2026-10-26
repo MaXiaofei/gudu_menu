@@ -23,7 +23,7 @@ public class NutritionReportController {
         if (memberId != null) return R.ok(appService.report(memberId, range));
         Long me;
         try {
-            me = cn.dev33.satoken.stp.StpUtil.isLogin() ? cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong() : null;
+            me = com.gudu.xsd.common.security.CurrentMember.id();
         } catch (RuntimeException e) {
             me = null;
         }

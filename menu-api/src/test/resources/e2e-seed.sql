@@ -7,6 +7,57 @@
 --   成员 phone LIKE 'demo%'；其食集 = menu.target_member_id 指向演示成员；
 --   做饭记录/收藏/通知按 member_id 归属。E2E 用例只读写自己的账号与新建数据，不受影响。
 --   （NOT IN 前置 IS NULL 判断：NULL NOT IN (...) 为 NULL，不加会漏删）
+-- ============================================================
+-- [multi-tenant-family] V75–V79 之后的 E2E 前置（D.6）：
+-- 1) E2E 自建账号 / 家庭兜底清理（可重复跑；account.phone / wx_openid、family_invitation.code 均有唯一约束）：
+--    E2E 账号 = 手机号 1390000% 或 openid 以 E2E 开头；E2E 家庭 = 名称 E2E% 或主理人为 E2E 账号。
+--    E2E 家庭的家庭域数据按 family_id 清掉（其余动态表下面整表清）。
+-- 2) 默认家庭（id=1「咕嘟之家」）保证存在；E2E 登录账号（admin / 13800000001 / 13900000088）
+--    在 account 表与默认家庭成员关系中幂等重建，admin = SUPER_ADMIN + OWNER。
+-- 注：@Sql 走 JDBC，不经租户插件，家庭域表 INSERT 必须显式写 family_id。
+-- ============================================================
+DROP TEMPORARY TABLE IF EXISTS e2e_family;
+CREATE TEMPORARY TABLE e2e_family (id BIGINT PRIMARY KEY);
+INSERT IGNORE INTO e2e_family(id)
+  SELECT f.id FROM family f WHERE f.id > 2 AND (f.name LIKE 'E2E%' OR f.owner_account_id IN (
+    SELECT a.id FROM account a WHERE a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%'));
+INSERT IGNORE INTO e2e_family(id)
+  SELECT fm.family_id FROM family_membership fm JOIN account a ON a.id = fm.account_id
+  WHERE fm.family_id > 2 AND fm.role = 'OWNER' AND (a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%');
+DELETE FROM menu_invite WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM menu_join WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM menu_activity WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM menu_dish WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM menu WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM ingredient_stock WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM stock_log WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM dish_draft WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM meal_plan_slot WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM meal_plan_draft WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM member WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE di FROM dish_ingredient di JOIN dish d ON d.id = di.dish_id WHERE d.family_id IN (SELECT id FROM e2e_family);
+DELETE ds FROM dish_step ds JOIN dish d ON d.id = ds.dish_id WHERE d.family_id IN (SELECT id FROM e2e_family);
+DELETE FROM dish WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM family_invitation WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM family_membership WHERE family_id IN (SELECT id FROM e2e_family);
+DELETE FROM family WHERE id IN (SELECT id FROM e2e_family);
+DROP TEMPORARY TABLE IF EXISTS e2e_family;
+-- E2E 账号在其他家庭（含默认家庭）的成员关系 / 档案 / 账号本身
+DELETE fm FROM family_membership fm JOIN account a ON a.id = fm.account_id
+  WHERE a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%' OR (a.status = 'MERGED' AND a.phone IS NULL AND a.wx_openid IS NULL AND a.nickname LIKE 'E2E%');
+DELETE m FROM member m JOIN account a ON a.id = m.account_id
+  WHERE a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%';
+DELETE FROM account_merge_log WHERE source_id IN (SELECT id FROM account WHERE phone LIKE '1390000%' OR wx_openid LIKE 'E2E%')
+  OR target_id IN (SELECT id FROM account WHERE phone LIKE '1390000%' OR wx_openid LIKE 'E2E%');
+DELETE FROM account WHERE phone LIKE '1390000%' OR wx_openid LIKE 'E2E%';
+-- 合并后被标 MERGED 的 E2E 微信账号（openid 已移走、手机号为空）：按昵称 E2E 清
+DELETE FROM account WHERE status = 'MERGED' AND phone IS NULL AND wx_openid IS NULL AND nickname LIKE 'E2E%';
+
+-- 默认家庭
+INSERT INTO family(id, name, owner_account_id, status, version, created_at)
+SELECT 1, '咕嘟之家', NULL, 'ACTIVE', 0, NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM family WHERE id = 1);
+UPDATE family SET status = 'ACTIVE', dissolved_at = NULL WHERE id = 1;
+
 DELETE FROM shopping_item WHERE list_id NOT IN (
   SELECT sl.id FROM shopping_list sl JOIN menu m ON m.id = sl.source_menu_id
   JOIN member mb ON mb.id = m.target_member_id WHERE mb.phone LIKE 'demo%');
@@ -136,8 +187,8 @@ WHERE id = 1;
 -- 超管账号自愈（loginAdmin 用 admin / admin123）：预发库数据漂移曾把 phone='admin' 的账号删掉，
 -- 致全部 E2E 登录失败。按 V29 兜底同款 BCrypt(admin123) 幂等补建/复位（只动 phone='admin' 这一行）。
 -- ============================================================
-INSERT INTO member(name, phone, password_hash, is_admin, role_tags, health_profile)
-SELECT '掌勺人', 'admin', '$2a$10$UM6Ql8.rTKA1aGBSup2ACu4ol4WikGIlfyAPPSciymgdPMpWqa/Ba', 1, '32', '{}'
+INSERT INTO member(family_id, name, phone, password_hash, is_admin, role_tags, health_profile)
+SELECT 1, '掌勺人', 'admin', '$2a$10$UM6Ql8.rTKA1aGBSup2ACu4ol4WikGIlfyAPPSciymgdPMpWqa/Ba', 1, '32', '{}'
 WHERE NOT EXISTS (SELECT 1 FROM member m WHERE m.phone = 'admin');
 UPDATE member SET is_admin = 1, deleted = 0,
   password_hash = '$2a$10$UM6Ql8.rTKA1aGBSup2ACu4ol4WikGIlfyAPPSciymgdPMpWqa/Ba'
@@ -148,12 +199,12 @@ WHERE phone = 'admin';
 -- V64 起临期数据源 = 三档库存 ingredient_stock.best_before（旧 pantry 批次表已迁移冻结，上面已清空）。
 -- 番茄（id=1）建档 ENOUGH + 明天到期（CURDATE 动态，永远落在 3 天临期窗口内）；幂等 upsert。
 -- ============================================================
-INSERT INTO ingredient_stock(ingredient_id, level, best_before, opened_at)
-VALUES (1, 'ENOUGH', CURDATE() + INTERVAL 1 DAY, NULL)
+INSERT INTO ingredient_stock(family_id, ingredient_id, level, best_before, opened_at)
+VALUES (1, 1, 'ENOUGH', CURDATE() + INTERVAL 1 DAY, NULL)
 ON DUPLICATE KEY UPDATE level = 'ENOUGH', best_before = CURDATE() + INTERVAL 1 DAY, opened_at = NULL;
 -- 鸡蛋（id=2）建档 ENOUGH、无保质期（单菜直做「用了一些」降档断言用）
-INSERT INTO ingredient_stock(ingredient_id, level, best_before, opened_at)
-VALUES (2, 'ENOUGH', NULL, NULL)
+INSERT INTO ingredient_stock(family_id, ingredient_id, level, best_before, opened_at)
+VALUES (1, 2, 'ENOUGH', NULL, NULL)
 ON DUPLICATE KEY UPDATE level = 'ENOUGH', best_before = NULL, opened_at = NULL;
 
 -- ============================================================
@@ -235,5 +286,33 @@ DELETE FROM agent_eval_run WHERE prompt_version LIKE 'E2E%';
 DELETE pm FROM ai_provider_model pm JOIN ai_provider p ON p.id = pm.provider_id WHERE p.name LIKE 'E2E%';
 DELETE FROM ai_provider WHERE name LIKE 'E2E%';
 -- 咕嘟越权用例专用的非管理员登录账号（密码 chef123；上面已按 phone LIKE '1390000%' 清理，这里幂等重建）
-INSERT INTO member(name, phone, password_hash, is_admin, role_tags, health_profile, deleted)
-VALUES ('E2E咕嘟访客', '13900000088', '$2a$10$8fMxXFI3W4XzBun3fNpUIuXT4dN9CRvHcw6K7edMJU78705ETwVrK', 0, '34', '{}', 0);
+INSERT INTO member(family_id, name, phone, password_hash, is_admin, role_tags, health_profile, deleted)
+VALUES (1, 'E2E咕嘟访客', '13900000088', '$2a$10$8fMxXFI3W4XzBun3fNpUIuXT4dN9CRvHcw6K7edMJU78705ETwVrK', 0, '34', '{}', 0);
+
+-- ============================================================
+-- [multi-tenant-family] E2E 登录账号 → account + 默认家庭成员关系（D.6，幂等）
+-- account.id 沿用 member.id（与 V77 迁移一致）；admin = SUPER_ADMIN + 默认家庭 OWNER；
+-- 13800000001（张爸爸，member 1）与 13900000088（E2E咕嘟访客）= USER + MEMBER。
+-- ============================================================
+UPDATE member SET family_id = 1 WHERE id = 1 OR phone IN ('admin', '13900000088');
+-- 登录名被其他 id 的账号占用（漂移）时先让位
+DELETE a FROM account a JOIN member m ON m.phone = a.phone AND m.id <> a.id
+  WHERE a.phone IN ('admin', '13800000001', '13900000088');
+INSERT INTO account(id, phone, password_hash, nickname, platform_role, status, created_at)
+SELECT m.id, m.phone, m.password_hash, m.name, IF(m.phone = 'admin', 'SUPER_ADMIN', 'USER'), 'ACTIVE', NOW()
+FROM member m WHERE (m.id = 1 OR m.phone IN ('admin', '13900000088')) AND m.deleted = 0
+ON DUPLICATE KEY UPDATE phone = VALUES(phone), password_hash = VALUES(password_hash),
+  platform_role = VALUES(platform_role), status = 'ACTIVE', wx_openid = NULL, merged_into = NULL, deactivated_at = NULL;
+UPDATE member m JOIN account a ON a.id = m.id SET m.account_id = a.id
+  WHERE m.id = 1 OR m.phone IN ('admin', '13900000088');
+INSERT INTO family_membership(family_id, account_id, role, joined_at)
+SELECT 1, a.id, 'MEMBER', NOW() FROM account a
+WHERE a.phone IN ('admin', '13800000001', '13900000088')
+  AND NOT EXISTS (SELECT 1 FROM family_membership fm WHERE fm.family_id = 1 AND fm.account_id = a.id);
+-- 默认家庭恰好一个 OWNER = admin
+UPDATE family_membership fm JOIN account a ON a.id = fm.account_id
+  SET fm.role = 'MEMBER' WHERE fm.family_id = 1 AND fm.role = 'OWNER' AND a.phone <> 'admin';
+UPDATE family_membership fm JOIN account a ON a.id = fm.account_id
+  SET fm.role = 'OWNER' WHERE fm.family_id = 1 AND a.phone = 'admin';
+UPDATE family f SET owner_account_id = (SELECT id FROM account WHERE phone = 'admin') WHERE f.id = 1;
+UPDATE account SET last_family_id = 1 WHERE phone IN ('admin', '13800000001', '13900000088');

@@ -35,6 +35,13 @@ public class GlobalExceptionHandler {
         return new R<>(e.getCode(), e.getMessage(), null);
     }
 
+    /** 家庭访问被拒（multi-tenant-family）：code=403，data.reason=FAMILY_ACCESS_DENIED，前端据此回到家庭选择。 */
+    @ExceptionHandler(com.gudu.xsd.common.tenant.TenantAccessDeniedException.class)
+    public R<?> familyDenied(com.gudu.xsd.common.tenant.TenantAccessDeniedException e) {
+        return new R<>(e.getCode(), e.getMessage(),
+                java.util.Map.of("reason", com.gudu.xsd.common.tenant.TenantAccessDeniedException.REASON));
+    }
+
     /** 领域不变量校验失败（四层新代码抛 DomainException）：业务失败 code=1，msg 可直接展示。 */
     @ExceptionHandler(com.gudu.xsd.common.domain.DomainException.class)
     public R<?> domain(com.gudu.xsd.common.domain.DomainException e) {
