@@ -86,6 +86,10 @@ public final class AgentViews {
     public record TraceDetail(TraceHeader trace, List<SpanView> spans) {
     }
 
+    /** 查看全文：未脱敏的调用链详情 + 完整对话；accountId = 对话所属账号（写操作日志用）。 */
+    public record FullTrace(Long accountId, TraceDetail detail, List<MessageView> messages) {
+    }
+
     public record ToolStat(String name, long calls, double successRate, long p95Ms) {
     }
 

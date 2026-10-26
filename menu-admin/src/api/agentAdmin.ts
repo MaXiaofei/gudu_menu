@@ -105,6 +105,19 @@ export function getTraceMessages(traceId: string) {
   return request<AgentMessage[]>({ url: `/admin/agent/traces/${encodeURIComponent(traceId)}/messages`, method: 'get' })
 }
 
+/** 查看全文（仅超管）：必须填写原因，后端写操作日志；默认接口只返回脱敏摘要。 */
+export interface FullTrace {
+  accountId: number | null
+  detail: TraceDetail
+  messages: AgentMessage[]
+}
+
+export function getTraceFull(traceId: string, reason: string) {
+  return request<FullTrace>({
+    url: `/admin/agent/traces/${encodeURIComponent(traceId)}/full`, method: 'post', data: { reason },
+  })
+}
+
 export function getAgentStats(date?: string) {
   return request<AgentStats>({ url: '/admin/agent/stats', method: 'get', params: date ? { date } : {} })
 }

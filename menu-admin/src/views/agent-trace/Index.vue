@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AvatarStack from '@/components/AvatarStack.vue'
 import StatCard from '@/components/StatCard.vue'
 import {
-  createEvalCase, getAgentStats, getTrace, getTraceMessages, listTraces,
+  createEvalCase, getAgentStats, getTrace, getTraceFull, getTraceMessages, listTraces,
   type AgentMessage, type AgentStats, type Span, type TraceDetail, type TraceQuery, type TraceSummary,
 } from '@/api/agentAdmin'
+import { reasonError } from '@/utils/backoffice'
 import {
   SPAN_TYPE_LABEL, TRACE_STATUS, cardSummary, countMaskedPhones, fenToYuan, formatInt, formatMs, formatPct, formatTick,
   layoutWaterfall, safeJson, traceTime,
@@ -45,16 +46,51 @@ const adding = ref(false)
 const convOpen = ref(false)
 const convLoading = ref(false)
 const messages = ref<AgentMessage[]>([])
+/** 当前选中调用链是否已查看全文（默认脱敏摘要；换调用链后重置）。 */
+const fullMode = ref(false)
+const fullLoading = ref(false)
+
+function sortMessages(res: AgentMessage[] | undefined) {
+  return Array.isArray(res) ? [...res].sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)) : []
+}
+
+/** 查看全文：弹框要求填写原因（≤200 字），后端校验并写操作日志后返回未脱敏内容。 */
+async function viewFull() {
+  if (!selectedId.value) return
+  let reason = ''
+  try {
+    const r = await ElMessageBox.prompt('查看对话全文会记录到操作日志，请填写查看原因（如：用户投诉回答异常）', '查看全文', {
+      confirmButtonText: '查看', cancelButtonText: '取消', inputPlaceholder: '查看原因（必填，≤200 字）',
+      inputValidator: (v: string) => reasonError(v) ?? true,
+    })
+    reason = r.value.trim()
+  } catch {
+    return
+  }
+  fullLoading.value = true
+  try {
+    const f = await getTraceFull(selectedId.value, reason)
+    if (f?.detail && Array.isArray(f.detail.spans)) detail.value = f.detail
+    messages.value = sortMessages(f?.messages)
+    fullMode.value = true
+    ElMessage.success('已显示全文，本次查看已记录到操作日志')
+  } catch {
+    // request.ts 已弹出错误提示
+  } finally {
+    fullLoading.value = false
+  }
+}
 
 const ACTION_STATUS: Record<string, string> = { PENDING: '待确认', DONE: '已执行', CANCELLED: '已取消', EXPIRED: '已过期' }
 
 async function openConversation() {
   if (!selectedId.value) return
   convOpen.value = true
+  if (fullMode.value) return // 已查看全文：直接展示，不再用摘要覆盖
   convLoading.value = true
   try {
     const res = await getTraceMessages(selectedId.value)
-    messages.value = Array.isArray(res) ? [...res].sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)) : []
+    messages.value = sortMessages(res)
   } catch {
     messages.value = []
   } finally {
@@ -133,6 +169,8 @@ async function loadList(append = false) {
 
 async function openTrace(traceId: string) {
   selectedId.value = traceId
+  fullMode.value = false
+  messages.value = []
   detailLoading.value = true
   try {
     const d = await getTrace(traceId)
@@ -283,7 +321,9 @@ onMounted(() => {
                   <template v-if="detail.trace.model"> · {{ detail.trace.model }}</template>
                 </span>
               </div>
-              <el-button data-testid="open-conv" @click="openConversation">查看完整对话</el-button>
+              <el-button data-testid="open-conv" @click="openConversation">{{ fullMode ? '查看完整对话' : '查看对话摘要' }}</el-button>
+              <el-button v-if="!fullMode" :loading="fullLoading" data-testid="view-full" @click="viewFull">查看全文</el-button>
+              <span v-else class="yh-muted" data-testid="full-tip">已查看全文（已记录）</span>
               <el-button type="primary" :loading="adding" data-testid="add-eval" @click="addToEval">加入评测集</el-button>
             </div>
 
@@ -370,7 +410,7 @@ onMounted(() => {
           </dl>
         </section>
 
-        <el-drawer v-model="convOpen" title="完整对话" size="520px" data-testid="conv-drawer">
+        <el-drawer v-model="convOpen" :title="fullMode ? '完整对话（已记录查看原因）' : '对话摘要（已脱敏，正文已截断）'" size="520px" data-testid="conv-drawer">
           <div v-loading="convLoading" class="conv">
             <div v-for="m in messages" :key="m.messageId" class="msg" :class="m.role" :data-current="m.traceId === selectedId ? 'true' : undefined">
               <div class="bubble">

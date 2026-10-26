@@ -1,6 +1,8 @@
 package com.gudu.xsd.modules.backoffice.application;
 
 import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.modules.agent.application.AgentTraceAppService;
+import com.gudu.xsd.modules.agent.application.dto.AgentViews;
 import com.gudu.xsd.modules.backoffice.application.dto.BackofficeViews;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountSearch;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationAction;
@@ -46,6 +48,7 @@ public class BackofficeAppService {
     private final AccountQueryApi accountQuery;
     private final ContentReviewAppService contentReview;
     private final ConsentAppService consents;
+    private final AgentTraceAppService agentTraces;
     private final Clock clock;
 
     // ================================================================ F.1 账号
@@ -154,6 +157,21 @@ public class BackofficeAppService {
     }
 
     // ================================================================ 内部
+
+    // ================================================================ 咕嘟调用链全文（仅超管）
+
+    /**
+     * 查看咕嘟调用链 / 对话全文：必须填写原因，同事务写操作日志（操作对象 = 对话所属账号，调用链 id 记在详情里）。
+     * 列表 / 详情默认只有脱敏摘要，见 {@link AgentTraceAppService}。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public AgentViews.FullTrace agentTraceFull(Long operatorId, String traceId, String reason) {
+        requireReason(reason);
+        AgentViews.FullTrace full = agentTraces.full(traceId);
+        log(operatorId, OperationAction.VIEW_AGENT_FULL, full.accountId() == null ? 0L : full.accountId(), reason,
+                "调用链 " + traceId);
+        return full;
+    }
 
     private void log(Long operatorId, OperationAction action, Long targetId, String reason, String detail) {
         logs.save(OperationLog.record(operatorId, action, targetId, reason, detail, LocalDateTime.now(clock)));

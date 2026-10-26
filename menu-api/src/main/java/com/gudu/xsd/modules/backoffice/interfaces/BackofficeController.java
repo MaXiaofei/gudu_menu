@@ -2,7 +2,9 @@ package com.gudu.xsd.modules.backoffice.interfaces;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.R;
+import com.gudu.xsd.common.security.RequireAdmin;
 import com.gudu.xsd.common.security.RequireOperator;
+import com.gudu.xsd.modules.agent.application.dto.AgentViews;
 import com.gudu.xsd.modules.backoffice.application.BackofficeAppService;
 import com.gudu.xsd.modules.backoffice.application.dto.BackofficeViews;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountSearch;
@@ -96,6 +98,13 @@ public class BackofficeController {
     }
 
     // ---------------------------------------------------------------- F.3 违规复核
+
+    @Operation(summary = "咕嘟调用链 / 对话全文（仅超管；必须填写 reason，写操作日志）")
+    @RequireAdmin
+    @PostMapping("/agent/traces/{traceId}/full")
+    public R<AgentViews.FullTrace> agentTraceFull(@PathVariable String traceId, @RequestBody ReasonReq req) {
+        return R.ok(app.agentTraceFull(StpUtil.getLoginIdAsLong(), traceId, req == null ? null : req.getReason()));
+    }
 
     @Operation(summary = "图片违规：review=PENDING/CONFIRMED/RESTORED，purpose，accountId")
     @GetMapping("/content-violations/media")

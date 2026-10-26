@@ -7,7 +7,8 @@ public enum OperationAction {
     RESTORE_MEDIA("恢复违规图片", OperationTarget.MEDIA_CHECK),
     CONFIRM_MEDIA("确认图片违规", OperationTarget.MEDIA_CHECK),
     CONFIRM_TEXT("确认文本违规", OperationTarget.TEXT_VIOLATION),
-    RETRY_DEACTIVATION("重试注销匿名化", OperationTarget.DEACTIVATION);
+    RETRY_DEACTIVATION("重试注销匿名化", OperationTarget.DEACTIVATION),
+    VIEW_AGENT_FULL("查看咕嘟对话全文", OperationTarget.ACCOUNT);
 
     private final String label;
     private final OperationTarget target;
