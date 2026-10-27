@@ -40,6 +40,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { chooseImages, uploadImage } from '@/api/upload'
+import { chooseAvatarFailHint } from '@/utils/chooseAvatar'
 import { thumbOf } from '@/utils/image'
 
 const props = withDefaults(
@@ -84,6 +85,12 @@ async function upload(path: string) {
 }
 
 function onChooseAvatar(e: any) {
+  const hint = chooseAvatarFailHint(e?.detail)
+  if (hint) {
+    console.warn('[chooseAvatar]', e?.detail?.errMsg)
+    uni.showToast({ title: hint, icon: 'none' })
+    return
+  }
   upload(e?.detail?.avatarUrl || '')
 }
 
