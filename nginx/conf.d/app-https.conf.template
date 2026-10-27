@@ -38,6 +38,13 @@ server {
     # 安全增强
     add_header Strict-Transport-Security "max-age=63072000" always;
 
+    # 食材/菜谱图片静态资源（与 staging 共用宿主机 /root/gudu/staging-images -> /var/www/images）
+    location /images/ {
+        alias /var/www/images/;
+        expires 7d;
+        access_log off;
+    }
+
     # 代理到 menu-admin
     location / {
         proxy_pass http://menu-admin-prod:80;
