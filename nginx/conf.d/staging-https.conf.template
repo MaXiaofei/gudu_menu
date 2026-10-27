@@ -43,8 +43,12 @@ server {
         access_log off;
     }
 
+    # 预发封存时 menu-admin-staging 容器不存在：用变量 + Docker 内置 DNS 在请求时解析，
+    # 解析不到只让 staging 域名返回 502，不会让整个 nginx 配置检查失败（否则生产也无法 reload/重启）
     location / {
-        proxy_pass http://menu-admin-staging:80;
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $staging_upstream http://menu-admin-staging:80;
+        proxy_pass $staging_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
