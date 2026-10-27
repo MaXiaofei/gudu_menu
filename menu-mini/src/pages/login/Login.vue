@@ -65,7 +65,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { goAfterLogin, resetLoginRedirect } from '@/utils/loginRedirect'
+import { goAfterLogin, resetLoginRedirect, resumeIfLoggedIn } from '@/utils/loginRedirect'
 import { navInset } from '@/utils/token'
 import { useAuthStore } from '@/store/auth'
 import { silentLogin } from '@/api/auth'
@@ -83,6 +83,8 @@ const agreed = ref(hasConsent())
 const redirect = ref('')
 onLoad((options) => {
   redirect.value = String(options?.redirect || '')
+  // 已登录（或启动时静默登录成功）不停在登录页
+  resumeIfLoggedIn(redirect.value)
 })
 
 /** 登录成功：统一去向（待加入家庭邀请 > redirect 回跳 > 首次引导 > 首页），见 utils/loginRedirect.goAfterLogin。 */

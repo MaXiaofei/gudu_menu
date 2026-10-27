@@ -239,6 +239,18 @@ export function resetLoginRedirect(): void {
 }
 
 /**
+ * 登录页 onLoad：等启动登录流程结束，已有登录态（老 token 或刚静默登录成功）就直接按 goAfterLogin 去向离开登录页。
+ * 登录页是 pages.json 第一页：冷启动总是先落在这里，App.vue 有 token 时不做跳转，
+ * 不处理的话已登录用户每次打开都要再点一次登录（2026-10-27 真机）。
+ */
+export async function resumeIfLoggedIn(raw?: unknown): Promise<string | null> {
+  await launchAuth
+  if (!uni.getStorageSync('token')) return null
+  resetLoginRedirect()
+  return goAfterLogin(raw)
+}
+
+/**
  * 落地页守卫：等启动登录流程结束，已登录返回 true；
  * 否则带 target 跳登录页并返回 false（页面不要再发请求）。
  */
