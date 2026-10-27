@@ -66,6 +66,7 @@ class AmountTest(unittest.TestCase):
         self.assertEqual(self.p('400ML'), (400, 'ml'))
         self.assertEqual(self.p('三枚'), (3, '个'))
         self.assertEqual(self.p('3'), (3, None))
+        self.assertEqual(self.p('小半勺'), (0.5, '勺'))
 
     def test_vague(self):
         self.assertEqual(self.p('适量'), (0, '适量'))

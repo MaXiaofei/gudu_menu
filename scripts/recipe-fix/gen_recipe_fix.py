@@ -84,6 +84,8 @@ def parse_amount(text, units):
     if m:
         num = float(m.group(1)) / (float(m.group(2)) if m.group(2) else 1)
         rest = t[m.end():]
+    elif t.startswith(('小半', '大半')):
+        num, rest = 0.5, t[2:]
     elif t[0] in CN_NUM:
         num, rest = CN_NUM[t[0]], t[1:]
         if t.startswith('一半'):
