@@ -38,6 +38,16 @@ describe('utils/image', () => {
     expect(two[1].endsWith('/thumbnail/20261026/b.png?e=1&s=Z')).toBe(true)
   })
 
+  // 2026-10-27 真机：上传接口返回 /gudu/uploads/…，thumbOf 拼成 /gudu/gudu/… 导致头像缩略图加载失败
+  it('已带 /gudu 的上传地址：toAbsolute / thumbOf / thumbList / originalList 都不重复拼 context-path', () => {
+    const signed = '/gudu/uploads/original/20261027/av.jpg?e=1&s=X'
+    for (const u of [toAbsolute(signed), thumbOf(signed), ...thumbList(signed), ...originalList(signed)]) {
+      expect(u).not.toContain('/gudu/gudu/')
+      expect(u).toMatch(/^https?:\/\/[^/]+\/gudu\/uploads\//)
+    }
+    expect(thumbOf(signed)).toBe(toAbsolute(signed).replace('/original/', '/thumbnail/'))
+  })
+
   it('thumbList / originalList：逗号分隔多图拆分 + 过滤空', () => {
     const urls = thumbList('/uploads/original/a.jpg,/uploads/original/b.jpg,')
     expect(urls).toHaveLength(2)
