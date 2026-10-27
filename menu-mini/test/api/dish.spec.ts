@@ -23,6 +23,12 @@ describe('api/dish', () => {
     expect(amountText({ ingredientId: 1 })).toBe('')
   })
 
+  it('amountText：数量为 0（导入的「适量/少许」）不显示数字', () => {
+    expect(amountText({ ingredientId: 1, amount: 0, unitName: '适量' })).toBe('适量')
+    expect(amountText({ ingredientId: 1, amount: 0, unitName: '少许' })).toBe('少许')
+    expect(amountText({ ingredientId: 1, amount: 0 })).toBe('')
+  })
+
   it('listDrafts：分页参数', async () => {
     const http = installHttpMock({ 'GET /dish/draft/list': { records: [], total: 0 } })
     await listDrafts(3)

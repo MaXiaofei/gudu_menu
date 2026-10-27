@@ -89,7 +89,8 @@ export interface DishDetail {
 /** 用量展示文本：「2 个」/「适量」/「2」。 */
 export function amountText(ing: DishIngredient): string {
   const amt = ing.amount
-  const num = amt == null ? '' : Number.isInteger(amt) ? String(amt) : String(amt)
+  // 0 是导入数据里「适量/少许」的占位，不显示数字
+  const num = amt == null || Number(amt) === 0 ? '' : String(amt)
   const unit = ing.unitName || ''
   if (!num && !unit) return ''
   if (!num) return unit

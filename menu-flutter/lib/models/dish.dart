@@ -227,7 +227,7 @@ class DishIngredient {
       return un; // 适量 / 少许（amount 为空）
     }
     final a = amount;
-    if (a == null) return '';
+    if (a == null || a == 0) return '';
     final n = a == a.roundToDouble() ? '${a.toInt()}' : a.toStringAsFixed(1);
     return '$n g';
   }
