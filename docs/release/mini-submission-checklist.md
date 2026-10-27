@@ -209,10 +209,10 @@ V88 只加列，不转换存量数据；应用能读取没有 `ENC:` 前缀的�
 
 ```bash
 docker compose -f docker-compose.prod.yml run --rm --no-deps menu-api \
-  --spring.main.web-application-type=none --gudu.field-crypto.migrate=encrypt
+  --gudu.field-crypto.migrate=encrypt
 ```
 
-   （等价于 `java -jar app.jar --spring.profiles.active=prod --spring.main.web-application-type=none --gudu.field-crypto.migrate=encrypt`；环境变量与 menu-api 服务一致。若 compose 里 profile 不是 prod，请加 `--spring.profiles.active=prod`。）
+   （等价于 `java -jar app.jar --spring.profiles.active=prod --gudu.field-crypto.migrate=encrypt`。**不要加 `--spring.main.web-application-type=none`**：非 Web 模式下 `TogetherController` 注入不到 `HttpServletRequest`，启动即失败（2026-10-27 生产实测）；以 Web 模式启动在独立容器里、无端口暴露，迁移完成后进程自行退出。环境变量与 menu-api 服务一致。若 compose 里 profile 不是 prod，请加 `--spring.profiles.active=prod`。）
 3. 校验（应全部为密文，占位登录名如 `admin` 保持明文属预期）：
 
 ```sql

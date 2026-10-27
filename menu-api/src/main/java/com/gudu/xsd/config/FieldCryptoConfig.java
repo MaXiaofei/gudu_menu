@@ -51,8 +51,8 @@ public class FieldCryptoConfig {
 
     /**
      * 存量迁移入口（一次性，跑完退出）：
-     * {@code java -jar menu-api.jar --spring.profiles.active=prod --spring.main.web-application-type=none
-     * --gudu.field-crypto.migrate=encrypt}（回滚前用 decrypt）。
+     * {@code java -jar menu-api.jar --spring.profiles.active=prod --gudu.field-crypto.migrate=encrypt}（回滚前用 decrypt）。
+     * 不要加 {@code --spring.main.web-application-type=none}：非 Web 上下文里 Controller 注入不到 HttpServletRequest，启动失败。
      */
     @Bean
     public ApplicationRunner fieldEncryptionMigrationRunner(@Value("${gudu.field-crypto.migrate:none}") String mode,
