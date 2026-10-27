@@ -42,7 +42,7 @@ ME_MEALS = [
          reviews=[('hu', '红烧鸡翅', 2, '今天盐放多了，齁咸，喝了三杯水', {'口味': 2}, 50),
                   ('me', '红烧鸡翅', 3, '手抖了…酱油放多了，下次先尝再加', None, 90)]),
     # 10/9 点外卖
-    dict(k='m1010', when=(10, 10, 19, 10), cook='me', name='周六请小林一家吃饭', kind='家宴', n=4, together=True,
+    dict(k='m1010', when=(10, 10, 19, 10), cook='me', name='周六请小林来家里吃饭', kind='家宴', n=4, together=True,
          dishes=['水煮鱼', '孜然牛肉粒', '蒜蓉粉丝娃娃菜',
                  ('超下饭的麻婆豆腐', 'fr', '我最爱吃这个，不放香菜哈哈'),
                  ('酸辣土豆丝', 'hu', '下饭菜来一个'),
@@ -53,7 +53,7 @@ ME_MEALS = [
     dict(k='m1011', when=(10, 11, 10, 40), cook='hu', name='周日早午餐', kind='周末', n=2,
          dishes=['皮蛋瘦肉粥', '蒸水蛋', ('葱花鸡蛋饼', 'me', '要软一点的')],
          reviews=[('me', None, 4, '老公做的早午餐，蒸蛋有点老了，不过粥很好喝', {'难度': 3, '口味': 4}, 30)]),
-    dict(k='m1012', when=(10, 12, 19, 0), cook='me', name='周一清淡点', kind='日常', n=2,
+    dict(k='m1012', when=(10, 12, 19, 0), cook='me', name='周一晚饭', kind='日常', n=2,
          dishes=['青椒土豆丝', '红烧大排'], reviews=[]),
     dict(k='m1013', when=(10, 13, 18, 55), cook='me', name='周二宫保鸡丁', kind='日常', n=2,
          dishes=['宫保鸡丁(家常版)', '蒜蓉西兰花'],
@@ -138,13 +138,13 @@ MANUAL_STOCK = [
 # 采购行程：(时间, 类型, 清单名, 额外的杂项)；kind=custom 自建清单 / menu 由食集生成
 ME_TRIPS = [
     dict(when=(9, 27, 15, 40), kind='custom', name='这周买菜', extras=['洗洁精', '保鲜袋'], extra_ing=[]),
-    dict(when=(10, 5, 9, 50), kind='custom', name='国庆在家吃饭', extras=['垃圾袋'], extra_ing=['牛奶']),
-    dict(when=(10, 7, 17, 35), kind='menu', name=None, extras=[], extra_ing=[]),
-    dict(when=(10, 10, 9, 20), kind='custom', name='周六请客大采购', extras=['一次性杯子', '纸巾'], extra_ing=[]),
-    dict(when=(10, 14, 18, 10), kind='menu', name=None, extras=[], extra_ing=[]),
-    dict(when=(10, 17, 9, 30), kind='custom', name='周末买菜', extras=['保鲜膜'], extra_ing=[], unticked_extras=['保鲜膜']),
-    dict(when=(10, 19, 18, 20), kind='menu', name=None, extras=[], extra_ing=[]),
-    dict(when=(10, 24, 9, 40), kind='custom', name='周末补货', extras=['卫生纸'], extra_ing=['牛奶', '北豆腐', '菠菜', '草莓']),
+    dict(when=(10, 5, 9, 50), kind='custom', topup=True, name='国庆在家吃饭', extras=['垃圾袋'], extra_ing=['牛奶']),
+    dict(when=(10, 7, 17, 35), kind='menu', topup=True, name=None, extras=[], extra_ing=[]),
+    dict(when=(10, 10, 9, 20), kind='custom', topup=True, name='周六请客大采购', extras=['一次性杯子', '纸巾'], extra_ing=[]),
+    dict(when=(10, 14, 18, 10), kind='menu', topup=True, name=None, extras=[], extra_ing=[]),
+    dict(when=(10, 17, 9, 30), kind='custom', topup=True, name='周末买菜', extras=['保鲜膜'], extra_ing=[], unticked_extras=['保鲜膜']),
+    dict(when=(10, 19, 18, 20), kind='menu', topup=True, name=None, extras=[], extra_ing=[]),
+    dict(when=(10, 24, 9, 40), kind='custom', topup=True, last_used_up=0.30, name='周末补货', extras=['卫生纸'], extra_ing=['牛奶', '北豆腐', '菠菜', '草莓']),
 ]
 
 DAILY_SKIP_NOTES = {

@@ -32,12 +32,20 @@ SEED = 20261027
 SENSITIVE_DOC_VERSION = '2026-10-26'          # 与 ConsentAppService.SENSITIVE_DOC_VERSION 一致
 IGNORE_ING = {28}                             # 米饭：现成主食，不进库存 / 采购
 SHELF_DAYS = {1: 5, 2: 3, 3: 2, 4: 30, 5: 3, 6: 7, 7: 180, 8: 7, 9: 180, 10: 90, 11: 180, 12: 90}
+# 耐放根茎类：入库时用户把保质期改长（余量页允许手改 best_before）
+ROOT_VEG = {'大蒜': 14, '胡萝卜': 12, '洋葱': 14, '马铃薯': 12, '南瓜': 14, '冬瓜': 10, '红薯': 14, '山药': 10,
+            '莲藕': 8, '白萝卜': 10, '大葱': 8}
 LEAFY = {'小葱', '大葱', '香菜', '韭菜', '菠菜', '芹菜', '油菜', '小白菜', '生菜', '娃娃菜', '上海青', '荷兰豆'}
 PURCHASE_UNITS = ['斤', '把', '个', '少许', '盒', '袋', '块', '克']
 DIMENSIONS = ['口味', '难度', '营养均衡', '外观']
 MENU_TYPES = ['日常', '家宴', '节日', '周末', '工作日']
 
 R = random.Random(SEED)
+# 消耗模型旋钮：做饭确认时「用完了 / 用了一些」的概率（没勾选的食材档位不变，也不进 memo）
+USED_UP_FRESH, USED_UP_STAPLE, USED_UP_LAST = 0.04, 0.02, 0.03
+DISCARD_DELETE = 0.90    # 过期扔掉后，直接把这条余量删掉（而不是留一条「没有」）
+TOPUP_MIN_USES = 1
+PARTIAL_MARK_FRESH, PARTIAL_MARK_STAPLE = 0.80, 0.35
 
 
 # ====================================================================== SQL 基础
@@ -100,7 +108,31 @@ def _fix(t):
 def chk(t):
     if t < START or t > CAP:
         raise ValueError('时间越界：%s' % t)
+    if dt.time(0, 30) <= t.time() < dt.time(6, 30):
+        raise ValueError('不应有用户动作发生在 00:30~06:30：%s' % t)
     return t
+
+
+def pick_created(meal_t, limit, lo):
+    """食集创建时间：晚饭 = 前一晚 20:00~23:00 或当天 15:00~18:30；早午餐 = 前一晚 20:00~23:00 或当天 08:00~10:30。
+    前一天 15:00~18:30 也算（为了赶在采购行程前）。必须不晚于 limit，不早于 lo。"""
+    day = meal_t.replace(hour=0, minute=0, second=0)
+    wins = [(day - dt.timedelta(hours=4), day - dt.timedelta(hours=1))]
+    wins.append((day - dt.timedelta(hours=9), day - dt.timedelta(hours=5, minutes=30)))   # 前一天下午顺手排
+    if meal_t.hour >= 14:
+        wins.append((day + dt.timedelta(hours=15), day + dt.timedelta(hours=18, minutes=30)))
+    else:
+        wins.append((day + dt.timedelta(hours=8), day + dt.timedelta(hours=10, minutes=30)))
+    ok = []
+    for a, b in wins:
+        a, b = max(a, lo), min(b, limit)
+        if a < b:
+            ok.append((a, b))
+    if not ok:
+        raise ValueError('找不到合适的食集创建时间：%s' % meal_t)
+    a, b = R.choice(ok)
+    t = a + dt.timedelta(seconds=R.randint(0, int((b - a).total_seconds())))
+    return chk(_fix(t))
 
 
 def mk(m, d, h, mi, jit=3):
@@ -215,6 +247,7 @@ class Fam:
         self.state = {}            # ing_id -> dict(level, bb, opened, upd)
         self.notified = defaultdict(int)
         self.last_use = {}
+        self.uses = defaultdict(int)
 
 
 # ====================================================================== 构建
@@ -224,6 +257,7 @@ class Builder:
         self.cipher = cipher
         self.backdate = backdate
         self.S = Seed()
+        self.stats = {}
         self.pre = []        # 事务外的校验语句（procedure 内、START TRANSACTION 之前）
 
     # -------------------------------------------------- 菜单 / 点菜
@@ -326,13 +360,12 @@ class Builder:
             spec = m['spec']
             created = mk(*spec['created'], jit=2) if spec.get('created') else None
             if created is None:
-                created = m['t'] - dt.timedelta(minutes=R.randint(40, 900))
-                if m['trip']['spec']['kind'] == 'menu':
-                    created = min(created, m['trip']['t'] - dt.timedelta(minutes=R.randint(40, 120)))
+                limit = m['t'] - dt.timedelta(minutes=25)
+                first_of_trip = next((x for x in m['trip']['meals'] if not x['single']), None)
+                if m['trip']['spec']['kind'] == 'menu' and first_of_trip is m:
+                    limit = min(limit, m['trip']['t'] - dt.timedelta(minutes=45))
                 lo = ctx.min_created + dt.timedelta(minutes=R.randint(0, 20), seconds=R.randint(1, 58))
-                if created < lo:
-                    created = lo
-                created = chk(_fix(created))
+                created = pick_created(m['t'], limit, lo)
             if spec.get('together'):
                 created = mk(10, 8, 20, 55, jit=2)
             m['menu'] = self.make_menu(ctx, spec['name'], spec['kind'], spec['n'], created, 'DONE', m['t'],
@@ -535,7 +568,15 @@ class Builder:
                 discards.clear()
                 rest = sorted(ev[i:], key=lambda e: (e[0], e[1]))
                 ev[i:] = rest
-        # 终态库存
+        # 终态库存 + 余量统计（口径同 StockSummaryCalculator，today=2026-10-27）
+        today = dt.date(2026, 10, 27)
+        lv = [st['level'] for st in ctx.state.values()]
+        self.stats[ctx.key] = dict(
+            enough=lv.count('ENOUGH'), low=lv.count('LOW'), out=lv.count('NONE'), total=len(lv),
+            expiring3d=sum(1 for st in ctx.state.values()
+                           if st['level'] != 'NONE' and st['bb'] and (st['bb'] - today).days <= 3),
+            expiring_items=sorted('%s(%s,%s)' % (self.ref.name(i), st['level'], st['bb']) for i, st in ctx.state.items()
+                                  if st['level'] != 'NONE' and st['bb'] and (st['bb'] - today).days <= 3))
         for ing, st in ctx.state.items():
             S.ins('ingredient_stock', ingredient_id=ing, level=st['level'], best_before=st['bb'],
                   opened_at=st['opened'], update_time=st['upd'], family_id=ctx.fam)
@@ -566,6 +607,10 @@ class Builder:
         if not st or st['level'] == 'NONE':
             return
         t = chk(_fix(t))
+        if R.random() < DISCARD_DELETE:
+            self.stock_log(ctx, ing, 'manual', st['level'], None, st['bb'], '过期了，扔掉', None, t)
+            del ctx.state[ing]
+            return
         self.stock_log(ctx, ing, 'manual', st['level'], 'NONE', st['bb'], '过期了，扔掉', None, t)
         self.set_state(ctx, ing, 'NONE', None, t)
 
@@ -595,6 +640,12 @@ class Builder:
                 buy.append(ing)
             elif st['level'] == 'LOW' and ref.cat(ing) != 7:
                 buy.append(ing)
+        if spec.get('topup'):   # 周末大采购顺手把常用的、快见底的补齐
+            for ing, st in sorted(ctx.state.items()):
+                if (ing not in buy and st['level'] != 'ENOUGH' and ctx.uses[ing] >= TOPUP_MIN_USES
+                        and SHELF_DAYS.get(ref.cat(ing), 7) >= 7):
+                    buy.append(ing)
+                    last_use[ing] = t.date() + dt.timedelta(days=3)
         buy.sort(key=lambda i: (ref.cat(i), ref.name(i)))
         if not buy and not spec.get('extras'):
             return
@@ -627,7 +678,7 @@ class Builder:
                          family_id=ctx.fam)
             tick = chk(_fix(tick + dt.timedelta(seconds=R.randint(25, 170))))
             cat = ref.cat(ing)
-            shelf = SHELF_DAYS.get(cat, 7)
+            shelf = ROOT_VEG.get(ref.name(ing), SHELF_DAYS.get(cat, 7))
             bb = max(t.date() + dt.timedelta(days=shelf), last_use[ing] + dt.timedelta(days=1)) if cat != 7 else \
                 t.date() + dt.timedelta(days=shelf)
             self.stock_add(ctx, ing, 'purchase', None, item, tick, bb)
@@ -671,10 +722,12 @@ class Builder:
                 raise ValueError('做饭时缺料：%s %s' % (t, ref.name(ing)))
             if st['bb'] and st['bb'] < t.date():
                 raise ValueError('做饭时过期：%s %s' % (t, ref.name(ing)))
-            cond = ref.cat(ing) == 7
-            if ing not in later and ((not cond and R.random() < 0.45) or (cond and R.random() < 0.04)):
+            ctx.uses[ing] += 1
+            cond = ref.cat(ing) in (7, 9)     # 调料 / 谷物主食：一次用得少
+            p_used = USED_UP_STAPLE if cond else (m['trip']['spec'].get('last_used_up', USED_UP_LAST) if ing not in later else USED_UP_FRESH)
+            if ing not in later and R.random() < p_used:
                 used.append(ing)
-            else:
+            elif R.random() < (PARTIAL_MARK_STAPLE if cond else PARTIAL_MARK_FRESH):
                 partial.append(ing)
         ct = secs(t, 3, 30)
         for ing in used:
@@ -968,6 +1021,8 @@ def main():
                HUSBAND_ACCOUNT_ID=a.husband_account_id)
     B = write_sql(a.out, a.ref_dir, ids, cipher, not a.no_backdate, not a.no_health)
     print('已生成 %s：%d 行数据，%d 条语句' % (a.out, sum(B.S.counter.values()), len(B.S.lines)))
+    for k, st in sorted(B.stats.items()):
+        print('  余量[%s] %s' % (k, st))
     for t, n in sorted(B.S.counter.items()):
         print('  %-20s %d' % (t, n))
 

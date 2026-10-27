@@ -68,6 +68,10 @@ mysql --default-character-set=utf8mb4 <库名> < cleanup_demo_seed.sql
   只给老公和小林写（含 `health_consent_account_id`）；**我的档案不动**（已有行，请本人在 App 里填）。`member.phone` 一律不写。
 - 单独同意 `doc_version` 取 `ConsentAppService.SENSITIVE_DOC_VERSION`（2026-10-26）。
 
+- 余量模型：采购入库 → 做饭确认「用完了 / 用了一些」（未勾选的食材档位不变）→ 过期扔掉（多数直接删除余量行）；周末/假期大采购会顺手补齐常用的耐放品。
+  生成器会打印按 `/pantry/summary` 口径算出的今日 ENOUGH / LOW / OUT / 3 天内到期数（我们家目前 31/9/6，到期 6）。旋钮在 `gen_demo_seed.py` 顶部。
+- 用户动作（造食集、采购、评价、记饮食、库存变动）不会落在 00:30~06:30；食集在做饭前一晚 20~23 点、前一天或当天下午 15~18:30（晚饭）/ 当天 8~10:30（早午餐）创建。
+
 ## 自检
 
 ```bash

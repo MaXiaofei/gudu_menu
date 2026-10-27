@@ -218,6 +218,75 @@ class SeedTest(unittest.TestCase):
         # 手写的回溯时间 / 同意时间也都带分秒；允许极少数整点
         self.assertLess(round_ / total, 0.01, '整点时间太多：%d/%d' % (round_, total))
 
+    def test_no_user_actions_in_the_small_hours(self):
+        """任何带时间的值都不能落在 00:30~06:30（用户不会半夜点菜 / 买菜 / 评价 / 记饮食）。"""
+        pat = re.compile(r"'2026-\d\d-\d\d (\d\d):(\d\d):\d\d'")
+        n = 0
+        for no, line in enumerate(self.lines):
+            if not line.startswith(('INSERT INTO', 'UPDATE ')) or 'demo_seed_registry' in line[:40]:
+                continue
+            for h, m in pat.findall(line):
+                n += 1
+                minutes = int(h) * 60 + int(m)
+                self.assertFalse(30 <= minutes < 6 * 60 + 30, '半夜动作 行%d：%s:%s' % (no + 1, h, m))
+        self.assertGreater(n, 1000)
+
+    def test_menu_create_time_is_believable(self):
+        """食集创建时间：前一晚 20~23 点 / 前一天下午 15~18:30 / 当天晚饭前 15~18:30 或早午餐前 8~10:30。"""
+        n = 0
+        for _, t, c in self.rows:
+            if t != 'menu' or unq(c['status']) != 'DONE':
+                continue
+            n += 1
+            created = dt.datetime.strptime(unq(c['create_time']), '%Y-%m-%d %H:%M:%S')
+            finished = dt.datetime.strptime(unq(c['finished_at']), '%Y-%m-%d %H:%M:%S')
+            self.assertLess(created, finished)
+            hm = created.hour * 60 + created.minute
+            ok = (20 * 60 <= hm <= 23 * 60) or (15 * 60 <= hm <= 18 * 60 + 30) or (8 * 60 <= hm <= 10 * 60 + 30)
+            self.assertTrue(ok, '食集创建时间不自然：%s %s' % (unq(c['name']), created))
+            if created.date() == finished.date():
+                # 同一天创建：晚饭前在 15~18:30，早午餐前在 8~10:30
+                self.assertTrue((finished.hour >= 14 and 15 * 60 <= hm <= 18 * 60 + 30) or
+                                (finished.hour < 14 and 8 * 60 <= hm <= 10 * 60 + 30), unq(c['name']))
+        self.assertGreater(n, 25)
+
+    def test_pantry_balance_matches_summary_semantics(self):
+        """/pantry/summary 口径（StockSummaryCalculator）：我们家今天 ENOUGH 60~70% / LOW ~20% / OUT ≤15%，3 天内到期 4~6 个。"""
+        G.R.seed(G.SEED)
+        _, B = G.build(REF_DIR, IDS, None, True, False)
+        st = B.stats['me']
+        t = st['total']
+        self.assertTrue(0.60 <= st['enough'] / t <= 0.70, st)
+        self.assertTrue(0.18 <= st['low'] / t <= 0.27, st)
+        self.assertLessEqual(st['out'] / t, 0.15, st)
+        self.assertTrue(4 <= st['expiring3d'] <= 6, st)
+        # 终态与落库的 ingredient_stock 一致
+        fam = [c for _, tb, c in self.rows if tb == 'ingredient_stock' and c['family_id'] == '@ME_FAMILY_ID']
+        self.assertEqual(len(fam), t)
+        self.assertEqual(sum(1 for c in fam if unq(c['level']) == 'ENOUGH'), st['enough'])
+
+    def test_meal_names_match_content(self):
+        """菜单名里点名的东西必须在菜里（人工约定的几个关键词）。"""
+        import demo_content as C
+        bad = {'清淡': ['红烧', '水煮', '辣子', '麻辣']}
+        for spec in C.ME_MEALS + C.FR_MEALS:
+            for kw, banned in bad.items():
+                if spec.get('name') and kw in spec['name']:
+                    for d in spec['dishes']:
+                        n = d if isinstance(d, str) else d[0]
+                        self.assertFalse(any(b in n for b in banned), '%s 与 %s 不符' % (spec['name'], n))
+            if spec.get('name'):
+                w = dt.date(2026, spec['when'][0], spec['when'][1]).weekday()
+                for i, lab in enumerate('一二三四五六日'):
+                    if spec['name'].startswith('周' + lab):
+                        self.assertEqual(i, w, '菜单名星期不对：%s' % spec['name'])
+            if spec.get('name') and '早午餐' in spec['name']:
+                self.assertLess(spec['when'][2], 14)
+            if spec.get('name') and '晚' in spec['name'] and '早午' not in spec['name']:
+                self.assertGreaterEqual(spec['when'][2], 17)
+            if spec.get('name') and '午饭' in spec['name'] or (spec.get('name') and '午餐' in (spec['name'])):
+                self.assertLess(spec['when'][2], 15)
+
     def test_create_before_update(self):
         for _, t, cols in self.rows:
             if t == 'meal_plan_draft':
