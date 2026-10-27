@@ -325,7 +325,8 @@ v91_assertions() {
   table_exists notification || return 0
   [ "$(q "SELECT COUNT(*) FROM schema_migration_log WHERE filename LIKE 'V91\_%'")" != "0" ] || return 0
   expect_zero "account 自增起点 >= 1000 万（新账号 id 与档案 id 取值范围永不重叠）" \
-    "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account'
+    "SET SESSION information_schema_stats_expiry = 0;
+     SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account'
        AND AUTO_INCREMENT < 10000000"
   expect_zero "存量档案 id 全部小于 1000 万（与新账号 id 不重叠）" "SELECT COUNT(*) FROM member WHERE id >= 10000000"
   expect_zero "notification 每行恰好一个收件人（账号 / 档案二选一非空）" \
