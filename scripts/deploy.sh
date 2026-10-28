@@ -194,6 +194,13 @@ if echo "$SERVICES" | grep -qw menu-api || echo "$SERVICES" | grep -qw menu-admi
   else
     echo "  （gudu-nginx 不可达或配置未就绪，跳过 reload——请检查 front-nginx 容器）"
   fi
+  # 证书续期后 nginx 要 reload 才会加载新证书：certbot 容器每 12h renew，宿主机定时 reload 兜底
+  # （否则续期后若一直没部署，线上会用旧证书直到过期）。幂等：内容一致则不改。
+  RELOAD_CRON=/etc/cron.d/gudu-nginx-reload
+  RELOAD_LINE='17 */12 * * * root docker exec gudu-nginx sh -c "nginx -t && nginx -s reload" >/dev/null 2>&1'
+  if [ -d /etc/cron.d ] && [ "$(cat "$RELOAD_CRON" 2>/dev/null)" != "$RELOAD_LINE" ]; then
+    echo "$RELOAD_LINE" > "$RELOAD_CRON" && chmod 644 "$RELOAD_CRON" && echo "  已安装 nginx 定时 reload（$RELOAD_CRON）"
+  fi
 fi
 
 # 3. 重启容器（加载新镜像，--no-deps 不动 mysql/redis）
