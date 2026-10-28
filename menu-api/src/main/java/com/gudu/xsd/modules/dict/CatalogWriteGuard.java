@@ -16,6 +16,18 @@ public class CatalogWriteGuard {
 
     private final AccountQueryApi accounts;
 
+    /**
+     * 能否维护公共食材：管理后台登录（scope=admin）的平台运营。
+     * 运营在小程序里（非 admin scope）新建 / 修改食材按普通家庭用户处理（私有）。
+     */
+    public boolean canMaintainPublic() {
+        try {
+            return com.gudu.xsd.common.security.TenantSession.isAdminScope() && isOperator();
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     /** 当前登录账号是否平台运营及以上；未登录或查询异常一律按非运营处理。 */
     public boolean isOperator() {
         try {

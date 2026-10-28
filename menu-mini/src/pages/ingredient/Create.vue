@@ -4,7 +4,7 @@
   <view class="page">
     <view class="top" :style="{ paddingTop: sb + 'px' }">
       <text class="back" @click="goBack">‹</text>
-      <text class="title">录入食材</text>
+      <text class="title">新建食材</text>
       <view style="width: 30px" />
     </view>
 
@@ -40,7 +40,8 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { listDict, type DictItem } from '@/api/common'
-import { createIngredient, upsertDict } from '@/api/ingredient'
+import { resolveIngredient, upsertDict } from '@/api/ingredient'
+import { resolveTip } from '@/utils/ingredientSearch'
 import { navInset } from '@/utils/token'
 
 const sb = navInset()
@@ -76,24 +77,15 @@ async function save() {
     if (customMode.value && customName.value.trim()) {
       cid = await upsertDict(customName.value.trim(), 'purchase_category')
     }
-    await createIngredientFull(n, cid)
-    uni.showToast({ title: '已保存', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 400)
+    // 后端去重：与公共食材名 / 别名一致 -> 返回该公共食材；本家已有 -> 返回已有；否则新建本家食材（不带营养）
+    const r = await resolveIngredient(n, cid)
+    uni.showToast({ title: resolveTip(r), icon: 'none' })
+    setTimeout(() => uni.navigateBack(), 600)
   } catch {
-    uni.showToast({ title: '保存失败', icon: 'none' })
+    // 请求层已用后端原因提示（内容违规、重名等），不再覆盖
   } finally {
     saving.value = false
   }
-}
-
-/** 带分类建档。 */
-async function createIngredientFull(n: string, purchaseCategoryId?: number): Promise<void> {
-  const { request } = await import('@/utils/request')
-  await request({
-    url: '/ingredient',
-    method: 'POST',
-    data: { ingredient: { name: n, purchaseCategoryId }, nutritions: [] },
-  })
 }
 
 function goBack() {

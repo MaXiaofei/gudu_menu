@@ -32,6 +32,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '食材与营养', group: 'ops' },
       },
       {
+        path: 'ingredient-adoption',
+        name: 'IngredientAdoption',
+        component: () => import('@/views/ingredient-adoption/Index.vue'),
+        meta: { title: '家庭新建食材', group: 'ops' },
+      },
+      {
         path: 'feedback',
         name: 'Feedback',
         component: () => import('@/views/feedback/Index.vue'),

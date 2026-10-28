@@ -45,8 +45,11 @@ public class IngredientAligner {
     private final StockAppService stockAppService;
     private final Clock clock;
 
-    private volatile IngredientNameMatcher matcher;
-    private volatile Instant loadedAt;
+    /** 字典按「可见范围」缓存：公共 + 本家私有食材因家庭而异，不能跨家庭共用（key = 有效家庭 id，无家庭为 -1）。 */
+    private final Map<Long, Cached> cache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record Cached(IngredientNameMatcher matcher, Instant loadedAt) {
+    }
 
     public List<RecognizedItem> align(List<RawItem> raws) {
         IngredientNameMatcher m = matcher();
@@ -96,16 +99,20 @@ public class IngredientAligner {
 
     IngredientNameMatcher matcher() {
         Instant now = clock.instant();
-        IngredientNameMatcher m = matcher;
-        if (m == null || loadedAt == null || loadedAt.plus(CACHE_MINUTES, ChronoUnit.MINUTES).isBefore(now)) {
+        Long familyId = com.gudu.xsd.common.tenant.DishVisibility.effectiveFamilyId();
+        Long key = familyId == null ? -1L : familyId;
+        Cached c = cache.get(key);
+        if (c == null || c.loadedAt().plus(CACHE_MINUTES, ChronoUnit.MINUTES).isBefore(now)) {
             List<IngredientNameMatcher.Entry> entries = ingredientService.list().stream()
                     .filter(i -> i.getName() != null && (i.getDeleted() == null || i.getDeleted() == 0))
                     .map(IngredientAligner::entryOf).toList();
-            m = new IngredientNameMatcher(entries, loadAlias());
-            matcher = m;
-            loadedAt = now;
+            // 内置别名 JSON + 运营维护的别名表（后者覆盖前者）
+            Map<String, String> alias = new HashMap<>(loadAlias());
+            alias.putAll(ingredientService.aliasToNameMap());
+            c = new Cached(new IngredientNameMatcher(entries, alias), now);
+            cache.put(key, c);
         }
-        return m;
+        return c.matcher();
     }
 
     private static IngredientNameMatcher.Entry entryOf(Ingredient i) {

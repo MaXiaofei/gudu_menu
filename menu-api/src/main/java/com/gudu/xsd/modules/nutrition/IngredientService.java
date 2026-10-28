@@ -7,6 +7,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gudu.xsd.modules.dict.SysDict;
 import com.gudu.xsd.modules.dict.mapper.DictMapper;
 import com.gudu.xsd.modules.nutrition.domain.service.IngredientIconPolicy;
+import com.gudu.xsd.modules.nutrition.domain.service.IngredientNameNormalizer;
+import com.gudu.xsd.common.tenant.DishVisibility;
+import com.gudu.xsd.modules.nutrition.mapper.IngredientAliasMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientMapper;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientNutritionMapper;
 import com.gudu.xsd.modules.nutrition.mapper.NutritionMetricMapper;
@@ -35,6 +38,14 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
     @Autowired
     public void setDictMapper(DictMapper dictMapper) {
         this.dictMapper = dictMapper;
+    }
+
+    /** 别名表（V95；测试中为 null 时搜索只匹配名称）。 */
+    private IngredientAliasMapper aliasMapper;
+
+    @Autowired
+    public void setAliasMapper(IngredientAliasMapper aliasMapper) {
+        this.aliasMapper = aliasMapper;
     }
 
     /** 新增食材：按名称/品类计算插画 key（V68）。 */
@@ -149,11 +160,9 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         if (purchaseCategoryId != null) {
             qw.eq("purchase_category_id", purchaseCategoryId);
         }
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            qw.like("name", keyword.trim());
-        }
-        List<Ingredient> ings = list(qw);
-        return toVOList(ings, metricNameById);
+        Map<Long, String> aliasHits = applyKeyword(qw, keyword);
+        List<Ingredient> ings = preferFamilyFirst(list(qw));
+        return fillAliasHits(toVOList(ings, metricNameById), aliasHits);
     }
 
     /** 食材详情（编辑页：名称/品类/食用属性 + 营养）。 */
@@ -184,15 +193,66 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         if (q.getPurchaseCategoryId() != null) {
             qw.eq("purchase_category_id", q.getPurchaseCategoryId());
         }
-        if (q.getKeyword() != null && !q.getKeyword().trim().isEmpty()) {
-            qw.like("name", q.getKeyword().trim());
+        Map<Long, String> aliasHits = applyKeyword(qw, q.getKeyword());
+        if (Boolean.TRUE.equals(q.getFamilyOnly())) {
+            Long familyId = DishVisibility.effectiveFamilyId();
+            if (familyId == null) qw.apply("1 = 0");
+            else qw.eq("family_id", familyId);
         }
         IPage<Ingredient> page = page(new Page<>(q.getPageNum(), q.getPageSize()), qw);
-        List<IngredientVO> voRecords = toVOList(page.getRecords(), metricNameById);
+        List<IngredientVO> voRecords = fillAliasHits(
+                toVOList(preferFamilyFirst(page.getRecords()), metricNameById), aliasHits);
         // IPage 是接口，直接转换 records；用 setRecords 保留分页元信息
         Page<IngredientVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(voRecords);
         return result;
+    }
+
+    /**
+     * 关键词条件：名称包含关键词，或关键词命中某个别名（搜「土豆」出「马铃薯」）。
+     * 返回命中的 ingredientId -> 别名，供 VO 标注 matchedAlias。可见性（公共 + 本家）由 MyBatis 拦截器兜底。
+     */
+    private Map<Long, String> applyKeyword(QueryWrapper<Ingredient> qw, String keyword) {
+        Map<Long, String> hits = new HashMap<>();
+        if (keyword == null || keyword.trim().isEmpty()) return hits;
+        String kw = IngredientNameNormalizer.normalize(keyword);
+        if (aliasMapper != null) {
+            for (IngredientAlias a : aliasMapper.selectList(
+                    new QueryWrapper<IngredientAlias>().like("alias", kw).last("LIMIT 200"))) {
+                hits.putIfAbsent(a.getIngredientId(), a.getAlias());
+            }
+        }
+        if (hits.isEmpty()) {
+            qw.like("name", kw);
+        } else {
+            List<Long> ids = new java.util.ArrayList<>(hits.keySet());
+            qw.and(w -> w.like("name", kw).or().in("id", ids));
+        }
+        return hits;
+    }
+
+    /** 命中别名的 VO 标注 matchedAlias（名称本身已包含关键词的不标）。 */
+    private List<IngredientVO> fillAliasHits(List<IngredientVO> vos, Map<Long, String> hits) {
+        if (hits.isEmpty()) return vos;
+        for (IngredientVO vo : vos) vo.setMatchedAlias(hits.get(vo.getId()));
+        return vos;
+    }
+
+    /** 同名（公共 + 本家私有）时本家的排前面；不同名的相对顺序不变。 */
+    static List<Ingredient> preferFamilyFirst(List<Ingredient> in) {
+        Map<String, List<Integer>> slots = new HashMap<>();
+        for (int i = 0; i < in.size(); i++) {
+            String n = in.get(i).getName();
+            if (n != null) slots.computeIfAbsent(n, k -> new java.util.ArrayList<>()).add(i);
+        }
+        List<Ingredient> out = new java.util.ArrayList<>(in);
+        for (List<Integer> idx : slots.values()) {
+            if (idx.size() < 2) continue;
+            List<Ingredient> group = idx.stream().map(in::get)
+                    .sorted(java.util.Comparator.comparing(i -> i.getFamilyId() == null)).toList();
+            for (int k = 0; k < idx.size(); k++) out.set(idx.get(k), group.get(k));
+        }
+        return out;
     }
 
     /** 实体列表 → VO 列表：营养/品类名均批量预取，一次 IN 查询各一次。 */
@@ -219,6 +279,7 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
                               Map<Long, BigDecimal> metricIdToValue) {
         IngredientVO vo = new IngredientVO();
         BeanUtils.copyProperties(ing, vo);
+        vo.setFamilyOwned(ing.getFamilyId() != null);
         Map<String, BigDecimal> named = new HashMap<>();
         for (Map.Entry<Long, BigDecimal> e : metricIdToValue.entrySet()) {
             String name = metricNameById.get(e.getKey());
@@ -228,6 +289,27 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         }
         vo.setNutrition(named);
         return vo;
+    }
+
+    /** 别名 -> 公共食材名（拍照识别 / 名称匹配用；别名只指向公共食材）。 */
+    public Map<String, String> aliasToNameMap() {
+        Map<String, String> out = new HashMap<>();
+        if (aliasMapper == null) return out;
+        List<IngredientAlias> all = aliasMapper.selectList(null);
+        if (all.isEmpty()) return out;
+        Map<Long, String> names = listByIds(all.stream().map(IngredientAlias::getIngredientId).distinct().toList())
+                .stream().filter(i -> i.getFamilyId() == null)
+                .collect(Collectors.toMap(Ingredient::getId, Ingredient::getName, (a, b) -> a));
+        for (IngredientAlias a : all) {
+            String n = names.get(a.getIngredientId());
+            if (n != null) out.putIfAbsent(a.getAlias(), n);
+        }
+        return out;
+    }
+
+    /** 采购品类 id -> 名称（运营收编页展示各家所选分类分布用）。 */
+    public Map<Long, String> categoryNames() {
+        return categoryNameMap();
     }
 
     /** 采购品类字典（sys_dict group=purchase_category）id -> name。 */

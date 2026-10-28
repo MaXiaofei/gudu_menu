@@ -780,6 +780,34 @@ class GuduE2ECoverageTest {
         assertThat(get(user, "/ingredient/" + newId).get("data").get("nutrition").size()).isZero();
         JsonNode again = post(user, "/ingredient", Map.of("ingredient", ing, "nutritions", List.of()));
         assertThat(again.get("data").asLong()).isEqualTo(newId);
+
+        // V95 家庭私有食材：新建的是本家私有（带 familyOwned），只看我家能筛出来
+        JsonNode mine = get(user, "/ingredient?familyOnly=true&keyword=E2E普通食材&pageNum=1&pageSize=10");
+        assertThat(mine.get("data").get("records").size()).isEqualTo(1);
+        assertThat(mine.get("data").get("records").get(0).get("familyOwned").asBoolean()).isTrue();
+        // 本家成员可改名（与公共名重名被拒），公共食材仍 403
+        Map<String, Object> rename = new HashMap<>();
+        rename.put("id", newId);
+        rename.put("name", "番茄");
+        assertThat(put(user, "/ingredient", rename).get("code").asInt()).isNotZero();
+        rename.put("name", "E2E普通食材改");
+        assertThat(put(user, "/ingredient", rename).get("code").asInt()).isZero();
+        // 运营加别名：搜别名能搜到公共食材；普通用户用别名新建 -> 返回该公共食材 id
+        JsonNode al = post(admin, "/admin/ingredient-adoption/aliases",
+                Map.of("alias", "E2E别名番茄", "ingredientId", ING_TOMATO));
+        assertThat(al.get("code").asInt()).as(al.toString()).isZero();
+        JsonNode hit = get(user, "/ingredient?keyword=E2E别名&pageNum=1&pageSize=10");
+        assertThat(hit.get("data").get("records").get(0).get("id").asLong()).isEqualTo(ING_TOMATO);
+        Map<String, Object> viaAlias = new HashMap<>();
+        viaAlias.put("name", "E2E别名番茄");
+        JsonNode resolved = post(user, "/ingredient/resolve", viaAlias);
+        assertThat(resolved.get("data").get("id").asLong()).isEqualTo(ING_TOMATO);
+        assertThat(resolved.get("data").get("existed").asText()).isEqualTo("public");
+        assertThat(delete(admin, "/admin/ingredient-adoption/aliases/" + al.get("data").get("id").asLong())
+                .get("code").asInt()).isZero();
+        // 运营收编汇总可读；未使用的私有食材可删
+        assertThat(get(admin, "/admin/ingredient-adoption/groups").get("code").asInt()).isZero();
+        assertThat(delete(user, "/ingredient/" + newId).get("code").asInt()).isZero();
     }
 
     // ===================== O. 一起吃（协同点菜） =====================

@@ -244,4 +244,98 @@ class IngredientServiceTest {
         assertThat(svc.iconKeyMap(List.of(1L, 2L))).containsExactly(Map.entry(1L, "tomato"));
         assertThat(svc.iconKeyMap(List.of())).isEmpty();
     }
+
+    // ---------- V95：别名搜索 / 我家标签 / 同名排序 / 只看我家 ----------
+
+    private IngredientAlias alias(String a, Long ingId) {
+        IngredientAlias x = new IngredientAlias();
+        x.setAlias(a);
+        x.setIngredientId(ingId);
+        return x;
+    }
+
+    @Test
+    void 搜别名_土豆命中马铃薯_条件含IN且标注matchedAlias() {
+        com.gudu.xsd.modules.nutrition.mapper.IngredientAliasMapper aliasMapper =
+                mock(com.gudu.xsd.modules.nutrition.mapper.IngredientAliasMapper.class);
+        svc.setAliasMapper(aliasMapper);
+        when(aliasMapper.selectList(any())).thenReturn(List.of(alias("土豆", 3L)));
+        when(metricMapper.selectList(any())).thenReturn(List.of());
+        Page<Ingredient> page = new Page<>(1, 10);
+        page.setRecords(List.of(ing(3L, "马铃薯")));
+        ArgumentCaptor<QueryWrapper<Ingredient>> qw = ArgumentCaptor.forClass(QueryWrapper.class);
+        when(baseMapper.selectPage(any(), qw.capture())).thenReturn(page);
+
+        IngredientPageQuery q = new IngredientPageQuery();
+        q.setKeyword("土豆");
+        var r = svc.pageWithNutrition(q);
+
+        assertThat(r.getRecords()).extracting(IngredientVO::getName).containsExactly("马铃薯");
+        assertThat(r.getRecords().get(0).getMatchedAlias()).isEqualTo("土豆");
+        assertThat(qw.getValue().getSqlSegment()).containsIgnoringCase("LIKE").containsIgnoringCase(" IN ");
+    }
+
+    @Test
+    void VO标记familyOwned_本家私有为true_公共为false() {
+        when(metricMapper.selectList(any())).thenReturn(List.of());
+        Ingredient pub = ing(1L, "番茄");
+        Ingredient own = ing(2L, "家传酱");
+        own.setFamilyId(7L);
+        Page<Ingredient> page = new Page<>(1, 10);
+        page.setRecords(List.of(pub, own));
+        when(baseMapper.selectPage(any(), any())).thenReturn(page);
+
+        var r = svc.pageWithNutrition(new IngredientPageQuery());
+
+        assertThat(r.getRecords()).extracting(IngredientVO::isFamilyOwned).containsExactly(false, true);
+    }
+
+    @Test
+    void 同名时本家的排前面_不同名顺序不变() {
+        Ingredient pub = ing(1L, "酱油");
+        Ingredient other = ing(2L, "盐");
+        Ingredient own = ing(3L, "酱油");
+        own.setFamilyId(7L);
+
+        var out = IngredientService.preferFamilyFirst(List.of(pub, other, own));
+
+        assertThat(out).extracting(Ingredient::getId).containsExactly(3L, 2L, 1L);
+    }
+
+    @Test
+    void 只看我家_无家庭上下文时结果为空条件() {
+        when(metricMapper.selectList(any())).thenReturn(List.of());
+        Page<Ingredient> page = new Page<>(1, 10);
+        page.setRecords(List.of());
+        ArgumentCaptor<QueryWrapper<Ingredient>> qw = ArgumentCaptor.forClass(QueryWrapper.class);
+        when(baseMapper.selectPage(any(), qw.capture())).thenReturn(page);
+        IngredientPageQuery q = new IngredientPageQuery();
+        q.setFamilyOnly(true);
+
+        svc.pageWithNutrition(q);
+
+        assertThat(qw.getValue().getSqlSegment()).contains("1 = 0");
+    }
+
+    @Test
+    void 只看我家_有家庭上下文时按family_id过滤() {
+        com.gudu.xsd.common.tenant.TenantContextHolder.set(
+                new com.gudu.xsd.common.tenant.TenantContext(7L, 1L, 1L, "MEMBER"));
+        try {
+            when(metricMapper.selectList(any())).thenReturn(List.of());
+            Page<Ingredient> page = new Page<>(1, 10);
+            page.setRecords(List.of());
+            ArgumentCaptor<QueryWrapper<Ingredient>> qw = ArgumentCaptor.forClass(QueryWrapper.class);
+            when(baseMapper.selectPage(any(), qw.capture())).thenReturn(page);
+            IngredientPageQuery q = new IngredientPageQuery();
+            q.setFamilyOnly(true);
+
+            svc.pageWithNutrition(q);
+
+            assertThat(qw.getValue().getSqlSegment()).containsIgnoringCase("family_id");
+            assertThat(qw.getValue().getParamNameValuePairs()).containsValue(7L);
+        } finally {
+            com.gudu.xsd.common.tenant.TenantContextHolder.clear();
+        }
+    }
 }

@@ -8,13 +8,19 @@
       <input v-model="ingKw" class="sheet-search" placeholder="搜食材库" placeholder-class="ph" :focus="true" />
       <scroll-view scroll-y class="sheet-scroll">
         <view v-if="!ingKw" class="hot-row">
-          <view v-for="h in hot" :key="h.id" class="hot-chip" @click="$emit('pick', h.id, h.name)"><ui-ing-icon :name="h.name" :size="22" bare /><text class="hot-name">{{ h.name }}</text></view>
+          <view v-for="h in hot" :key="h.id" class="hot-chip" @click="$emit('pick', h.id, h.name)"><ui-ing-icon :name="h.name" :size="22" bare /><text class="hot-name">{{ h.name }}</text><ui-own-tag v-if="h.familyOwned" /></view>
         </view>
         <template v-else>
           <text class="match-label">匹配「{{ ingKw }}」</text>
           <view v-for="i in ingMatches" :key="i.id" class="match-row" @click="$emit('pick', i.id, i.name)">
             <ui-ing-icon :name="i.name" :size="32" />
-            <text class="match-name">{{ i.name }}</text>
+            <view class="match-main">
+              <view class="match-line">
+                <text class="match-name">{{ i.name }}</text>
+                <ui-own-tag v-if="i.familyOwned" />
+              </view>
+              <text v-if="aliasHint(i)" class="match-alias">{{ aliasHint(i) }}</text>
+            </view>
             <text class="match-pick">选</text>
           </view>
           <view v-if="!ingMatches.length" class="match-none">没有匹配的食材</view>
@@ -40,8 +46,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { createIngredient, type IngredientItem } from '@/api/ingredient'
+import { computed, ref, watch } from 'vue'
+import { resolveIngredient, searchIngredients, type IngredientItem } from '@/api/ingredient'
+import { aliasHint, matchLocal, mergeMatches, resolveTip } from '@/utils/ingredientSearch'
 
 const props = defineProps<{ all: IngredientItem[]; hot: IngredientItem[] }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'pick', id: number, name: string): void; (e: 'created', it: IngredientItem): void }>()
@@ -49,7 +56,28 @@ const emit = defineEmits<{ (e: 'close'): void; (e: 'pick', id: number, name: str
 const ingKw = ref('')
 const createIngDialog = ref(false)
 const newIngName = ref('')
-const ingMatches = computed(() => (ingKw.value.trim() ? props.all.filter((i) => i.name.includes(ingKw.value.trim())) : []))
+/** 服务端搜索结果（命中别名，如搜「土豆」出「马铃薯」）。 */
+const remote = ref<IngredientItem[]>([])
+const ingMatches = computed(() => mergeMatches(matchLocal(props.all, ingKw.value), remote.value))
+
+let timer: ReturnType<typeof setTimeout> | null = null
+watch(ingKw, (kw) => {
+  if (timer) clearTimeout(timer)
+  const q = kw.trim()
+  if (!q) {
+    remote.value = []
+    return
+  }
+  // 本地没搜到才问服务端（别名只在服务端）；防抖 300ms
+  timer = setTimeout(async () => {
+    try {
+      const r = await searchIngredients(q)
+      if (ingKw.value.trim() === q) remote.value = r
+    } catch {
+      remote.value = []
+    }
+  }, 300)
+})
 
 function openCreateIng() {
   newIngName.value = ingKw.value.trim()
@@ -59,10 +87,11 @@ async function confirmCreateIng() {
   const n = newIngName.value.trim()
   if (!n) return
   try {
-    const id = await createIngredient(n)
+    const r = await resolveIngredient(n)
     createIngDialog.value = false
-    emit('created', { id, name: n })
-    uni.showToast({ title: `已建档「${n}」`, icon: 'none' })
+    // 后端命中已有公共 / 本家食材时不新建：提示「已有：马铃薯」并直接选中它
+    emit('created', { id: r.id, name: r.name, familyOwned: r.familyOwned })
+    uni.showToast({ title: resolveTip(r), icon: 'none' })
   } catch {
     uni.showToast({ title: '建档失败', icon: 'none' })
   }
@@ -130,7 +159,10 @@ async function confirmCreateIng() {
   gap: 10px;
   padding: 9px 0;
 }
-.match-name { flex: 1; font-size: var(--fs-md); font-weight: 700; color: var(--title); }
+.match-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.match-line { display: flex; align-items: center; gap: 6px; }
+.match-name { font-size: var(--fs-md); font-weight: 700; color: var(--title); }
+.match-alias { font-size: var(--fs-tiny); color: var(--caption); }
 .match-pick { font-size: var(--fs-xs); color: var(--primary); font-weight: 700; }
 .match-none { font-size: var(--fs-sm); color: var(--caption); padding: 12px 0; }
 .sheet-bottom-row { margin-top: 10px; }

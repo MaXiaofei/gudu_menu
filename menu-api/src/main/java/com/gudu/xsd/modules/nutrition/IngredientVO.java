@@ -22,4 +22,10 @@ public class IngredientVO extends Ingredient {
 
     /** 采购品类名（ingredient.purchase_category_id → sys_dict purchase_category）。 */
     private String categoryName;
+
+    /** 是否本家私有食材（前端显示「我家」小标签）；公共食材为 false。 */
+    private boolean familyOwned;
+
+    /** 搜索时命中的别名（按别名搜到才有，如搜「土豆」命中「马铃薯」→ 土豆）；其余为 null。 */
+    private String matchedAlias;
 }

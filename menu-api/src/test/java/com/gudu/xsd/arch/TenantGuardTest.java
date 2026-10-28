@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class TenantGuardTest {
 
-    static final Set<String> FAMILY_ID_EXEMPT_TABLES = Set.of("dish", "family_membership", "family_invitation");
+    static final Set<String> FAMILY_ID_EXEMPT_TABLES = Set.of("dish", "ingredient", "family_membership", "family_invitation");
 
     /** 手写 SQL 登记（类全名 → 审查结论见注释）。新增手写 SQL 必须先在此登记。 */
     static final Set<String> HANDWRITTEN_SQL_WHITELIST = Set.of(
@@ -39,6 +39,8 @@ class TenantGuardTest {
             "com.gudu.xsd.modules.backoffice.infrastructure.JdbcAccountDirectoryQuery",
             // 食材使用频次：显式带 cooking_record.family_id 与 dish 可见性条件
             "com.gudu.xsd.modules.nutrition.infrastructure.JdbcIngredientUsageStats",
+            // 食材引用检查 / 运营收编合并（V95）：平台级操作，按 ingredient_id 精确改指向，不读业务内容
+            "com.gudu.xsd.modules.nutrition.infrastructure.JdbcIngredientReferences",
             // 厨房圈：全局 UGC 表（community_*），不属于任何家庭
             "com.gudu.xsd.modules.community.infrastructure.mapper.CommunityRelationMapper",
             "com.gudu.xsd.modules.community.infrastructure.mapper.CommunityAppealMapper",

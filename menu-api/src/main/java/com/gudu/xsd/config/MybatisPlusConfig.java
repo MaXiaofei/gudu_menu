@@ -21,6 +21,7 @@ public class MybatisPlusConfig {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         interceptor.addInnerInterceptor(new GuduTenantLineInnerInterceptor());
         interceptor.addInnerInterceptor(new DishVisibilityInnerInterceptor());
+        interceptor.addInnerInterceptor(new IngredientVisibilityInnerInterceptor());
         PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.MYSQL);
         pagination.setMaxLimit(MAX_PAGE_SIZE);
         interceptor.addInnerInterceptor(pagination);

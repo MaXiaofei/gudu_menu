@@ -21,6 +21,7 @@ import com.gudu.xsd.modules.nutrition.IngredientService;
 import com.gudu.xsd.modules.nutrition.NutritionMetric;
 import com.gudu.xsd.modules.nutrition.NutritionMetricController;
 import com.gudu.xsd.modules.nutrition.NutritionMetricService;
+import com.gudu.xsd.modules.nutrition.application.IngredientCatalogAppService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,22 +71,22 @@ class CatalogWriteAccessTest {
         return (T) f.getProxy();
     }
 
-    private IngredientController ingredientCtl(boolean operator) {
-        when(guard.isOperator()).thenReturn(operator);
-        return new IngredientController(ingSvc, guard, security);
+    private final IngredientCatalogAppService catalog = mock(IngredientCatalogAppService.class);
+
+    private IngredientController ingredientCtl(boolean adminOperator) {
+        when(guard.canMaintainPublic()).thenReturn(adminOperator);
+        return new IngredientController(ingSvc, guard, catalog);
     }
 
     // ---------- 运营守卫：普通用户 PUT/DELETE 被拒，运营放行 ----------
 
     @Test
-    void 普通用户改删食材_字典_指标_全部403() {
+    void 普通用户改删字典_指标_全部403() {
         when(accounts.isOperator(9L)).thenReturn(false);
-        IngredientController ing = proxied(ingredientCtl(false));
         DictController dict = proxied(new DictController(dictSvc, guard, security));
         NutritionMetricController metric = proxied(new NutritionMetricController(metricSvc));
 
         List<Runnable> calls = List.of(
-                () -> ing.update(new Ingredient()), () -> ing.del(1L),
                 () -> dict.update(new SysDict()), () -> dict.del(1L),
                 () -> metric.add(new NutritionMetric()),
                 () -> metric.update(new NutritionMetric()), () -> metric.del(1L));
@@ -94,14 +95,12 @@ class CatalogWriteAccessTest {
                     e -> assertThat(e.getCode()).isEqualTo(403));
         }
         verifyNoInteractions(metricSvc);
-        verify(ingSvc, never()).updateById(any());
-        verify(ingSvc, never()).removeById(any(java.io.Serializable.class));
         verify(dictSvc, never()).updateById(any());
         verify(dictSvc, never()).removeById(any(java.io.Serializable.class));
     }
 
     @Test
-    void 运营可改删食材_但字典与指标仍仅超管() {
+    void 运营改删食材交给目录用例判定_字典与指标仍仅超管() {
         when(accounts.isOperator(9L)).thenReturn(true);
         when(adminChecker.isAdmin(9L)).thenReturn(false);
         IngredientController ing = proxied(ingredientCtl(true));
@@ -110,8 +109,8 @@ class CatalogWriteAccessTest {
 
         ing.update(new Ingredient());
         ing.del(1L);
-        verify(ingSvc).updateById(any(Ingredient.class));
-        verify(ingSvc).removeById(1L);
+        verify(catalog).update(any(Ingredient.class));
+        verify(catalog).delete(1L);
         for (Runnable c : List.<Runnable>of(() -> dict.update(new SysDict()), () -> dict.del(2L), () -> metric.del(3L))) {
             assertThatThrownBy(c::run).isInstanceOfSatisfying(BizException.class,
                     e -> assertThat(e.getCode()).isEqualTo(403));
@@ -134,13 +133,12 @@ class CatalogWriteAccessTest {
         verify(metricSvc).delete(3L);
     }
 
-    // ---------- 普通用户 POST /ingredient 收紧 ----------
+    // ---------- POST /ingredient ----------
 
     private IngredientSaveDTO dto(Long id, String name) {
         Ingredient i = new Ingredient();
         i.setId(id);
         i.setName(name);
-        i.setUsageCount(999);
         IngredientSaveDTO d = new IngredientSaveDTO();
         d.setIngredient(i);
         IngredientNutrition n = new IngredientNutrition();
@@ -150,63 +148,27 @@ class CatalogWriteAccessTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void 普通用户新建食材_忽略id与营养() {
+    void 普通用户新建食材_走目录用例_data为id_命中公共时msg提示() {
         IngredientController ctl = ingredientCtl(false);
-        when(ingSvc.findByName("新食材")).thenReturn(null);
-        doAnswer(inv -> {
-            ((Ingredient) inv.getArgument(0)).setId(55L);
-            return null;
-        }).when(ingSvc).saveWithNutrition(any(), any());
+        when(catalog.resolveOrCreate(any())).thenReturn(
+                new IngredientCatalogAppService.Resolved(3L, "马铃薯", "public", false));
 
-        R<?> r = ctl.add(dto(7L, " 新食材 "));
-
-        ArgumentCaptor<Ingredient> ing = ArgumentCaptor.forClass(Ingredient.class);
-        ArgumentCaptor<List<IngredientNutrition>> nuts = ArgumentCaptor.forClass(List.class);
-        verify(ingSvc).saveWithNutrition(ing.capture(), nuts.capture());
-        assertThat(ing.getValue().getName()).isEqualTo("新食材");
-        assertThat(nuts.getValue()).as("普通用户营养被忽略").isEmpty();
-        assertThat(ing.getValue().getUsageCount()).isNull();
-        assertThat(r.getData()).isEqualTo(55L);
-        verify(security).assertUserText(ContentPurpose.CATALOG_NAME, "新食材");
-    }
-
-    @Test
-    void 普通用户新建同名食材_返回已有id不新建() {
-        IngredientController ctl = ingredientCtl(false);
-        Ingredient exist = new Ingredient();
-        exist.setId(3L);
-        when(ingSvc.findByName("番茄")).thenReturn(exist);
-
-        R<?> r = ctl.add(dto(99L, "番茄"));
+        R<?> r = ctl.add(dto(7L, "土豆"));
 
         assertThat(r.getData()).isEqualTo(3L);
+        assertThat(r.getMsg()).isEqualTo("已有公共食材：马铃薯");
         verify(ingSvc, never()).saveWithNutrition(any(), any());
     }
 
     @Test
-    void 运营新建食材_行为不变_带id与营养原样保存() {
+    void 运营_后台新建公共食材_规整名称_family置空_营养原样保存() {
         IngredientController ctl = ingredientCtl(true);
-        IngredientSaveDTO d = dto(null, "运营食材");
+        IngredientSaveDTO d = dto(5L, " 运营食材 ");
         ctl.add(d);
+        assertThat(d.getIngredient().getName()).isEqualTo("运营食材");
+        assertThat(d.getIngredient().getId()).isNull();
+        assertThat(d.getIngredient().getFamilyId()).isNull();
         verify(ingSvc).saveWithNutrition(d.getIngredient(), d.getNutritions());
-        verify(ingSvc, never()).findByName(any());
-        verifyNoInteractions(security);
-    }
-
-    @Test
-    void 普通用户新建食材_名称违规被拦截() {
-        IngredientController ctl = ingredientCtl(false);
-        doThrow(BizException.contentBlocked("违规")).when(security).assertUserText(any(), any(String[].class));
-        assertThatThrownBy(() -> ctl.add(dto(null, "违规词")))
-                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(451));
-        verify(ingSvc, never()).saveWithNutrition(any(), any());
-    }
-
-    @Test
-    void 普通用户新建食材_空名称拒绝() {
-        IngredientController ctl = ingredientCtl(false);
-        assertThatThrownBy(() -> ctl.add(dto(null, "  "))).isInstanceOf(BizException.class);
-        verify(ingSvc, never()).saveWithNutrition(any(), any());
+        verifyNoInteractions(catalog);
     }
 }

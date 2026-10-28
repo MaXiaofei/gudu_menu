@@ -311,9 +311,14 @@ function addIngredient(id: number, ingName: string) {
   ingSheet.value = false
 }
 function onIngCreated(it: IngredientItem) {
-  allIngredients.value.unshift(it)
-  hotIngredients.value = [it, ...hotIngredients.value].slice(0, 8)
+  // 命中已有食材时后端不新建，列表里已有就不重复加
+  if (!allIngredients.value.some((i) => i.id === it.id)) allIngredients.value.unshift(it)
+  hotIngredients.value = [it, ...hotIngredients.value.filter((h) => h.id !== it.id)].slice(0, 8)
   ingSheet.value = false
+  if (ingredients.some((i) => i.id === it.id)) {
+    uni.showToast({ title: `已加过「${it.name}」`, icon: 'none' })
+    return
+  }
   ingredients.push({ key: ++keySeq, id: it.id, name: it.name, amount: '', unit: '' })
 }
 
