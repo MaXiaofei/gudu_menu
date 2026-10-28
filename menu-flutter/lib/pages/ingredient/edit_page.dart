@@ -27,6 +27,9 @@ class _IngredientEditPageState extends State<IngredientEditPage> {
   bool _loading = true;
   bool _saving = false;
 
+  /// 全局食材库由平台运营维护：仅 OPERATOR / SUPER_ADMIN 可改、删；普通用户只读（后端同步 403 拦截）。
+  bool _canEdit = false;
+
   // 食材信息（只读展示 + 可编辑项）
   String _name = '';
   String? _categoryName;
@@ -41,6 +44,13 @@ class _IngredientEditPageState extends State<IngredientEditPage> {
   }
 
   Future<void> _load() async {
+    try {
+      final me = await ApiClient.instance.get('/account/me');
+      final role = (me is Map && me['account'] is Map)
+          ? (me['account'] as Map)['platformRole'] as String?
+          : null;
+      _canEdit = role == 'OPERATOR' || role == 'SUPER_ADMIN';
+    } catch (_) {}
     try {
       final ing = await ApiClient.instance.get('/ingredient/${widget.ingredientId}');
       if (mounted) {
@@ -79,6 +89,7 @@ class _IngredientEditPageState extends State<IngredientEditPage> {
 
   /// 食用属性卡片：弹三选。
   Future<void> _editEdible() async {
+    if (!_canEdit) return;
     final v = await showModalBottomSheet<int>(
       context: context,
       backgroundColor: _t.card,
@@ -109,6 +120,7 @@ class _IngredientEditPageState extends State<IngredientEditPage> {
 
   /// 删除食材确认。
   Future<void> _confirmDelete() async {
+    if (!_canEdit) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -149,13 +161,16 @@ class _IngredientEditPageState extends State<IngredientEditPage> {
           // §13.2/§13.3 详情页头：BackHeader（箭头 + 真实名 + ✕ 删除 + 首字块/品类副信息）
           BackHeader(
             title: _loading ? '' : _name,
-            action: GestureDetector(
-              onTap: _confirmDelete,
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Text('✕', style: t.textStyles.md.copyWith(color: t.caption)),
-              ),
-            ),
+            action: _canEdit
+                ? GestureDetector(
+                    onTap: _confirmDelete,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Text('✕',
+                          style: t.textStyles.md.copyWith(color: t.caption)),
+                    ),
+                  )
+                : null,
             subtitle: _loading
                 ? null
                 : Row(children: [
@@ -175,7 +190,8 @@ class _IngredientEditPageState extends State<IngredientEditPage> {
           Expanded(
             child: _loading ? const LoadingView() : _buildBody(t),
           ),
-          // 底部保存
+          // 底部保存（仅平台运营）
+          if (_canEdit)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -227,6 +243,11 @@ class _IngredientEditPageState extends State<IngredientEditPage> {
             ),
           ),
         ),
+        if (!_canEdit) ...[
+          const SizedBox(height: 10),
+          Text('食材库由平台维护，仅平台运营可修改或删除',
+              style: t.textStyles.sm.copyWith(color: t.caption)),
+        ],
         const SizedBox(height: 14),
       ],
     );

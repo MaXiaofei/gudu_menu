@@ -65,6 +65,12 @@ class DictControllerTest {
     @MockBean
     private DictService svc;
 
+    @MockBean
+    private CatalogWriteGuard guard;
+
+    @MockBean
+    private com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+
     private final ObjectMapper om = new ObjectMapper();
 
     private SysDict dict(Long id, String group, String name) {
@@ -91,6 +97,7 @@ class DictControllerTest {
 
     @Test
     void 新增字典_返回id() throws Exception {
+        given(guard.isOperator()).willReturn(true);
         given(svc.save(any(SysDict.class))).willAnswer(inv -> {
             ((SysDict) inv.getArgument(0)).setId(88L);
             return true;
@@ -118,5 +125,42 @@ class DictControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
         verify(svc).removeById(9L);
+    }
+
+    @Test
+    void 普通用户新增非采购分类字典_403() throws Exception {
+        given(guard.isOperator()).willReturn(false);
+        mvc.perform(post("/dict").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dictGroup\":\"unit\",\"name\":\"X\",\"sort\":1}"))
+                .andExpect(jsonPath("$.code").value(403));
+        verify(svc, org.mockito.Mockito.never()).save(any(SysDict.class));
+    }
+
+    @Test
+    void 普通用户新增采购分类_忽略id_强制新建() throws Exception {
+        given(guard.isOperator()).willReturn(false);
+        given(svc.listByGroup("purchase_category")).willReturn(List.of());
+        given(svc.save(any(SysDict.class))).willAnswer(inv -> {
+            SysDict d = inv.getArgument(0);
+            org.junit.jupiter.api.Assertions.assertNull(d.getId(), "id 必须被忽略");
+            d.setId(77L);
+            return true;
+        });
+        mvc.perform(post("/dict").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":1,\"dictGroup\":\"purchase_category\",\"name\":\"我的分类\"}"))
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").value(77));
+        verify(contentSecurity).assertUserText(
+                com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose.CATALOG_NAME, "我的分类");
+    }
+
+    @Test
+    void 普通用户新增采购分类_同名返回已有id() throws Exception {
+        given(guard.isOperator()).willReturn(false);
+        given(svc.listByGroup("purchase_category")).willReturn(List.of(dict(5L, "purchase_category", "我的分类")));
+        mvc.perform(post("/dict").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dictGroup\":\"purchase_category\",\"name\":\"我的分类\"}"))
+                .andExpect(jsonPath("$.data").value(5));
+        verify(svc, org.mockito.Mockito.never()).save(any(SysDict.class));
     }
 }
