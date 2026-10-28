@@ -4,7 +4,7 @@ import '../core/api_client.dart';
 class MeStats {
   final int cookedThisMonth;
   final int familyDishes;
-  /// 本月少扔：临期前被做菜用掉的库存条数。
+  /// 临期用掉（原「本月少扔」）：本月在保质期前 3 天内被做菜用掉的库存条数。
   final int savedFromWaste;
   const MeStats({required this.cookedThisMonth, required this.familyDishes, required this.savedFromWaste});
 

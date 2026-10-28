@@ -134,7 +134,7 @@ const statItems = computed(() =>
     ? [
         { value: stats.value.cookedThisMonth, label: '本月做饭' },
         { value: stats.value.familyDishes, label: '家庭菜谱' },
-        { value: stats.value.savedFromWaste, label: '本月少扔', tone: 'success' as const },
+        { value: stats.value.savedFromWaste, label: '临期用掉', tone: 'success' as const },
       ]
     : [],
 )

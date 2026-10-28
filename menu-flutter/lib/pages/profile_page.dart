@@ -138,7 +138,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   StatGrid(items: [
                     StatItem('${_stats!.cookedThisMonth}', '本月做饭'),
                     StatItem('${_stats!.familyDishes}', '家庭菜谱'),
-                    StatItem('${_stats!.savedFromWaste}', '本月少扔', tone: StatTone.success),
+                    StatItem('${_stats!.savedFromWaste}', '临期用掉', tone: StatTone.success),
                   ]),
                   const SizedBox(height: AppTokens.sp16),
                 ],

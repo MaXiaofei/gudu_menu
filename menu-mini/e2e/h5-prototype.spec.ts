@@ -116,7 +116,7 @@ test.describe('H5 原型改版 · 其他', () => {
     await installMocks(page)
     await page.goto('/#/pages/profile/Profile')
     await expect(page.locator('[data-testid="user-card"]')).toContainText('小王', { timeout: 15000 })
-    await expect(page.locator('.stats')).toContainText('本月少扔')
+    await expect(page.locator('.stats')).toContainText('临期用掉')
     await expect(page.locator('.strip-card')).toContainText('土豆炖牛肉')
     await shot(page, 'Me')
   })
