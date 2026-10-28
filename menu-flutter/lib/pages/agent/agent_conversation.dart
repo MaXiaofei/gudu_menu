@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/error_text.dart';
+import '../../core/feature_switch.dart';
 import '../../services/agent_service.dart';
 
 /// 一次对话的状态机（对话页、语音页、跟做模式「问咕嘟」共用）。
@@ -50,6 +51,7 @@ class AgentConversation extends ChangeNotifier {
   Future<void> send(String text, {AgentContext? context}) async {
     final q = text.trim();
     if (q.isEmpty || sending) return;
+    if (!FeatureSwitch.canSend(context?.page)) return; // 紧急关停期间不发新消息
     sending = true;
     messages.add(AgentMessage(messageId: '_u${_seq++}', role: 'user', text: q, createdAt: DateTime.now()));
     final idx = messages.length;

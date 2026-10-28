@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../core/api_client.dart';
+import '../core/feature_switch.dart';
 import '../models/cursor_page.dart';
 import '../models/showcase_types.dart';
 
@@ -396,6 +397,7 @@ class AgentReducer {
       case 'done':
         return m.copyWith(streaming: false, degraded: d['degraded'] == true);
       case 'error':
+        FeatureSwitch.noteCode(Json.i(d['code'])); // 5032 / 5033：紧急关停，页面切暂停提示
         return m.copyWith(
           streaming: false,
           error: Json.s(d['message'], '咕嘟走神了，请再试一次'),

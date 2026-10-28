@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'constants.dart';
 import 'api_response.dart';
 import 'community_status.dart';
+import 'feature_switch.dart';
 import 'connectivity.dart';
 
 /// dio 单例：对应小程序 menu-mini/src/utils/request.ts。
@@ -65,6 +66,14 @@ class ApiClient {
             handler.reject(DioException(
               requestOptions: response.requestOptions,
               message: CommunityStatus.message,
+            ));
+            return;
+          }
+          if (FeatureSwitch.noteCode(api.code)) {
+            // 咕嘟助手 / 问咕嘟紧急关停（5032 / 5033）：切到暂停状态，不弹报错
+            handler.reject(DioException(
+              requestOptions: response.requestOptions,
+              message: api.msg.isEmpty ? FeatureSwitch.agentMessage : api.msg,
             ));
             return;
           }

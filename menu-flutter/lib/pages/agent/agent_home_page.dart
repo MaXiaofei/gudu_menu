@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/feature_switch.dart';
 import '../../core/ingredient_icons.dart';
 import '../../models/member.dart';
 import '../../services/agent_service.dart';
@@ -47,6 +48,7 @@ class _AgentHomePageState extends State<AgentHomePage> {
   @override
   void initState() {
     super.initState();
+    FeatureSwitch.load();
     _load();
   }
 
