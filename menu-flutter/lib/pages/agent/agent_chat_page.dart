@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/feature_switch.dart';
 import '../../services/agent_service.dart';
 import '../../widgets/ai_badge.dart';
 import 'agent_conversation.dart';
@@ -30,6 +31,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
   void initState() {
     super.initState();
     _c.addListener(_onChange);
+    FeatureSwitch.load();
     if (widget.sessionId != null) _c.loadHistory();
     final q = widget.initialText;
     if (q != null && q.trim().isNotEmpty) {

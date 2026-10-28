@@ -2,6 +2,8 @@
   <page-meta :page-style="gdThemeStyle" />
   <!-- 咕嘟对话（prototype AgentChat）：SSE 流式；工具调用链、内嵌卡片、确认卡、撤销、👍👎。 -->
   <view class="page">
+    <!-- 咕嘟助手紧急关停：整页暂停提示（历史与删除入口不在本页之外受影响） -->
+    <ui-agent-paused />
     <view class="top" :style="{ paddingTop: inset + 'px' }">
       <text class="back" @click="goBack">‹</text>
       <image class="gudu" src="/static/brand/logo.png" mode="aspectFit" />
@@ -85,6 +87,7 @@ import { navInset } from '@/utils/token'
 import { PAGES } from '@/utils/nav'
 import AssistantMessage from './parts/AssistantMessage.vue'
 import { AI_ASSISTANT_INTRO } from '@/utils/aiLabel'
+import { loadFeatureSwitches } from '@/utils/featureSwitch'
 
 const inset = navInset()
 const chat = useAgentChat()
@@ -109,6 +112,7 @@ const followUps = computed(() => {
 })
 
 onLoad(async (q: any) => {
+  loadFeatureSwitches()
   listMembers()
     .then((ms) => (family.value = ms.map((m) => ({ id: m.id, name: m.name, avatarUrl: (m as any).avatarUrl ?? null, tags: m.audienceTags }))))
     .catch(() => {})

@@ -50,7 +50,7 @@
           <view class="bar"><view class="bar-in" :style="{ width: (topic.myProgress.doneCount / 7) * 100 + '%' }" /></view>
           <view class="acts">
             <view class="btn primary" data-testid="topic-post" @click="goCreate"><ui-icon name="plus" tone="white" :size="16" /><text class="btn-txt on">发布今天的作品</text></view>
-            <view class="btn" data-testid="topic-ask" @click="askGudu"><ui-icon name="sparkle" tone="primary" :size="16" /><text class="btn-txt">问咕嘟做什么</text></view>
+            <view v-if="featureStatus.agentChat" class="btn" data-testid="topic-ask" @click="askGudu"><ui-icon name="sparkle" tone="primary" :size="16" /><text class="btn-txt">问咕嘟做什么</text></view>
           </view>
           <text class="rule">{{ topic.rule }}</text>
         </view>
@@ -107,6 +107,7 @@ import { thumbOf } from '@/utils/image'
 import { statusBarHeight } from '@/utils/token'
 import { WEEKDAYS, isoDate, parseIsoDate, shortDate, weekDays } from '@/utils/week'
 import { PAGES, withQuery } from '@/utils/nav'
+import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
 
 const sb = statusBarHeight() + 6
 const id = ref(0)
@@ -116,6 +117,7 @@ const todayIso = isoDate(new Date())
 const works = createCursorList<PostCard>((c) => feed('topic', c, { topicId: id.value }), (p) => p.postId)
 
 onLoad((q: any) => {
+  loadFeatureSwitches()
   id.value = Number(q?.id) || 0
   load()
 })

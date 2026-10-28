@@ -98,6 +98,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '社区审核', group: 'agent' },
       },
       {
+        path: 'feature-switch',
+        name: 'FeatureSwitch',
+        component: () => import('@/views/feature-switch/Index.vue'),
+        meta: { title: '功能开关', group: 'agent' },
+      },
+      {
         path: 'dish',
         name: 'Dish',
         component: () => import('@/views/dish/Index.vue'),

@@ -46,6 +46,8 @@ class TenantGuardTest {
             "com.gudu.xsd.modules.community.infrastructure.mapper.CommunityModerationLogMapper",
             "com.gudu.xsd.modules.community.infrastructure.mapper.CommunityTopicCheckinMapper",
             "com.gudu.xsd.modules.community.infrastructure.mapper.SysSwitchMapper",
+            // 咕嘟助手 / 问咕嘟紧急关停开关：sys_switch 全局表（无 family_id），按 switch_key upsert
+            "com.gudu.xsd.modules.featureswitch.infrastructure.mapper.FeatureSwitchMapper",
             // Agent 会话保存期限清理（C.1）：agent_session 全局表（按档案归属），手写以绕过逻辑删除做物理删除
             "com.gudu.xsd.modules.agent.infrastructure.mapper.AgentSessionMapper",
             // 字段加密存量迁移（B.3）：平台级运维一次性全表处理 account / member（按主键分批，不按家庭）

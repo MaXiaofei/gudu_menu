@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/feature_switch.dart';
 import '../../core/step_timers.dart';
 import '../../models/dish.dart';
 import '../../services/agent_service.dart';
@@ -52,6 +53,7 @@ class _CookModePageState extends State<CookModePage> {
   void initState() {
     super.initState();
     _d = widget.detail;
+    FeatureSwitch.load();
     if (_d == null) _load();
   }
 
@@ -246,7 +248,11 @@ class _CookModePageState extends State<CookModePage> {
                 ],
               ),
               const SizedBox(height: AppTokens.sp16),
-              _askPanel(t),
+              // 问咕嘟紧急关停时隐藏提问区，跟做模式其余功能照常
+              ValueListenableBuilder<bool>(
+                valueListenable: FeatureSwitch.cookAsk,
+                builder: (_, on, __) => on ? _askPanel(t) : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),

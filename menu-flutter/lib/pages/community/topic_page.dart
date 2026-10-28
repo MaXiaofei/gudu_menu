@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/feature_switch.dart';
 import '../../models/cursor_page.dart';
 import '../../services/community_service.dart';
 import '../../services/mealplan_service.dart' show md, mondayOf, weekdayNames;
@@ -31,6 +32,7 @@ class _TopicPageState extends State<TopicPage> {
   @override
   void initState() {
     super.initState();
+    FeatureSwitch.load();
     _load();
   }
 
@@ -231,11 +233,16 @@ class _TopicPageState extends State<TopicPage> {
               ),
             ),
             const SizedBox(width: AppTokens.sp10),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
-              onPressed: () => context.push('/agent/chat', extra: {'text': '${d.topic.name} 今天做什么不重样？'}),
-              icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-              label: const Text('问咕嘟做什么'),
+            ValueListenableBuilder<bool>(
+              valueListenable: FeatureSwitch.agentChat,
+              builder: (_, on, __) => !on
+                  ? const SizedBox.shrink()
+                  : OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                      onPressed: () => context.push('/agent/chat', extra: {'text': '${d.topic.name} 今天做什么不重样？'}),
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                      label: const Text('问咕嘟做什么'),
+                    ),
             ),
           ]),
         ],

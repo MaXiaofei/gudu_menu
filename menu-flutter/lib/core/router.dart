@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../pages/agent/agent_chat_page.dart';
+import '../widgets/agent_paused_gate.dart';
 import '../pages/agent/agent_home_page.dart';
 import '../pages/agent/agent_voice_page.dart';
 import '../pages/community/community_page.dart';
@@ -103,7 +104,7 @@ GoRouter createRouter(AuthStore auth) {
           ]),
           // 2. 咕嘟（Agent 首屏，原智荐并入）
           StatefulShellBranch(routes: [
-            GoRoute(path: '/agent', builder: (_, __) => const AgentHomePage()),
+            GoRoute(path: '/agent', builder: (_, __) => const AgentPausedGate(showBack: false, child: AgentHomePage())),
           ]),
           // 3. 厨房圈
           StatefulShellBranch(routes: [
@@ -125,10 +126,12 @@ GoRouter createRouter(AuthStore auth) {
         path: '/agent/chat',
         builder: (_, s) {
           final e = s.extra is Map ? s.extra as Map : const {};
-          return AgentChatPage(initialText: e['text'] as String?, sessionId: e['sessionId'] as String?);
+          return AgentPausedGate(
+            child: AgentChatPage(initialText: e['text'] as String?, sessionId: e['sessionId'] as String?),
+          );
         },
       ),
-      GoRoute(path: '/agent/voice', builder: (_, __) => const AgentVoicePage()),
+      GoRoute(path: '/agent/voice', builder: (_, __) => const AgentPausedGate(child: AgentVoicePage())),
       // 厨房圈：发布（extra PostDraftSeed）/ 详情 / 话题
       GoRoute(
         path: '/community/create',

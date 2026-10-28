@@ -19,6 +19,7 @@ import {
   type PendingAction,
 } from '@/api/agent'
 import type { SseHandle } from '@/utils/sse'
+import { canSendFor } from '@/utils/featureSwitch'
 
 export function useAgentChat(opts: { context?: MessageContext } = {}) {
   const messages = reactive<AgentMessage[]>([])
@@ -42,6 +43,7 @@ export function useAgentChat(opts: { context?: MessageContext } = {}) {
   async function send(text: string, extra: { audioFileId?: number } = {}): Promise<AgentMessage | null> {
     const q = text.trim()
     if ((!q && !extra.audioFileId) || sending.value) return null
+    if (!canSendFor(opts.context)) return null // 紧急关停期间不发新消息
     if (!sessionId.value) await init()
     messages.push({
       messageId: 'local-' + Date.now(),

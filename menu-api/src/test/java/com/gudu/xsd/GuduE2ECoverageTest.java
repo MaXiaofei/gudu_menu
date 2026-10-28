@@ -1502,6 +1502,79 @@ class GuduE2ECoverageTest {
                 Integer.class)).isZero();
     }
 
+    // ===================== 咕嘟助手 / 问咕嘟 紧急关停开关（V94） =====================
+
+    /** 以 SSE 发一条消息，返回原始事件流文本。 */
+    private String sendAgentMessage(String token, String sessionId, Map<String, Object> body) throws Exception {
+        HttpHeaders h = new HttpHeaders();
+        h.set("Authorization", token);
+        h.setContentType(MediaType.APPLICATION_JSON);
+        h.setAccept(List.of(MediaType.TEXT_EVENT_STREAM));
+        return http.exchange(CTX + "/agent/sessions/" + sessionId + "/messages", HttpMethod.POST,
+                new HttpEntity<>(om.writeValueAsString(body), h), String.class).getBody();
+    }
+
+    @Test
+    void Z2_咕嘟助手问咕嘟紧急关停_只拦发消息_状态接口_留痕_再打开恢复() throws Exception {
+        String admin = loginAdmin();
+        String chef = loginAs("13900000088", "chef123");
+
+        // 非运营不能切换；用户侧状态接口需登录即可，默认全开
+        JsonNode denied = put(chef, "/admin/feature-switches",
+                Map.of("key", "agent.chat.enabled", "enabled", false, "reason", "E2E越权"));
+        assertThat(denied.get("code").asInt()).as("非运营 msg=" + text(denied, "msg")).isNotZero();
+        JsonNode st0 = get(chef, "/feature-switches");
+        assertThat(st0.get("data").get("agentChat").asBoolean()).isTrue();
+        assertThat(st0.get("data").get("cookAsk").asBoolean()).isTrue();
+
+        String sid = post(chef, "/agent/sessions", Map.of("title", "E2E开关")).get("data").get("sessionId").asText();
+        try {
+            // 关停必须填原因
+            JsonNode noReason = put(admin, "/admin/feature-switches", Map.of("key", "agent.chat.enabled", "enabled", false));
+            assertThat(noReason.get("code").asInt()).isNotZero();
+
+            JsonNode off = put(admin, "/admin/feature-switches",
+                    Map.of("key", "agent.chat.enabled", "enabled", false, "reason", "E2E紧急关停"));
+            assertThat(off.get("code").asInt()).as("关闭 msg=" + text(off, "msg")).isZero();
+            assertThat(off.get("data").get("enabled").asBoolean()).isFalse();
+
+            JsonNode st = get(chef, "/feature-switches");
+            assertThat(st.get("data").get("agentChat").asBoolean()).isFalse();
+            assertThat(st.get("data").get("cookAsk").asBoolean()).as("问咕嘟独立").isTrue();
+
+            // 普通对话被拦：SSE error 事件携带 5032，不落库
+            String blocked = sendAgentMessage(chef, sid, Map.of("text", "E2E你好"));
+            assertThat(blocked).contains("event:error").contains("5032").contains("咕嘟助手暂停服务");
+            // 跟做模式问咕嘟不受咕嘟助手开关影响
+            String cook = sendAgentMessage(chef, sid, Map.of("text", "E2E这步怎么做", "context", Map.of("page", "cook_mode")));
+            assertThat(cook).doesNotContain("5032");
+
+            // 不拦：会话与历史查看、建议
+            assertThat(get(chef, "/agent/sessions/" + sid + "/messages").get("code").asInt()).isZero();
+            assertThat(get(chef, "/agent/sessions").get("code").asInt()).isZero();
+
+            // 问咕嘟关停：只拦 cook_mode
+            assertThat(put(admin, "/admin/feature-switches",
+                    Map.of("key", "agent.cook_ask.enabled", "enabled", false, "reason", "E2E问咕嘟关停"))
+                    .get("code").asInt()).isZero();
+            String cookBlocked = sendAgentMessage(chef, sid, Map.of("text", "E2E这步怎么做", "context", Map.of("page", "cook_mode")));
+            assertThat(cookBlocked).contains("5033").contains("问咕嘟暂停服务");
+
+            // 修改留痕
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_switch_log WHERE switch_key = 'agent.chat.enabled' "
+                    + "AND enabled = 0 AND reason = 'E2E紧急关停' AND operator_id IS NOT NULL", Integer.class)).isEqualTo(1);
+            JsonNode list = get(admin, "/admin/feature-switches");
+            assertThat(list.get("data")).hasSize(2);
+        } finally {
+            put(admin, "/admin/feature-switches", Map.of("key", "agent.chat.enabled", "enabled", true, "reason", "E2E恢复"));
+            put(admin, "/admin/feature-switches", Map.of("key", "agent.cook_ask.enabled", "enabled", true, "reason", "E2E恢复"));
+            delete(chef, "/agent/sessions/" + sid);
+        }
+        JsonNode st = get(chef, "/feature-switches");
+        assertThat(st.get("data").get("agentChat").asBoolean()).isTrue();
+        assertThat(st.get("data").get("cookAsk").asBoolean()).isTrue();
+    }
+
     // ===================== mini-release-compliance B.2 / B.3 / C.1 / C.2 =====================
 
     @Test
