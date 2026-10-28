@@ -3,6 +3,8 @@
   <!-- 咕嘟首屏（prototype Agent）：问候 → 咕嘟开场 → 今晚首推 → 快到期提醒 → 快捷提问 → 最近会话；底部输入栏。
        数据：/agent/suggestions（新后端）；不可用时回退 /recommend/home，页面不空白。 -->
   <view class="page">
+    <!-- 咕嘟助手紧急关停：整页暂停提示 -->
+    <ui-agent-paused :back="false" />
     <ui-tab-header :title="title">
       <template #eyebrow>
         <text class="eyebrow">{{ eyebrow }}</text>
@@ -54,7 +56,7 @@
                   <text class="hero-why">{{ heroWhy }}</text>
                   <view class="hero-acts">
                     <view class="hero-btn" @click.stop="goDish(tonight.id)"><text class="hero-btn-txt">现在就做</text></view>
-                    <view class="hero-btn ghost" data-testid="hero-swap" @click.stop="ask('换一道今晚的菜')">
+                    <view v-if="featureStatus.agentChat" class="hero-btn ghost" data-testid="hero-swap" @click.stop="ask('换一道今晚的菜')">
                       <text class="hero-btn-txt">换一道</text>
                     </view>
                   </view>
@@ -72,7 +74,7 @@
               <text class="exp-title">还有 {{ expiring.length }} 样快到期</text>
               <text class="exp-sub">{{ expiringText }}</text>
             </view>
-            <view class="exp-btn" @click="ask(`${expiring.map((e) => e.name).slice(0, 3).join('、')}快到期了，今晚怎么做？`)">
+            <view v-if="featureStatus.agentChat" class="exp-btn" @click="ask(`${expiring.map((e) => e.name).slice(0, 3).join('、')}快到期了，今晚怎么做？`)">
               <text class="exp-btn-txt">问咕嘟怎么做</text>
             </view>
           </view>
@@ -133,6 +135,7 @@
 
 <script setup lang="ts">
 import { AI_ASSISTANT_INTRO } from '@/utils/aiLabel'
+import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
 import { FEATURES } from '@/config/features'
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
@@ -202,6 +205,7 @@ const expiringText = computed(() =>
 
 onShow(() => {
   now.value = new Date()
+  loadFeatureSwitches()
   load()
   listMembers()
     .then((ms) => (faces.value = ms.map((m) => ({ name: m.name, avatarUrl: (m as any).avatarUrl ?? null, tags: m.audienceTags }))))

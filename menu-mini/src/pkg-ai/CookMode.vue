@@ -33,7 +33,7 @@
         </view>
 
         <!-- 问咕嘟 -->
-        <view class="qa">
+        <view v-if="featureStatus.cookAsk" class="qa" data-testid="cook-qa">
           <text class="qa-lab">问咕嘟 · 带着这一步的上下文</text>
           <template v-for="(m, i) in chat.messages" :key="i">
             <view v-if="m.role === 'user'" class="q"><text class="q-txt">{{ m.text }}</text></view>
@@ -66,7 +66,7 @@
           </view>
         </view>
       </view>
-      <view class="voice" @click="focusAsk"><view v-if="FEATURES.voice" class="wv"><view v-for="i in 7" :key="i" class="wb" :style="{ animationDelay: i * 0.1 + 's' }" /></view><text class="voice-txt">{{ FEATURES.voice ? '说「下一步」或问咕嘟' : '输入「下一步」或问咕嘟' }}</text></view>
+      <view class="voice" @click="focusAsk"><view v-if="FEATURES.voice" class="wv"><view v-for="i in 7" :key="i" class="wb" :style="{ animationDelay: i * 0.1 + 's' }" /></view><text class="voice-txt">{{ voiceHint }}</text></view>
       <view class="nav">
         <view class="prev" :class="{ off: idx === 0 }" data-testid="cook-prev" @click="prev"><text class="nav-txt">‹ 上一步</text></view>
         <view class="nextb" data-testid="cook-next" @click="next"><text class="nav-txt">{{ idx >= steps.length - 1 ? '做好了' : '下一步 ›' }}</text></view>
@@ -86,6 +86,7 @@ import { formatClock, isHot, parseStepTimers, progress, remaining, type RunningT
 import { toAbsolute } from '@/utils/image'
 import { navInset } from '@/utils/token'
 import { COOK_AFTER_MODE_KEY } from '@/utils/nav'
+import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
 
 const inset = navInset()
 const dishId = ref(0)
@@ -102,6 +103,7 @@ let tick: ReturnType<typeof setInterval> | null = null
 const rang = new Set<string>()
 
 onLoad(async (q: any) => {
+  loadFeatureSwitches()
   dishId.value = Number(q?.id) || 0
   ctxRef.dishId = dishId.value
   try {
@@ -191,7 +193,13 @@ async function ask() {
   if (cmd === 'pause') return uni.showToast({ title: '已暂停，说「继续」接着做', icon: 'none' })
   await chat.send(q)
 }
+/** 底部提示条文案：问咕嘟紧急关停时不再提「问咕嘟」。 */
+const voiceHint = computed(() => {
+  if (!featureStatus.cookAsk) return FEATURES.voice ? '说「下一步」' : '点「下一步」继续'
+  return FEATURES.voice ? '说「下一步」或问咕嘟' : '输入「下一步」或问咕嘟'
+})
 function focusAsk() {
+  if (!featureStatus.cookAsk) return uni.showToast({ title: '问咕嘟暂停服务，可继续跟做', icon: 'none' })
   uni.showToast({ title: FEATURES.voice ? '在下方输入，或说「下一步」' : '在下方输入「下一步」或问咕嘟', icon: 'none' })
 }
 function exit() {

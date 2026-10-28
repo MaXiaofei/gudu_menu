@@ -76,6 +76,7 @@ import { uploadAudio } from '@/api/agent'
 import { listMembers } from '@/api/member'
 import { useAgentChat } from '@/composables/useAgentChat'
 import { navInset } from '@/utils/token'
+import { loadFeatureSwitches } from '@/utils/featureSwitch'
 import AssistantMessage from './parts/AssistantMessage.vue'
 
 const inset = navInset()
@@ -107,6 +108,7 @@ function barH(i: number) {
 }
 
 onLoad(() => {
+  loadFeatureSwitches()
   listMembers()
     .then((ms) => (family.value = ms.map((m) => ({ id: m.id, name: m.name, avatarUrl: (m as any).avatarUrl ?? null, tags: m.audienceTags }))))
     .catch(() => {})

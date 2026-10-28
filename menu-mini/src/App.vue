@@ -3,8 +3,12 @@ import { onLaunch, onShow } from "@dcloudio/uni-app";
 import { silentLogin } from "@/api/auth";
 import { initTheme, applyTabBar } from "@/utils/theme";
 import { hasConsent } from "@/utils/consent";
+import { loadFeatureSwitches } from "@/utils/featureSwitch";
 import { launchTarget, redirectToLogin, trackLaunchAuth } from "@/utils/loginRedirect";
-onShow(() => applyTabBar());
+onShow(() => {
+  applyTabBar();
+  loadFeatureSwitches(); // 咕嘟助手 / 问咕嘟紧急关停状态（失败按开处理，未登录不请求）
+});
 onLaunch((options) => {
   initTheme();
   // 分享落地页（聚餐点菜 / 菜谱详情 / 家庭邀请…）：带着原始页面与参数去登录，登录后回到原页（A.10）；
