@@ -54,6 +54,14 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
         this.stockAppService = stockAppService;
     }
 
+    /** 食材目录用例（V95 家庭私有食材去重 / 新建）；测试中可为 null，走旧的按名匹配逻辑。 */
+    private com.gudu.xsd.modules.nutrition.application.IngredientCatalogAppService catalog;
+
+    @Autowired
+    public void setCatalog(com.gudu.xsd.modules.nutrition.application.IngredientCatalogAppService catalog) {
+        this.catalog = catalog;
+    }
+
     // ===================== 档位操作（APP + 管理后台共用） =====================
 
     /**
@@ -129,6 +137,15 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             ing = ingredientMapper.selectById(ingredientId);
             if (ing == null) throw new BizException("食材不存在");
         } else {
+            if (catalog != null) {
+                // 公共名 / 别名 -> 本家已有 -> 新建本家私有（规则同食材库新建）
+                Ingredient in = new Ingredient();
+                in.setName(name);
+                ingredientId = catalog.resolveOrCreate(in).id();
+                setLevel(ingredientId, level == null ? IngredientStock.LEVEL_ENOUGH : level,
+                        StockLog.ACTION_MANUAL, sourceNote, null);
+                return ingredientId;
+            }
             List<Ingredient> matched = ingredientMapper.selectList(
                     new QueryWrapper<Ingredient>().eq("name", name.trim()).last("LIMIT 1"));
             if (!matched.isEmpty()) {
@@ -136,6 +153,8 @@ public class PantryService extends ServiceImpl<PantryMapper, Pantry> {
             } else {
                 ing = new Ingredient();
                 ing.setName(name.trim());
+                ing.setFamilyId(com.gudu.xsd.common.tenant.TenantContextHolder.familyIdOrNull());
+                ing.setCreateTime(java.time.LocalDateTime.now());
                 ing.setIconKey(com.gudu.xsd.modules.nutrition.domain.service.IngredientIconPolicy.byName(ing.getName()));
                 ingredientMapper.insert(ing);
             }

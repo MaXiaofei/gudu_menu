@@ -17,4 +17,7 @@ public class IngredientPageQuery extends PageQuery {
 
     /** 名称模糊搜索关键词（name LIKE %keyword%）。 */
     private String keyword;
+
+    /** 只看「我家」食材（本家私有；游客 / 无家庭上下文时结果为空）。 */
+    private Boolean familyOnly;
 }

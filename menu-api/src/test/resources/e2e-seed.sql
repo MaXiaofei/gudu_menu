@@ -157,6 +157,8 @@ UPDATE ingredient SET name = CONCAT('__drift_tomato_', id) WHERE name = '番茄'
 -- 普通用户越权封堵用例自建的食材 / 自定义采购分类（E2E 前缀，兜底清理保证可重复跑）
 DELETE inn FROM ingredient_nutrition inn JOIN ingredient i ON i.id = inn.ingredient_id WHERE i.name LIKE 'E2E普通%';
 DELETE FROM ingredient WHERE name LIKE 'E2E普通%';
+-- V95 家庭私有食材 / 别名用例的兜底清理
+DELETE FROM ingredient_alias WHERE alias LIKE 'E2E%';
 DELETE FROM sys_dict WHERE dict_group = 'purchase_category' AND name LIKE 'E2E普通%';
 -- 品类按名取（预发库字典 id 曾重排，按名兜底，取不到回退 24）
 INSERT INTO ingredient(id, name, icon_key, purchase_category_id, purchase_count, usage_count, deleted)
