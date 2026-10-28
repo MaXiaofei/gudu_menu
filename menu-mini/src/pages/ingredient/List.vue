@@ -21,7 +21,7 @@
     <scroll-view v-if="categories.length" scroll-x class="chip-bar" :show-scrollbar="false">
       <view class="chip-row">
         <view
-          v-for="c in [{ id: 0, name: `全部 ${total}` }, ...categories]"
+          v-for="c in chips"
           :key="c.id"
           class="chip"
           :class="{ on: categoryId === c.id }"
@@ -35,9 +35,10 @@
         <view class="row-main">
           <view class="row-name-line">
             <text class="row-name">{{ i.name }}</text>
+            <ui-own-tag v-if="i.familyOwned" />
             <text v-if="i.categoryName" class="row-cat">{{ i.categoryName }}</text>
           </view>
-          <text class="row-sub">{{ edibleText(i.edible) }}</text>
+          <text class="row-sub">{{ aliasHint(i) || edibleText(i.edible) }}</text>
         </view>
         <text class="arrow">›</text>
       </view>
@@ -46,20 +47,27 @@
       <view style="height: 40px" />
     </scroll-view>
 
-    <view class="foot-note">食材从「我的」进入；点击食材可编辑食用属性</view>
+    <view class="foot-note">食材从「我的」进入；「我家」是你家新建的食材，可改可删</view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listIngredients, type IngredientRow } from '@/api/ingredient'
 import { listDict, type DictItem } from '@/api/common'
+import { OWN_CATEGORY_ID, OWN_TAG, aliasHint } from '@/utils/ingredientSearch'
 
 const kwInput = ref('')
 const keyword = ref('')
 const categories = ref<DictItem[]>([])
 const categoryId = ref(0)
+/** 分类 chips：全部 · 我家（本家私有）· 各采购分类。 */
+const chips = computed(() => [
+  { id: 0, name: `全部 ${total.value}` },
+  { id: OWN_CATEGORY_ID, name: OWN_TAG },
+  ...categories.value,
+])
 
 const list = ref<IngredientRow[]>([])
 const total = ref(0)
@@ -76,7 +84,8 @@ async function fetch(p: number): Promise<IngredientRow[]> {
   try {
     const r = await listIngredients({
       keyword: keyword.value || undefined,
-      purchaseCategoryId: categoryId.value || undefined,
+      purchaseCategoryId: categoryId.value > 0 ? categoryId.value : undefined,
+      familyOnly: categoryId.value === OWN_CATEGORY_ID || undefined,
       pageNum: p,
     })
     total.value = r.total

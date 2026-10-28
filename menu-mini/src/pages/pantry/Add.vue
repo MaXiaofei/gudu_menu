@@ -53,7 +53,11 @@
               <view v-for="i in matches" :key="i.id" class="ing-row" @click="pick(i)">
                 <ui-ing-icon :name="i.name" :size="36" />
                 <view class="ing-main">
-                  <text class="ing-name">{{ i.name }}</text>
+                  <view class="ing-name-line">
+                    <text class="ing-name">{{ i.name }}</text>
+                    <ui-own-tag v-if="i.familyOwned" />
+                  </view>
+                  <text v-if="aliasHint(i)" class="ing-home">{{ aliasHint(i) }}</text>
                   <text v-if="levelText(i.id)" class="ing-home">{{ levelText(i.id) }}</text>
                 </view>
                 <text class="pick" :class="{ on: selected?.id === i.id }">{{ selected?.id === i.id ? '已选' : '选' }}</text>
@@ -132,9 +136,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { listAllIngredients, type IngredientItem } from '@/api/ingredient'
+import { listAllIngredients, searchIngredients, type IngredientItem } from '@/api/ingredient'
+import { aliasHint, matchLocal, mergeMatches } from '@/utils/ingredientSearch'
 import { listGroupedAll, pantryManualAdd, shelfLifeDays, type PantryGroupedItem } from '@/api/pantry'
 import { addDays, mdLabel, ymd } from '@/utils/freshness'
 import { navInset } from '@/utils/token'
@@ -186,11 +191,29 @@ onLoad(async () => {
 })
 
 const q = computed(() => kw.value.trim())
-const matches = computed(() =>
-  q.value ? ingredients.value.filter((i) => i.name.includes(q.value)) : [],
-)
+/** 服务端搜索结果（命中别名，如搜「土豆」出「马铃薯」）。 */
+const remote = ref<IngredientItem[]>([])
+const matches = computed(() => mergeMatches(matchLocal(ingredients.value, q.value), remote.value))
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(q, (v) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  if (!v) {
+    remote.value = []
+    return
+  }
+  searchTimer = setTimeout(async () => {
+    try {
+      const r = await searchIngredients(v)
+      if (q.value === v) remote.value = r
+    } catch {
+      remote.value = []
+    }
+  }, 300)
+})
 const exactMatch = computed(
-  () => q.value.length > 0 && ingredients.value.some((i) => i.name === q.value),
+  () =>
+    q.value.length > 0 &&
+    (ingredients.value.some((i) => i.name === q.value) || remote.value.some((i) => i.matchedAlias === q.value)),
 )
 const name = computed(() => selected.value?.name ?? newName.value)
 const canNext = computed(() => !!selected.value || newMode.value)
@@ -291,6 +314,7 @@ async function submit() {
 </script>
 
 <style scoped>
+.ing-name-line { display: flex; align-items: center; gap: 6px; }
 .page {
   height: 100vh;
   display: flex;
