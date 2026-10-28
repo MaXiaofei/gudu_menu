@@ -1,6 +1,6 @@
 package com.gudu.xsd.modules.nutrition;
 
-import com.gudu.xsd.common.security.RequireAdmin;
+import com.gudu.xsd.common.security.RequireOperator;
 import com.gudu.xsd.common.R;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -29,20 +29,20 @@ public class NutritionMetricController {
     }
 
     @PostMapping
-    @RequireAdmin
+    @RequireOperator
     public R<?> add(@RequestBody NutritionMetric m) {
         return R.ok(svc.add(m));
     }
 
     @PutMapping
-    @RequireAdmin
+    @RequireOperator
     public R<?> update(@RequestBody NutritionMetric m) {
         svc.update(m);
         return R.ok(null);
     }
 
     @DeleteMapping("/{id}")
-    @RequireAdmin
+    @RequireOperator
     public R<?> del(@PathVariable Long id) {
         svc.delete(id);
         return R.ok(null);

@@ -61,6 +61,8 @@ class IngredientFrequentControllerTest {
     @Autowired MockMvc mvc;
     @MockBean IngredientFrequencyAppService appService;
     @MockBean IngredientService ingredientService;
+    @MockBean com.gudu.xsd.modules.dict.CatalogWriteGuard catalogWriteGuard;
+    @MockBean com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
 
     @Test
     void 常用食材_默认8个_当前账号() throws Exception {

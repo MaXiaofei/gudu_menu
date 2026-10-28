@@ -4,7 +4,7 @@
   <view class="page">
     <ui-back-header :title="ing?.name" :subtitle="ing?.categoryName || '未分类'">
       <template #action>
-        <text class="del" @click="confirmDelete">✕</text>
+        <text v-if="canEdit" class="del" @click="confirmDelete">✕</text>
       </template>
     </ui-back-header>
 
@@ -17,10 +17,11 @@
           <text class="card-value">{{ edibleDesc(edible) }}</text>
           <text class="arrow">›</text>
         </view>
+        <text v-if="!canEdit" class="readonly-tip">食材库由平台维护，仅平台运营可修改或删除</text>
         <view style="height: 96px" />
       </scroll-view>
 
-      <view class="bottom">
+      <view v-if="canEdit" class="bottom">
         <button class="btn-primary" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
       </view>
     </template>
@@ -30,6 +31,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { accountMe } from '@/api/account'
 import { ingredientDetail, updateIngredient, deleteIngredient, type IngredientRow } from '@/api/ingredient'
 import { relativeDate } from '@/utils/datetime'
 
@@ -37,9 +39,15 @@ const loading = ref(true)
 const ing = ref<IngredientRow | null>(null)
 const edible = ref(1)
 const saving = ref(false)
+/** 全局食材库由平台运营维护：普通用户只读（后端同步 403 拦截）。 */
+const canEdit = ref(false)
 
 onLoad(async (options) => {
   const id = Number(options?.id || 0)
+  try {
+    const me = await accountMe()
+    canEdit.value = ['OPERATOR', 'SUPER_ADMIN'].includes(me.account?.platformRole)
+  } catch {}
   try {
     ing.value = await ingredientDetail(id)
     edible.value = ing.value.edible ?? 1
@@ -63,6 +71,7 @@ function edibleDesc(e: number): string {
 }
 
 function pickEdible() {
+  if (!canEdit.value) return
   uni.showActionSheet({
     itemList: ['食用', '饮料零食', '生活用品'],
     success: ({ tapIndex }) => (edible.value = tapIndex + 1),
@@ -70,7 +79,7 @@ function pickEdible() {
 }
 
 async function save() {
-  if (!ing.value) return
+  if (!ing.value || !canEdit.value) return
   saving.value = true
   try {
     await updateIngredient(ing.value.id, edible.value)
@@ -84,7 +93,7 @@ async function save() {
 }
 
 function confirmDelete() {
-  if (!ing.value) return
+  if (!ing.value || !canEdit.value) return
   uni.showModal({
     title: '删除食材',
     content: `确定删除「${ing.value.name}」？关联的用量记录会保留。`,
@@ -139,6 +148,12 @@ function confirmDelete() {
 }
 .card-label { font-size: var(--fs-md); font-weight: 800; color: var(--title); }
 .card-value { flex: 1; font-size: var(--fs-xs); color: var(--caption); }
+.readonly-tip {
+  display: block;
+  margin-top: 10px;
+  font-size: var(--fs-xs);
+  color: var(--caption);
+}
 .arrow { color: var(--caption); font-size: var(--fs-lg); font-weight: 700; }
 .bottom {
   padding: 8px 16px calc(12px + env(safe-area-inset-bottom));

@@ -53,7 +53,10 @@ extension _CreateSave on _CreateDishPageState {
         final unitText = r.unitCtrl.text.trim();
         var unitId = _matchUnit(unitText)?.id;
         if (unitId == null && unitText.isNotEmpty) {
-          unitId = await IngredientService.upsertDict(unitText, 'unit');
+          // 单位字典为全局数据，普通用户无权新增（403）：失败则不带 unitId，不阻断发布
+          try {
+            unitId = await IngredientService.upsertDict(unitText, 'unit');
+          } catch (_) {}
         }
         ingredientsJson.add({
           'ingredientId': r.ingredientId,

@@ -27,6 +27,8 @@ public enum ContentPurpose {
     FAMILY_NAME(ContentScene.PROFILE, false, false),
     /** 菜谱名称 / 简介 / 步骤文字。 */
     DISH_TEXT(ContentScene.SOCIAL_LOG, false, false),
+    /** 普通用户新建的全局食材名 / 自定义采购分类名（所有家庭可见）。 */
+    CATALOG_NAME(ContentScene.SOCIAL_LOG, false, false),
     /** 食集（菜单）名称。 */
     MENU_NAME(ContentScene.SOCIAL_LOG, false, false),
     /** 点评文字。 */

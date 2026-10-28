@@ -80,6 +80,13 @@ public class IngredientService extends ServiceImpl<IngredientMapper, Ingredient>
         return categoryNameMap().get(purchaseCategoryId); // 复用品类字典查询（食材写入低频）
     }
 
+    /** 按名称精确查未删除食材（逻辑删自动过滤）；不存在返回 null。 */
+    public Ingredient findByName(String name) {
+        if (name == null || name.isBlank()) return null;
+        return list(new QueryWrapper<Ingredient>().eq("name", name).orderByAsc("id").last("LIMIT 1"))
+                .stream().findFirst().orElse(null);
+    }
+
     /** 保存食材，并整体替换其营养 EAV（新增/复用同一路径）。 */
     @Transactional(rollbackFor = Exception.class)
     public void saveWithNutrition(Ingredient ing, List<IngredientNutrition> nuts) {

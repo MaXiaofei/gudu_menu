@@ -12,8 +12,15 @@ import '../helpers/mock_http.dart';
 /// 食材编辑页 widget 测试（V55 去单位后）：
 /// 加载展示（名称/品类/食用属性）→ 改食用属性 / 删除，保存请求体断言。
 /// 原默认单位「改」/ 换算表 / 单价卡片测试随单位解绑一并删除。
+String _role = 'OPERATOR';
+
 dynamic _responder(RequestOptions options) {
   final path = options.path;
+  if (path == '/account/me' && options.method == 'GET') {
+    return okResponse({
+      'account': {'platformRole': _role},
+    });
+  }
   if (path == '/ingredient/1' && options.method == 'GET') {
     return okResponse({
       'id': 1, 'name': '鸡蛋', 'categoryName': '蛋类', 'edible': 1,
@@ -27,6 +34,7 @@ void main() {
 
   setUp(() {
     IngredientService.clearDictCache();
+    _role = 'OPERATOR';
     captor = installMock(_responder);
   });
 
@@ -99,5 +107,21 @@ void main() {
         .where((o) => o.method == 'DELETE' && o.path == '/ingredient/1')
         .last;
     expect(del, isNotNull);
+  });
+
+  testWidgets('普通用户：只读，无保存按钮与删除入口，显示平台维护说明', (tester) async {
+    _role = 'USER';
+    await pumpEdit(tester);
+
+    expect(find.text('鸡蛋'), findsOneWidget);
+    expect(find.text('保存'), findsNothing);
+    expect(find.text('✕'), findsNothing);
+    expect(find.text('食材库由平台维护，仅平台运营可修改或删除'), findsOneWidget);
+
+    // 点食用属性卡片不会弹出可选项
+    await tester.tap(find.text('食用'));
+    await tester.pumpAndSettle();
+    expect(find.text('生活用品'), findsNothing);
+    expect(captor.all.where((o) => o.method == 'PUT' || o.method == 'DELETE'), isEmpty);
   });
 }

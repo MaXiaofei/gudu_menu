@@ -737,6 +737,51 @@ class GuduE2ECoverageTest {
         assertThat(delete(token, "/nutrition/metric/" + metricId).get("code").asInt()).isEqualTo(0);
     }
 
+    @Test
+    void N2_普通用户不能改删全局食材_字典_指标_仅可受限新建() {
+        String admin = loginAdmin();
+        assertThat(post(admin, "/member", Map.of("name", "E2E普通用户", "phone", "13900001240",
+                "password", "e2etest123")).get("code").asInt()).isZero();
+        String user = loginAs("13900001240", "e2etest123");
+
+        // 改 / 删全局食材、字典、营养指标 → 403
+        Map<String, Object> ingUpd = new HashMap<>();
+        ingUpd.put("id", ING_TOMATO);
+        ingUpd.put("edible", 3);
+        assertThat(put(user, "/ingredient", ingUpd).get("code").asInt()).isEqualTo(403);
+        assertThat(delete(user, "/ingredient/" + ING_TOMATO).get("code").asInt()).isEqualTo(403);
+        assertThat(get(user, "/ingredient/" + ING_TOMATO).get("data").get("edible").asInt()).isEqualTo(1);
+        assertThat(put(user, "/dict", Map.of("id", 1, "dictGroup", "unit", "name", "被改")).get("code").asInt())
+                .isEqualTo(403);
+        assertThat(delete(user, "/dict/1").get("code").asInt()).isEqualTo(403);
+        assertThat(post(user, "/nutrition/metric", Map.of("name", "e2e_x", "unit", "mg", "metricGroup", "micro",
+                "sort", 0)).get("code").asInt()).isEqualTo(403);
+
+        // POST /dict：非 purchase_category 403；purchase_category 可新增，同名返回同一 id
+        assertThat(post(user, "/dict", Map.of("name", "E2E普通单位", "dictGroup", "unit", "sort", 0))
+                .get("code").asInt()).isEqualTo(403);
+        JsonNode c1 = post(user, "/dict", Map.of("name", "E2E普通分类", "dictGroup", "purchase_category", "sort", 0));
+        assertThat(c1.get("code").asInt()).as(c1.toString()).isZero();
+        JsonNode c2 = post(user, "/dict", Map.of("name", "E2E普通分类", "dictGroup", "purchase_category", "sort", 0));
+        assertThat(c2.get("data").asLong()).isEqualTo(c1.get("data").asLong());
+
+        // POST /ingredient：带 id 不会覆盖番茄；营养被忽略；同名返回已有
+        Map<String, Object> ing = new HashMap<>();
+        ing.put("id", ING_TOMATO);
+        ing.put("name", "E2E普通食材");
+        ing.put("purchaseCategoryId", c1.get("data").asLong());
+        ing.put("edible", 1);
+        Map<String, Object> nut = Map.of("metricId", 1L, "value", 99);
+        JsonNode created = post(user, "/ingredient", Map.of("ingredient", ing, "nutritions", List.of(nut)));
+        assertThat(created.get("code").asInt()).as(created.toString()).isZero();
+        long newId = created.get("data").asLong();
+        assertThat(newId).isNotEqualTo(ING_TOMATO);
+        assertThat(get(user, "/ingredient/" + ING_TOMATO).get("data").get("name").asText()).isEqualTo("番茄");
+        assertThat(get(user, "/ingredient/" + newId).get("data").get("nutrition").size()).isZero();
+        JsonNode again = post(user, "/ingredient", Map.of("ingredient", ing, "nutritions", List.of()));
+        assertThat(again.get("data").asLong()).isEqualTo(newId);
+    }
+
     // ===================== O. 一起吃（协同点菜） =====================
 
     @Test
