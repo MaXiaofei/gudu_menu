@@ -90,6 +90,19 @@ class GuduE2ECoverageTest {
         return token;
     }
 
+    /** 管理后台登录（scope=admin）：公共食材维护 / 别名 / 收编等只认此身份；无家庭上下文，不能用于家庭数据。 */
+    private String loginAdminScope() {
+        Map<String, String> body = new HashMap<>();
+        body.put("username", "admin");
+        body.put("password", "admin123");
+        body.put("scope", "admin");
+        JsonNode r = post(null, "/auth/login", body);
+        assertThat(r.get("code").asInt()).as("后台登录应成功").isEqualTo(0);
+        String token = r.get("data").get("token").asText();
+        assertThat(token).isNotBlank();
+        return token;
+    }
+
     private JsonNode post(String token, String path, Object body) {
         return exchange(token, path, HttpMethod.POST, body);
     }
@@ -792,8 +805,10 @@ class GuduE2ECoverageTest {
         assertThat(put(user, "/ingredient", rename).get("code").asInt()).isNotZero();
         rename.put("name", "E2E普通食材改");
         assertThat(put(user, "/ingredient", rename).get("code").asInt()).isZero();
+        // 公共食材别名 / 收编属平台维护，须管理后台身份（scope=admin）；建成员仍用家庭身份
+        String adminBo = loginAdminScope();
         // 运营加别名：搜别名能搜到公共食材；普通用户用别名新建 -> 返回该公共食材 id
-        JsonNode al = post(admin, "/admin/ingredient-adoption/aliases",
+        JsonNode al = post(adminBo, "/admin/ingredient-adoption/aliases",
                 Map.of("alias", "E2E别名番茄", "ingredientId", ING_TOMATO));
         assertThat(al.get("code").asInt()).as(al.toString()).isZero();
         JsonNode hit = get(user, "/ingredient?keyword=E2E别名&pageNum=1&pageSize=10");
@@ -803,10 +818,10 @@ class GuduE2ECoverageTest {
         JsonNode resolved = post(user, "/ingredient/resolve", viaAlias);
         assertThat(resolved.get("data").get("id").asLong()).isEqualTo(ING_TOMATO);
         assertThat(resolved.get("data").get("existed").asText()).isEqualTo("public");
-        assertThat(delete(admin, "/admin/ingredient-adoption/aliases/" + al.get("data").get("id").asLong())
+        assertThat(delete(adminBo, "/admin/ingredient-adoption/aliases/" + al.get("data").get("id").asLong())
                 .get("code").asInt()).isZero();
         // 运营收编汇总可读；未使用的私有食材可删
-        assertThat(get(admin, "/admin/ingredient-adoption/groups").get("code").asInt()).isZero();
+        assertThat(get(adminBo, "/admin/ingredient-adoption/groups").get("code").asInt()).isZero();
         assertThat(delete(user, "/ingredient/" + newId).get("code").asInt()).isZero();
     }
 
