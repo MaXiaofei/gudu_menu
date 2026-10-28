@@ -32,6 +32,7 @@ const iconByPath: Record<string, Component> = {
   '/home': DataBoard,
   '/library': Notebook,
   '/ingredient': Apple,
+  '/ingredient-adoption': Food,
   '/feedback': ChatDotRound,
   '/tenants': House,
   '/deactivation': UserFilled,

@@ -17,6 +17,7 @@ const TYPES = [
   { value: 'MEDIA_CHECK', label: '图片违规' },
   { value: 'TEXT_VIOLATION', label: '文本违规' },
   { value: 'DEACTIVATION', label: '注销' },
+  { value: 'INGREDIENT', label: '食材收编' },
 ]
 
 async function load() {
