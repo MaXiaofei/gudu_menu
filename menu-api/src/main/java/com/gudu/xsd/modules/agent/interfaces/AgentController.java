@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.R;
 import com.gudu.xsd.modules.agent.application.AgentAppService;
 import com.gudu.xsd.modules.agent.application.AgentEventSink;
+import com.gudu.xsd.modules.agent.application.AgentSwitchPolicy;
 import com.gudu.xsd.modules.agent.application.dto.AgentViews.ActionView;
 import com.gudu.xsd.modules.agent.application.dto.AgentViews.ConfirmView;
 import com.gudu.xsd.modules.agent.application.dto.AgentViews.CreateSessionCommand;
@@ -34,6 +35,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 /** 咕嘟 Agent（contracts.md §1）。发消息为 SSE，其余统一 R。 */
@@ -49,9 +51,13 @@ public class AgentController {
     private final Executor executor;
     private final com.gudu.xsd.modules.family.application.FamilyQueryApi families;
 
+    private final AgentSwitchPolicy switchPolicy;
+
     public AgentController(AgentAppService svc, @Qualifier("agentExecutor") Executor executor,
-                           com.gudu.xsd.modules.family.application.FamilyQueryApi families) {
+                           com.gudu.xsd.modules.family.application.FamilyQueryApi families,
+                           AgentSwitchPolicy switchPolicy) {
         this.families = families;
+        this.switchPolicy = switchPolicy;
         this.svc = svc;
         this.executor = executor;
     }
@@ -109,6 +115,13 @@ public class AgentController {
         // 子线程恢复本次请求的租户上下文（家庭域表访问必须有 TenantContext，否则拒绝）
         executor.execute(com.gudu.xsd.common.tenant.TenantContextHolder.wrap(() -> {
             try {
+                // 紧急关停：不落库、不调模型，走与其他失败一致的 SSE error 事件（客户端按 code 识别暂停）
+                Optional<AgentSwitchPolicy.Blocked> blocked = switchPolicy.checkSend(cmd.context());
+                if (blocked.isPresent()) {
+                    sink.send("error", Map.of("code", blocked.get().code(), "message", blocked.get().message(),
+                            "errorId", ""));
+                    return;
+                }
                 svc.send(member, account, id, cmd, sink);
             } catch (RuntimeException e) {
                 sink.send("error", Map.of("code", 1, "message", e.getMessage() == null ? "出错了" : e.getMessage(),
