@@ -11,6 +11,8 @@ import com.gudu.xsd.modules.dict.DictService;
 import com.gudu.xsd.modules.dict.SysDict;
 import com.gudu.xsd.modules.identity.application.AccountQueryApi;
 import com.gudu.xsd.modules.identity.interfaces.OperatorGuardAspect;
+import com.gudu.xsd.modules.member.AdminChecker;
+import com.gudu.xsd.modules.member.AdminGuardAspect;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.IngredientController;
 import com.gudu.xsd.modules.nutrition.IngredientNutrition;
@@ -45,6 +47,7 @@ class CatalogWriteAccessTest {
     private final NutritionMetricService metricSvc = mock(NutritionMetricService.class);
     private final ContentSecurityAppService security = mock(ContentSecurityAppService.class);
     private final CatalogWriteGuard guard = mock(CatalogWriteGuard.class);
+    private final AdminChecker adminChecker = mock(AdminChecker.class);
     private MockedStatic<StpUtil> stp;
 
     @BeforeEach
@@ -63,6 +66,7 @@ class CatalogWriteAccessTest {
         AspectJProxyFactory f = new AspectJProxyFactory(target);
         f.setProxyTargetClass(true);
         f.addAspect(new OperatorGuardAspect(accounts));
+        f.addAspect(new AdminGuardAspect(adminChecker));
         return (T) f.getProxy();
     }
 
@@ -97,19 +101,34 @@ class CatalogWriteAccessTest {
     }
 
     @Test
-    void 运营可改删食材_字典_指标() {
+    void 运营可改删食材_但字典与指标仍仅超管() {
         when(accounts.isOperator(9L)).thenReturn(true);
+        when(adminChecker.isAdmin(9L)).thenReturn(false);
         IngredientController ing = proxied(ingredientCtl(true));
         DictController dict = proxied(new DictController(dictSvc, guard, security));
         NutritionMetricController metric = proxied(new NutritionMetricController(metricSvc));
 
         ing.update(new Ingredient());
         ing.del(1L);
+        verify(ingSvc).updateById(any(Ingredient.class));
+        verify(ingSvc).removeById(1L);
+        for (Runnable c : List.<Runnable>of(() -> dict.update(new SysDict()), () -> dict.del(2L), () -> metric.del(3L))) {
+            assertThatThrownBy(c::run).isInstanceOfSatisfying(BizException.class,
+                    e -> assertThat(e.getCode()).isEqualTo(403));
+        }
+        verifyNoInteractions(metricSvc);
+    }
+
+    @Test
+    void 超管可改删字典与指标() {
+        when(accounts.isOperator(9L)).thenReturn(true);
+        when(adminChecker.isAdmin(9L)).thenReturn(true);
+        DictController dict = proxied(new DictController(dictSvc, guard, security));
+        NutritionMetricController metric = proxied(new NutritionMetricController(metricSvc));
+
         dict.update(new SysDict());
         dict.del(2L);
         metric.del(3L);
-        verify(ingSvc).updateById(any(Ingredient.class));
-        verify(ingSvc).removeById(1L);
         verify(dictSvc).updateById(any(SysDict.class));
         verify(dictSvc).removeById(2L);
         verify(metricSvc).delete(3L);

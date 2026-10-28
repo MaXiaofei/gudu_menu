@@ -1,7 +1,7 @@
 package com.gudu.xsd.modules.dict;
 
 import com.gudu.xsd.common.BizException;
-import com.gudu.xsd.common.security.RequireOperator;
+import com.gudu.xsd.common.security.RequireAdmin;
 import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
 import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -53,14 +53,14 @@ public class DictController {
     }
 
     @PutMapping
-    @RequireOperator
+    @RequireAdmin
     public R<?> update(@RequestBody SysDict d) {
         svc.updateById(d);
         return R.ok(null);
     }
 
     @DeleteMapping("/{id}")
-    @RequireOperator
+    @RequireAdmin
     public R<?> del(@PathVariable Long id) {
         svc.removeById(id);
         return R.ok(null);
