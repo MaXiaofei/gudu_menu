@@ -1,6 +1,7 @@
 import { BASE } from '@/utils/request'
 import { authHeaders } from '@/utils/request'
 import { contentSecurityMessage } from '@/utils/contentSecurity'
+import { toastChooseImageFail } from '@/utils/chooseImage'
 
 export interface UploadResult {
   url: string // 原图（相对路径 /gudu/uploads/original/{日期}/{uuid}.jpg?e=&s=，带短时签名，原样回传保存）
@@ -16,7 +17,10 @@ export function chooseImages(count = 1): Promise<string[]> {
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
       success: (res) => resolve(res.tempFiles.map((f) => f.tempFilePath)),
-      fail: () => resolve([]),
+      fail: (e) => {
+        toastChooseImageFail(e?.errMsg)
+        resolve([])
+      },
     })
   })
 }

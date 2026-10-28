@@ -54,6 +54,7 @@
 </template>
 
 <script setup lang="ts">
+import { toastChooseImageFail } from '@/utils/chooseImage'
 import { computed, ref } from 'vue'
 import { onUnload } from '@dcloudio/uni-app'
 import { createJob, pollJob, MODE_LABEL, type VisionItem, type VisionMode } from '@/api/vision'
@@ -117,7 +118,13 @@ function fromAlbum() {
   if (!busy.value) pickImage(['album'])
 }
 function pickImage(sourceType: ('album' | 'camera')[]) {
-  uni.chooseImage({ count: 1, sourceType, sizeType: ['compressed'], success: (r) => handle(r.tempFilePaths[0]) })
+  uni.chooseImage({
+    count: 1,
+    sourceType,
+    sizeType: ['compressed'],
+    success: (r) => handle(r.tempFilePaths[0]),
+    fail: (e) => toastChooseImageFail(e?.errMsg),
+  })
 }
 
 async function handle(path: string) {
