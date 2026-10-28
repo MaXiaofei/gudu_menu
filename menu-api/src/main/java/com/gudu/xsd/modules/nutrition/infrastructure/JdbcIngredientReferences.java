@@ -1,6 +1,10 @@
 package com.gudu.xsd.modules.nutrition.infrastructure;
 
 import com.gudu.xsd.modules.nutrition.domain.repository.IngredientReferences;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -26,6 +30,8 @@ import java.util.Map;
  *   <li>menu_prep_status（uk menu_id+ingredient_id）：同一食集已有目标 -> 保留目标行，删掉来源行；</li>
  *   <li>ingredient_nutrition：来源的营养一律删除（私有食材不带营养；目标自有营养为准）；</li>
  *   <li>无唯一键冲突的表（stock_log / pantry / pantry_change_log / daily_log_item / menu_cook_usage）直接改指向。</li>
+ *   <li>文本里的食材 id 也改写：dish_draft.ingredients（JSON 数组，ingredientId 数字或字符串，名称保留各家原写法）、
+ *       cooking_record.memo（"用完:1,2;用了一些:3"，同段去重）。</li>
  * </ul>
  */
 @Repository
@@ -45,6 +51,8 @@ public class JdbcIngredientReferences implements IngredientReferences {
         USAGE_TABLES.put("库存批次", "pantry");
         USAGE_TABLES.put("库存变更", "pantry_change_log");
     }
+
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final JdbcTemplate jdbc;
 
@@ -112,12 +120,81 @@ public class JdbcIngredientReferences implements IngredientReferences {
         int nut = jdbc.update("DELETE FROM ingredient_nutrition WHERE ingredient_id = ?", src);
         add(stats.merged(), "ingredient_nutrition", nut);
 
+        // 菜谱草稿（JSON 文本，草稿表量小，逐条解析）
+        int drafts = 0;
+        for (Map<String, Object> r : jdbc.queryForList("SELECT id, ingredients FROM dish_draft WHERE ingredients IS NOT NULL")) {
+            String rewritten = rewriteDraftIngredients(String.valueOf(r.get("ingredients")), src, target);
+            if (rewritten != null) {
+                jdbc.update("UPDATE dish_draft SET ingredients = ? WHERE id = ?", rewritten, ((Number) r.get("id")).longValue());
+                drafts++;
+            }
+        }
+        add(stats.moved(), "dish_draft", drafts);
+
+        // 做菜记录用材备注（"用完:1,2;用了一些:3"）
+        int memos = 0;
+        for (Map<String, Object> r : jdbc.queryForList("SELECT id, memo FROM cooking_record WHERE memo LIKE ?", "%" + src + "%")) {
+            String rewritten = rewriteMemo((String) r.get("memo"), src, target);
+            if (rewritten != null) {
+                jdbc.update("UPDATE cooking_record SET memo = ? WHERE id = ?", rewritten, ((Number) r.get("id")).longValue());
+                memos++;
+            }
+        }
+        add(stats.moved(), "cooking_record", memos);
+
         // 其余全部改指向目标
         for (String table : List.of("dish_ingredient", "ingredient_stock", "shopping_item", "menu_prep_status",
                 "daily_log_item", "menu_cook_usage", "stock_log", "pantry", "pantry_change_log")) {
             int n = jdbc.update("UPDATE " + table + " SET ingredient_id = ? WHERE ingredient_id = ?", target, src);
             add(stats.moved(), table, n);
         }
+    }
+
+    /** 草稿用料 JSON 里 ingredientId == src 的改为 target；无改动返回 null。解析失败（脏数据）原样跳过。 */
+    static String rewriteDraftIngredients(String json, long src, long target) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            JsonNode root = JSON.readTree(json);
+            if (!root.isArray()) return null;
+            boolean changed = false;
+            for (JsonNode n : root) {
+                JsonNode id = n.get("ingredientId");
+                if (n instanceof ObjectNode o && id != null && String.valueOf(src).equals(id.asText())) {
+                    o.put("ingredientId", target);
+                    changed = true;
+                }
+            }
+            return changed ? JSON.writeValueAsString(root) : null;
+        } catch (JsonProcessingException e) {
+            return null;
+        }
+    }
+
+    /** 用材备注里整段等于 src 的 id 改为 target（同段去重）；无改动返回 null。 */
+    static String rewriteMemo(String memo, long src, long target) {
+        if (memo == null || memo.isBlank()) return null;
+        String s = String.valueOf(src);
+        String t = String.valueOf(target);
+        boolean changed = false;
+        List<String> parts = new java.util.ArrayList<>();
+        for (String seg : memo.split(";", -1)) {
+            int colon = seg.indexOf(':');
+            if (colon < 0) {
+                parts.add(seg);
+                continue;
+            }
+            java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<>();
+            for (String id : seg.substring(colon + 1).split(",")) {
+                if (id.equals(s)) {
+                    ids.add(t);
+                    changed = true;
+                } else if (!id.isEmpty()) {
+                    ids.add(id);
+                }
+            }
+            parts.add(seg.substring(0, colon + 1) + String.join(",", ids));
+        }
+        return changed ? String.join(";", parts) : null;
     }
 
     static int levelRank(String level) {

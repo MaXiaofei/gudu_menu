@@ -29,6 +29,8 @@ class JdbcIngredientReferencesTest {
         jdbc.execute("CREATE TABLE shopping_item (id BIGINT AUTO_INCREMENT PRIMARY KEY, list_id BIGINT, ingredient_id BIGINT, unit_id BIGINT, UNIQUE (list_id, ingredient_id, unit_id))");
         jdbc.execute("CREATE TABLE menu_prep_status (id BIGINT AUTO_INCREMENT PRIMARY KEY, menu_id BIGINT, ingredient_id BIGINT, UNIQUE (menu_id, ingredient_id))");
         jdbc.execute("CREATE TABLE ingredient_nutrition (id BIGINT AUTO_INCREMENT PRIMARY KEY, ingredient_id BIGINT, metric_id BIGINT)");
+        jdbc.execute("CREATE TABLE dish_draft (id BIGINT AUTO_INCREMENT PRIMARY KEY, ingredients VARCHAR(2000))");
+        jdbc.execute("CREATE TABLE cooking_record (id BIGINT AUTO_INCREMENT PRIMARY KEY, memo VARCHAR(500))");
         for (String t : List.of("daily_log_item", "menu_cook_usage", "stock_log", "pantry", "pantry_change_log")) {
             jdbc.execute("CREATE TABLE " + t + " (id BIGINT AUTO_INCREMENT PRIMARY KEY, ingredient_id BIGINT)");
         }
@@ -118,5 +120,37 @@ class JdbcIngredientReferencesTest {
         assertThat(count("SELECT COUNT(*) FROM shopping_item WHERE ingredient_id = 99")).isEqualTo(2);
         assertThat(count("SELECT COUNT(*) FROM menu_prep_status WHERE ingredient_id = 99")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM shopping_item WHERE ingredient_id = 10")).isZero();
+    }
+
+    @Test
+    void 合并_菜谱草稿JSON里的食材id改指向目标_名称原样保留() {
+        jdbc.update("INSERT INTO dish_draft (id, ingredients) VALUES (1, ?)",
+                "[{\"ingredientId\":7,\"ingredientName\":\"洋芋\",\"amountText\":\"2个\"},{\"ingredientId\":70,\"ingredientName\":\"盐\"}]");
+        jdbc.update("INSERT INTO dish_draft (id, ingredients) VALUES (2, ?)", "[{\"ingredientId\":\"7\",\"ingredientName\":\"洋芋\"}]");
+        jdbc.update("INSERT INTO dish_draft (id, ingredients) VALUES (3, NULL)");
+
+        refs.merge(List.of(7L), 9L);
+
+        String d1 = jdbc.queryForObject("SELECT ingredients FROM dish_draft WHERE id = 1", String.class);
+        assertThat(d1).contains("\"ingredientId\":9").contains("\"ingredientId\":70").contains("洋芋").doesNotContain("\"ingredientId\":7,");
+        assertThat(jdbc.queryForObject("SELECT ingredients FROM dish_draft WHERE id = 2", String.class)).contains("\"ingredientId\":9");
+    }
+
+    @Test
+    void 合并_做菜记录用材备注里的食材id改指向目标并去重() {
+        jdbc.update("INSERT INTO cooking_record (id, memo) VALUES (1, '用完:7,17;用了一些:9,7')");
+        jdbc.update("INSERT INTO cooking_record (id, memo) VALUES (2, '用了一些:77')");
+
+        refs.merge(List.of(7L), 9L);
+
+        assertThat(jdbc.queryForObject("SELECT memo FROM cooking_record WHERE id = 1", String.class)).isEqualTo("用完:9,17;用了一些:9");
+        assertThat(jdbc.queryForObject("SELECT memo FROM cooking_record WHERE id = 2", String.class)).isEqualTo("用了一些:77");
+    }
+
+    @Test
+    void 备注改写纯函数_只换整段id() {
+        assertThat(JdbcIngredientReferences.rewriteMemo("用完:1,7,70", 7, 9)).isEqualTo("用完:1,9,70");
+        assertThat(JdbcIngredientReferences.rewriteMemo("用完:70", 7, 9)).isNull();
+        assertThat(JdbcIngredientReferences.rewriteMemo(null, 7, 9)).isNull();
     }
 }
