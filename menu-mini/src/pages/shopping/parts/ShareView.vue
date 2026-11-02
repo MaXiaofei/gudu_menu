@@ -84,7 +84,7 @@ const instance = getCurrentInstance()
 function itemName(it: ShoppingItem): string {
   return it.ingredientName || it.customName || `#${it.id}`
 }
-const title = computed(() => props.detail.name || `采购单 #${props.detail.id}`)
+const title = computed(() => props.detail.name || `采购单 #${props.detail.seq ?? props.detail.id}`)
 const subtitle = computed(() => {
   const now = new Date()
   return `${now.getMonth() + 1}月${now.getDate()}日 · ${props.items.length} 样`

@@ -19,7 +19,7 @@
           <view v-if="batchMode" class="checkbox" :class="{ on: batchSel.has(l.id) }" @click.stop="toggleBatch(l.id)">
             <text v-if="batchSel.has(l.id)" class="checkbox-txt">✓</text>
           </view>
-          <view v-else class="order-no"><text class="order-no-txt">#{{ (l.id % 100) + 1 }}</text></view>
+          <view v-else class="order-no"><text class="order-no-txt">#{{ l.seq ?? l.id }}</text></view>
           <view class="lcard-main">
             <text class="lcard-name">{{ listTitle(l) }}</text>
             <text class="lcard-sub">{{ listSub(l) }}</text>
@@ -49,7 +49,7 @@
       <view class="top" :style="{ paddingTop: sb + 'px' }">
         <text class="back" @click="closeDetail">‹</text>
         <view class="detail-title-wrap" @click="openRename">
-          <text class="title detail-title">{{ detail?.name ? detail.name : `采购单 #${detail?.id}` }}</text>
+          <text class="title detail-title">{{ detail?.name ? detail.name : `采购单 #${detail?.seq ?? detail?.id}` }}</text>
           <text v-if="detail?.name" class="rename">✎</text>
         </view>
         <text class="top-btn" @click="view = 'share'">分享</text>

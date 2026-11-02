@@ -36,6 +36,9 @@ public class ShoppingList {
     /** 清单名（自定义采购，可空）。V44。 */
     private String name;
 
+    /** 本家庭内第几张采购单（从 1 递增；V96）。列表角标与详情标题统一用它，不再用全局 id。 */
+    private Integer seq;
+
     /** 时间范围标识（如 week / day）。 */
     private String timeRange;
 

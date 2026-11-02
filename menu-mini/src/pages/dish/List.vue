@@ -44,7 +44,7 @@
           v-for="c in [{ id: 0, name: '全部' }, ...tags]"
           :key="'t' + c.id"
           class="chip lite"
-          :class="{ on: selectedTagId === c.id }"
+          :class="{ on: c.id === 0 ? allActive : selectedTagId === c.id }"
           @click="onTag(c.id)"
         >{{ c.name }}</view>
         <view
@@ -125,6 +125,7 @@ import { listDict, type DictItem } from '@/api/common'
 import { addDishToMenu } from '@/api/menu'
 import { navInset } from '@/utils/token'
 import { continueFirstRun } from '@/utils/loginRedirect'
+import { isAllActive, pickTag, pickCuisine, toSearchParams, createLatestGuard } from '@/utils/dishFilter'
 
 /** 头像昵称弹窗关闭：保存了接着进成员档案引导，跳过则都不再打扰。 */
 function onProfileDone(v: { saved: boolean }) {
@@ -144,6 +145,10 @@ const cuisines = ref<DictItem[]>([])
 const selectedTagId = ref(0)
 const selectedCuisineId = ref(0)
 const sort = ref<DishSort>('coverage')
+/** 「全部」只在没选标签也没选菜系时高亮 */
+const allActive = computed(() => isAllActive({ tagId: selectedTagId.value, cuisineId: selectedCuisineId.value }))
+/** 请求竞态守卫：快速切换条件时，只认最后一次请求的结果 */
+const guard = createLatestGuard()
 
 // ---- 列表分页（DESIGN.md §12.2 每页 10 条） ----
 const dishes = ref<Dish[]>([])
@@ -225,19 +230,22 @@ async function loadDicts() {
   } catch {}
 }
 
-async function fetch(p: number): Promise<Dish[]> {
+/** 返回 null 表示这次请求已过期（又发起了新的筛选/排序），调用方丢弃结果。 */
+async function fetch(p: number): Promise<Dish[] | null> {
+  const token = guard.next()
   try {
-    const r = await searchDishes({
-      keyword: keyword.value || undefined,
-      tagIds: selectedTagId.value ? String(selectedTagId.value) : undefined,
-      cuisineIds: selectedCuisineId.value ? String(selectedCuisineId.value) : undefined,
-      sort: sort.value,
-      pageNum: p,
-    })
+    const r = await searchDishes(
+      toSearchParams(
+        { tagId: selectedTagId.value, cuisineId: selectedCuisineId.value, sort: sort.value, keyword: keyword.value },
+        p,
+      ),
+    )
+    if (!guard.isLatest(token)) return null
     total.value = r.total
     hasMore.value = r.records.length >= 10
     return r.records
   } catch {
+    if (!guard.isLatest(token)) return null
     hasMore.value = false
     return []
   }
@@ -247,15 +255,19 @@ async function reload() {
   page.value = 1
   hasMore.value = true
   firstLoading.value = true
-  dishes.value = await fetch(1)
+  loading.value = false
+  const list = await fetch(1)
+  if (list === null) return // 已被更新的请求取代，由它收尾
+  dishes.value = list
   firstLoading.value = false
   resetSwipe()
 }
 
 async function loadMore() {
-  if (loading.value || !hasMore.value) return
+  if (loading.value || !hasMore.value || firstLoading.value) return
   loading.value = true
   const list = await fetch(page.value + 1)
+  if (list === null) return // 期间发生了 reload，丢弃旧页（loading 已由 reload 重置）
   page.value += 1
   dishes.value.push(...list)
   loading.value = false
@@ -278,14 +290,18 @@ function onClearKw() {
   keyword.value = ''
   reload()
 }
+function currentFilter() {
+  return { tagId: selectedTagId.value, cuisineId: selectedCuisineId.value, sort: sort.value, keyword: keyword.value }
+}
 function onTag(id: number) {
-  if (selectedTagId.value === id) return
-  selectedTagId.value = id
+  const next = pickTag(currentFilter(), id)
+  if (next.tagId === selectedTagId.value && next.cuisineId === selectedCuisineId.value) return
+  selectedTagId.value = next.tagId
+  selectedCuisineId.value = next.cuisineId
   reload()
 }
 function onCuisine(id: number) {
-  if (selectedCuisineId.value === id) return
-  selectedCuisineId.value = id
+  selectedCuisineId.value = pickCuisine(currentFilter(), id).cuisineId
   reload()
 }
 function onSort(s: DishSort) {

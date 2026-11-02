@@ -443,7 +443,12 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
                     "GROUP BY di.dish_id HAVING COUNT(DISTINCT di.ingredient_id) = " + ingCount);
         }
 
-        // 排序：缺省=创建时间倒序。cooked=做过最多（回填后当前页内存倒序）；coverage 由 DishCoverageAppService 处理。
+        // 排序：缺省=创建时间倒序。cooked=做过最多：在 SQL 里按「当前成员做过次数」全局倒序再分页
+        // （此前只在当前页内存排序，翻页后顺序错乱）；coverage 由 DishCoverageAppService 处理。
+        if ("cooked".equalsIgnoreCase(q.getSort()) && curMember != null) {
+            w.orderByDesc("(SELECT COUNT(*) FROM cooking_record cr WHERE cr.dish_id = dish.id AND cr.member_id = "
+                    + curMember + ")");
+        }
         w.orderByDesc("create_time");
         return w;
     }

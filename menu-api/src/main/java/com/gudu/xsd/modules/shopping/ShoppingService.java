@@ -139,7 +139,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
 
         // 落库
         ShoppingList list = newList(sourceType, sourceId);
-        save(list);
+        saveWithSeq(list);
         for (ShoppingAggregator.ShoppingLine l : lines) {
             ShoppingItem item = new ShoppingItem();
             item.setListId(list.getId());
@@ -226,6 +226,28 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
                 "in_app");
     }
 
+    /**
+     * 保存采购单并分配「本家庭第几张」序号 seq：取本家 max(seq)+1（含已删除行，不复用），
+     * 租户插件自动按当前家庭过滤；(family_id, seq) 有唯一索引，并发冲突时重试（最多 5 次）。
+     */
+    /** 当前登录家庭（抽出便于单测替换）。 */
+    Long currentFamilyId() {
+        return com.gudu.xsd.common.security.TenantSession.familyId();
+    }
+
+    private void saveWithSeq(ShoppingList sl) {
+        for (int i = 0; ; i++) {
+            Integer max = baseMapper.selectMaxSeq(currentFamilyId());
+            sl.setSeq((max == null ? 0 : max) + 1);
+            try {
+                save(sl);
+                return;
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                if (i >= 4) throw e;
+            }
+        }
+    }
+
     private ShoppingList newList(String sourceType, Long sourceId) {
         ShoppingList list = new ShoppingList();
         list.setSourceMenuId("menu".equals(sourceType) ? sourceId : null);  // Plan E: 食集溯源
@@ -247,7 +269,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         sl.setTimeRange("custom");
         sl.setStartDate(LocalDate.now());
         sl.setEndDate(LocalDate.now());
-        save(sl);
+        saveWithSeq(sl);
         return sl.getId();
     }
 
@@ -315,7 +337,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
             sl.setTimeRange("menu_prep");
             sl.setStartDate(LocalDate.now());
             sl.setEndDate(LocalDate.now());
-            save(sl);
+            saveWithSeq(sl);
             listId = sl.getId();
         } else {
             listId = rows.get(0).getId();
@@ -609,7 +631,7 @@ public class ShoppingService extends ServiceImpl<ShoppingListMapper, ShoppingLis
         list.setTimeRange("custom_text");
         list.setStartDate(LocalDate.now());
         list.setEndDate(LocalDate.now());
-        save(list);
+        saveWithSeq(list);
 
         // 4. 逐项落库
         for (ShoppingTextParser.ParsedItem pi : parsed) {
