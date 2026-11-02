@@ -83,6 +83,11 @@ if [ "$DEPLOY_BACKUP" = "1" ]; then
   fi
   mv "$BACKUP_FILE.tmp" "$BACKUP_FILE"
   echo "  备份完成: $BACKUP_FILE（$(du -h "$BACKUP_FILE" | awk '{print $1}')，gzip -t 校验通过）"
+  # 只保留最近 BACKUP_KEEP 份（默认 5，服务器磁盘紧张）；新备份校验通过后才清理旧的
+  BACKUP_KEEP=${BACKUP_KEEP:-5}
+  ls -1t "$BACKUP_DIR"/gudu-prod-*.sql.gz 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)) | while read -r old; do
+    rm -f "$old" && echo "  清理旧备份: $old"
+  done
 fi
 
 # 部署成功后记录来源到 ./.deployed（仓库根目录；prod 即 /root/gudu/.deployed）
