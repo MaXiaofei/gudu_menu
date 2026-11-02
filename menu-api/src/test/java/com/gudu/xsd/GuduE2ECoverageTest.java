@@ -1634,7 +1634,7 @@ class GuduE2ECoverageTest {
         String admin = loginAdmin();
         String chef = loginAs("13900000088", "chef123");
 
-        // 非运营不能切换；用户侧状态接口需登录即可，默认全开（小程序 / App 各自返回）
+        // 非运营不能切换；用户侧状态接口免登录（游客也可读），默认全开（小程序 / App 各自返回）
         JsonNode denied = put(chef, "/admin/feature-switches",
                 Map.of("key", "agent.chat.enabled.app", "enabled", false, "reason", "E2E越权"));
         assertThat(denied.get("code").asInt()).as("非运营 msg=" + text(denied, "msg")).isNotZero();
@@ -1644,6 +1644,11 @@ class GuduE2ECoverageTest {
                 assertThat(st0.get("data").get(f).asBoolean()).as(f + " client=" + client).isTrue();
             }
         }
+        // 游客（不带登录态）也能读本端状态：只有四个布尔值，无用户信息
+        JsonNode guest = callAs("", "mp-weixin", HttpMethod.GET, "/feature-switches", null);
+        assertThat(guest.get("code").asInt()).as("游客可读 msg=" + text(guest, "msg")).isZero();
+        assertThat(guest.get("data").size()).isEqualTo(4);
+        assertThat(guest.get("data").get("agentChat").asBoolean()).isTrue();
 
         String sid = post(chef, "/agent/sessions", Map.of("title", "E2E开关")).get("data").get("sessionId").asText();
         try {

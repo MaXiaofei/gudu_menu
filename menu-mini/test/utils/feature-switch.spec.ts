@@ -50,9 +50,14 @@ describe('utils/featureSwitch', () => {
     expect(noteSuspendedCode(500)).toBe(false)
   })
 
-  it('loadFeatureSwitches：读取状态；未登录不请求；失败/异常数据按开处理', async () => {
+  it('loadFeatureSwitches：读取状态；游客（无 token）也请求；失败/异常数据按开处理', async () => {
+    // 游客（无 token）也会请求，拿到真实状态
+    reply(0, 'ok', { agentChat: false, cookAsk: false, vision: false, mealPlan: false })
     await loadFeatureSwitches()
-    expect(__testUni.mocks.request).not.toHaveBeenCalled() // 无 token
+    expect(__testUni.mocks.request).toHaveBeenCalledTimes(1)
+    expect((vi.mocked(__testUni.mocks.request).mock.calls[0][0] as any).url).toContain('/feature-switches')
+    expect(featureStatus).toMatchObject({ agentChat: false, cookAsk: false, vision: false, mealPlan: false })
+    featureStatus.agentChat = featureStatus.cookAsk = featureStatus.vision = featureStatus.mealPlan = true
 
     __testUni.setStorage('token', 't')
     reply(0, 'ok', { agentChat: false, cookAsk: true })

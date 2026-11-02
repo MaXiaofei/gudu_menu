@@ -45,3 +45,21 @@ export function parseLegal(md: string): LegalBlock[] {
   flush()
   return out
 }
+
+import { TERMS_MD } from '@/static/legal/terms'
+import { PRIVACY_MD } from '@/static/legal/privacy'
+import { TERMS_NOAI_MD } from '@/static/legal/terms-noai'
+import { PRIVACY_NOAI_MD } from '@/static/legal/privacy-noai'
+
+/** 协议正文：aiOn=false（本端四类 AI 全关）取「无 AI 版」，否则完整版。 */
+export function legalMarkdown(type: 'terms' | 'privacy', aiOn: boolean): string {
+  if (type === 'privacy') return aiOn ? PRIVACY_MD : PRIVACY_NOAI_MD
+  return aiOn ? TERMS_MD : TERMS_NOAI_MD
+}
+
+/** 成员档案「敏感信息授权」说明：本端四类 AI 全关时不提 AI 回答。 */
+export function consentHint(aiOn: boolean): string {
+  return aiOn
+    ? '健康档案与儿童信息仅用于营养计算、菜品过滤与 AI 回答，加密存储；撤回后删除对应信息'
+    : '健康档案与儿童信息仅用于营养计算与菜品过滤，加密存储；撤回后删除对应信息'
+}

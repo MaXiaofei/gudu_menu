@@ -57,9 +57,19 @@ export function canSendFor(context?: { page?: string } | null): boolean {
   return context?.page === 'cook_mode' ? featureStatus.cookAsk : featureStatus.agentChat
 }
 
-/** 拉取用户侧状态；未登录不发请求，失败保持原状（按开处理）。 */
+/**
+ * 本端是否还有任意一类 AI 在开放（咕嘟助手 / 问咕嘟 / 拍照识别 / 一周餐程）。
+ * 协议、成员档案说明据此选版本：四类全关才显示「无 AI 版」，任一开着显示完整版（宁可多披露）。
+ */
+export function anyAiEnabled(): boolean {
+  return featureStatus.agentChat || featureStatus.cookAsk || featureStatus.vision || featureStatus.mealPlan
+}
+
+/**
+ * 拉取本端状态。游客（无 token）也拉取：后端 GET /feature-switches 免登录、只返回四个布尔值，
+ * 审核员未登录读协议时也要拿到真实状态；失败保持原状（按开处理）。
+ */
 export async function loadFeatureSwitches(): Promise<void> {
-  if (!uni.getStorageSync('token')) return
   try {
     // 动态引入避免与 request.ts 循环依赖
     const { request } = await import('./request')

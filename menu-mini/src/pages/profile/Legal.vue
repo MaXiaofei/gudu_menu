@@ -24,17 +24,18 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { TERMS_MD } from '@/static/legal/terms'
-import { PRIVACY_MD } from '@/static/legal/privacy'
-import { parseLegal } from '@/utils/legal'
+import { parseLegal, legalMarkdown } from '@/utils/legal'
+import { anyAiEnabled, loadFeatureSwitches } from '@/utils/featureSwitch'
 
 const type = ref<'terms' | 'privacy'>('terms')
 onLoad((options) => {
   type.value = options?.type === 'privacy' ? 'privacy' : 'terms'
+  // 游客也拉取本端 AI 开关：四类全关显示「无 AI 版」；拉取失败按开（完整版）
+  void loadFeatureSwitches()
 })
 
 const title = computed(() => (type.value === 'privacy' ? '隐私政策' : '用户协议'))
-const blocks = computed(() => parseLegal(type.value === 'privacy' ? PRIVACY_MD : TERMS_MD))
+const blocks = computed(() => parseLegal(legalMarkdown(type.value, anyAiEnabled())))
 </script>
 
 <style scoped>

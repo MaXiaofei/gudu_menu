@@ -39,6 +39,31 @@ test.describe('H5 关于 / 协议', () => {
   })
 })
 
+test.describe('H5 协议随本端 AI 开关切换版本（游客也生效）', () => {
+  async function mockSwitches(page: Page, on: boolean) {
+    await page.route(/\/gudu\//, async (route) => {
+      const data = on ? {} : { agentChat: false, cookAsk: false, vision: false, mealPlan: false }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 0, msg: 'ok', data }) })
+    })
+  }
+
+  test('游客 + 四类 AI 全关：隐私政策与用户协议为无 AI 版', async ({ page }) => {
+    await mockSwitches(page, false)
+    await page.goto('/#/pages/profile/Legal?type=privacy')
+    await expect(page.locator('.bh-title')).toHaveText('隐私政策', { timeout: 15000 })
+    await expect(page.locator('.doc')).not.toContainText('AI', { timeout: 10000 })
+    await page.goto('/#/pages/profile/Legal?type=terms')
+    await expect(page.locator('.bh-title')).toHaveText('用户协议', { timeout: 15000 })
+    await expect(page.locator('.doc')).not.toContainText('AI')
+  })
+
+  test('游客 + 开关默认开：显示完整版（含 AI 说明）', async ({ page }) => {
+    await mockSwitches(page, true)
+    await page.goto('/#/pages/profile/Legal?type=privacy')
+    await expect(page.locator('.doc')).toContainText('AI 功能的特别说明', { timeout: 15000 })
+  })
+})
+
 test.describe('H5 意见反馈', () => {
   test('少于 5 字报错；填写合法后提交成功，请求体符合契约', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('token', 'h5-token'))

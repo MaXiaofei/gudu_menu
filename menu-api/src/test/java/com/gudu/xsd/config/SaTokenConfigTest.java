@@ -25,6 +25,12 @@ class SaTokenConfigTest {
             "GET,    /dish/12/nutrition,        false",
             "GET,    /dict,                     false",
             "GET,    /ingredient/3,             false",
+            // 本端 AI 开关状态：游客可读（审核员未登录读协议），写方法不放行
+            "GET,    /feature-switches,         false",
+            "POST,   /feature-switches,         true",
+            "PUT,    /feature-switches,         true",
+            "PUT,    /admin/feature-switches,   true",
+            "GET,    /admin/feature-switches,   true",
             // 同路径写操作仍需登录
             "POST,   /dish,                     true",
             "PUT,    /dish,                     true",

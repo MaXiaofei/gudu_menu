@@ -54,7 +54,7 @@
           <view class="chev" :class="{ open: consentOpen }"><ui-icon name="chevron" :size="14" /></view>
         </view>
         <template v-if="consentOpen">
-          <text class="consent-hint">健康档案与儿童信息仅用于营养计算、菜品过滤与 AI 回答，加密存储；撤回后删除对应信息</text>
+          <text class="consent-hint">{{ consentHint }}</text>
           <view v-for="c in consentRows" :key="c.type" class="consent-row">
             <view class="main">
               <text class="consent-name">{{ c.label }}</text>
@@ -84,6 +84,8 @@ import {
   type SensitiveDocType,
 } from '@/api/privacy'
 import { askModal, withdrawDialog } from '@/utils/sensitiveConsent'
+import { anyAiEnabled, loadFeatureSwitches } from '@/utils/featureSwitch'
+import { consentHint as consentHintText } from '@/utils/legal'
 
 const store = useMemberStore()
 const family = useFamilyStore()
@@ -102,6 +104,8 @@ const consentRows = computed(() => {
     { type: 'child_info' as SensitiveDocType, label: '不满 14 周岁儿童信息', ...c.child_info },
   ]
 })
+// 本端四类 AI 全关时说明里不提「AI 回答」；游客也会拉取，失败按开
+const consentHint = computed(() => consentHintText(anyAiEnabled()))
 const consentSummary = computed(() => {
   const n = consentRows.value.filter((c) => c.granted).length
   return n ? `已同意 ${n} 项 · 可随时撤回` : '未授权 · 填写健康信息时会单独询问'
@@ -116,6 +120,7 @@ async function loadConsent() {
 }
 
 onShow(async () => {
+  void loadFeatureSwitches()
   loading.value = !store.members.length
   try {
     me.value = await ensureAccountId()

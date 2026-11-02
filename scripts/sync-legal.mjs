@@ -8,6 +8,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const docs = [
   { name: 'privacy', title: '隐私政策', constName: 'PRIVACY_MD' },
   { name: 'terms', title: '用户协议', constName: 'TERMS_MD' },
+  // 「无 AI 版」：小程序本端四类 AI 开关全部关闭时显示；只同步给小程序，App 继续用完整版
+  { name: 'privacy-noai', title: '隐私政策（无 AI 版）', constName: 'PRIVACY_NOAI_MD', miniOnly: true },
+  { name: 'terms-noai', title: '用户协议（无 AI 版）', constName: 'TERMS_NOAI_MD', miniOnly: true },
 ]
 
 for (const d of docs) {
@@ -19,6 +22,6 @@ for (const d of docs) {
     `// 《${d.title}》正文：由 docs/legal/${d.name}.md 经 scripts/sync-legal.mjs 生成，请勿手改。\n` +
       `export const ${d.constName}: string = ${JSON.stringify(md)}\n`,
   )
-  copyFileSync(src, join(root, 'menu-flutter/assets/legal', `${d.name}.md`))
+  if (!d.miniOnly) copyFileSync(src, join(root, 'menu-flutter/assets/legal', `${d.name}.md`))
   console.log(`synced ${d.name}`)
 }

@@ -7,6 +7,7 @@
  *
  * 保存前先查同意状态，缺哪项弹哪项的单独同意窗（说明用途、可撤回；儿童场景明确由监护人同意），同意后才保存。
  */
+import { anyAiEnabled } from './featureSwitch'
 import {
   getSensitiveConsent,
   grantSensitiveConsent,
@@ -58,7 +59,10 @@ export function requiredConsents(p: SensitivePayload): SensitiveDocType[] {
 }
 
 /** 单独同意弹窗文案（uni.showModal：系统原生弹窗，单独展示、需主动点「同意」）。 */
-export function consentDialog(types: SensitiveDocType[]): { title: string; content: string } {
+export function consentDialog(
+  types: SensitiveDocType[],
+  aiOn: boolean = anyAiEnabled(),
+): { title: string; content: string } {
   if (types.includes('child_info')) {
     return {
       title: '监护人单独同意',
@@ -69,7 +73,7 @@ export function consentDialog(types: SensitiveDocType[]): { title: string; conte
   return {
     title: '健康信息单独同意',
     content:
-      '身高体重、过敏忌口、特殊饮食人群等健康档案属于敏感个人信息。我们仅用于营养计算、过滤不适合的菜品和 AI 回答相关问题（加密存储，不用于其他目的）。不填写不影响其他功能。你可随时在「家庭成员」页撤回同意，撤回后我们会删除这些信息。',
+      `身高体重、过敏忌口、特殊饮食人群等健康档案属于敏感个人信息。我们仅用于营养计算、过滤不适合的菜品${aiOn ? '和 AI 回答相关问题' : ''}（加密存储，不用于其他目的）。不填写不影响其他功能。你可随时在「家庭成员」页撤回同意，撤回后我们会删除这些信息。`,
   }
 }
 

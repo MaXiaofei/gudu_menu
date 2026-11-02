@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 用户侧功能开关只读状态（需登录），客户端据此隐藏咕嘟助手 / 问咕嘟入口。 */
+/** 用户侧功能开关只读状态（免登录，仅 GET，见 SaTokenConfig.GUEST_READ_PATHS；只含四个布尔值），客户端据此隐藏 AI 入口、切换协议版本。 */
 @RestController
 @RequestMapping("/feature-switches")
 @RequiredArgsConstructor
