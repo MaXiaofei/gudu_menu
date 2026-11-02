@@ -60,6 +60,12 @@ class ShoppingServiceTest {
     @InjectMocks
     private ShoppingService svc;
 
+    @org.junit.jupiter.api.BeforeEach
+    void injectBaseMapper() {
+        // ServiceImpl.baseMapper 是父类字段，@InjectMocks 不一定注入，手动补
+        org.springframework.test.util.ReflectionTestUtils.setField(svc, "baseMapper", shoppingListMapper);
+    }
+
     // ===================== addItemCustom（保留原逻辑） =====================
 
     @Test
@@ -207,6 +213,7 @@ class ShoppingServiceTest {
     @Test
     void fromPrep_无清单_新建清单并追加食材() {
         ShoppingService spied = spy(svc);
+        doReturn(5L).when(spied).currentFamilyId();
         doReturn(List.of()).when(spied).list(any(Wrapper.class)); // 该食集无清单
         doAnswer(inv -> {
             ((ShoppingList) inv.getArgument(0)).setId(9L);
@@ -402,6 +409,51 @@ class ShoppingServiceTest {
                 .hasMessageContaining("清单名");
     }
 
+    // ===================== 本家庭序号 seq（V96） =====================
+
+    @Test
+    void 建空采购单_seq取本家max加1() {
+        given(shoppingListMapper.selectMaxSeq(5L)).willReturn(7);
+        ShoppingService spied = spy(svc);
+        doReturn(5L).when(spied).currentFamilyId();
+        doReturn(true).when(spied).save(any(ShoppingList.class));
+
+        spied.createEmpty();
+
+        ArgumentCaptor<ShoppingList> cap = ArgumentCaptor.forClass(ShoppingList.class);
+        verify(spied).save(cap.capture());
+        assertThat(cap.getValue().getSeq()).isEqualTo(8);
+    }
+
+    @Test
+    void 建空采购单_本家还没有时seq从1开始() {
+        given(shoppingListMapper.selectMaxSeq(5L)).willReturn(null);
+        ShoppingService spied = spy(svc);
+        doReturn(5L).when(spied).currentFamilyId();
+        doReturn(true).when(spied).save(any(ShoppingList.class));
+
+        spied.createEmpty();
+
+        ArgumentCaptor<ShoppingList> cap = ArgumentCaptor.forClass(ShoppingList.class);
+        verify(spied).save(cap.capture());
+        assertThat(cap.getValue().getSeq()).isEqualTo(1);
+    }
+
+    @Test
+    void 建空采购单_并发撞唯一索引_重试后取新序号() {
+        given(shoppingListMapper.selectMaxSeq(5L)).willReturn(3, 4);
+        ShoppingService spied = spy(svc);
+        doReturn(5L).when(spied).currentFamilyId();
+        doAnswer(inv -> { throw new org.springframework.dao.DuplicateKeyException("uk"); })
+                .doReturn(true).when(spied).save(any(ShoppingList.class));
+
+        spied.createEmpty();
+
+        ArgumentCaptor<ShoppingList> cap = ArgumentCaptor.forClass(ShoppingList.class);
+        verify(spied, org.mockito.Mockito.times(2)).save(cap.capture());
+        assertThat(cap.getValue().getSeq()).isEqualTo(5);
+    }
+
     // ===================== generate / getByMenu（保留） =====================
 
     @Test
@@ -409,6 +461,7 @@ class ShoppingServiceTest {
         given(menuDishMapper.selectList(any())).willReturn(List.of());
         given(aggregator.aggregate(any())).willReturn(List.of());
         ShoppingService spied = spy(svc);
+        doReturn(5L).when(spied).currentFamilyId();
         doReturn(true).when(spied).save(any(ShoppingList.class));
 
         spied.generate("menu", 1L, null);
@@ -424,6 +477,7 @@ class ShoppingServiceTest {
         ShoppingAggregator.ShoppingLine line = new ShoppingAggregator.ShoppingLine(10L, 24L);
         given(aggregator.aggregate(any())).willReturn(List.of(line));
         ShoppingService spied = spy(svc);
+        doReturn(5L).when(spied).currentFamilyId();
         doReturn(true).when(spied).save(any(ShoppingList.class));
 
         spied.generate("menu", 1L, null);

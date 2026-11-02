@@ -41,6 +41,8 @@ class TenantGuardTest {
             "com.gudu.xsd.modules.nutrition.infrastructure.JdbcIngredientUsageStats",
             // 食材引用检查 / 运营收编合并（V95）：平台级操作，按 ingredient_id 精确改指向，不读业务内容
             "com.gudu.xsd.modules.nutrition.infrastructure.JdbcIngredientReferences",
+            // 采购单序号 selectMaxSeq：显式带 family_id 参数（V96）
+            "com.gudu.xsd.modules.shopping.mapper.ShoppingListMapper",
             // 厨房圈：全局 UGC 表（community_*），不属于任何家庭
             "com.gudu.xsd.modules.community.infrastructure.mapper.CommunityRelationMapper",
             "com.gudu.xsd.modules.community.infrastructure.mapper.CommunityAppealMapper",

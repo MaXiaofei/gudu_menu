@@ -347,6 +347,13 @@ class GuduE2ECoverageTest {
         assertThat(miss.get("code").asInt()).isEqualTo(0);
         long missId = miss.get("data").asLong();
 
+        // V96：seq 为本家庭第几张，列表与详情一致；再建一张应为 seq+1
+        int seq1 = get(token, "/shopping/" + listId).get("data").get("seq").asInt();
+        assertThat(seq1).isGreaterThanOrEqualTo(1);
+        long list2 = post(token, "/shopping/create", null).get("data").asLong();
+        assertThat(get(token, "/shopping/" + list2).get("data").get("seq").asInt()).isEqualTo(seq1 + 1);
+        assertThat(delete(token, "/shopping/" + list2).get("code").asInt()).isEqualTo(0);
+
         // 清单详情：两项，未命中项 displayName=自定义名
         JsonNode detail = get(token, "/shopping/" + listId);
         assertThat(detail.get("code").asInt()).isEqualTo(0);

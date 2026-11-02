@@ -126,6 +126,8 @@ class ShoppingService {
 /// 采购单摘要（列表用）。
 class ShoppingList {
   final int id;
+  /// 本家庭内第几张采购单（V96）；旧后端无此字段时回退 id
+  final int? seq;
   final int? sourcePlanId;
   final String? name;
   final String? timeRange;
@@ -135,6 +137,7 @@ class ShoppingList {
 
   const ShoppingList({
     required this.id,
+    this.seq,
     this.sourcePlanId,
     this.name,
     this.timeRange,
@@ -145,6 +148,7 @@ class ShoppingList {
 
   factory ShoppingList.fromJson(Map<String, dynamic> j) => ShoppingList(
         id: (j['id'] as num).toInt(),
+        seq: (j['seq'] as num?)?.toInt(),
         sourcePlanId: (j['sourcePlanId'] as num?)?.toInt(),
         name: j['name'] as String?,
         timeRange: j['timeRange'] as String?,
@@ -173,6 +177,7 @@ class ShoppingList {
 /// 采购单详情 VO。
 class ShoppingListVO {
   final int id;
+  final int? seq;
   final String? name;
   final String? timeRange;
   final String? startDate;
@@ -183,6 +188,7 @@ class ShoppingListVO {
 
   const ShoppingListVO({
     required this.id,
+    this.seq,
     this.name,
     this.timeRange,
     this.startDate,
@@ -212,6 +218,7 @@ class ShoppingListVO {
     }
     return ShoppingListVO(
       id: (j['id'] as num).toInt(),
+      seq: (j['seq'] as num?)?.toInt(),
       name: j['name'] as String?,
       timeRange: j['timeRange'] as String?,
       startDate: j['startDate'] as String?,

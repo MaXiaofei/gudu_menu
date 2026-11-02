@@ -333,7 +333,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
 
   Widget _buildListCard(ShoppingList l) {
     final t = AppTokens.of(context);
-    final seq = (l.id % 100) + 1;
+    final seq = l.seq ?? l.id;
     final time = l.createdAt ?? '';
     final displayTime = time.length >= 16 ? time.substring(5, 16) : time;
     final title = l.name != null && l.name!.isNotEmpty

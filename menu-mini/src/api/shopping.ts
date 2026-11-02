@@ -4,6 +4,8 @@ import type { Page } from './common'
 /** 采购清单摘要（列表行）。 */
 export interface ShoppingListSummary {
   id: number
+  /** 本家庭内第几张采购单（后端 V96 起提供；角标与详情标题统一用它） */
+  seq?: number | null
   name?: string | null
   sourceType?: string | null // menu / dish / plan / custom / custom_text
   startDate?: string | null
@@ -26,6 +28,8 @@ export interface ShoppingItem {
 /** 采购清单详情。 */
 export interface ShoppingDetail {
   id: number
+  /** 本家庭内第几张采购单（后端 V96 起提供；角标与详情标题统一用它） */
+  seq?: number | null
   name?: string | null
   sourceType?: string | null
   startDate?: string | null

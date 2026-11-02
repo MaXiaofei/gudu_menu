@@ -74,7 +74,7 @@ extension _ShoppingDetailView on _ShoppingPageState {
     return GestureDetector(
       onTap: hasName ? _showRenameSheet : null,
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(hasName ? d.name! : '采购单 #${d.id}',
+        Text(hasName ? d.name! : '采购单 #${d.seq ?? d.id}',
             style: t.textStyles.subtitle),
         if (hasName) ...[
           const SizedBox(width: 4),

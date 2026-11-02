@@ -92,7 +92,7 @@ extension _ShoppingShareView on _ShoppingPageState {
   /// 分享标题：自定义清单名 或 食集清单「采购单 #N」。
   String _shareTitle(ShoppingListVO d) {
     final hasName = d.name != null && d.name!.isNotEmpty;
-    return hasName ? d.name! : '采购单 #${d.id}';
+    return hasName ? d.name! : '采购单 #${d.seq ?? d.id}';
   }
 
   /// 分享文字：标题 + 日期 + 未入库项逐行「名称 用量」。
