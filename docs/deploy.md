@@ -47,11 +47,39 @@
 > 容器已全部停止（`docker compose -p gudu-staging down` + nacos-staging 同停），**数据卷完整保留**（`gudu-staging_mysql-data / pgvector-data / ollama-data（含 bge-m3 模型）/ uploads` 及 `nacos-staging_*`）。deploy.yml 已移除 feat/mvp 的 push 触发，冻结期间推代码不会自动部署；staging.imxf.cloud 无法访问（超时）属预期（证书照常续期）。
 >
 > **恢复步骤（两步）：**
-> 1. GitHub Actions 页面手动触发 Deploy 工作流，ref 选 `feat/mvp`（或把 `feat/mvp` 加回 deploy.yml 的 `on.push.branches` 恢复常态自动部署）；
+> 1. GitHub Actions 页面手动触发 Deploy 工作流，ref 选 `feat/mvp`、`target` 选 `staging`（或把 `feat/mvp` 加回 deploy.yml 的 `on.push.branches` 恢复常态自动部署）；
 > 2. 服务器执行 `cd /root/gudu-staging && git pull && docker compose -p gudu-staging -f docker-compose.staging.yml up -d`（nacos-staging 同理 up）。
 >
 > deploy.sh 会自动构建最新代码、按 `schema_migration_log` 补齐冻结期间的增量迁移、健康检查，无需手动建任何东西。
 > ⚠️ 封存期间清理服务器时，**不要删 `gudu-staging_*` / `nacos-staging_*` 数据卷**。
+
+> 注：部署现已改为 `git checkout --detach <sha>`，服务器目录处于 detached HEAD，裸 `git pull` 会报错；
+> 需要手动更新请用 `git fetch --all --prune && git checkout -f --detach origin/<分支>`。
+
+### 手动部署任意分支到生产（workflow_dispatch）
+
+push 到 `main` 仍自动部署生产（按改动目录选择性部署，行为不变）。此外任意分支（含 main）可手动部署到 prod：
+
+```bash
+# main：无需确认
+gh workflow run deploy.yml --ref main
+
+# 非 main：必须带 confirm=部署到生产，否则 determine-env 直接失败
+gh workflow run deploy.yml --ref <分支> -f target=prod -f confirm=部署到生产
+# 只部署部分服务（空 = 全量 menu-api menu-admin menu-mini；prod 无 menu-mini 会自动跳过）
+gh workflow run deploy.yml --ref <分支> -f target=prod -f confirm=部署到生产 -f services="menu-api"
+```
+
+inputs：`target`（prod 默认 / staging，staging 仅封存恢复用）、`confirm`、`services`。也可在 GitHub Actions 页面 Run workflow 里选分支并填写。
+
+机制：
+- **按提交切换代码**：runner 把 `github.sha` 作为 `DEPLOY_SHA` 传给服务器，执行 `git fetch --all --prune && git checkout -f --detach "$DEPLOY_SHA"`（push main 也走同一条），不依赖服务器当前分支。`scripts/deploy.sh` 不读取当前分支名。
+- **部署前备份（仅非 main 部署 prod）**：`deploy.sh` 先 `mysqldump --single-transaction --routines --triggers` 全库，输出 `/root/gudu-backups/gudu-prod-<时间>-<分支名安全化>.sql.gz`；`gzip -t` 与「Dump completed」结尾校验，任一失败即中止部署（线上未改动）。main 推送部署不强制备份。恢复参考 2.8.4：`gunzip -c <文件> | docker exec -i <mysql容器> mysql -uroot -p'<密码>' gudu`。
+- **来源记录**：部署成功后服务器写 `/root/gudu/.deployed`（env/branch/sha/services/time/actor）；GitHub job summary 写「生产当前运行：分支 X @ sha（触发人、时间）」，非 main 部署时附醒目警告。
+
+⚠️ 风险：
+1. **迁移不会自动撤回**：非 main 分支带的新迁移（`menu-api/sql/V*.sql`）一旦执行并登记到 `schema_migration_log`，之后再部署 main 或旧分支不会回滚它们（登记表 checksum 校验也要求已执行文件不可改）。回退数据只能靠部署前备份手动恢复，且恢复会丢失备份之后的新数据。
+2. **推 main 会覆盖**：生产运行非 main 分支期间，任何一次 push main 都会自动部署并覆盖它；需要保持该分支在线时，暂缓合并/推送 main。
 
 ### 1.1 服务器信息
 

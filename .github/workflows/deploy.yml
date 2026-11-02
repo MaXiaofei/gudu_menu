@@ -2,22 +2,38 @@
 # 咕嘟小食单 · CI/CD 部署
 #
 # 触发条件：
-#   - push 到 main 分支    → 部署生产环境 (prod, 端口 80)
-#   - workflow_dispatch    → 手动触发（ref=main 部署 prod；ref=feat/mvp 部署 staging）
+#   - push 到 main 分支    → 自动部署生产环境 (prod, 端口 80)，按改动目录选择性部署
+#   - workflow_dispatch    → 手动触发，【任意分支】都可部署（见下）
+#
+# 手动部署（workflow_dispatch）inputs：
+#   - target   ：prod（默认）/ staging（staging 已封存，保留 feat/mvp 恢复用途）
+#   - confirm  ：target=prod 且 ref 不是 main 时【必填】，必须等于「部署到生产」，否则 determine-env 直接失败
+#   - services ：可选，空格分隔（menu-api menu-admin menu-mini）；留空 = 全量
+#   命令行：
+#     gh workflow run deploy.yml --ref <分支> -f target=prod -f confirm=部署到生产 [-f services="menu-api"]
+#   （main 分支手动部署不需要 confirm：gh workflow run deploy.yml --ref main）
+#
+# 服务器按【具体提交】切换代码：git fetch --all --prune && git checkout -f --detach "$DEPLOY_SHA"
+#   （push main 与手动部署统一走这条，不依赖服务器当前所在分支）。
+# 非 main 分支部署 prod 前，deploy.sh 先全量备份数据库到 /root/gudu-backups/，备份失败则中止部署。
+# 部署成功后服务器写 /root/gudu/.deployed（分支/提交/时间/触发人），job summary 也会记录。
+#
+# ⚠️ 风险：1) 数据库迁移（menu-api/sql）不会随回滚自动撤回；
+#         2) 生产运行非 main 分支期间，下一次 push main 会自动覆盖它。
 #
 # ⏸️ staging（feat/mvp → 9090）已于 2026-10-22 封存：容器已停、数据卷保留。
 #    恢复步骤见 docs/deploy.md「staging 封存与恢复」：
-#    服务器 up -d（或直接 workflow_dispatch 选 feat/mvp）即可，数据/迁移自动追平；
+#    服务器 up -d（或 workflow_dispatch 选 target=staging、ref=feat/mvp）即可，数据/迁移自动追平；
 #    恢复常态化自动部署时把 feat/mvp 加回下方 on.push.branches。
 #
-# 选择性部署：检测本次 push 改动的目录（menu-api/ / menu-admin/ / menu-mini/），
+# 选择性部署（仅 push main）：检测本次 push 改动的目录（menu-api/ / menu-admin/ / menu-mini/），
 # 只重建涉及的服务；docker-compose/scripts/nginx 等基础设施改动 → 全量兜底；
 # 纯 docs/menu-flutter 提交 → 跳过部署。迁移 SQL（menu-api/sql/V42+）随 menu-api 部署自动执行。
 #
 # 流程（方案 A：服务器自构建，不跨境传 jar）：
 #   GitHub runner 判断环境 + 检测变更服务 + 发起 SSH（单行命令）；
-#   服务器 git pull 最新源码（MB 级）→ scripts/deploy.sh 负责
-#   docker compose build（多阶段，maven 在容器内）→ 迁移 → 重启 → 健康检查。
+#   服务器 fetch + checkout 指定提交（MB 级）→ scripts/deploy.sh 负责
+#   （可选备份）→ docker compose build（多阶段，maven 在容器内）→ 迁移 → 重启 → 健康检查。
 #
 # 需要配置的 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）：
 #   - SSH_HOST：服务器 IP（如 49.232.3.201）
@@ -31,7 +47,25 @@ on:
   push:
     branches:
       - main       # 生产环境（staging 已封存，feat/mvp 暂不自动部署）
-  workflow_dispatch: # 允许手动触发（ref=feat/mvp 时部署 staging——封存期间恢复用）
+  workflow_dispatch: # 手动触发：任意分支可部署 prod（非 main 需 confirm）
+    inputs:
+      target:
+        description: 部署目标环境
+        type: choice
+        options:
+          - prod
+          - staging
+        default: prod
+      confirm:
+        description: 非 main 分支部署生产时必须填「部署到生产」
+        type: string
+        required: false
+        default: ''
+      services:
+        description: 要部署的服务（空格分隔：menu-api menu-admin menu-mini；留空=全量）
+        type: string
+        required: false
+        default: ''
 
 jobs:
   # 判断部署目标环境
@@ -40,20 +74,48 @@ jobs:
     outputs:
       env: ${{ steps.set-env.outputs.ENV }}
       should_deploy: ${{ steps.set-env.outputs.SHOULD_DEPLOY }}
+      is_main: ${{ steps.set-env.outputs.IS_MAIN }}
     steps:
       - id: set-env
+        # 用户输入一律经 env 传入，避免表达式直接拼进脚本造成注入
+        env:
+          EVENT: ${{ github.event_name }}
+          BRANCH: ${{ github.ref_name }}
+          INPUT_TARGET: ${{ inputs.target }}
+          INPUT_CONFIRM: ${{ inputs.confirm }}
         run: |
-          BRANCH="${{ github.ref_name }}"
-          if [ "$BRANCH" = "main" ]; then
-            echo "ENV=prod" >> $GITHUB_OUTPUT
-            echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
-          elif [ "$BRANCH" = "feat/mvp" ]; then
-            echo "ENV=staging" >> $GITHUB_OUTPUT
-            echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
-          else
-            echo "ENV=skip" >> $GITHUB_OUTPUT
-            echo "SHOULD_DEPLOY=false" >> $GITHUB_OUTPUT
+          IS_MAIN=false
+          [ "$BRANCH" = "main" ] && IS_MAIN=true
+          echo "IS_MAIN=$IS_MAIN" >> "$GITHUB_OUTPUT"
+
+          if [ "$EVENT" != "workflow_dispatch" ]; then
+            # push 触发：只有 main（见 on.push.branches）→ prod
+            echo "ENV=prod" >> "$GITHUB_OUTPUT"
+            echo "SHOULD_DEPLOY=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          TARGET="${INPUT_TARGET:-prod}"
+          case "$TARGET" in
+            prod)
+              if [ "$IS_MAIN" != "true" ] && [ "$INPUT_CONFIRM" != "部署到生产" ]; then
+                echo "::error::ref=$BRANCH 不是 main，部署到生产必须在 confirm 输入框填写「部署到生产」（当前值：'$INPUT_CONFIRM'）。"
+                echo "命令行示例：gh workflow run deploy.yml --ref $BRANCH -f target=prod -f confirm=部署到生产"
+                exit 1
+              fi
+              echo "ENV=prod" >> "$GITHUB_OUTPUT"
+              echo "SHOULD_DEPLOY=true" >> "$GITHUB_OUTPUT"
+              ;;
+            staging)
+              # staging 已封存，仅用于恢复；不需要 confirm
+              echo "ENV=staging" >> "$GITHUB_OUTPUT"
+              echo "SHOULD_DEPLOY=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::未知 target: $TARGET（只支持 prod / staging）"
+              exit 1
+              ;;
+          esac
 
   # 按提交目录检测本次要部署的服务
   detect-changes:
@@ -67,15 +129,35 @@ jobs:
         with:
           fetch-depth: 0   # 需要完整历史才能 diff before..HEAD
       - id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          INPUT_SERVICES: ${{ inputs.services }}
         run: |
-          BEFORE="${{ github.event.before }}"
-          # 手动触发 / before 无效（如 force push）→ 全量兜底
+          ALL="menu-api menu-admin menu-mini"
+          # 手动触发：指定了 services 就用它（校验白名单），否则全量
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            REQ=$(echo "$INPUT_SERVICES" | xargs)
+            if [ -z "$REQ" ]; then
+              echo "services=$ALL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            for s in $REQ; do
+              case "$s" in
+                menu-api|menu-admin|menu-mini) ;;
+                *) echo "::error::非法服务名: $s（只允许 $ALL）"; exit 1 ;;
+              esac
+            done
+            echo "services=$REQ" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # before 无效（如 force push）→ 全量兜底
           if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            echo "services=menu-api menu-admin menu-mini" >> "$GITHUB_OUTPUT"
+            echo "services=$ALL" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if ! CHANGED=$(git diff --name-only "$BEFORE" HEAD 2>/dev/null); then
-            echo "services=menu-api menu-admin menu-mini" >> "$GITHUB_OUTPUT"
+            echo "services=$ALL" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           SERVICES=""
@@ -84,11 +166,11 @@ jobs:
           echo "$CHANGED" | grep -q '^menu-mini/'  && SERVICES="$SERVICES menu-mini"
           # 基础设施改动（compose/脚本/nginx）→ 全量兜底
           echo "$CHANGED" | grep -qE '^(docker-compose|scripts/|nginx/)' \
-            && SERVICES="menu-api menu-admin menu-mini"
+            && SERVICES="$ALL"
           SERVICES=$(echo "$SERVICES" | xargs)   # 纯 docs/APP 提交 → 空 → 跳过部署
           echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
 
-  # SSH 到服务器，让服务器自己 git pull + docker build 涉及的服务
+  # SSH 到服务器，让服务器自己切到指定提交 + docker build 涉及的服务
   deploy:
     needs: [determine-env, detect-changes]
     if: needs.determine-env.outputs.should_deploy == 'true' && needs.detect-changes.outputs.services != ''
@@ -96,9 +178,13 @@ jobs:
     env:
       DEPLOY_ENV: ${{ needs.determine-env.outputs.env }}
       SERVICES: ${{ needs.detect-changes.outputs.services }}
+      DEPLOY_SHA: ${{ github.sha }}
+      DEPLOY_REF: ${{ github.ref_name }}
+      DEPLOY_ACTOR: ${{ github.actor }}
+      IS_MAIN: ${{ needs.determine-env.outputs.is_main }}
 
     steps:
-      # SSH 到服务器：cd 部署目录 → git pull → 调 deploy.sh（构建+迁移+重启+健康检查）
+      # SSH 到服务器：cd 部署目录 → fetch + checkout 指定提交 → 调 deploy.sh（备份?+构建+迁移+重启+健康检查）
       # 单行命令调用，避免 ssh-action 多行 script 内容丢失的已知问题
       - name: Deploy to ${{ env.DEPLOY_ENV }}
         uses: appleboy/ssh-action@v1.0.3
@@ -107,19 +193,38 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASS }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DEPLOY_ENV, SERVICES
+          envs: DEPLOY_ENV, SERVICES, DEPLOY_SHA, DEPLOY_REF, DEPLOY_ACTOR
           command_timeout: 100m
           script_stop: true
           script: |
-            set -e; if [ "$DEPLOY_ENV" = "prod" ]; then D=/root/gudu; else D=/root/gudu-staging; fi; cd "$D" && git fetch --all --prune && git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)" && SERVICES="$SERVICES" ENV="$DEPLOY_ENV" bash scripts/deploy.sh
+            set -e; if [ "$DEPLOY_ENV" = "prod" ]; then D=/root/gudu; else D=/root/gudu-staging; fi; cd "$D" && git fetch --all --prune && git checkout -f --detach "$DEPLOY_SHA" && SERVICES="$SERVICES" ENV="$DEPLOY_ENV" DEPLOY_REF="$DEPLOY_REF" DEPLOY_SHA="$DEPLOY_SHA" DEPLOY_ACTOR="$DEPLOY_ACTOR" bash scripts/deploy.sh
 
-      # 部署结果通知
+      # 部署结果通知 + job summary（记录生产当前运行的分支/提交）
       - name: Deploy status
         if: always()
         run: |
+          NOW=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')
+          SHORT="${DEPLOY_SHA:0:8}"
           if [ "${{ job.status }}" = "success" ]; then
-            echo "✅ 部署成功: ${{ env.DEPLOY_ENV }}（服务: ${{ needs.detect-changes.outputs.services }}）@ $(date)"
+            echo "✅ 部署成功: ${DEPLOY_ENV}（服务: ${SERVICES}）@ $NOW"
+            {
+              echo "## ✅ 部署成功：${DEPLOY_ENV}"
+              echo ""
+              echo "**${DEPLOY_ENV} 当前运行：分支 \`${DEPLOY_REF}\` @ \`${SHORT}\`**（触发人 ${DEPLOY_ACTOR}，${NOW} UTC+8）"
+              echo ""
+              echo "- 服务：${SERVICES}"
+              if [ "$DEPLOY_ENV" = "prod" ] && [ "$IS_MAIN" != "true" ]; then
+                echo ""
+                echo "> ⚠️ **生产正在运行非 main 分支（\`${DEPLOY_REF}\`），下一次推送 main 会自动覆盖它。**"
+                echo "> 数据库迁移不会随回滚自动撤回；部署前备份见服务器 /root/gudu-backups/。"
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "❌ 部署失败: ${{ env.DEPLOY_ENV }} @ $(date)"
+            echo "❌ 部署失败: ${DEPLOY_ENV} @ $NOW"
+            {
+              echo "## ❌ 部署失败：${DEPLOY_ENV}"
+              echo ""
+              echo "分支 \`${DEPLOY_REF}\` @ \`${SHORT}\`（触发人 ${DEPLOY_ACTOR}，${NOW} UTC+8）。服务器当前运行版本以 /root/gudu/.deployed 为准（仅成功部署才会更新）。"
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi

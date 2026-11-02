@@ -14,6 +14,11 @@
 #   ENV=prod    SERVICES="menu-api"           bash scripts/deploy.sh
 #   ENV=staging bash scripts/deploy.sh        # 缺省 SERVICES → menu-api（兼容手动调用）
 #
+# 可选环境变量（CI 传入，用于追溯与备份）：
+#   DEPLOY_REF / DEPLOY_SHA / DEPLOY_ACTOR  部署来源（分支/提交/触发人），成功后写入 ./.deployed
+#   DEPLOY_BACKUP=1|0  部署前是否备份数据库；缺省：ENV=prod 且 DEPLOY_REF 非空且不是 main 时为 1
+#   代码切换由 CI 的 ssh 脚本完成（git checkout --detach <sha>），本脚本不依赖当前分支名。
+#
 # 前提：
 #   - 本脚本在仓库根目录下执行（git pull 后 scripts/deploy.sh 即最新）
 #   - 对应环境的容器已 docker compose up 起来过（本次只 rebuild + 重启指定服务）
@@ -22,6 +27,16 @@ set -euo pipefail
 
 ENV="${ENV:-staging}"
 SERVICES="${SERVICES:-menu-api}"
+DEPLOY_REF="${DEPLOY_REF:-}"
+DEPLOY_SHA="${DEPLOY_SHA:-}"
+DEPLOY_ACTOR="${DEPLOY_ACTOR:-}"
+if [ -z "${DEPLOY_BACKUP:-}" ]; then
+  if [ "$ENV" = "prod" ] && [ -n "$DEPLOY_REF" ] && [ "$DEPLOY_REF" != "main" ]; then
+    DEPLOY_BACKUP=1
+  else
+    DEPLOY_BACKUP=0
+  fi
+fi
 
 # 根据环境选 compose 文件 + project 名 + 健康检查 URL
 if [ "$ENV" = "prod" ]; then
@@ -40,6 +55,47 @@ echo "  服务:     $SERVICES"
 echo "  compose:  $COMPOSE_FILE $PROJECT_OPT"
 echo "  时间:     $(date '+%Y-%m-%d %H:%M:%S')"
 echo "============================================================"
+
+# 0.5 非 main 分支部署 prod 前先全量备份数据库（迁移不可自动撤回，需要能回到部署前的数据）。
+#     备份失败（dump 出错 / gzip 校验失败 / 缺 Dump completed 结尾）→ 中止部署，不动线上。
+#     密码从容器内 MYSQL_ROOT_PASSWORD 取，不落盘。
+if [ "$DEPLOY_BACKUP" = "1" ]; then
+  BACKUP_DIR=/root/gudu-backups
+  SAFE_REF=$(echo "${DEPLOY_REF:-unknown}" | sed 's/[^A-Za-z0-9._-]/-/g' | cut -c1-60)
+  BACKUP_FILE="$BACKUP_DIR/gudu-prod-$(date +%Y%m%d-%H%M%S)-$SAFE_REF.sql.gz"
+  mkdir -p "$BACKUP_DIR"
+  echo "→ 部署前备份数据库 → $BACKUP_FILE"
+  backup_ok=1
+  # pipefail 已开：dump 或 gzip 任一失败整条管道非 0
+  docker compose $PROJECT_OPT -f "$COMPOSE_FILE" exec -T gudu-mysql \
+    sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --default-character-set=utf8mb4 gudu' \
+    2> >(grep -v 'Using a password' >&2) | gzip > "$BACKUP_FILE.tmp" || backup_ok=0
+  if [ "$backup_ok" = "1" ]; then
+    gzip -t "$BACKUP_FILE.tmp" || backup_ok=0
+  fi
+  if [ "$backup_ok" = "1" ]; then
+    gzip -dc "$BACKUP_FILE.tmp" | tail -n 1 | grep -q 'Dump completed' || backup_ok=0
+  fi
+  if [ "$backup_ok" != "1" ]; then
+    rm -f "$BACKUP_FILE.tmp"
+    echo "❌ 数据库备份失败或校验未通过，中止部署（线上未改动）。"
+    exit 1
+  fi
+  mv "$BACKUP_FILE.tmp" "$BACKUP_FILE"
+  echo "  备份完成: $BACKUP_FILE（$(du -h "$BACKUP_FILE" | awk '{print $1}')，gzip -t 校验通过）"
+fi
+
+# 部署成功后记录来源到 ./.deployed（仓库根目录；prod 即 /root/gudu/.deployed）
+write_deployed() {
+  {
+    echo "env=$ENV"
+    echo "branch=${DEPLOY_REF:-unknown}"
+    echo "sha=${DEPLOY_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
+    echo "services=$SERVICES"
+    echo "time=$(date '+%Y-%m-%d %H:%M:%S %z')"
+    echo "actor=${DEPLOY_ACTOR:-manual}"
+  } > .deployed
+}
 
 # 1. 构建新镜像（多阶段构建：容器内 maven 打包，复用 layer 缓存）
 #    注意：小程序 H5（menu-mini）只在 staging 暴露（prod compose 无该 service），prod 环境跳过
@@ -217,6 +273,7 @@ if echo "$SERVICES" | grep -qw menu-api; then
     HTTP_CODE=$(eval "$HEALTH_CMD" 2>/dev/null || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
       echo "✅ 应用已启动 (HTTP $HTTP_CODE, 等待 $((i*5))s)"
+      write_deployed
       echo "✅ 部署完成: $ENV（服务: $SERVICES）@ $(date '+%Y-%m-%d %H:%M:%S')"
       exit 0
     fi
@@ -231,4 +288,5 @@ if echo "$SERVICES" | grep -qw menu-api; then
   exit 1
 fi
 
+write_deployed
 echo "✅ 部署完成: $ENV（服务: $SERVICES）@ $(date '+%Y-%m-%d %H:%M:%S')"
