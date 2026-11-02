@@ -32,7 +32,7 @@ describe('登录后流程（家庭邀请 + 首次引导）', () => {
     expect(loginUrl('/pkg-family/Invite?code=INV9')).toBe(
       '/pages/login/Login?redirect=' + encodeURIComponent('/pkg-family/Invite?code=INV9'),
     )
-    expect(sanitizeRedirect('/pkg-family/Index')).toBeNull()
+    expect(sanitizeRedirect('/pkg-account/Security')).toBeNull()
   })
 
   it('邀请卡片冷启动：launchTarget 返回落地页并记下邀请码；其他页不记', () => {
@@ -54,9 +54,10 @@ describe('登录后流程（家庭邀请 + 首次引导）', () => {
     expect(await goAfterLogin('/pages/menu/Detail?id=3', 1)).toBe('/pages/menu/Detail?id=3')
   })
 
-  it('首次引导第 1 步：昵称仍是默认 → 回首页（首页弹头像昵称），此时不查档案、不进 Onboard', async () => {
+  it('登录流程不要求头像昵称：昵称是默认也不拦，按成员档案引导决定去向', async () => {
     uni.setStorageSync('token', 't')
     uni.setStorageSync('nickname', '微信用户')
+    uni.setStorageSync(onboardKey(1), '1')
     const http = installHttpMock({})
     expect(await goAfterLogin(undefined, 1)).toBe(HOME_PAGE)
     expect(http.calls).toHaveLength(0)
@@ -100,11 +101,9 @@ describe('登录后流程（家庭邀请 + 首次引导）', () => {
     expect(http.calls).toHaveLength(0)
   })
 
-  it('加入家庭后：昵称是默认先回首页弹头像昵称；否则直接进新家庭的成员档案引导', () => {
+  it('加入家庭后：不管昵称是否默认，直接进新家庭的成员档案引导（可跳过）', () => {
     uni.setStorageSync('token', 't')
     uni.setStorageSync('nickname', '微信用户')
-    expect(goAfterJoin()).toBe(HOME_PAGE)
-    uni.setStorageSync(PROFILE_PROMPTED_KEY, '1')
     expect(goAfterJoin()).toBe(`${ONBOARD_PAGE}?from=join`)
   })
 

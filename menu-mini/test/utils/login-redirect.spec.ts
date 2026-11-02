@@ -9,6 +9,7 @@ import {
   sanitizeRedirect,
   trackLaunchAuth,
 } from '@/utils/loginRedirect'
+import { resetPromptState } from '@/utils/guest'
 import { __testUni } from '../setup'
 
 // A.10 分享落地页登录回跳：只回白名单站内页，防开放跳转
@@ -36,7 +37,7 @@ describe('utils/loginRedirect', () => {
       'https://evil.com/pages/dish/Detail',
       '//evil.com/pages/dish/Detail',
       'javascript:alert(1)',
-      '/pages/profile/Edit',
+      '/pages/profile/Feedback',
       '/pages/login/Login',
       '/pages/dish/Detail/../../profile/Edit',
       '/pages/dish/Detail\\x',
@@ -74,7 +75,7 @@ describe('utils/loginRedirect', () => {
     expect(launchTarget({ path: 'pages/together/Pick', query: { menuId: '3', token: 'tk' } })).toBe(
       '/pages/together/Pick?menuId=3&token=tk',
     )
-    expect(launchTarget({ path: 'pages/profile/Edit', query: {} })).toBeNull()
+    expect(launchTarget({ path: 'pages/profile/Feedback', query: {} })).toBeNull()
     expect(launchTarget(null)).toBeNull()
     expect(buildTarget('pages/dish/Detail', { id: 5, empty: '' })).toBe('/pages/dish/Detail?id=5')
   })
@@ -86,14 +87,17 @@ describe('utils/loginRedirect', () => {
     __testUni.setStorage('token', 'tok') // 静默登录在等待期间完成
     finish()
     expect(await p).toBe(true)
-    expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
+    expect(__testUni.mocks.showModal).not.toHaveBeenCalled()
 
     __testUni.resetStorage()
+    resetPromptState()
+    vi.mocked(__testUni.mocks.showModal).mockImplementation(((o: any) => o.success({ confirm: true })) as any)
     expect(await ensureLogin('/pages/together/Pick?token=t')).toBe(false)
-    expect(await ensureLogin('/pages/together/Pick?token=t')).toBe(false)
-    expect(__testUni.mocks.reLaunch).toHaveBeenCalledTimes(1)
-    expect(__testUni.mocks.reLaunch).toHaveBeenCalledWith({
+    // 游客：弹提示，点「去登录」才进登录页（带回跳）；不自动 reLaunch
+    expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
+    expect(__testUni.mocks.navigateTo).toHaveBeenCalledWith({
       url: '/pages/login/Login?redirect=' + encodeURIComponent('/pages/together/Pick?token=t'),
     })
+    vi.mocked(__testUni.mocks.showModal).mockReset()
   })
 })

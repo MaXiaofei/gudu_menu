@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { __testUni } from '../setup'
+import { resetPromptState } from '@/utils/guest'
 import { request, BASE } from '@/utils/request'
 
 // utils/request：统一解包 R{code,msg,data}。
@@ -9,6 +10,8 @@ describe('utils/request', () => {
   beforeEach(() => {
     __testUni.resetStorage()
     vi.mocked(__testUni.mocks.reLaunch).mockClear()
+    vi.mocked(__testUni.mocks.showModal).mockClear()
+    resetPromptState()
     vi.mocked(__testUni.mocks.showToast).mockClear()
     vi.mocked(__testUni.mocks.request).mockReset()
   })
@@ -47,7 +50,7 @@ describe('utils/request', () => {
     )
   })
 
-  it('code==401 → 清 token + reLaunch 到登录页 + reject', async () => {
+  it('code==401（有 token 失效）→ 清 token + 提示登录（不自动跳）+ reject', async () => {
     __testUni.setStorage('token', 'abc')
     vi.mocked(__testUni.mocks.request).mockResolvedValue({
       data: { code: 401, msg: '未登录' },
@@ -56,7 +59,18 @@ describe('utils/request', () => {
 
     await expect(request({ url: '/x', method: 'GET' })).rejects.toThrow('未登录')
     expect(__testUni.getStorage('token')).toBeUndefined()
-    expect(__testUni.mocks.reLaunch).toHaveBeenCalledWith({ url: '/pages/login/Login' })
+    expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
+    expect(__testUni.mocks.showModal).toHaveBeenCalled()
+  })
+
+  it('游客 401：动作类请求提示登录；silent 请求静默；不弹报错 toast、不跳登录页', async () => {
+    vi.mocked(__testUni.mocks.request).mockResolvedValue({ data: { code: 401, msg: '未登录' }, statusCode: 200 } as any)
+    await expect(request({ url: '/x', method: 'GET', silent: true })).rejects.toThrow('未登录')
+    expect(__testUni.mocks.showModal).not.toHaveBeenCalled()
+    await expect(request({ url: '/x', method: 'POST' })).rejects.toThrow('未登录')
+    expect(__testUni.mocks.showModal).toHaveBeenCalledTimes(1)
+    expect(__testUni.mocks.showToast).not.toHaveBeenCalled()
+    expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
   })
 
   it('其它非 0 code → toast + reject', async () => {

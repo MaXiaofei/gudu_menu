@@ -56,6 +56,7 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listIngredients, type IngredientRow } from '@/api/ingredient'
 import { listDict, type DictItem } from '@/api/common'
+import { isLoggedIn } from '@/utils/guest'
 import { OWN_CATEGORY_ID, OWN_TAG, aliasHint } from '@/utils/ingredientSearch'
 
 const kwInput = ref('')
@@ -65,7 +66,8 @@ const categoryId = ref(0)
 /** 分类 chips：全部 · 我家（本家私有）· 各采购分类。 */
 const chips = computed(() => [
   { id: 0, name: `全部 ${total.value}` },
-  { id: OWN_CATEGORY_ID, name: OWN_TAG },
+  // 「我家」食材属于家庭数据，游客不显示
+  ...(isLoggedIn() ? [{ id: OWN_CATEGORY_ID, name: OWN_TAG }] : []),
   ...categories.value,
 ])
 

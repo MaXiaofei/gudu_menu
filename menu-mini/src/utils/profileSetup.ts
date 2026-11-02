@@ -1,9 +1,10 @@
 /**
  * 首次登录完善资料（mini-release-compliance A.7）。
  *
- * 微信静默登录新建的账号昵称是默认「微信用户」：登录后弹一次「设置头像和昵称」，可跳过。
- * - 是否默认昵称：以登录接口返回的服务端昵称为准（存 storage `nickname`），换设备改过昵称就不再弹；
- * - 本机只弹一次：跳过或完成后记 PROFILE_PROMPTED_KEY。
+ * 微信静默登录新建的账号昵称是默认「微信用户」：不在登录流程里要求设置，
+ * 改为「我的」页顶部提示可设置「头像和昵称」（用户点了才弹窗，可跳过）。
+ * - 是否默认昵称：以登录接口返回的服务端昵称为准（存 storage `nickname`），换设备改过昵称就不再提示；
+ * - 设置或跳过后记 PROFILE_PROMPTED_KEY，提示不再显示。
  */
 import { validateNickname } from './validate'
 
@@ -14,7 +15,10 @@ export function isDefaultNickname(name: unknown): boolean {
   return typeof name === 'string' && name.trim() === DEFAULT_NICKNAME
 }
 
-/** 已登录、昵称仍是默认、本机没弹过 → 需要弹。 */
+/**
+ * 「我的」页是否展示「设置头像和昵称」提示：已登录、昵称仍是默认、本机没设置/跳过过。
+ * 注意：登录流程与各页面不再自动弹窗（审核要求不得强制头像昵称），仅「我的」页里提示，用户自愿点开。
+ */
 export function shouldPromptProfile(): boolean {
   if (!uni.getStorageSync('token')) return false
   if (uni.getStorageSync(PROFILE_PROMPTED_KEY)) return false

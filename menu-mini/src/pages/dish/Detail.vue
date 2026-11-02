@@ -72,7 +72,7 @@
       </scroll-view>
 
       <view v-if="showActions" class="bottom">
-        <button class="btn-add" :disabled="sheetRef?.busy" @click="sheetRef?.open()">+ 加入食集</button>
+        <button class="btn-add" :disabled="sheetRef?.busy" @click="onAddMenu">+ 加入食集</button>
         <button class="btn-follow" data-testid="cook-mode" @click="goCookMode">跟做</button>
         <button class="btn-cook" :disabled="cookLoading" data-testid="cook-now" @click="onCookNow">
           {{ cookLoading ? '加载中…' : '现在就做' }}
@@ -95,14 +95,13 @@
 
       <add-to-menu-sheet ref="sheetRef" :dish-id="detail.dish.id" :dish-name="detail.dish.name" />
     </template>
-    <!-- 首次登录完善资料（A.7） -->
-    <ui-profile-setup />
   </view>
 </template>
 
 <script setup lang="ts">
 import { PAGES, withQuery, COOK_AFTER_MODE_KEY } from '@/utils/nav'
-import { buildTarget, ensureLogin } from '@/utils/loginRedirect'
+import { isLoggedIn, requireLogin } from '@/utils/guest'
+import { launchAuthDone } from '@/utils/loginRedirect'
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onShareAppMessage } from '@dcloudio/uni-app'
 import { dishDetail, forkDish, isPublicDish, type DishDetail, type DishIngredient } from '@/api/dish'
@@ -134,8 +133,8 @@ const cookItems = ref<CookMaterial[]>([])
 onLoad(async (options) => {
   dishId.value = Number(options?.id || 0)
   if (options?.showActions === '0') showActions.value = false
-  // 分享落地：未登录先去登录，登录后带着 id 回到本页（A.10）
-  if (!(await ensureLogin(buildTarget('/pages/dish/Detail', options)))) return
+  // 游客可直接看菜谱详情（分享落地也一样）；加食集 / 复制 / 现在就做 / 加采购时才提示登录
+  await launchAuthDone()
   load(dishId.value)
 })
 
@@ -153,7 +152,8 @@ async function load(id: number) {
     detail.value = null
   }
   loading.value = false
-  // 余量状态是增强信息：失败不影响详情
+  // 余量状态是增强信息：失败不影响详情；游客没有家庭数据，不请求
+  if (!isLoggedIn()) return
   listGroupedAll()
     .then((g) => {
       const m: Record<number, PantryGroupedItem> = {}
@@ -180,6 +180,7 @@ const forking = ref(false)
 
 async function onFork() {
   if (forking.value || !dishId.value) return
+  if (!requireLogin()) return
   forking.value = true
   try {
     const newId = await forkDish(dishId.value)
@@ -200,6 +201,7 @@ const relNames = computed(() => {
 
 async function addToShopping(ing: DishIngredient) {
   if (bought.value[ing.ingredientId] || !ing.ingredientName) return
+  if (!requireLogin()) return
   try {
     const r = await listShopping(1, 1)
     const listId = r.records[0]?.id || (await createEmptyList())
@@ -209,6 +211,11 @@ async function addToShopping(ing: DishIngredient) {
   } catch {
     // request.ts 已提示
   }
+}
+
+function onAddMenu() {
+  if (!requireLogin()) return
+  sheetRef.value?.open()
 }
 
 function goBack() {
@@ -226,6 +233,7 @@ function previewStep(p: { step: number }) {
 
 async function onCookNow() {
   if (cookLoading.value || !dishId.value) return
+  if (!requireLogin()) return
   cookLoading.value = true
   try {
     cookItems.value = await dishCookMaterials(dishId.value, 1)

@@ -27,6 +27,7 @@ vi.mock('@/api/common', () => ({
   listDict: vi.fn().mockResolvedValue([{ id: 3, name: '蔬菜' }]),
 }))
 
+import { __testUni } from '../setup'
 import List from '@/pages/ingredient/List.vue'
 import Create from '@/pages/ingredient/Create.vue'
 import Picker from '@/pages/dish/parts/IngredientPicker.vue'
@@ -85,7 +86,16 @@ describe('pages/ingredient/List.vue', () => {
     expect(rows[2].textContent).toContain('别名：土豆')
   })
 
+  it('游客不显示「我家」筛选（家庭数据）', async () => {
+    __testUni.resetStorage()
+    await mount(List)
+    showHook!()
+    await flush()
+    expect(Array.from(root.querySelectorAll('.chip')).find((c) => c.textContent === '我家')).toBeUndefined()
+  })
+
   it('分类筛选里有「我家」，点击后只看我家（familyOnly）且不带分类', async () => {
+    __testUni.setStorage('token', 't')
     await mount(List)
     showHook!()
     await flush()

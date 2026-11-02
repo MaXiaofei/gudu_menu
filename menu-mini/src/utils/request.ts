@@ -5,7 +5,8 @@ import { BASE as BASE_URL } from '@/config/env'
 import { hasConsent } from './consent'
 import { contentSecurityMessage, type ContentScene } from './contentSecurity'
 import { applyLoginResult, handleFamilyDenied, isFamilyDenied } from './family'
-import { currentPageTarget, loginUrl } from './loginRedirect'
+import { currentPageTarget } from './loginRedirect'
+import { afterReloginFailed, classify401, promptLogin } from './guest'
 import { COMMUNITY_SUSPENDED, MSG_COMMUNITY_SUSPENDED, noteCommunityResponse } from './communityStatus'
 import { noteSuspendedCode } from './featureSwitch'
 
@@ -167,7 +168,14 @@ export async function request<T = any>(
       // 访客凭证失效：不跳登录，直接抛错由页面提示重新打开邀请
       throw new Error(body.msg || '凭证失效，请重新打开邀请链接')
     }
-    // 静默自愈仅限微信登录用户：账号密码用户 401 直接回登录页（防静默串号到微信新号）
+    const kind = classify401({ hasToken: !!getToken(), silent: opt.silent })
+    if (kind === 'guest-silent') throw new Error('未登录') // 游客的静默请求（角标 / 开关等）：不打扰
+    if (kind === 'guest-prompt') {
+      // 游客做了需要登录的动作：提示登录，不弹报错、不自动跳登录页
+      void promptLogin({ target: currentPageTarget() })
+      throw new Error('未登录')
+    }
+    // 静默自愈仅限微信登录用户：账号密码用户 401 直接按游客处理（防静默串号到微信新号）
     const isWxUser = uni.getStorageSync('login_via') === 'wx'
     const recovered =
       isWxUser && opt.url !== '/auth/wx-login' ? await trySilentRelogin() : false
@@ -175,8 +183,8 @@ export async function request<T = any>(
       return request<T>({ ...opt, _retried: true }) // 新 token 重放一次
     }
     uni.removeStorageSync('token')
-    // 分享落地页等白名单页面：登录后回到当前页（A.10）
-    uni.reLaunch({ url: loginUrl(currentPageTarget()) })
+    // token 失效且重登失败：回到游客态；动作类请求提示登录（回跳当前页，A.10），静默请求不打扰
+    if (afterReloginFailed(opt.silent) === 'guest-prompt') void promptLogin({ target: currentPageTarget() })
     throw new Error('未登录')
   }
   noteCommunityResponse(opt.url, body.code)

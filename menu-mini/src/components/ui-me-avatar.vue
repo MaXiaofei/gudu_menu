@@ -17,7 +17,9 @@ const me = reactive<{ name: string; avatarUrl: string | null }>({
   name: uni.getStorageSync('nickname') || '我',
   avatarUrl: null,
 })
-if (!cache.loaded) {
+if (!uni.getStorageSync('token')) {
+  // 游客：不请求个人资料，显示默认头像（点击进「我的」里的登录入口）
+} else if (!cache.loaded) {
   cache.loaded = true
   getMe()
     .then((m) => {

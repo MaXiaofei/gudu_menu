@@ -45,7 +45,7 @@ describe('store/auth', () => {
   })
 
   describe('logout', () => {
-    it('清空 state + storage + reLaunch 到登录页', () => {
+    it('清空 state + storage + reLaunch 回游客态首页', () => {
       const store = useAuthStore()
       store.token = 'tok'
       store.nickname = 'n'
@@ -56,7 +56,7 @@ describe('store/auth', () => {
       expect(store.token).toBe('')
       expect(store.nickname).toBe('')
       expect(__testUni.getStorage('token')).toBeUndefined()
-      expect(__testUni.mocks.reLaunch).toHaveBeenCalledWith({ url: '/pages/login/Login' })
+      expect(__testUni.mocks.reLaunch).toHaveBeenCalledWith({ url: '/pages/dish/List' })
     })
   })
 

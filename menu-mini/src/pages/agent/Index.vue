@@ -2,9 +2,10 @@
   <page-meta :page-style="gdThemeStyle" />
   <!-- 咕嘟首屏（prototype Agent）：问候 → 咕嘟开场 → 今晚首推 → 快到期提醒 → 快捷提问 → 最近会话；底部输入栏。
        数据：/agent/suggestions（新后端）；不可用时回退 /recommend/home，页面不空白。 -->
-  <view class="page">
-    <!-- 咕嘟助手紧急关停：整页暂停提示 -->
-    <ui-agent-paused :back="false" />
+  <!-- 游客或咕嘟助手关停（个人主体不提供 AI）：本 Tab 在 tabBar 上改名「推荐」，整页渲染推荐内容，不再显示暂停提示页。
+       tabBar 是静态配置不能删 Tab，文字 / 图标由 utils/theme.syncAgentTab 同步。 -->
+  <recommend-view v-if="recoMode" ref="recoRef" tab />
+  <view v-else class="page">
     <ui-tab-header :title="title">
       <template #eyebrow>
         <text class="eyebrow">{{ eyebrow }}</text>
@@ -136,8 +137,12 @@
 <script setup lang="ts">
 import { AI_ASSISTANT_INTRO } from '@/utils/aiLabel'
 import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
+import { agentTabState } from '@/utils/agentTab'
+import { syncAgentTab } from '@/utils/theme'
+import { launchAuthDone } from '@/utils/loginRedirect'
+import RecommendView from '@/pages/recommend/parts/RecommendView.vue'
 import { FEATURES } from '@/config/features'
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { agentSuggestions, listSessions, setCurrentSession, type AgentSessionItem } from '@/api/agent'
 import { coverageLabel, type CDishCard } from '@/api/contract'
@@ -205,9 +210,30 @@ const expiringText = computed(() =>
     .join('、'),
 )
 
-onShow(() => {
+/** 推荐模式：游客 / 咕嘟助手关停（见 utils/agentTab）。 */
+const recoMode = computed(() => agentTabState.mode === 'recommend')
+const recoRef = ref<InstanceType<typeof RecommendView> | null>(null)
+
+onShow(async () => {
   now.value = new Date()
-  loadFeatureSwitches()
+  await launchAuthDone()
+  syncAgentTab()
+  loadFeatureSwitches().then(() => syncAgentTab()) // 开关拉到后模式可能翻转（watch 负责刷新内容）
+  refreshContent()
+})
+
+/** 按当前模式加载内容：推荐模式刷新推荐，咕嘟模式加载首屏。 */
+async function refreshContent() {
+  if (recoMode.value) {
+    await nextTick()
+    recoRef.value?.refresh()
+    return
+  }
+  loadAgent()
+}
+watch(recoMode, () => refreshContent())
+
+function loadAgent() {
   load()
   listMembers()
     .then((ms) => (faces.value = ms.map((m) => ({ name: m.name, avatarUrl: (m as any).avatarUrl ?? null, tags: m.audienceTags }))))
@@ -216,7 +242,7 @@ onShow(() => {
   listSessions(null, 3)
     .then((p) => (sessions.value = p.items))
     .catch(() => (sessions.value = []))
-})
+}
 
 async function load() {
   if (!greeting.value) loading.value = true

@@ -36,8 +36,8 @@
     <!-- 排序（家里够的优先 / 做得最多 / 最新） -->
     <scroll-view scroll-x class="chip-bar" :show-scrollbar="false">
       <view class="chip-row">
-        <view class="chip" :class="{ on: sort === 'coverage' }" data-testid="sort-coverage" @click="onSort('coverage')">家里够的优先</view>
-        <view class="chip" :class="{ on: sort === 'cooked' }" @click="onSort('cooked')">做得最多</view>
+        <view v-if="loggedIn" class="chip" :class="{ on: sort === 'coverage' }" data-testid="sort-coverage" @click="onSort('coverage')">家里够的优先</view>
+        <view v-if="loggedIn" class="chip" :class="{ on: sort === 'cooked' }" @click="onSort('cooked')">做得最多</view>
         <view class="chip" :class="{ on: sort === 'latest' }" @click="onSort('latest')">最新</view>
         <view class="chip-sep" />
         <view
@@ -63,7 +63,7 @@
 
       <view v-for="dish in rest" :key="dish.id" class="swipe-wrap">
         <view
-          v-if="!selectForMenuId"
+          v-if="!selectForMenuId && loggedIn"
           class="swipe-del"
           :class="{ on: (offsets[dish.id] || 0) < 0 }"
           @click.stop="confirmDelete(dish)"
@@ -107,9 +107,6 @@
     <view v-if="!selectForMenuId" class="fab" data-testid="fab-create" @click="goCreate">
       <text class="fab-plus">＋</text><text class="fab-txt">写菜谱</text>
     </view>
-    <!-- 首次登录完善资料（A.7） -->
-    <!-- 首次引导第 1 步：头像昵称（A.7）；保存后接第 2 步成员档案引导 -->
-    <ui-profile-setup @done="onProfileDone" />
   </view>
 </template>
 
@@ -124,13 +121,11 @@ import { relativeDate } from '@/utils/datetime'
 import { listDict, type DictItem } from '@/api/common'
 import { addDishToMenu } from '@/api/menu'
 import { navInset } from '@/utils/token'
-import { continueFirstRun } from '@/utils/loginRedirect'
 import { isAllActive, pickTag, pickCuisine, toSearchParams, createLatestGuard } from '@/utils/dishFilter'
+import { useLoginState } from '@/composables/useLoginState'
 
-/** 头像昵称弹窗关闭：保存了接着进成员档案引导，跳过则都不再打扰。 */
-function onProfileDone(v: { saved: boolean }) {
-  continueFirstRun(v.saved)
-}
+// 游客浏览：未登录也能看公共菜谱；家庭数据（余量够不够、做过几次、成员头像）登录后才有
+const { loggedIn, refresh: refreshLogin } = useLoginState()
 
 const sb = navInset()
 
@@ -163,10 +158,13 @@ const { offsets, onTs, onTm, onTe, reset: resetSwipe } = useSwipe()
 
 const memberFaces = ref<{ name: string; tags?: string[] | null }[]>([])
 
-onLoad((options) => {
+onLoad(async (options) => {
   selectForMenuId.value = options?.selectForMenuId ? Number(options.selectForMenuId) : null
   loadDicts()
+  await refreshLogin() // 等启动静默登录结束再判断登录态
+  if (!loggedIn.value) sort.value = 'latest' // 游客没有家庭库存，「家里够的优先」无意义
   reload()
+  if (!loggedIn.value) return
   listMembers()
     .then((ms) => (memberFaces.value = ms.map((m) => ({ name: m.name, tags: m.audienceTags }))))
     .catch(() => {})

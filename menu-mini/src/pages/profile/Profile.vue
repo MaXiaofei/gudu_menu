@@ -5,7 +5,16 @@
     <view class="head" :style="{ paddingTop: nav + 'px' }">
       <!-- 「我的」不再是 Tab（右上角头像进入），顶部返回 -->
       <view class="back-row" data-testid="profile-back" @click="goBack"><text class="back">‹</text><text class="back-title">我的</text></view>
-      <view class="user-card" data-testid="user-card" @click="go('/pages/profile/Edit')">
+      <!-- 游客：不强制登录，点按钮才去登录 -->
+      <view v-if="!loggedIn" class="user-card" data-testid="guest-card" @click="toLogin">
+        <ui-member-avatar name="游" :size="64" ring />
+        <view class="user-info">
+          <text class="user-name">未登录</text>
+          <text class="user-sub">登录后查看你家的菜谱、余量和食记</text>
+        </view>
+        <view class="edit" data-testid="guest-login"><text class="edit-txt">去登录</text></view>
+      </view>
+      <view v-if="loggedIn" class="user-card" data-testid="user-card" @click="go('/pages/profile/Edit')">
         <ui-member-avatar :name="displayName" :avatar-url="me?.avatarUrl" :size="64" ring />
         <view class="user-info">
           <text class="user-name">{{ displayName }}</text>
@@ -14,7 +23,7 @@
         <view class="edit"><text class="edit-txt">编辑资料</text></view>
       </view>
       <!-- 家庭切换器（multi-tenant-family）：当前家庭 + 快速切换；点名称进家庭页 -->
-      <view class="fam-switch" data-testid="family-switcher">
+      <view v-if="loggedIn" class="fam-switch" data-testid="family-switcher">
         <view class="fs-main" @click="go('/pkg-family/Index')">
           <text class="fs-label">当前家庭</text>
           <text class="fs-name" data-testid="family-current-name">{{ family.current?.name || '我的家' }}</text>
@@ -24,11 +33,16 @@
           <text class="fs-btn-txt">切换</text>
         </view>
       </view>
-      <ui-stat-grid v-if="stats" class="stats" :items="statItems" />
+      <ui-stat-grid v-if="loggedIn && stats" class="stats" :items="statItems" />
     </view>
 
     <view class="body">
-      <view v-if="recent.length" class="card strip-card">
+      <!-- 资料完善提示：登录流程不强制头像昵称，这里提示用户可以自愿设置 -->
+      <view v-if="loggedIn && showProfileHint" class="profile-hint" data-testid="profile-hint" @click="setupRef?.open()">
+        <text class="ph-txt">设置头像和昵称，让家人认出你</text>
+        <text class="ph-go">去设置 ›</text>
+      </view>
+      <view v-if="loggedIn && recent.length" class="card strip-card">
         <view class="card-head" @click="go('/pages/foodlog/Index')">
           <text class="card-title">食记 · 最近做的</text>
           <ui-icon name="chevron" :size="16" />
@@ -54,8 +68,9 @@
         </view>
       </view>
 
-      <view class="logout" @click="onLogout"><text class="logout-txt">退出登录</text></view>
+      <view v-if="loggedIn" class="logout" @click="onLogout"><text class="logout-txt">退出登录</text></view>
     </view>
+    <ui-profile-setup ref="setupRef" @done="onProfileDone" />
   </view>
 </template>
 
@@ -74,6 +89,12 @@ import { APP_VERSION } from '@/config/app'
 import { PAGES, goTab } from '@/utils/nav'
 import { useFamilyStore } from '@/store/family'
 import { FAMILY_SWITCH_PAGE, roleLabel } from '@/utils/family'
+import { useLoginState } from '@/composables/useLoginState'
+import { shouldPromptProfile } from '@/utils/profileSetup'
+import { currentPageTarget, loginUrl } from '@/utils/loginRedirect'
+
+/** 游客可见的设置项（其余需登录）。 */
+const GUEST_ROWS = new Set(['食材库', '主题外观', '隐私与协议', '用户协议', '关于小食单'])
 
 const auth = useAuthStore()
 const memberStore = useMemberStore()
@@ -85,10 +106,27 @@ const unread = ref(0)
 const personalized = ref<boolean | null>(null)
 const nav = navInset()
 
-onShow(() => {
+const { loggedIn, refresh: refreshLogin } = useLoginState()
+const setupRef = ref<{ open: () => void } | null>(null)
+const showProfileHint = ref(false)
+
+onShow(async () => {
+  // 游客不请求家庭 / 账号数据，只展示登录入口与协议
+  if (!(await refreshLogin())) return
+  showProfileHint.value = shouldPromptProfile()
   family.refresh().catch(() => {})
   reload()
 })
+
+function toLogin() {
+  uni.navigateTo({ url: loginUrl(currentPageTarget()) })
+}
+
+/** 资料完善弹窗关闭（保存或跳过）：隐藏提示条，保存了刷新昵称头像。 */
+function onProfileDone(v: { saved: boolean }) {
+  showProfileHint.value = false
+  if (v.saved) reload()
+}
 
 function reload() {
   memberStore.load().catch(() => {})
@@ -144,7 +182,7 @@ const currentMemberName = computed(() =>
 const displayName = computed(() => me.value?.name || auth.nickname || uni.getStorageSync('nickname') || '掌勺人')
 const themeLabel = computed(() => THEME_OPTIONS.find((t) => t.name === themeState.name)?.label || '')
 
-const groups = computed(() => [
+const allGroups = computed(() => [
   {
     title: '家庭',
     items: [
@@ -173,10 +211,20 @@ const groups = computed(() => [
       { label: '意见反馈', icon: 'message', tone: 't3', url: '/pages/profile/Feedback' },
       { label: '账号与安全', icon: 'shield', tone: 't1', url: '/pkg-account/Security' },
       { label: '隐私与协议', icon: 'shield', tone: 't4', url: '/pages/profile/Legal?type=privacy' },
+      { label: '用户协议', icon: 'info', tone: 't4', url: '/pages/profile/Legal?type=terms' },
       { label: '关于小食单', icon: 'info', tone: 't4', url: '/pages/profile/About', value: `v${APP_VERSION}` },
     ],
   },
 ])
+
+/** 游客只显示公开项；登录后显示全部。 */
+const groups = computed(() =>
+  loggedIn.value
+    ? allGroups.value
+    : allGroups.value
+        .map((g) => ({ ...g, items: g.items.filter((i) => GUEST_ROWS.has(i.label)) }))
+        .filter((g) => g.items.length),
+)
 
 function go(url: string) {
   uni.navigateTo({ url })
@@ -199,6 +247,25 @@ function onLogout() {
 </script>
 
 <style scoped>
+.profile-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding: var(--sp-12) var(--sp-16);
+  border-radius: var(--r-md);
+  background: var(--highlight);
+  border: 1px solid var(--primary-soft);
+}
+.ph-txt {
+  flex: 1;
+  font-size: var(--fs-md);
+  color: var(--title);
+}
+.ph-go {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary-deep);
+}
 .page {
   min-height: 100vh;
   background: var(--bg);

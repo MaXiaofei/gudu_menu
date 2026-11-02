@@ -16,6 +16,8 @@
 import { reactive } from 'vue'
 import { DEFAULT_SKIN, SKINS, skinCssVars, type SkinPalette } from '@/styles/tokens.generated'
 import { TABS } from '@/utils/nav'
+import { AGENT_TAB_ITEMS, agentTabState, resolveAgentTabMode, type AgentTabMode } from '@/utils/agentTab'
+import { featureStatus } from '@/utils/featureSwitch'
 
 /** 皮肤 key（cream / matcha / …，以 tokens.json 为准）。 */
 export type ThemeName = string
@@ -85,9 +87,13 @@ export function applyTabBar(name: ThemeName = themeState.name): void {
       borderStyle: 'white',
       fail: () => {},
     } as any)
-    TAB_ICONS.forEach((icon, index) => {
+    TAB_ICONS.forEach((key, index) => {
+      // 咕嘟 Tab 在游客 / AI 关停时换成「推荐」（文字 + 图标），与主题图标一起设置，避免互相覆盖
+      const agent = key === 'agent' ? AGENT_TAB_ITEMS[agentTabState.mode] : null
+      const icon = agent ? agent.icon : key
       uni.setTabBarItem({
         index,
+        ...(agent ? { text: agent.text } : {}),
         iconPath: tabIconPath(icon, false, name),
         selectedIconPath: tabIconPath(icon, true, name),
         fail: () => {},
@@ -96,6 +102,16 @@ export function applyTabBar(name: ThemeName = themeState.name): void {
   } catch {
     // 非 tab 页 / 测试环境无 tabBar
   }
+}
+
+/**
+ * 按登录态与咕嘟开关同步第三个 Tab（咕嘟 / 推荐），并重设 tabBar 样式与图标。
+ * 登录 / 退出 / 开关拉取后 / 咕嘟页 onShow 调用。返回当前模式。
+ */
+export function syncAgentTab(): AgentTabMode {
+  agentTabState.mode = resolveAgentTabMode(!!uni.getStorageSync('token'), featureStatus.agentChat)
+  applyTabBar()
+  return agentTabState.mode
 }
 
 /** H5：注入全局样式覆盖所有页面栈（page-meta 只改第一个 uni-page-body）。 */

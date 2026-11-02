@@ -1,33 +1,33 @@
 <script setup lang="ts">
 import { onLaunch, onShow } from "@dcloudio/uni-app";
 import { silentLogin } from "@/api/auth";
-import { initTheme, applyTabBar } from "@/utils/theme";
+import { initTheme, syncAgentTab } from "@/utils/theme";
 import { hasConsent } from "@/utils/consent";
 import { loadFeatureSwitches } from "@/utils/featureSwitch";
-import { launchTarget, redirectToLogin, trackLaunchAuth } from "@/utils/loginRedirect";
+import { launchTarget, trackLaunchAuth } from "@/utils/loginRedirect";
+import { installRouteGuard } from "@/utils/guest";
 onShow(() => {
-  applyTabBar();
-  loadFeatureSwitches(); // 咕嘟助手 / 问咕嘟紧急关停状态（失败按开处理，未登录不请求）
+  syncAgentTab(); // tabBar 样式 + 「咕嘟 / 推荐」tab 文案图标（游客或 AI 关停时为「推荐」）
+  // 咕嘟助手 / 问咕嘟紧急关停状态（失败按开处理，未登录不请求），拉到后再同步 tab
+  loadFeatureSwitches().then(syncAgentTab);
 });
 onLaunch((options) => {
   initTheme();
-  // 分享落地页（聚餐点菜 / 菜谱详情 / 家庭邀请…）：带着原始页面与参数去登录，登录后回到原页（A.10）；
+  // 游客浏览：冷启动直接进首页（pages.json 第一页），不再先进登录页；游客点到需登录的功能时才提示登录
+  installRouteGuard();
+  // 分享落地页（聚餐点菜 / 家庭邀请…）：落地页自己判断登录态，游客操作时再带着原始页面与参数去登录（A.10）；
   // 家庭邀请卡片同时记下邀请码（新微信用户静默登录直接进邀请家庭）
-  const target = launchTarget(options as any);
+  launchTarget(options as any);
   // 同步登记启动登录流程：落地页 ensureLogin() 会等它结束再决定是否发请求
   trackLaunchAuth(
     (async () => {
       const token = uni.getStorageSync("token");
       const loggedOut = uni.getStorageSync("logged_out");
       if (token) return;
-      if (loggedOut || !hasConsent()) {
-        // 主动退出过 / 尚未勾选协议：不发起任何登录（含 wx.login），进登录页先同意协议
-        redirectToLogin(target);
-        return;
-      }
-      // 已同意协议的老用户：wx.login 静默登录（无感），失败才进账号登录页
-      const ok = await silentLogin();
-      if (!ok) redirectToLogin(target);
+      // 主动退出过 / 尚未勾选协议：保持游客态，不发起任何登录（含 wx.login）
+      if (loggedOut || !hasConsent()) return;
+      // 已同意协议的老用户：wx.login 静默登录（无感）；失败也保持游客态，不跳登录页
+      if (await silentLogin()) syncAgentTab();
     })(),
   );
 });

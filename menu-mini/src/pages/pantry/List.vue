@@ -10,7 +10,9 @@
     </ui-tab-header>
 
     <ui-offline-bar />
-    <scroll-view class="body" scroll-y @scrolltolower="searching && loadMoreSearch()">
+    <!-- 游客：登录后查看你家的余量 -->
+    <ui-login-gate v-if="!loggedIn" icon="fridge" title="登录后查看你家的余量" desc="记下家里有什么，快到期的食材会提醒你先吃掉" />
+    <scroll-view v-else class="body" scroll-y @scrolltolower="searching && loadMoreSearch()">
       <view class="pad">
         <ui-stat-grid :items="stats" @tap="onStatTap" />
 
@@ -103,6 +105,9 @@ import { recommendHome } from '@/api/recommend'
 import { cardCover, coverageText, type DishCard } from '@/api/dish'
 import StockRow from './parts/StockRow.vue'
 import { mdLabel } from '@/utils/freshness'
+import { useLoginState } from '@/composables/useLoginState'
+
+const { loggedIn, refresh: refreshLogin } = useLoginState()
 
 const kwInput = ref('')
 const searchingKw = ref('')
@@ -180,13 +185,15 @@ function goDish(id: number) {
   uni.navigateTo({ url: `/pages/dish/Detail?id=${id}` })
 }
 
-onShow(() => {
+onShow(async () => {
+  // 游客不请求家庭数据（占位页）
+  if (!(await refreshLogin())) return
   loadFeatureSwitches()
   reload()
   loadExtras()
 })
 onPullDownRefresh(async () => {
-  await reload()
+  if (loggedIn.value) await reload()
   uni.stopPullDownRefresh()
 })
 

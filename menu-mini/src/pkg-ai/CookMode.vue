@@ -33,7 +33,7 @@
         </view>
 
         <!-- 问咕嘟 -->
-        <view v-if="featureStatus.cookAsk" class="qa" data-testid="cook-qa">
+        <view v-if="askOn" class="qa" data-testid="cook-qa">
           <text class="qa-lab">问咕嘟 · 带着这一步的上下文</text>
           <template v-for="(m, i) in chat.messages" :key="i">
             <view v-if="m.role === 'user'" class="q"><text class="q-txt">{{ m.text }}</text></view>
@@ -81,12 +81,16 @@ import { FEATURES } from '@/config/features'
 import { onHide, onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { dishDetail, type Dish, type DishStep } from '@/api/dish'
 import { parseVoiceCommand } from '@/api/agent'
+import { isLoggedIn } from '@/utils/guest'
 import { useAgentChat } from '@/composables/useAgentChat'
 import { formatClock, isHot, parseStepTimers, progress, remaining, type RunningTimer } from '@/utils/cookTimer'
 import { toAbsolute } from '@/utils/image'
 import { navInset } from '@/utils/token'
 import { COOK_AFTER_MODE_KEY } from '@/utils/nav'
 import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
+
+/** 问咕嘟：游客不可用（需登录），登录后还要看紧急关停开关。 */
+const askOn = computed(() => featureStatus.cookAsk && isLoggedIn())
 
 const inset = navInset()
 const dishId = ref(0)
@@ -195,11 +199,11 @@ async function ask() {
 }
 /** 底部提示条文案：问咕嘟紧急关停时不再提「问咕嘟」。 */
 const voiceHint = computed(() => {
-  if (!featureStatus.cookAsk) return FEATURES.voice ? '说「下一步」' : '点「下一步」继续'
+  if (!askOn.value) return FEATURES.voice ? '说「下一步」' : '点「下一步」继续'
   return FEATURES.voice ? '说「下一步」或问咕嘟' : '输入「下一步」或问咕嘟'
 })
 function focusAsk() {
-  if (!featureStatus.cookAsk) return uni.showToast({ title: '问咕嘟暂停服务，可继续跟做', icon: 'none' })
+  if (!askOn.value) return uni.showToast({ title: isLoggedIn() ? '问咕嘟暂停服务，可继续跟做' : '登录后才能问咕嘟，可继续跟做', icon: 'none' })
   uni.showToast({ title: FEATURES.voice ? '在下方输入，或说「下一步」' : '在下方输入「下一步」或问咕嘟', icon: 'none' })
 }
 function exit() {

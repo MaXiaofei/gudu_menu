@@ -1,5 +1,5 @@
 <template>
-  <!-- 首次登录完善资料（A.7）：昵称仍是默认「微信用户」时弹一次，可跳过；跳过或完成后本机不再弹。
+  <!-- 完善资料（A.7）：不再自动弹出（审核：登录流程不得强制头像昵称）；由「我的」页提示条调用 open() 手动打开，可跳过。
        表单复用 ui-profile-form（chooseAvatar + type=nickname）；保存走 PUT /member/me（后端内容安全，451/452 由 request.ts 按场景提示）。 -->
   <view v-if="visible" class="ps-mask" data-testid="profile-setup">
     <view class="ps-sheet">
@@ -23,10 +23,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { updateMe } from '@/api/member'
-import { launchAuthDone, markOnboarded } from '@/utils/loginRedirect'
-import { markProfilePrompted, shouldPromptProfile, validateSetupNickname } from '@/utils/profileSetup'
+import { markOnboarded } from '@/utils/loginRedirect'
+import { markProfilePrompted, validateSetupNickname } from '@/utils/profileSetup'
 
 const emit = defineEmits<{ (e: 'done', v: { saved: boolean; name?: string }): void }>()
 
@@ -48,16 +48,14 @@ function setTabBar(show: boolean) {
   }
 }
 
-/** 页面在拿到登录态后调用（也会在挂载时自动检查一次）。 */
-function check() {
-  if (visible.value || !shouldPromptProfile()) return
+/** 用户主动点「设置头像和昵称」时打开。 */
+function open() {
+  if (visible.value) return
   visible.value = true
   setTabBar(false)
 }
 
-// 启动页可能在静默登录完成前就挂载：等启动登录流程结束再判断
-onMounted(() => launchAuthDone().then(check))
-defineExpose({ check })
+defineExpose({ open })
 
 function close(saved: boolean, n?: string) {
   markProfilePrompted()

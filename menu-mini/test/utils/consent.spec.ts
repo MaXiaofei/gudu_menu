@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { request } from '@/utils/request'
 import { hasConsent, setConsent, clearConsent, reportConsent, LEGAL_VERSION, CONSENT_KEY } from '@/utils/consent'
+import { resetPromptState } from '@/utils/guest'
 import { __testUni } from '../setup'
 
 // prototype-ui-rollout 1.16：勾选协议前不发起任何登录（含 401 静默自愈的 wx.login）。
 describe('utils/consent 协议同意', () => {
   beforeEach(() => {
     __testUni.resetStorage()
+    resetPromptState()
+    vi.mocked(__testUni.mocks.showModal).mockClear()
     ;(globalThis as any).uni.login = vi.fn(({ success }: any) => success({ code: 'c' }))
   })
 
@@ -22,14 +25,15 @@ describe('utils/consent 协议同意', () => {
     expect(hasConsent()).toBe(false)
   })
 
-  it('未同意的微信用户 401：不调用 wx.login，直接回登录页', async () => {
+  it('未同意的微信用户 401：不调用 wx.login，提示登录（不自动跳）', async () => {
     __testUni.setStorage('token', 'old')
     __testUni.setStorage('login_via', 'wx')
     vi.mocked(__testUni.mocks.request).mockImplementation(async () => ({ statusCode: 200, data: { code: 401, msg: '未登录' } }))
     vi.mocked(__testUni.mocks.reLaunch).mockClear()
     await expect(request({ url: '/dish/search', method: 'GET' })).rejects.toThrow('未登录')
     expect((globalThis as any).uni.login).not.toHaveBeenCalled()
-    expect(__testUni.mocks.reLaunch).toHaveBeenCalledWith({ url: '/pages/login/Login' })
+    expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
+    expect(__testUni.mocks.showModal).toHaveBeenCalled()
   })
 
   it('B.1 登录成功后上报协议同意：带当前版本与渠道；未勾选不上报；失败不抛', async () => {

@@ -117,7 +117,7 @@ async function onJoin() {
 function onSkip() {
   uni.removeStorageSync(PENDING_INVITE_KEY)
   if (uni.getStorageSync('token')) uni.switchTab({ url: '/pages/dish/List' })
-  else uni.reLaunch({ url: '/pages/login/Login' })
+  else uni.reLaunch({ url: '/pages/dish/List' })
 }
 </script>
 

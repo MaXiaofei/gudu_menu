@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { request } from '@/utils/request'
+import { resetPromptState } from '@/utils/guest'
 import { __testUni } from '../setup'
 import { setConsent } from '@/utils/consent'
 
@@ -12,6 +13,8 @@ describe('登录兼容性', () => {
     __testUni.resetStorage()
     setConsent()
     vi.mocked(__testUni.mocks.reLaunch).mockClear()
+    vi.mocked(__testUni.mocks.showModal).mockClear()
+    resetPromptState()
     ;(globalThis as any).uni.login = vi.fn(({ success }: any) => success({ code: 'fresh-code' }))
   })
 
@@ -39,7 +42,8 @@ describe('登录兼容性', () => {
 
     await expect(request({ url: '/dish/search', method: 'GET' })).rejects.toThrow('未登录')
     expect(wxLoginCalled).toBe(false) // 未触发静默重登
-    expect(__testUni.mocks.reLaunch).toHaveBeenCalledWith({ url: '/pages/login/Login' })
+    expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
+    expect(__testUni.mocks.showModal).toHaveBeenCalled() // 回到游客态：提示登录，不自动跳
   })
 
   it('微信用户 401：静默重登一次 + 新 token 重放原请求', async () => {

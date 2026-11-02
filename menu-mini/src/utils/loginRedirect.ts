@@ -10,7 +10,6 @@
  */
 import { isTabPath } from './nav'
 import { getAccountId, invitePath, onboardKey, PENDING_INVITE_KEY, profileIsBlank } from './family'
-import { shouldPromptProfile } from './profileSetup'
 import { listMembers } from '@/api/member'
 
 export const LOGIN_PAGE = '/pages/login/Login'
@@ -28,6 +27,23 @@ export const REDIRECT_WHITELIST: readonly string[] = [
   INVITE_PAGE,
 ]
 
+/**
+ * 游客点到需要登录的页面时，登录后回到该页（游客浏览：路由守卫把目标页作为 redirect）。
+ * 这些页面不是分享落地页，回跳时先回首页再 navigateTo，保证页面栈里有返回路径。
+ */
+export const REDIRECT_STACKED: readonly string[] = [
+  '/pages/shopping/List',
+  '/pages/foodlog/Index',
+  '/pages/member/Index',
+  '/pkg-family/Index',
+  '/pages/review/Mine',
+  '/pages/dish/Create',
+  '/pages/dish/Drafts',
+  '/pages/notice/Index',
+  '/pages/profile/Settings',
+  '/pages/profile/Edit',
+]
+
 const MAX_QUERY_KEYS = 8
 const MAX_VALUE_LEN = 128
 const KEY_RE = /^[A-Za-z0-9_]{1,32}$/
@@ -41,7 +57,7 @@ function safeDecode(s: string): string | null {
 }
 
 function isAllowedPath(path: string): boolean {
-  return REDIRECT_WHITELIST.includes(path) || isTabPath(path)
+  return REDIRECT_WHITELIST.includes(path) || REDIRECT_STACKED.includes(path) || isTabPath(path)
 }
 
 /** 由页面路径 + 参数拼回跳目标（不校验白名单；sanitizeRedirect 再收口）。 */
@@ -92,7 +108,10 @@ export function loginUrl(target?: string | null): string {
 /** 跳到站内目标：Tab 走 switchTab，其余 reLaunch（让登录页 / 落地页出栈）。返回实际目标。 */
 function go(url: string): string {
   if (isTabPath(url)) uni.switchTab({ url: url.split('?')[0] })
-  else uni.reLaunch({ url })
+  else if (REDIRECT_STACKED.includes(url.split('?')[0])) {
+    // 先回首页再打开目标页：目标页有返回路径
+    uni.reLaunch({ url: HOME_PAGE, success: () => uni.navigateTo({ url }) } as any)
+  } else uni.reLaunch({ url })
   return url
 }
 
@@ -100,8 +119,8 @@ function go(url: string): string {
  * 登录成功后的唯一去向逻辑（登录页、邀请落地页共用）。优先级：
  *  1. 待加入家庭邀请（PENDING_INVITE_KEY）→ 回邀请落地页继续「加入」；
  *  2. redirect 回跳（白名单校验）；
- *  3. 首次引导：昵称仍是默认 → 回首页，由首页弹头像昵称（A.7），关闭后 continueFirstRun 决定是否进成员档案引导；
- *     昵称已改过、本账号还没处理过成员档案引导且本人档案为空 → 直接进成员档案引导；
+ *  3. 首次引导：本账号还没处理过成员档案引导且本人档案为空 → 进成员档案引导（可跳过）；
+ *     登录流程不要求头像昵称（审核要求）：资料完善改在「我的」页里提示，用户自愿设置；
  *  4. 首页。
  * 不需要查档案的分支同步完成跳转。
  */
@@ -110,7 +129,7 @@ export function goAfterLogin(raw?: unknown, accountId?: number | null): Promise<
   if (pending) return Promise.resolve(go(invitePath(String(pending))))
   const t = sanitizeRedirect(raw)
   if (t) return Promise.resolve(go(t))
-  if (shouldPromptProfile() || !onboardPending(accountId)) return Promise.resolve(go(HOME_PAGE))
+  if (!onboardPending(accountId)) return Promise.resolve(go(HOME_PAGE))
   return needOnboard(accountId).then((need) => go(need ? ONBOARD_PAGE : HOME_PAGE))
 }
 
@@ -150,7 +169,7 @@ export async function needOnboard(accountId?: number | null): Promise<boolean> {
 }
 
 /**
- * 首页头像昵称弹窗（A.7）关闭后调用：
+ * 头像昵称弹窗（A.7，现由「我的」页手动打开）关闭后调用：
  * - 保存了 → 接着进成员档案引导（如需要）；
  * - 跳过了 → 视为「先别打扰」，成员档案引导也记为已处理，不再连着弹第二次（之后在「成员档案」随时补）。
  */
@@ -164,12 +183,8 @@ export async function continueFirstRun(saved: boolean): Promise<boolean> {
   return true
 }
 
-/**
- * 加入新家庭后：昵称仍是默认 → 先回首页弹头像昵称（之后 continueFirstRun 接成员档案引导）；
- * 否则直接进新家庭的成员档案引导（可跳过）。
- */
+/** 加入新家庭后：直接进新家庭的成员档案引导（可跳过）。 */
 export function goAfterJoin(): string {
-  if (shouldPromptProfile()) return go(HOME_PAGE)
   return go(`${ONBOARD_PAGE}?from=join`)
 }
 
@@ -252,11 +267,12 @@ export async function resumeIfLoggedIn(raw?: unknown): Promise<string | null> {
 
 /**
  * 落地页守卫：等启动登录流程结束，已登录返回 true；
- * 否则带 target 跳登录页并返回 false（页面不要再发请求）。
+ * 游客弹「登录后可以使用这个功能」：点「去登录」带 target 进登录页，点「再看看」回首页（页面不要再发请求）。
  */
 export async function ensureLogin(target: string): Promise<boolean> {
   await launchAuth
   if (uni.getStorageSync('token')) return true
-  redirectToLogin(target)
+  const { promptLogin } = await import('./guest')
+  void promptLogin({ target, onCancel: () => uni.reLaunch({ url: HOME_PAGE }) })
   return false
 }

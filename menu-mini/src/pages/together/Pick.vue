@@ -65,8 +65,6 @@
       </view>
       <view style="height: 24px" />
     </scroll-view>
-    <!-- 首次登录完善资料（A.7）：设置后同步到本场聚餐的显示昵称 -->
-    <ui-profile-setup @done="onProfileDone" />
   </view>
 </template>
 

@@ -58,6 +58,9 @@
         <text class="agree-link" @click="openLegal('privacy')">《隐私政策》</text>
         <text class="agree-txt">，了解小食单会保存我的菜谱、余量与做饭记录</text>
       </view>
+
+      <!-- 游客浏览：登录不是进入的前提，可以先逛逛再决定 -->
+      <view class="browse" data-testid="browse-first" @click="browseFirst"><text class="browse-txt">先逛逛，稍后再登录</text></view>
     </view>
   </view>
 </template>
@@ -65,7 +68,9 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { goAfterLogin, resetLoginRedirect, resumeIfLoggedIn } from '@/utils/loginRedirect'
+import { goAfterLogin, HOME_PAGE, resetLoginRedirect, resumeIfLoggedIn } from '@/utils/loginRedirect'
+import { syncAgentTab } from '@/utils/theme'
+import { loadFeatureSwitches } from '@/utils/featureSwitch'
 import { navInset } from '@/utils/token'
 import { useAuthStore } from '@/store/auth'
 import { silentLogin } from '@/api/auth'
@@ -90,6 +95,9 @@ onLoad((options) => {
 /** 登录成功：统一去向（待加入家庭邀请 > redirect 回跳 > 首次引导 > 首页），见 utils/loginRedirect.goAfterLogin。 */
 function afterLogin(accountId?: number | null) {
   resetLoginRedirect()
+  // 登录后第三个 Tab 由「推荐」换回「咕嘟」（开关开时）；登录流程不要求头像昵称
+  syncAgentTab()
+  loadFeatureSwitches().then(syncAgentTab).catch(() => {})
   return goAfterLogin(redirect.value, accountId)
 }
 // 小程序只有微信登录；H5 直接展示账号表单
@@ -112,6 +120,11 @@ function checkAgreed(): boolean {
   }
   setConsent() // 勾选后才记同意，之后才允许 wx.login（含后续静默自愈）
   return true
+}
+
+/** 不登录先逛逛：回首页（游客态）。 */
+function browseFirst() {
+  uni.switchTab({ url: HOME_PAGE })
 }
 
 function openLegal(type: 'terms' | 'privacy') {
@@ -155,6 +168,16 @@ async function onLogin() {
 </script>
 
 <style scoped>
+.browse {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-16) 0 var(--sp-8);
+}
+.browse-txt {
+  font-size: var(--fs-md);
+  color: var(--body);
+  text-decoration: underline;
+}
 .login {
   min-height: 100vh;
   background: var(--bg);

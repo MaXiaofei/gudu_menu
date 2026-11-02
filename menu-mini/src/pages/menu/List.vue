@@ -2,11 +2,14 @@
   <page-meta :page-style="gdThemeStyle" />
   <view class="page">
     <ui-tab-header title="食集">
-      <view class="new-btn" @click="openCreate"><ui-icon name="plus" tone="white" :size="14" /><text class="new-txt">新食集</text></view>
+      <view v-if="loggedIn" class="new-btn" @click="openCreate"><ui-icon name="plus" tone="white" :size="14" /><text class="new-txt">新食集</text></view>
       <ui-me-avatar />
     </ui-tab-header>
 
     <ui-offline-bar />
+    <!-- 游客：登录后查看你家的食集 -->
+    <ui-login-gate v-if="!loggedIn" icon="calendar" title="登录后查看你家的食集" desc="把想做的菜排成一餐，和家人一起点菜" />
+    <template v-else>
     <view class="filter-row">
       <view class="fchip" :class="{ on: status === '' }" @click="switchStatus('')">全部</view>
       <view class="fchip" :class="{ on: status === 'ACTIVE' }" @click="switchStatus('ACTIVE')">进行中 {{ activeCount }}</view>
@@ -85,6 +88,7 @@
         </view>
       </view>
     </view>
+    </template>
   </view>
 </template>
 
@@ -98,6 +102,9 @@ import ActiveMenuCard from './parts/ActiveMenuCard.vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { listMenus, createMenu, deleteMenu, menuDetail, type Menu } from '@/api/menu'
 import { parseDate } from '@/utils/datetime'
+import { useLoginState } from '@/composables/useLoginState'
+
+const { loggedIn, refresh: refreshLogin } = useLoginState()
 
 const menus = ref<Menu[]>([])
 const status = ref('')
@@ -144,7 +151,10 @@ function dayOf(s?: string | null) {
 const activeCount = computed(() => menus.value.filter((m) => m.status !== 'DONE').length)
 const doneCount = computed(() => menus.value.filter((m) => m.status === 'DONE').length)
 
-reload()
+// 游客不请求家庭数据；等启动登录流程结束后按登录态加载
+refreshLogin().then((ok) => {
+  if (ok) reload()
+})
 
 async function fetch(p: number): Promise<Menu[]> {
   try {
@@ -168,11 +178,11 @@ async function reload() {
 }
 
 onPullDownRefresh(async () => {
-  await reload()
+  if (loggedIn.value) await reload()
   uni.stopPullDownRefresh()
 })
 onReachBottom(async () => {
-  if (loading.value || !hasMore.value) return
+  if (!loggedIn.value || loading.value || !hasMore.value) return
   loading.value = true
   const list = await fetch(page.value + 1)
   page.value += 1

@@ -190,7 +190,7 @@ async function onDeactivate() {
     await deactivateAccount()
     auth.$reset?.()
     uni.showToast({ title: '账号已注销', icon: 'none' })
-    setTimeout(() => uni.reLaunch({ url: '/pages/login/Login' }), 400)
+    setTimeout(() => uni.reLaunch({ url: '/pages/dish/List' }), 400)
   } catch {
     // 后端拒绝（如仍是有成员家庭的主理人）：request.ts 已提示，刷新状态
     load()
