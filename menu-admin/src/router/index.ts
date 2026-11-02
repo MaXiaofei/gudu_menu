@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type RouteRecordRaw } from 'vue-router'
 import { clearAuth, hasAdminSession, isSuperAdminStored } from '@/utils/auth-storage'
+import { reloadOnChunkError } from '@/utils/chunkReload'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -146,5 +147,10 @@ export function authGuard(to: Pick<RouteLocationNormalized, 'path' | 'meta'>) {
 }
 
 router.beforeEach(authGuard)
+
+// 部署新版后旧 chunk 被删导致按需加载失败：自动刷新一次到用户要去的地址
+router.onError((err, to) => {
+  reloadOnChunkError(err, to?.fullPath)
+})
 
 export default router
