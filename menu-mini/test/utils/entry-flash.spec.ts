@@ -13,6 +13,7 @@ import {
   restoreFeatureSwitches,
   type FeatureName,
 } from '@/utils/featureSwitch'
+import '@/utils/request' // 注册 request（featureSwitch 经注入点取）
 import UiFeaturePaused from '@/components/ui-feature-paused.vue'
 import UiAgentPaused from '@/components/ui-agent-paused.vue'
 

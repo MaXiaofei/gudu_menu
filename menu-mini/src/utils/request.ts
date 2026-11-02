@@ -9,6 +9,7 @@ import { currentPageTarget } from './loginRedirect'
 import { afterReloginFailed, classify401, promptLogin } from './guest'
 import { COMMUNITY_SUSPENDED, MSG_COMMUNITY_SUSPENDED, noteCommunityResponse } from './communityStatus'
 import { loadFeatureSwitches, noteSuspendedCode } from './featureSwitch'
+import { bindRequest } from './requestBridge'
 
 /** 默认请求超时（毫秒），调用方可通过 opt.timeout 覆盖。 */
 export const REQUEST_TIMEOUT = 15000
@@ -237,3 +238,6 @@ export async function request<T = any>(
   }
   return body.data as T
 }
+
+// 注册给 featureSwitch / consent 使用（它们不能静态依赖本文件，也不能动态 import，见 requestBridge.ts）
+bindRequest(request)

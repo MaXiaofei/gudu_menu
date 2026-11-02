@@ -5,7 +5,7 @@
  */
 import { silentLogin } from '@/api/auth'
 import { initTheme, syncAgentTab } from '@/utils/theme'
-import { hasConsent } from '@/utils/consent'
+import { hasConsent, reportConsentIfPending } from '@/utils/consent'
 import {
   loadFeatureSwitches,
   refreshFeatureSwitchesThrottled,
@@ -54,14 +54,18 @@ export function onAppLaunch(options?: { path?: string; query?: Record<string, un
     (async () => {
       const token = uni.getStorageSync('token')
       const loggedOut = uni.getStorageSync('logged_out')
-      if (token) return
+      if (token) {
+        // 已登录的老用户：补报尚未上报成功的协议同意（静默）
+        void reportConsentIfPending()
+        return
+      }
       // 主动退出过 / 尚未勾选协议：保持游客态，不发起任何登录（含 wx.login）
       if (loggedOut || !hasConsent()) return
       // 已同意协议的老用户：wx.login 静默登录（无感）；失败也保持游客态，不跳登录页
       // 成功后：登录态变了，重新拉开关（按新身份）并同步标签
       if (await silentLogin()) {
         syncAgentTab()
-        void loadFeatureSwitches()
+        void loadFeatureSwitches().then(() => reportConsentIfPending()) // 同时补报协议同意
       }
     })(),
   )

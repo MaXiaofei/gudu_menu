@@ -4,6 +4,7 @@
  * 与 401 静默自愈。同意记录带协议版本，协议改版后需重新勾选。
  */
 import { anyAiEnabled } from './featureSwitch'
+import { bridgedRequest } from './requestBridge'
 
 export const CONSENT_KEY = 'legal_consent'
 /** 协议版本（docs/legal 改版时同步更新，旧同意随之失效）。 */
@@ -17,6 +18,9 @@ export function reportedDocVersion(): string {
   return anyAiEnabled() ? LEGAL_VERSION : LEGAL_VERSION + NOAI_SUFFIX
 }
 
+/** 已成功上报的协议版本（与 CONSENT_KEY 分开存：本地同意不等于服务端已记录）。 */
+export const REPORTED_KEY = 'legal_consent_reported'
+
 export function hasConsent(): boolean {
   return uni.getStorageSync(CONSENT_KEY) === LEGAL_VERSION
 }
@@ -27,6 +31,7 @@ export function setConsent(): void {
 
 export function clearConsent(): void {
   uni.removeStorageSync(CONSENT_KEY)
+  uni.removeStorageSync(REPORTED_KEY)
 }
 
 /**
@@ -36,15 +41,25 @@ export function clearConsent(): void {
 export async function reportConsent(): Promise<boolean> {
   if (!hasConsent()) return false
   try {
-    const { request } = await import('./request')
-    await request({
+    await bridgedRequest({
       url: '/consent',
       method: 'POST',
       data: { docVersion: reportedDocVersion(), channel: 'mp-weixin' },
       silent: true,
     })
+    uni.setStorageSync(REPORTED_KEY, LEGAL_VERSION)
     return true
   } catch {
     return false
   }
+}
+
+/**
+ * 补报：本地已同意当前版本、已登录，但服务端还没记录成功（旧版本动态导入失效导致一直上报失败，
+ * 或登录时网络不通）时，启动后补报一次；成功后落标记，不再重复。
+ */
+export async function reportConsentIfPending(): Promise<boolean> {
+  if (!hasConsent() || !uni.getStorageSync('token')) return false
+  if (uni.getStorageSync(REPORTED_KEY) === LEGAL_VERSION) return false
+  return reportConsent()
 }

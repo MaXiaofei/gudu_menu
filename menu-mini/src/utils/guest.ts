@@ -8,6 +8,7 @@
  * - request.ts 的 401 按 classify401 分流：静默请求不提示，本来就要登录的动作提示登录。
  */
 import { currentPageTarget, loginUrl, sanitizeRedirect } from './loginRedirect'
+import { bindPromptLogin } from './requestBridge'
 
 export const MSG_LOGIN_NEEDED = '登录后可以使用这个功能'
 
@@ -128,3 +129,6 @@ export function installRouteGuard(): void {
     // 测试环境无 addInterceptor
   }
 }
+
+// 注册给 loginRedirect.ensureLogin 使用（它不能动态 import 本文件，见 requestBridge.ts）
+bindPromptLogin(promptLogin)

@@ -65,7 +65,8 @@ describe('登录兼容性', () => {
     expect(r.ok).toBe(true)
     expect(urls[0]).toContain('/dish/search')
     expect(urls[1]).toContain('/auth/wx-login')
-    expect(urls[2]).toContain('/dish/search') // 重放
+    const rest = urls.filter((u) => !u.includes('/feature-switches')) // 重登后会顺带刷新开关
+    expect(rest[2]).toContain('/dish/search') // 重放
     expect(__testUni.getStorage('token')).toBe('new-tok')
     expect(__testUni.mocks.reLaunch).not.toHaveBeenCalled()
   })

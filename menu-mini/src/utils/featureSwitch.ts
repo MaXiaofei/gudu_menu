@@ -9,6 +9,7 @@
  * - 只拦生成 / 发新消息，查看已有内容、删除历史、确认 / 撤销动作等不受影响。
  */
 import { reactive } from 'vue'
+import { bridgedRequest } from './requestBridge'
 
 export const AGENT_SUSPENDED = 5032
 export const COOK_ASK_SUSPENDED = 5033
@@ -168,9 +169,8 @@ export async function loadFeatureSwitches(): Promise<void> {
   const seq = ++loadSeq
   lastAttemptAt = Date.now()
   try {
-    // 动态引入避免与 request.ts 循环依赖
-    const { request } = await import('./request')
-    const r = await request<Partial<Record<FeatureName, boolean>> | null>({
+    // 经注入点取 request（避免与 request.ts 循环依赖；小程序不支持动态 import）
+    const r = await bridgedRequest<Partial<Record<FeatureName, boolean>> | null>({
       url: '/feature-switches',
       method: 'GET',
       silent: true,

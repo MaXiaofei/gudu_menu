@@ -9,6 +9,7 @@
  * 其他一律回首页。
  */
 import { isTabPath } from './nav'
+import { bridgedPromptLogin } from './requestBridge'
 import { getAccountId, invitePath, onboardKey, PENDING_INVITE_KEY, profileIsBlank } from './family'
 import { listMembers } from '@/api/member'
 
@@ -288,7 +289,7 @@ export async function resumeIfLoggedIn(raw?: unknown): Promise<string | null> {
 export async function ensureLogin(target: string): Promise<boolean> {
   await launchAuth
   if (uni.getStorageSync('token')) return true
-  const { promptLogin } = await import('./guest')
-  void promptLogin({ target, onCancel: () => uni.reLaunch({ url: HOME_PAGE }) })
+  // 经注入点取 promptLogin（guest.ts 静态依赖本文件；小程序不支持动态 import）
+  void bridgedPromptLogin({ target, onCancel: () => uni.reLaunch({ url: HOME_PAGE }) })
   return false
 }
