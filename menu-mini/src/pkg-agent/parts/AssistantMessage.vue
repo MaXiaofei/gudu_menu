@@ -55,7 +55,7 @@
             <ui-expiry-badge v-if="it.daysLeft !== null" :days-left="it.daysLeft" />
           </view>
         </view>
-        <view v-else-if="c.type === 'plan' && featureStatus.mealPlan" class="mcard" @click="goPlan(c.draftId)">
+        <view v-else-if="c.type === 'plan' && entryOn('mealPlan')" class="mcard" @click="goPlan(c.draftId)">
           <view class="plan-ic"><ui-icon name="calendar" tone="white" :size="18" /></view>
           <view class="mmain">
             <text class="mname">一周餐程草稿</text>
@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { featureStatus } from '@/utils/featureSwitch'
+import { entryOn } from '@/utils/featureSwitch'
 import { computed, ref } from 'vue'
 import { toolsSeconds, type AgentMessage, type PendingAction } from '@/api/agent'
 import { coverageLabel, coverageTone } from '@/api/contract'

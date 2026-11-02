@@ -21,7 +21,7 @@
       <active-menu-card v-if="current" :menu="current" :dishes="dishesOf(current.id)" @tap="onTapCard(current)" />
 
       <!-- AI 一周餐程入口（周一至周日） -->
-      <view v-if="featureStatus.mealPlan" class="plan-card" data-testid="go-weekplan" @click="goWeekPlan">
+      <view v-if="entryOn('mealPlan')" class="plan-card" data-testid="go-weekplan" @click="goWeekPlan">
         <view class="plan-ic"><ui-icon name="calendar" tone="white" :size="22" /></view>
         <view class="plan-main">
           <text class="plan-title">让咕嘟排下周 7 天</text>
@@ -93,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { featureStatus } from '@/utils/featureSwitch'
+import { entryOn } from '@/utils/featureSwitch'
 import { PAGES } from '@/utils/nav'
 import { defaultPlanWeekStart, weekRangeLabel } from '@/utils/week'
 import { ref, computed, reactive } from 'vue'

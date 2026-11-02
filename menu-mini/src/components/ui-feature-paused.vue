@@ -1,10 +1,12 @@
 <template>
   <!-- 生成式 AI 某类别暂停服务（紧急关停）：盖住对应页面，给友好提示而不是报错；tabBar 仍可切到其他功能。 -->
-  <view v-if="!featureStatus[feature]" class="ap" :data-testid="`${feature}-paused`">
-    <view v-if="back" class="ap-top" :style="{ paddingTop: inset + 'px' }">
+  <view v-if="cover" class="ap" :data-testid="cover === 'paused' ? `${feature}-paused` : `${feature}-loading`">
+    <view v-if="back && cover === 'paused'" class="ap-top" :style="{ paddingTop: inset + 'px' }">
       <view class="ap-back" @click="goBack"><ui-icon name="back" :size="20" /></view>
     </view>
+    <ui-state v-if="cover === 'loading'" mode="loading" />
     <ui-state
+      v-else
       mode="empty"
       :text="SUSPENDED_MESSAGE[feature]"
       hint="我们正在处理一些内容，稍后再来看看"
@@ -16,10 +18,13 @@
 </template>
 
 <script setup lang="ts">
-import { featureStatus, loadFeatureSwitches, SUSPENDED_MESSAGE, type FeatureName } from '@/utils/featureSwitch'
+import { computed } from 'vue'
+import { featureCover, loadFeatureSwitches, SUSPENDED_MESSAGE, type FeatureName } from '@/utils/featureSwitch'
 import { statusBarHeight } from '@/utils/token'
 
-withDefaults(defineProps<{ feature: FeatureName; back?: boolean }>(), { back: true })
+const props = withDefaults(defineProps<{ feature: FeatureName; back?: boolean }>(), { back: true })
+/** 未知 -> 加载态；已知关 -> 暂停提示；已知开 -> 不渲染。 */
+const cover = computed(() => featureCover(props.feature))
 const inset = statusBarHeight() + 6
 
 /** 重新读取开关：已恢复则提示消失，仍在暂停保持提示。 */

@@ -84,7 +84,7 @@
       <view style="height: 96px" />
     </scroll-view>
 
-    <view v-if="featureStatus.vision" class="fab fab-scan" data-testid="fab-scan" @click="goScan">
+    <view v-if="entryOn('vision')" class="fab fab-scan" data-testid="fab-scan" @click="goScan">
       <ui-icon name="camera" tone="primary" :size="18" />
       <text class="fab-scan-txt">拍照</text>
     </view>
@@ -97,7 +97,7 @@
 
 <script setup lang="ts">
 import { useAgentTabSync } from '@/composables/useAgentTabSync'
-import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
+import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 import { PAGES } from '@/utils/nav'
 import { ref, reactive, computed } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'

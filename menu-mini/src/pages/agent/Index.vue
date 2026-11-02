@@ -57,7 +57,7 @@
                   <text class="hero-why">{{ heroWhy }}</text>
                   <view class="hero-acts">
                     <view class="hero-btn" @click.stop="goDish(tonight.id)"><text class="hero-btn-txt">现在就做</text></view>
-                    <view v-if="featureStatus.agentChat" class="hero-btn ghost" data-testid="hero-swap" @click.stop="ask('换一道今晚的菜')">
+                    <view v-if="entryOn('agentChat')" class="hero-btn ghost" data-testid="hero-swap" @click.stop="ask('换一道今晚的菜')">
                       <text class="hero-btn-txt">换一道</text>
                     </view>
                   </view>
@@ -75,7 +75,7 @@
               <text class="exp-title">还有 {{ expiring.length }} 样快到期</text>
               <text class="exp-sub">{{ expiringText }}</text>
             </view>
-            <view v-if="featureStatus.agentChat" class="exp-btn" @click="ask(`${expiring.map((e) => e.name).slice(0, 3).join('、')}快到期了，今晚怎么做？`)">
+            <view v-if="entryOn('agentChat')" class="exp-btn" @click="ask(`${expiring.map((e) => e.name).slice(0, 3).join('、')}快到期了，今晚怎么做？`)">
               <text class="exp-btn-txt">问咕嘟怎么做</text>
             </view>
           </view>
@@ -124,7 +124,7 @@
           data-testid="agent-input"
           @confirm="send"
         />
-        <view v-if="featureStatus.vision" class="ipt-btn" aria-label="拍照识别" data-testid="agent-scan" @click="go(PAGES.scan)"><ui-icon name="camera" :size="20" /></view>
+        <view v-if="entryOn('vision')" class="ipt-btn" aria-label="拍照识别" data-testid="agent-scan" @click="go(PAGES.scan)"><ui-icon name="camera" :size="20" /></view>
       </view>
       <view v-if="text.trim()" class="mic" aria-label="发送" data-testid="agent-send" @click="send"><ui-icon name="send" tone="white" :size="20" /></view>
       <view v-else-if="FEATURES.voice" class="mic" aria-label="语音" data-testid="agent-voice" @click="go(PAGES.agentVoice)"><ui-icon name="mic" tone="white" :size="20" /></view>
@@ -136,7 +136,7 @@
 
 <script setup lang="ts">
 import { AI_ASSISTANT_INTRO } from '@/utils/aiLabel'
-import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
+import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 import { agentTabState } from '@/utils/agentTab'
 import { syncAgentTab } from '@/utils/theme'
 import { launchAuthDone } from '@/utils/loginRedirect'
@@ -172,7 +172,7 @@ const heroIngKeys = computed(() => {
 const expiring = ref<{ name: string; iconKey: string | null; daysLeft: number }[]>([])
 const prompts = ref<string[]>(DEFAULT_PROMPTS)
 /** 拍照识别暂停时，去掉「拍照入库」类快捷提问（其余照常）。 */
-const visiblePrompts = computed(() => prompts.value.filter((p) => featureStatus.vision || !(p.includes('拍') && p.includes('入库'))))
+const visiblePrompts = computed(() => prompts.value.filter((p) => entryOn('vision') || !(p.includes('拍') && p.includes('入库'))))
 const sessions = ref<AgentSessionItem[]>([])
 const faces = ref<{ name: string; avatarUrl?: string | null; tags?: string[] | null }[]>([])
 const unread = ref(0)

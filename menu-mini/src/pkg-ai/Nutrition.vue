@@ -58,7 +58,7 @@
           </view>
           <view v-if="a.suggestions.length" class="swap">
             <text class="swap-txt">下周换成 {{ a.suggestions.map((d) => d.name).join('、') }}</text>
-            <view v-if="featureStatus.mealPlan" class="swap-btn" data-testid="swap-into-plan" @click="goPlan"><text class="swap-btn-txt">换进餐程</text></view>
+            <view v-if="entryOn('mealPlan')" class="swap-btn" data-testid="swap-into-plan" @click="goPlan"><text class="swap-btn-txt">换进餐程</text></view>
           </view>
         </view>
 
@@ -82,7 +82,7 @@
 
 <script setup lang="ts">
 import { computed, getCurrentInstance, nextTick, ref } from 'vue'
-import { featureStatus } from '@/utils/featureSwitch'
+import { entryOn } from '@/utils/featureSwitch'
 import { onLoad } from '@dcloudio/uni-app'
 import { linePoints, nutritionReport, radarPoints, type NutritionReport } from '@/api/mealplan'
 import { listMembers, type Member } from '@/api/member'

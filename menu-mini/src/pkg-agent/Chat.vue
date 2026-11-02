@@ -64,7 +64,7 @@
             :disabled="chat.sending.value"
             @confirm="onSend"
           />
-          <view v-if="featureStatus.vision" class="ipt-btn" data-testid="chat-scan" @click="goScan"><ui-icon name="camera" :size="20" /></view>
+          <view v-if="entryOn('vision')" class="ipt-btn" data-testid="chat-scan" @click="goScan"><ui-icon name="camera" :size="20" /></view>
         </view>
         <view v-if="chat.sending.value" class="send stop" data-testid="chat-stop" @click="chat.stop()"><ui-icon name="pause" tone="white" :size="18" /></view>
         <view v-else-if="text.trim()" class="send" data-testid="chat-send" @click="onSend"><ui-icon name="send" tone="white" :size="18" /></view>
@@ -87,7 +87,7 @@ import { navInset } from '@/utils/token'
 import { PAGES } from '@/utils/nav'
 import AssistantMessage from './parts/AssistantMessage.vue'
 import { AI_ASSISTANT_INTRO } from '@/utils/aiLabel'
-import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
+import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 
 const inset = navInset()
 const chat = useAgentChat()

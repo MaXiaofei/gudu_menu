@@ -87,10 +87,10 @@ import { formatClock, isHot, parseStepTimers, progress, remaining, type RunningT
 import { toAbsolute } from '@/utils/image'
 import { navInset } from '@/utils/token'
 import { COOK_AFTER_MODE_KEY } from '@/utils/nav'
-import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
+import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 
 /** 问咕嘟：游客不可用（需登录），登录后还要看紧急关停开关。 */
-const askOn = computed(() => featureStatus.cookAsk && isLoggedIn())
+const askOn = computed(() => entryOn('cookAsk') && isLoggedIn())
 
 const inset = navInset()
 const dishId = ref(0)

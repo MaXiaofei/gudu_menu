@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { createApp, h, nextTick, type App, type Component } from 'vue'
 import UiFeaturePaused from '@/components/ui-feature-paused.vue'
-import { featureStatus, SUSPENDED_MESSAGE } from '@/utils/featureSwitch'
+import { featureState, featureStatus, SUSPENDED_MESSAGE } from '@/utils/featureSwitch'
 
 // 生成式 AI 暂停服务盖层：按类别显示「XX暂停服务，其他功能不受影响」
 let app: App | null = null
@@ -20,6 +20,7 @@ async function mount(comp: Component, props: Record<string, unknown>) {
   return root
 }
 beforeEach(() => {
+  featureState.known = true
   featureStatus.agentChat = true
   featureStatus.cookAsk = true
   featureStatus.vision = true

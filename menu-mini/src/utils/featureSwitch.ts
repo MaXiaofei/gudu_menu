@@ -5,7 +5,7 @@
  *
  * - 启动 / 进入相关页时 GET /feature-switches 拉取状态，失败按「开」处理；
  * - 收到业务码 5032（咕嘟助手）/ 5033（问咕嘟）/ 5034（拍照识别）/ 5035（一周餐程）时不弹通用报错，直接切到暂停状态；
- * - 关闭的类别：入口隐藏，对应页面由 ui-feature-paused 显示「XX暂停服务，其他功能不受影响」；
+ * - 关闭的类别：入口隐藏（页面用 entryOn 判断，未知时也隐藏），对应页面由 ui-feature-paused 显示「XX暂停服务，其他功能不受影响」；
  * - 只拦生成 / 发新消息，查看已有内容、删除历史、确认 / 撤销动作等不受影响。
  */
 import { reactive } from 'vue'
@@ -51,7 +51,24 @@ export const FEATURE_CACHE_KEY = 'feature_switches_cache'
  * 开关状态是否「已知」：本次启动已从服务端拉到过，或本地有上次的缓存。
  * 未知时标签保守显示「推荐」（宁可晚一步出现「咕嘟」，也不能在关停期间闪出「咕嘟」）。
  */
-export const featureState = reactive({ known: false })
+export const featureState = reactive({ known: false, failed: false })
+
+/**
+ * AI 入口（按钮 / 卡片 / 快捷提问）是否显示：状态已知且该类别开才显示，未知时隐藏。
+ * featureStatus 默认全是 true，页面绝不能直接用它判断入口显隐，否则开关关闭时入口会在状态拉到前先闪出来。
+ */
+export function entryOn(name: FeatureName): boolean {
+  return featureState.known && featureStatus[name]
+}
+
+/**
+ * AI 页面盖层状态：未知 -> 'loading'（骨架屏，不闪可操作按钮也不闪暂停提示）；已知关 -> 'paused'；已知开 -> null。
+ * 拉取失败且没有缓存时撤掉盖层（null），页面照常可用，后端请求拦截兜底。
+ */
+export function featureCover(name: FeatureName): 'loading' | 'paused' | null {
+  if (!featureState.known) return featureState.failed ? null : 'loading'
+  return featureStatus[name] ? null : 'paused'
+}
 
 /** 前台节流窗口：底部标签页 onShow 在此窗口内不重复请求。 */
 export const FEATURE_THROTTLE_MS = 10_000
@@ -164,9 +181,11 @@ export async function loadFeatureSwitches(): Promise<void> {
     featureStatus.vision = r?.vision !== false
     featureStatus.mealPlan = r?.mealPlan !== false
     featureState.known = true
+    featureState.failed = false
     persist()
   } catch {
     // 拉取失败不阻塞：沿用已知状态
+    if (seq === loadSeq && !featureState.known) featureState.failed = true
     if (seq === loadSeq) lastAttemptAt = 0 // 失败不算成功，下次 onShow 立即重试
   }
   if (seq === loadSeq) notify()
