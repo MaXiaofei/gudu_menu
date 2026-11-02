@@ -99,6 +99,13 @@ public class MybatisProfileRepository implements ProfileRepository {
     }
 
     @Override
+    public void softDelete(Long profileId) {
+        if (profileId == null) return;
+        // FamilyProfilePO 有 @TableLogic：deleteById 即 UPDATE member SET deleted=1 WHERE id=? AND deleted=0
+        TenantContextHolder.runAsSystem(() -> mapper.deleteById(profileId));
+    }
+
+    @Override
     public List<FamilyMemberProfile> findHealthProvidedBy(Long accountId) {
         if (accountId == null) return List.of();
         return TenantContextHolder.callAsSystem(() -> mapper.selectList(new QueryWrapper<FamilyProfilePO>()

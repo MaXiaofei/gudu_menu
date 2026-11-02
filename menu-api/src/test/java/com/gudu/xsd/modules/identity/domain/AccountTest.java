@@ -111,6 +111,37 @@ class AccountTest {
     }
 
     @Test
+    void 合并_W软删除_清个人信息_保留id_mergedInto_createdAt供审计() {
+        Account p = phoneAccount(1L, "老张", null);
+        Account w = Account.rehydrate(2L, null, WechatIdentity.of("oid-w", null), null, PlatformRole.USER,
+                AccountStatus.ACTIVE, "张三", "/uploads/w.png", 7L, null, NOW, null);
+        assertThat(w.isDeleted()).isFalse();
+        p.absorb(w, NOW.plusDays(1));
+        assertThat(w.isDeleted()).isTrue();
+        assertThat(w.deletedAt()).isEqualTo(NOW.plusDays(1));
+        assertThat(w.nickname()).isNull();
+        assertThat(w.avatarUrl()).isNull();
+        assertThat(w.lastFamilyId()).isNull();
+        assertThat(w.phone()).isNull();
+        assertThat(w.passwordHash()).isNull();
+        assertThat(w.id()).isEqualTo(2L);
+        assertThat(w.mergedInto()).isEqualTo(1L);
+        assertThat(w.createdAt()).isEqualTo(NOW);
+        assertThat(p.avatarUrl()).as("头像先转给 P 再清 W").isEqualTo("/uploads/w.png");
+    }
+
+    @Test
+    void 合并_重复吸收_幂等_不改删除时间不重复发事件() {
+        Account p = phoneAccount(1L, "老张", null);
+        Account w = wechatAccount(2L, "张三", null);
+        p.absorb(w, NOW);
+        p.pullDomainEvents();
+        assertThat(p.absorb(w, NOW.plusDays(3))).isFalse();
+        assertThat(w.deletedAt()).isEqualTo(NOW);
+        assertThat(p.peekDomainEvents()).isEmpty();
+    }
+
+    @Test
     void 合并_P昵称仍是默认值时取W的() {
         Account p = phoneAccount(1L, Account.DEFAULT_WECHAT_NICKNAME, null);
         p.absorb(wechatAccount(2L, "张三", null), NOW);

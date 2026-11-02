@@ -35,6 +35,8 @@ public final class Account extends AggregateRoot<Long> {
     private Long mergedInto;
     private final LocalDateTime createdAt;
     private LocalDateTime deactivatedAt;
+    /** 软删除时间（V98）：被合并掉的微信账号 W 合并时置上；非空 = 已软删除（保留 id / merged_into / created_at 供审计）。 */
+    private LocalDateTime deletedAt;
     /** 新注册待分配 id 时暂存，identify 后发 AccountRegistered。 */
     private String pendingInviteCode;
     private boolean pendingRegistered;
@@ -42,7 +44,7 @@ public final class Account extends AggregateRoot<Long> {
 
     private Account(Long id, PhoneNumber phone, WechatIdentity wechat, String passwordHash, PlatformRole platformRole,
                     AccountStatus status, String nickname, String avatarUrl, Long lastFamilyId, Long mergedInto,
-                    LocalDateTime createdAt, LocalDateTime deactivatedAt) {
+                    LocalDateTime createdAt, LocalDateTime deactivatedAt, LocalDateTime deletedAt) {
         this.id = id;
         this.phone = phone;
         this.wechat = wechat;
@@ -55,6 +57,7 @@ public final class Account extends AggregateRoot<Long> {
         this.mergedInto = mergedInto;
         this.createdAt = createdAt;
         this.deactivatedAt = deactivatedAt;
+        this.deletedAt = deletedAt;
     }
 
     // ------------------------------------------------------------------ 工厂
@@ -63,7 +66,7 @@ public final class Account extends AggregateRoot<Long> {
     public static Account registerByWechat(WechatIdentity wechat, String inviteCode, LocalDateTime now) {
         Objects.requireNonNull(wechat, "wechat");
         Account a = new Account(null, null, wechat, null, PlatformRole.USER, AccountStatus.ACTIVE,
-                DEFAULT_WECHAT_NICKNAME, null, null, null, now, null);
+                DEFAULT_WECHAT_NICKNAME, null, null, null, now, null, null);
         a.pendingRegistered = true;
         a.pendingInviteCode = inviteCode;
         return a;
@@ -79,7 +82,7 @@ public final class Account extends AggregateRoot<Long> {
         Objects.requireNonNull(phone, "phone");
         Account a = new Account(null, phone, null, hasher.hash(checkPassword(rawPassword)), PlatformRole.USER,
                 AccountStatus.ACTIVE, checkNickname(nickname == null || nickname.isBlank() ? "用户" + tail(phone) : nickname),
-                null, null, null, now, null);
+                null, null, null, now, null, null);
         a.pendingRegistered = true;
         a.pendingAutoFamily = autoCreateFamily;
         return a;
@@ -89,9 +92,17 @@ public final class Account extends AggregateRoot<Long> {
                                     PlatformRole role, AccountStatus status, String nickname, String avatarUrl,
                                     Long lastFamilyId, Long mergedInto, LocalDateTime createdAt,
                                     LocalDateTime deactivatedAt) {
+        return rehydrate(id, phone, wechat, passwordHash, role, status, nickname, avatarUrl, lastFamilyId, mergedInto,
+                createdAt, deactivatedAt, null);
+    }
+
+    public static Account rehydrate(Long id, PhoneNumber phone, WechatIdentity wechat, String passwordHash,
+                                    PlatformRole role, AccountStatus status, String nickname, String avatarUrl,
+                                    Long lastFamilyId, Long mergedInto, LocalDateTime createdAt,
+                                    LocalDateTime deactivatedAt, LocalDateTime deletedAt) {
         if (id == null) throw new DomainException("账号不存在");
         return new Account(id, phone, wechat, passwordHash, role, status, nickname, avatarUrl, lastFamilyId,
-                mergedInto, createdAt, deactivatedAt);
+                mergedInto, createdAt, deactivatedAt, deletedAt);
     }
 
     /** 仓储保存新账号后回填 id；新注册的账号此时登记 AccountRegistered。 */
@@ -199,6 +210,11 @@ public final class Account extends AggregateRoot<Long> {
         source.status = AccountStatus.MERGED;
         source.mergedInto = id;
         source.deactivatedAt = now;
+        // 软删除：W 已无用，清掉个人信息（头像上面已转给 P，文件归 P 所有，不删文件）；id / merged_into / created_at 保留供审计
+        source.deletedAt = now;
+        source.nickname = null;
+        source.avatarUrl = null;
+        source.lastFamilyId = null;
         registerEvent(new AccountMerged(source.id, id));
         return true;
     }
@@ -280,6 +296,15 @@ public final class Account extends AggregateRoot<Long> {
 
     public LocalDateTime deactivatedAt() {
         return deactivatedAt;
+    }
+
+    public LocalDateTime deletedAt() {
+        return deletedAt;
+    }
+
+    /** 是否已软删除（被合并掉的账号）。 */
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 
     public boolean isWechatOnly() {

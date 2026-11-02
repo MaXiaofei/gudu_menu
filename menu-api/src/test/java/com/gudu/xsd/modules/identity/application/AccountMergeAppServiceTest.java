@@ -75,6 +75,22 @@ class AccountMergeAppServiceTest {
     }
 
     @Test
+    void 合并成功_W被软删除_清个人信息_保存的就是软删后的W() {
+        svc.mergeWechatIntoPhone(2L, "13800000001", "pw123456");
+        verify(repo).save(argThat((Account a) -> a.id() == 2L && a.isDeleted() && a.nickname() == null
+                && a.mergedInto() == 1L && a.status() == AccountStatus.MERGED));
+        verify(repo).save(argThat((Account a) -> a.id() == 1L && !a.isDeleted()));
+    }
+
+    @Test
+    void 重复合并_W已软删_第二次不再改动W的删除时间() {
+        svc.mergeWechatIntoPhone(2L, "13800000001", "pw123456");
+        LocalDateTime first = w.deletedAt();
+        svc.mergeWechatIntoPhone(2L, "13800000001", "pw123456");
+        assertThat(w.deletedAt()).isEqualTo(first);
+    }
+
+    @Test
     void 密码错误_计入限流_不泄露手机号是否存在_两账号不变() {
         assertThatThrownBy(() -> svc.mergeWechatIntoPhone(2L, "13800000001", "bad"))
                 .isInstanceOf(BizException.class).hasMessage(AccountAppService.BAD_CREDENTIALS);

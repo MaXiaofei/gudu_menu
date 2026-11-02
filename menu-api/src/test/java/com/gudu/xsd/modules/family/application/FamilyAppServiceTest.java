@@ -13,6 +13,7 @@ import com.gudu.xsd.modules.family.domain.model.Invitation;
 import com.gudu.xsd.modules.family.domain.model.Membership;
 import com.gudu.xsd.modules.family.domain.repository.FamilyRepository;
 import com.gudu.xsd.modules.family.domain.repository.FamilyRoleCache;
+import com.gudu.xsd.modules.family.domain.repository.ProfileReferences;
 import com.gudu.xsd.modules.family.domain.repository.ProfileRepository;
 import com.gudu.xsd.common.tenant.FamilyId;
 import com.gudu.xsd.modules.identity.application.AccountAppService;
@@ -131,7 +132,7 @@ class FamilyAppServiceTest {
 
     @Test
     void 合并监听_W的成员关系转给P_档案改指P_P已有档案则W的降为无账号档案() {
-        FamilyAccountListener listener = new FamilyAccountListener(svc, families, profiles, accountQuery, files, events, clock);
+        FamilyAccountListener listener = new FamilyAccountListener(svc, families, profiles, mock(ProfileReferences.class), accountQuery, files, events, clock);
         Family f1 = family(10L, 2L);           // W 是 F1 主理人
         Family f2 = family(11L, 1L, 2L);       // P 与 W 都在 F2
         when(families.findActiveByAccount(2L)).thenReturn(List.of(f1, f2));
@@ -156,7 +157,7 @@ class FamilyAppServiceTest {
 
     @Test
     void 注销监听_匿名化前收集账号与档案头像并删文件_档案保留accountId供后续步骤使用() {
-        FamilyAccountListener listener = new FamilyAccountListener(svc, families, profiles, accountQuery, files, events, clock);
+        FamilyAccountListener listener = new FamilyAccountListener(svc, families, profiles, mock(ProfileReferences.class), accountQuery, files, events, clock);
         when(families.findActiveByAccount(5L)).thenReturn(List.of());
         FamilyMemberProfile p = FamilyMemberProfile.rehydrate(31L, FamilyId.of(10L), 5L, "阿美",
                 "/gudu/uploads/original/p.png", null, null, null);

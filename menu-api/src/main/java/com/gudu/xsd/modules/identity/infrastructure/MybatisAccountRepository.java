@@ -41,6 +41,7 @@ public class MybatisAccountRepository implements AccountRepository {
         String hash = FieldCrypto.blindIndex(p);
         // 手机号加密存储（B.3）：按盲索引查；存量未迁移的明文行（phone_hash 为空）兜底按明文匹配
         return mapper.selectList(new QueryWrapper<AccountPO>()
+                        .isNull("deleted_at")
                         .and(w -> w.eq("phone_hash", hash).or(x -> x.isNull("phone_hash").eq("phone", p)))
                         .orderByAsc("id"))
                 .stream().findFirst().map(MybatisAccountRepository::toDomain);
@@ -49,7 +50,7 @@ public class MybatisAccountRepository implements AccountRepository {
     @Override
     public Optional<Account> findByOpenid(String openid) {
         if (openid == null || openid.isBlank()) return Optional.empty();
-        return Optional.ofNullable(mapper.selectOne(new QueryWrapper<AccountPO>().eq("wx_openid", openid)))
+        return Optional.ofNullable(mapper.selectOne(new QueryWrapper<AccountPO>().eq("wx_openid", openid).isNull("deleted_at")))
                 .map(MybatisAccountRepository::toDomain);
     }
 
@@ -67,14 +68,14 @@ public class MybatisAccountRepository implements AccountRepository {
     @Override
     public java.util.List<Account> findAllByIds(Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) return java.util.List.of();
-        return mapper.selectBatchIds(ids).stream().map(MybatisAccountRepository::toDomain).toList();
+        return mapper.selectList(new QueryWrapper<AccountPO>().in("id", ids).isNull("deleted_at")).stream().map(MybatisAccountRepository::toDomain).toList();
     }
 
     @Override
     public Map<Long, String> nicknames(Collection<Long> ids) {
         Map<Long, String> out = new HashMap<>();
         if (ids == null || ids.isEmpty()) return out;
-        for (AccountPO po : mapper.selectList(new QueryWrapper<AccountPO>().select("id", "nickname").in("id", ids))) {
+        for (AccountPO po : mapper.selectList(new QueryWrapper<AccountPO>().select("id", "nickname").in("id", ids).isNull("deleted_at"))) {
             out.put(po.getId(), po.getNickname() == null ? "" : po.getNickname());
         }
         return out;
@@ -95,7 +96,8 @@ public class MybatisAccountRepository implements AccountRepository {
         WechatIdentity wx = po.getWxOpenid() == null ? null : WechatIdentity.of(po.getWxOpenid(), po.getWxUnionid());
         return Account.rehydrate(po.getId(), PhoneNumber.rehydrate(po.getPhone()), wx, po.getPasswordHash(),
                 PlatformRole.of(po.getPlatformRole()), AccountStatus.of(po.getStatus()), po.getNickname(),
-                po.getAvatarUrl(), po.getLastFamilyId(), po.getMergedInto(), po.getCreatedAt(), po.getDeactivatedAt());
+                po.getAvatarUrl(), po.getLastFamilyId(), po.getMergedInto(), po.getCreatedAt(), po.getDeactivatedAt(),
+                po.getDeletedAt());
     }
 
     static AccountPO toPO(Account a) {
@@ -114,6 +116,7 @@ public class MybatisAccountRepository implements AccountRepository {
         po.setMergedInto(a.mergedInto());
         po.setCreatedAt(a.createdAt());
         po.setDeactivatedAt(a.deactivatedAt());
+        po.setDeletedAt(a.deletedAt());
         return po;
     }
 }

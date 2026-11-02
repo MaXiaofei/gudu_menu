@@ -26,6 +26,9 @@ public interface ProfileRepository {
 
     void save(FamilyMemberProfile profile);
 
+    /** 软删除档案（member.deleted=1）：账号合并后被并掉的重复档案。幂等。 */
+    void softDelete(Long profileId);
+
     /** 健康档案由该账号提供（并单独同意）的档案，跨全部家庭（mini-release-compliance B.2 撤回同意用）。 */
     List<FamilyMemberProfile> findHealthProvidedBy(Long accountId);
 

@@ -37,6 +37,7 @@ class TenantGuardTest {
             "com.gudu.xsd.modules.ops.infrastructure.JdbcOpsStatsQuery",
             // 运营后台账号目录：只读全局表 account / account_ban / family_membership / family（不碰家庭域表）
             "com.gudu.xsd.modules.backoffice.infrastructure.JdbcAccountDirectoryQuery",
+            "com.gudu.xsd.modules.family.infrastructure.JdbcProfileReferences",
             // 食材使用频次：显式带 cooking_record.family_id 与 dish 可见性条件
             "com.gudu.xsd.modules.nutrition.infrastructure.JdbcIngredientUsageStats",
             // 食材引用检查 / 运营收编合并（V95）：平台级操作，按 ingredient_id 精确改指向，不读业务内容

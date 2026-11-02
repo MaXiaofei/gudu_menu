@@ -66,6 +66,18 @@ DELETE FROM family_invitation WHERE family_id IN (SELECT id FROM e2e_family);
 DELETE FROM family_membership WHERE family_id IN (SELECT id FROM e2e_family);
 DELETE FROM family WHERE id IN (SELECT id FROM e2e_family);
 DROP TEMPORARY TABLE IF EXISTS e2e_family;
+-- [V98 合并软删除] 被合并掉的 E2E 微信账号 W 已清空昵称 / openid / 手机号（保留 id、merged_into），
+-- 昵称与 openid 都认不出来：改按 merged_into 指向 E2E 账号识别，先登记 id，随账号一起清（须在删 P 之前）。
+DROP TEMPORARY TABLE IF EXISTS e2e_merged_w;
+CREATE TEMPORARY TABLE e2e_merged_w (id BIGINT NOT NULL PRIMARY KEY);
+INSERT IGNORE INTO e2e_merged_w(id)
+  SELECT w.id FROM account w JOIN account p ON p.id = w.merged_into
+  WHERE w.status = 'MERGED' AND (p.phone LIKE '1390000%' OR p.wx_openid LIKE 'E2E%');
+DELETE FROM account_merge_log WHERE source_id IN (SELECT id FROM e2e_merged_w);
+DELETE fm FROM family_membership fm JOIN e2e_merged_w x ON x.id = fm.account_id;
+DELETE m FROM member m JOIN e2e_merged_w x ON x.id = m.account_id;
+DELETE a FROM account a JOIN e2e_merged_w x ON x.id = a.id;
+DROP TEMPORARY TABLE IF EXISTS e2e_merged_w;
 -- E2E 账号在其他家庭（含默认家庭）的成员关系 / 档案 / 账号本身
 DELETE fm FROM family_membership fm JOIN account a ON a.id = fm.account_id
   WHERE a.phone LIKE '1390000%' OR a.wx_openid LIKE 'E2E%' OR (a.status = 'MERGED' AND a.phone IS NULL AND a.wx_openid IS NULL AND a.nickname LIKE 'E2E%');

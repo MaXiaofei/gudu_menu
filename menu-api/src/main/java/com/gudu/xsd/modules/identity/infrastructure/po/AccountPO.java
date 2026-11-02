@@ -40,4 +40,7 @@ public class AccountPO {
     private Long mergedInto;
     private LocalDateTime createdAt;
     private LocalDateTime deactivatedAt;
+    /** 软删除时间（V98）：被合并掉的账号非空；updateStrategy=ALWAYS 保证撤回时能写回 NULL。 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private LocalDateTime deletedAt;
 }

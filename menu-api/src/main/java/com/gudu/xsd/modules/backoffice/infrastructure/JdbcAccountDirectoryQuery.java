@@ -76,6 +76,8 @@ public class JdbcAccountDirectoryQuery implements AccountDirectoryQuery {
             w.append(" AND a.status = ?");
             args.add(s.status());
         }
+        // 被合并软删除的账号（V98）默认不出现在用户列表；运营显式筛「已合并」时才可见（审计合并记录用）
+        if (!"MERGED".equals(s.status())) w.append(" AND a.deleted_at IS NULL");
         if (s.bannedOnly()) w.append(" AND b.account_id IS NOT NULL");
         return w.toString();
     }

@@ -618,7 +618,17 @@ class GuduE2EFlowTest {
         // 手机号登录同样是 P，两个家庭都在
         JsonNode byPhone = post("/auth/login", Map.of("username", "13900000203", "password", E2E_PW));
         assertThat(byPhone.get("data").get("families")).hasSize(2);
-    }
+
+        // 合并软删除（V98）：被并掉的微信账号 W 默认不在后台用户列表；显式筛「已合并」才可见，且个人信息已清空
+        long wId = w.get("accountId").asLong();
+        String admin = loginAdmin();
+        JsonNode normal = get(admin, "/admin/accounts?keyword=" + wId);
+        assertThat(normal.get("code").asInt()).as(normal.toString()).isZero();
+        for (JsonNode r : normal.get("data").get("records")) assertThat(r.get("id").asLong()).isNotEqualTo(wId);
+        JsonNode mergedList = get(admin, "/admin/accounts?status=MERGED&keyword=" + wId);
+        JsonNode wRow = mergedList.get("data").get("records").get(0);
+        assertThat(wRow.get("id").asLong()).isEqualTo(wId);
+        assertThat(wRow.get("nickname").isNull() || wRow.get("nickname").asText().isEmpty()).isTrue();    }
 
     @Test
     void 账号合并_手机号账号已绑定其他微信_冲突_两个账号都不变() {
