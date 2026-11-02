@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/feature_switch.dart';
 import '../../models/menu.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/dish_image.dart';
@@ -45,6 +46,7 @@ class _MenuListPageState extends State<MenuListPage> {
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    FeatureSwitch.load(); // 一周餐程入口随开关显示
     _reload();
   }
 
@@ -338,6 +340,14 @@ class _MenuListPageState extends State<MenuListPage> {
   /// 筛选行：全部/进行中/已完成（SelectChip 与库存页同款）。
   /// AI 一周餐程入口（showcase-ai-community）：按成员档案排下周一到周日。
   Widget _weekPlanEntry(AppTokens t) {
+    // 一周餐程紧急关停时隐藏入口
+    return ValueListenableBuilder<bool>(
+      valueListenable: FeatureSwitch.mealPlan,
+      builder: (_, on, __) => on ? _weekPlanEntryBody(t) : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _weekPlanEntryBody(AppTokens t) {
     final ts = t.textStyles;
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppTokens.sp16, AppTokens.sp12, AppTokens.sp16, 0),

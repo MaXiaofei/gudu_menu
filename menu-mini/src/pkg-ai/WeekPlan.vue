@@ -2,6 +2,7 @@
   <page-meta :page-style="gdThemeStyle" />
   <!-- AI 一周餐程（prototype WeekPlan；周一至周日，默认下周）：约束 → 校验结果 → 7 天 × 午/晚 → 换一道 → 一键生成食集与采购。 -->
   <view class="page">
+    <ui-feature-paused feature="mealPlan" />
     <ui-back-header title="AI 一周餐程" :subtitle="rangeText">
       <template #action>
         <view class="redo" data-testid="plan-redo" @click="generate"><ui-icon name="undo" :size="14" /><text class="redo-txt">重新排</text></view>
@@ -89,6 +90,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { loadFeatureSwitches } from '@/utils/featureSwitch'
 import { onLoad } from '@dcloudio/uni-app'
 import {
   applyDraft,
@@ -143,6 +145,7 @@ const checkSub = computed(() => {
 })
 
 onLoad(async (q: any) => {
+  loadFeatureSwitches()
   members.value = await listMembers().catch(() => [])
   if (q?.draftId) {
     loading.value = true

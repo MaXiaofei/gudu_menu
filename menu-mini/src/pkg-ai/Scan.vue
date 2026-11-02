@@ -3,6 +3,8 @@
   <!-- 拍照识别（prototype Scan）：深色取景 → 冰箱 / 小票 / 菜谱截图 → 上传 → 识别任务轮询（已找到 N 样）→ 结果确认。
        小程序用 camera 组件拍照；H5 无 camera 组件，快门改为调起系统相机/相册。 -->
   <view class="page">
+    <!-- 拍照识别紧急关停：整页暂停提示 -->
+    <ui-feature-paused feature="vision" />
     <view class="top" :style="{ paddingTop: inset + 'px' }">
       <view class="circle" @click="goBack"><ui-icon name="x" tone="white" :size="18" /></view>
       <text class="top-title">拍照识别</text>
@@ -56,7 +58,8 @@
 <script setup lang="ts">
 import { toastChooseImageFail } from '@/utils/chooseImage'
 import { computed, ref } from 'vue'
-import { onUnload } from '@dcloudio/uni-app'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { loadFeatureSwitches } from '@/utils/featureSwitch'
 import { createJob, pollJob, MODE_LABEL, type VisionItem, type VisionMode } from '@/api/vision'
 import { uploadImage } from '@/api/upload'
 import { navInset } from '@/utils/token'
@@ -79,6 +82,9 @@ const found = ref<VisionItem[]>([])
 const jobId = ref(0)
 const imageUrl = ref('')
 let alive = true
+onLoad(() => {
+  loadFeatureSwitches()
+})
 onUnload(() => (alive = false))
 
 let isH5 = false

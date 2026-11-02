@@ -3,6 +3,7 @@
   <!-- 识别结果确认（prototype ScanResult；vision-intake spec）：≥0.8 默认勾选、0.5–0.8 标黄「请确认」在前、<0.5 不展示；
        名称可改、可选备选名、数量步进、保质期自动；点「放进余量」前不写库。菜谱截图模式展示识别出的菜谱。 -->
   <view class="page">
+    <ui-feature-paused feature="vision" />
     <ui-back-header title="确认识别结果">
       <template #action>
         <view class="again" @click="again"><ui-icon name="camera" :size="14" /><text class="again-txt">再拍一层</text></view>
@@ -67,6 +68,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { loadFeatureSwitches } from '@/utils/featureSwitch'
 import { onLoad } from '@dcloudio/uni-app'
 import { applyJob, getJob, toReviewRows, MODE_LABEL, type ReviewRow, type VisionJob } from '@/api/vision'
 import { saveDraft } from '@/api/dish'
@@ -81,6 +83,7 @@ const jobId = ref(0)
 const img = ref('')
 
 onLoad((q: any) => {
+  loadFeatureSwitches()
   jobId.value = Number(q?.jobId) || 0
   img.value = q?.img ? decodeURIComponent(q.img) : ''
   load()

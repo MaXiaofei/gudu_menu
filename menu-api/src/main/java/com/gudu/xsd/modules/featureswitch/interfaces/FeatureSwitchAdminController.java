@@ -40,6 +40,21 @@ public class FeatureSwitchAdminController {
         return R.ok(service.viewAll());
     }
 
+    @Data
+    public static class BatchReq {
+        /** 端：mp / app。 */
+        private String platform;
+        private Boolean enabled;
+        private String reason;
+    }
+
+    /** 某端一键切换全部 AI 类别（如小程序一键关闭全部；关停必须填原因，逐个记日志）。 */
+    @PutMapping("/batch")
+    public R<List<SwitchView>> setAll(@RequestBody BatchReq req) {
+        if (req == null || req.getPlatform() == null || req.getEnabled() == null) return R.fail("platform、enabled 不能为空");
+        return R.ok(service.setAll(StpUtil.getLoginIdAsLong(), req.getPlatform(), req.getEnabled(), req.getReason()));
+    }
+
     /** 切换某开关（关停必须填原因；记录操作人与时间；≤15 秒全部实例生效）。 */
     @PutMapping
     public R<SwitchView> set(@RequestBody SwitchReq req) {

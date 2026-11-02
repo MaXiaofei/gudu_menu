@@ -15,6 +15,8 @@ describe('utils/featureSwitch', () => {
   beforeEach(() => {
     featureStatus.agentChat = true
     featureStatus.cookAsk = true
+    featureStatus.vision = true
+    featureStatus.mealPlan = true
     __testUni.resetStorage()
     vi.mocked(__testUni.mocks.showToast).mockClear()
     vi.mocked(__testUni.mocks.request).mockReset()
@@ -93,5 +95,25 @@ describe('utils/featureSwitch', () => {
     const cook = useAgentChat({ context: { page: 'cook_mode' } as any })
     expect(await cook.send('没有豆瓣酱怎么办')).toBeNull()
     expect(cook.messages).toHaveLength(0)
+  })
+  it('request 收到 5034 / 5035：只置对应类别暂停、不弹 toast', async () => {
+    reply(5034, '拍照识别暂停服务')
+    await expect(request({ url: '/vision/jobs', method: 'POST' })).rejects.toThrow('拍照识别暂停服务')
+    expect(featureStatus).toMatchObject({ vision: false, mealPlan: true, agentChat: true, cookAsk: true })
+    reply(5035, '一周餐程暂停服务')
+    await expect(request({ url: '/mealplan/drafts', method: 'POST' })).rejects.toThrow('一周餐程暂停服务')
+    expect(featureStatus).toMatchObject({ vision: false, mealPlan: false, agentChat: true })
+    expect(__testUni.mocks.showToast).not.toHaveBeenCalled()
+    expect(noteSuspendedCode(5036)).toBe(false)
+  })
+
+  it('loadFeatureSwitches 读取 vision / mealPlan；旧后端缺字段按开', async () => {
+    __testUni.setStorage('token', 't')
+    reply(0, 'ok', { agentChat: true, cookAsk: true, vision: false, mealPlan: false })
+    await loadFeatureSwitches()
+    expect(featureStatus).toMatchObject({ vision: false, mealPlan: false })
+    reply(0, 'ok', { agentChat: true, cookAsk: true })
+    await loadFeatureSwitches()
+    expect(featureStatus).toMatchObject({ vision: true, mealPlan: true })
   })
 })

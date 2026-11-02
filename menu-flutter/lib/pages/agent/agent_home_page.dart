@@ -438,7 +438,16 @@ class _AgentHomePageState extends State<AgentHomePage> {
     );
   }
 
+  /// 拍照识别暂停时，去掉「拍冰箱 / 拍照」类快捷提问（其余照常）。
   Widget _prompts(AppTokens t, List<String> prompts) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: FeatureSwitch.vision,
+      builder: (_, visionOn, __) => _promptsBody(
+          t, visionOn ? prompts : prompts.where((p) => !(p.contains('拍冰箱') || p.contains('拍照'))).toList()),
+    );
+  }
+
+  Widget _promptsBody(AppTokens t, List<String> prompts) {
     final ts = t.textStyles;
     const icons = [Icons.kitchen_outlined, Icons.child_care_rounded, Icons.groups_2_outlined, Icons.photo_camera_outlined];
     return LayoutBuilder(builder: (_, c) {

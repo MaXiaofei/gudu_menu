@@ -13,6 +13,8 @@ import '../pages/mealplan/nutrition_report_page.dart';
 import '../pages/mealplan/week_plan_page.dart';
 import '../pages/notice/notices_page.dart';
 import '../pages/vision/scan_page.dart';
+import '../widgets/feature_paused_gate.dart';
+import 'feature_switch.dart';
 import '../pages/vision/scan_result_page.dart';
 import '../services/vision_service.dart';
 import '../pages/pantry/list_page.dart';
@@ -149,22 +151,31 @@ GoRouter createRouter(AuthStore auth) {
       // 拍照识别（?mode=fridge|receipt|recipe）→ 结果确认（extra {job, photo}）
       GoRoute(
         path: '/scan',
-        builder: (_, s) => ScanPage(
-          initialMode: VisionMode.values.firstWhere((m) => m.name == s.uri.queryParameters['mode'],
-              orElse: () => VisionMode.fridge),
+        builder: (_, s) => FeaturePausedGate(
+          feature: AiFeature.vision,
+          child: ScanPage(
+            initialMode: VisionMode.values.firstWhere((m) => m.name == s.uri.queryParameters['mode'],
+                orElse: () => VisionMode.fridge),
+          ),
         ),
       ),
       GoRoute(
         path: '/scan/result',
         builder: (_, s) {
           final e = s.extra as Map;
-          return ScanResultPage(job: e['job'] as VisionJob, photoPath: e['photo'] as String?);
+          return FeaturePausedGate(
+            feature: AiFeature.vision,
+            child: ScanResultPage(job: e['job'] as VisionJob, photoPath: e['photo'] as String?),
+          );
         },
       ),
       // 一周餐程（?draftId= 打开已有草稿）/ 营养报告（?memberId=）
       GoRoute(
         path: '/mealplan',
-        builder: (_, s) => WeekPlanPage(draftId: int.tryParse(s.uri.queryParameters['draftId'] ?? '')),
+        builder: (_, s) => FeaturePausedGate(
+          feature: AiFeature.mealPlan,
+          child: WeekPlanPage(draftId: int.tryParse(s.uri.queryParameters['draftId'] ?? '')),
+        ),
       ),
       GoRoute(
         path: '/nutrition',

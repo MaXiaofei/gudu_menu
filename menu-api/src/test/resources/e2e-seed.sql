@@ -126,8 +126,17 @@ DELETE FROM content_media_check WHERE trace_id LIKE 'E2E%' OR media_url LIKE '%/
 -- V85 厨房圈紧急关停开关：E2E 会关再开，兜底恢复为开（防中途失败把 staging 厨房圈关着），清 E2E 日志
 INSERT INTO sys_switch(switch_key, enabled) VALUES ('community.enabled', 1) ON DUPLICATE KEY UPDATE enabled = 1;
 -- V94 咕嘟助手 / 问咕嘟紧急关停开关：同上，兜底恢复为开
+-- V96 起按端拆分为 <类别>.mp / <类别>.app，并新增 ai.vision / ai.mealplan
 INSERT INTO sys_switch(switch_key, enabled) VALUES ('agent.chat.enabled', 1) ON DUPLICATE KEY UPDATE enabled = 1;
 INSERT INTO sys_switch(switch_key, enabled) VALUES ('agent.cook_ask.enabled', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('agent.chat.enabled.mp', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('agent.chat.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('agent.cook_ask.enabled.mp', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('agent.cook_ask.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.vision.enabled.mp', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.vision.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.mealplan.enabled.mp', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.mealplan.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
 DELETE FROM sys_switch_log WHERE reason LIKE 'E2E%';
 
 -- ============================================================

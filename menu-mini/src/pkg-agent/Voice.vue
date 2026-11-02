@@ -3,6 +3,7 @@
   <!-- 咕嘟 · 语音（prototype AgentVoice）：按住说话 → 上传语音 → 咕嘟识别并给出「做完回写」确认卡。
        小程序用 RecorderManager；H5 无录音权限时降级为打字。 -->
   <view class="page">
+    <ui-agent-paused />
     <view class="top" :style="{ paddingTop: inset + 'px' }">
       <text class="back" @click="goBack">‹</text>
       <text class="top-title">咕嘟 · 语音</text>

@@ -10,6 +10,7 @@ import 'package:menu_flutter/pages/agent/agent_conversation.dart';
 import 'package:menu_flutter/pages/cook/cook_mode_page.dart';
 import 'package:menu_flutter/services/agent_service.dart';
 import 'package:menu_flutter/widgets/agent_paused_gate.dart';
+import 'package:menu_flutter/widgets/feature_paused_gate.dart';
 import '../helpers/mock_http.dart';
 
 /// 咕嘟助手 / 问咕嘟紧急关停：5032 / 5033 切暂停状态（不弹报错）；暂停提示盖页；跟做模式隐藏问咕嘟。
@@ -135,5 +136,75 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('cook-ask')), findsOneWidget);
     await tester.pumpWidget(const SizedBox()); // 卸载页面，释放计时器
+  });
+
+  test('noteCode：5034 只关拍照识别，5035 只关一周餐程；messageOfCode 对应文案', () {
+    expect(FeatureSwitch.noteCode(5034), isTrue);
+    expect(FeatureSwitch.vision.value, isFalse);
+    expect(FeatureSwitch.mealPlan.value, isTrue);
+    expect(FeatureSwitch.agentChat.value, isTrue);
+    expect(FeatureSwitch.noteCode(5035), isTrue);
+    expect(FeatureSwitch.mealPlan.value, isFalse);
+    expect(FeatureSwitch.noteCode(5036), isFalse);
+    expect(FeatureSwitch.messageOfCode(5034), '拍照识别暂停服务，其他功能不受影响');
+    expect(FeatureSwitch.messageOfCode(5035), '一周餐程暂停服务，其他功能不受影响');
+    expect(FeatureSwitch.messageOfCode(500), isNull);
+  });
+
+  test('load：读取 vision / mealPlan；旧后端缺字段按开', () async {
+    var body = <String, dynamic>{'agentChat': true, 'cookAsk': true, 'vision': false, 'mealPlan': false};
+    installMock((_) => okResponse(body));
+    await FeatureSwitch.load();
+    expect(FeatureSwitch.vision.value, isFalse);
+    expect(FeatureSwitch.mealPlan.value, isFalse);
+    body = {'agentChat': true, 'cookAsk': true};
+    await FeatureSwitch.load();
+    expect(FeatureSwitch.vision.value, isTrue);
+    expect(FeatureSwitch.mealPlan.value, isTrue);
+  });
+
+  test('ApiClient 收到 5034 / 5035：置对应暂停、不弹 toast', () async {
+    String? toasted;
+    installMock((_) => errResponse(5034, '拍照识别暂停服务'), onErrorToast: (m) => toasted = m);
+    await expectLater(ApiClient.instance.post('/vision/jobs', body: {}), throwsA(isA<DioException>()));
+    expect(FeatureSwitch.vision.value, isFalse);
+    expect(FeatureSwitch.mealPlan.value, isTrue);
+    installMock((_) => errResponse(5035, '一周餐程暂停服务'), onErrorToast: (m) => toasted = m);
+    await expectLater(ApiClient.instance.post('/mealplan/drafts', body: {}), throwsA(isA<DioException>()));
+    expect(FeatureSwitch.mealPlan.value, isFalse);
+    expect(toasted, isNull);
+  });
+
+  for (final f in [AiFeature.vision, AiFeature.mealPlan]) {
+    testWidgets('FeaturePausedGate(${f.name})：暂停时显示「XX暂停服务」，恢复后回到原页面', (tester) async {
+      installMock((_) => okResponse({'agentChat': true, 'cookAsk': true, 'vision': true, 'mealPlan': true}));
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(extensions: const [AppTokens.cream]),
+        home: FeaturePausedGate(feature: f, showBack: false, child: const Text('页面内容')),
+      ));
+      expect(find.text('页面内容'), findsOneWidget);
+
+      FeatureSwitch.notifierOf(f).value = false;
+      await tester.pump();
+      expect(find.byKey(Key('${f.name}-paused')), findsOneWidget);
+      expect(find.text(FeatureSwitch.messageOf(f)), findsOneWidget);
+      expect(find.text('页面内容'), findsNothing);
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('再看看'));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pump();
+      expect(find.text('页面内容'), findsOneWidget);
+    });
+  }
+
+  testWidgets('FeaturePausedGate 只看自己的类别：咕嘟助手暂停不影响拍照识别页', (tester) async {
+    FeatureSwitch.agentChat.value = false;
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(extensions: const [AppTokens.cream]),
+      home: const FeaturePausedGate(feature: AiFeature.vision, child: Text('拍照页')),
+    ));
+    expect(find.text('拍照页'), findsOneWidget);
   });
 }

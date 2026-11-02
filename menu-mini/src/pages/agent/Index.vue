@@ -87,7 +87,7 @@
             <text class="sec-hint">说话或打字都行</text>
           </view>
           <view class="prompts">
-            <view v-for="(p, i) in prompts" :key="p" class="prompt" :data-testid="'prompt-' + i" @click="onPrompt(p)">
+            <view v-for="(p, i) in visiblePrompts" :key="p" class="prompt" :data-testid="'prompt-' + i" @click="onPrompt(p)">
               <view class="prompt-ic" :class="'t' + (i % 4)"><ui-icon :name="promptIcon(p)" :size="16" /></view>
               <text class="prompt-txt">{{ p }}</text>
             </view>
@@ -123,7 +123,7 @@
           data-testid="agent-input"
           @confirm="send"
         />
-        <view class="ipt-btn" aria-label="拍照识别" @click="go(PAGES.scan)"><ui-icon name="camera" :size="20" /></view>
+        <view v-if="featureStatus.vision" class="ipt-btn" aria-label="拍照识别" data-testid="agent-scan" @click="go(PAGES.scan)"><ui-icon name="camera" :size="20" /></view>
       </view>
       <view v-if="text.trim()" class="mic" aria-label="发送" data-testid="agent-send" @click="send"><ui-icon name="send" tone="white" :size="20" /></view>
       <view v-else-if="FEATURES.voice" class="mic" aria-label="语音" data-testid="agent-voice" @click="go(PAGES.agentVoice)"><ui-icon name="mic" tone="white" :size="20" /></view>
@@ -166,6 +166,8 @@ const heroIngKeys = computed(() => {
 })
 const expiring = ref<{ name: string; iconKey: string | null; daysLeft: number }[]>([])
 const prompts = ref<string[]>(DEFAULT_PROMPTS)
+/** 拍照识别暂停时，去掉「拍照入库」类快捷提问（其余照常）。 */
+const visiblePrompts = computed(() => prompts.value.filter((p) => featureStatus.vision || !(p.includes('拍') && p.includes('入库'))))
 const sessions = ref<AgentSessionItem[]>([])
 const faces = ref<{ name: string; avatarUrl?: string | null; tags?: string[] | null }[]>([])
 const unread = ref(0)
