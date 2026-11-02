@@ -65,8 +65,8 @@ describe('状态拉取：16 种组合逐项还原，互不影响', () => {
       await loadFeatureSwitches()
       expect({ ...featureStatus }).toEqual(c)
       expect(anyAiEnabled()).toBe(mask !== 0)
-      // 对话上下文：跟做模式看问咕嘟，其余看咕嘟助手
-      expect(canSendFor({ page: 'cook_mode' })).toBe(c.cookAsk)
+      // 对话上下文：咕嘟助手关停全拦；跟做模式还需问咕嘟开
+      expect(canSendFor({ page: 'cook_mode' })).toBe(c.agentChat && c.cookAsk)
       expect(canSendFor({ page: 'agent' })).toBe(c.agentChat)
       expect(canSendFor(null)).toBe(c.agentChat)
       expect(__testUni.getStorage(FEATURE_CACHE_KEY)).toEqual(c)
@@ -144,5 +144,12 @@ describe('协议 / 成员档案无 AI 版：边界', () => {
       Object.assign(featureStatus, combo(mask))
       expect(reportedDocVersion(), `mask=${mask}`).toBe(mask === 0 ? LEGAL_VERSION + '-noai' : LEGAL_VERSION)
     }
+  })
+
+  it('5036 / 5037（营养估算 / AI 帮写）不是小程序识别的暂停码：不改状态，走通用错误提示（后端文案可读）', () => {
+    const before = { ...featureStatus }
+    expect(noteSuspendedCode(5036)).toBe(false)
+    expect(noteSuspendedCode(5037)).toBe(false)
+    expect({ ...featureStatus }).toEqual(before)
   })
 })

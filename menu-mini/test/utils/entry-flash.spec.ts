@@ -122,7 +122,7 @@ describe('源码守卫：入口显隐统一走 entryOn', () => {
   it('咕嘟页：快捷提问过滤 / 临期按钮 / 问咕嘟 askOn 用 entryOn', () => {
     expect(read('pages/agent/Index.vue')).toContain("entryOn('vision') || !(p.includes('拍')")
     expect(tpl('pages/agent/Index.vue')).toMatch(/v-if="entryOn\('agentChat'\)" class="exp-btn"/)
-    expect(read('pkg-ai/CookMode.vue')).toContain("entryOn('cookAsk') && isLoggedIn()")
+    expect(read('pkg-ai/CookMode.vue')).toContain("entryOn('cookAsk') && entryOn('agentChat') && isLoggedIn()")
   })
   it('各 AI 页面都挂了覆盖层，并在进入时强制拉取', () => {
     for (const f of ['pkg-ai/Scan.vue', 'pkg-ai/ScanResult.vue', 'pkg-ai/WeekPlan.vue', 'pkg-agent/Chat.vue', 'pkg-agent/Voice.vue']) {

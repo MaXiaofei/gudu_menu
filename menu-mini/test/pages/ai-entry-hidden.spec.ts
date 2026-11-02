@@ -46,6 +46,6 @@ describe('咕嘟助手 / 问咕嘟', () => {
     }
     expect(tpl('pages/agent/Index.vue')).not.toContain('<ui-agent-paused')
     expect(tpl('pkg-ai/CookMode.vue')).toContain('askOn')
-    expect(readFileSync(resolve(__dirname, '../../src/pkg-ai/CookMode.vue'), 'utf8')).toContain("entryOn('cookAsk') && isLoggedIn()")
+    expect(readFileSync(resolve(__dirname, '../../src/pkg-ai/CookMode.vue'), 'utf8')).toContain("entryOn('cookAsk') && entryOn('agentChat') && isLoggedIn()")
   })
 })

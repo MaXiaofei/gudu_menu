@@ -90,7 +90,8 @@ import { COOK_AFTER_MODE_KEY } from '@/utils/nav'
 import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 
 /** 问咕嘟：游客不可用（需登录），登录后还要看紧急关停开关。 */
-const askOn = computed(() => entryOn('cookAsk') && isLoggedIn())
+// 跟做模式提问需「问咕嘟」与「咕嘟助手」都开放（后端同口径）
+const askOn = computed(() => entryOn('cookAsk') && entryOn('agentChat') && isLoggedIn())
 
 const inset = navInset()
 const dishId = ref(0)

@@ -79,11 +79,11 @@ describe('utils/featureSwitch', () => {
     expect(featureStatus).toMatchObject({ agentChat: true, cookAsk: true })
   })
 
-  it('canSendFor：cook_mode 看问咕嘟，其余看咕嘟助手', () => {
+  it('canSendFor：咕嘟助手关停全拦；cook_mode 需问咕嘟也开', () => {
     featureStatus.agentChat = false
     expect(canSendFor({ page: 'agent' })).toBe(false)
     expect(canSendFor(undefined)).toBe(false)
-    expect(canSendFor({ page: 'cook_mode' })).toBe(true)
+    expect(canSendFor({ page: 'cook_mode' })).toBe(false)
     featureStatus.agentChat = true
     featureStatus.cookAsk = false
     expect(canSendFor({ page: 'cook_mode' })).toBe(false)

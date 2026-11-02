@@ -15,6 +15,7 @@ export const AGENT_SUSPENDED = 5032
 export const COOK_ASK_SUSPENDED = 5033
 export const VISION_SUSPENDED = 5034
 export const MEALPLAN_SUSPENDED = 5035
+// 5036（营养估算）/ 5037（AI 帮写）不在此处理：小程序没有营养估算入口，AI 帮写失败时走通用 toast（后端文案「AI 帮写暂停服务」）
 export const MSG_AGENT_SUSPENDED = '咕嘟助手暂停服务，其他功能不受影响'
 export const MSG_COOK_ASK_SUSPENDED = '问咕嘟暂停服务，跟做模式其他功能照常使用'
 export const MSG_VISION_SUSPENDED = '拍照识别暂停服务，其他功能不受影响'
@@ -135,9 +136,10 @@ export function noteSuspendedCode(code: unknown): boolean {
   return true
 }
 
-/** 某个对话上下文当前是否可发消息（cook_mode 看问咕嘟，其余看咕嘟助手）。 */
+/** 某个对话上下文当前是否可发消息：咕嘟助手关停则全部不可发；跟做模式（cook_mode）还需问咕嘟开放（与后端一致）。 */
 export function canSendFor(context?: { page?: string } | null): boolean {
-  return context?.page === 'cook_mode' ? featureStatus.cookAsk : featureStatus.agentChat
+  if (!featureStatus.agentChat) return false
+  return context?.page === 'cook_mode' ? featureStatus.cookAsk : true
 }
 
 /**
@@ -159,7 +161,7 @@ export function resetFeatureRefreshClock(): void {
 }
 
 /**
- * 拉取本端状态（强制，不节流）。游客（无 token）也拉取：后端 GET /feature-switches 免登录、只返回四个布尔值，
+ * 拉取本端状态（强制，不节流）。游客（无 token）也拉取：后端 GET /feature-switches 免登录、只返回六个布尔值（小程序只认其中原四类），
  * 审核员未登录读协议时也要拿到真实状态。
  * - 并发时以「最后发起」的请求为准：序号落后的晚到响应直接丢弃，不覆盖新结果；
  * - 失败保持原状（本地缓存的上次结果；没有缓存则仍是「未知」，标签保守显示「推荐」），并通知订阅者按最新登录态重算；
