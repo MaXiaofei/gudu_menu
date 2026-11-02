@@ -52,6 +52,7 @@ class AgentAppServiceContentSecurityTest {
         when(orchestrator.run(any(), any(), any())).thenThrow(new IllegalStateException("只验证进入编排器前的处理"));
         LiveKitchenFactory kitchens = mock(LiveKitchenFactory.class);
         when(kitchens.forMember(any())).thenReturn(mock(Kitchen.class));
+        when(kitchens.forMember(any(), any())).thenReturn(mock(Kitchen.class));
         contentSecurity = mock(ContentSecurityAppService.class);
         svc = new AgentAppService(sessions, messages, mock(AgentTraceRepository.class), mock(PendingActionStore.class),
                 mock(AgentQuota.class), orchestrator, new ToolRegistry(), kitchens, mock(ModelGateway.class),

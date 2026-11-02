@@ -149,6 +149,12 @@ INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.vision.enabled.mp', 1) O
 INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.vision.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
 INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.mealplan.enabled.mp', 1) ON DUPLICATE KEY UPDATE enabled = 1;
 INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.mealplan.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+-- V99 新增营养估算 / AI 帮写。注意：生产 App 端默认关（行缺失也按关），E2E 的大量用例不带 X-Client（按 App）调 AI 接口，
+-- 所以种子在 staging 显式把 App 端也置为开；Z2 用例结束会一键恢复 mp / app 为开
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.estimate.enabled.mp', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.estimate.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.post_text.enabled.mp', 1) ON DUPLICATE KEY UPDATE enabled = 1;
+INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.post_text.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
 DELETE FROM sys_switch_log WHERE reason LIKE 'E2E%';
 
 -- ============================================================

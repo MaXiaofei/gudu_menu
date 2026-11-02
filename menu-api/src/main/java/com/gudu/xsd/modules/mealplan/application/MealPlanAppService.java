@@ -38,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -66,6 +67,14 @@ public class MealPlanAppService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setDishGuard(com.gudu.xsd.modules.dish.DishVisibilityGuard dishGuard) {
         this.dishGuard = dishGuard;
+    }
+
+    /** 一周餐程紧急关停兜底：生成草稿入口再校验一次，防止绕过控制器的路径（如对话工具）调到大模型；单测不注入则不校验。 */
+    private MealPlanSwitchPolicy switchPolicy;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSwitchPolicy(MealPlanSwitchPolicy switchPolicy) {
+        this.switchPolicy = switchPolicy;
     }
 
     private void requireVisible(Long dishId) {
@@ -126,6 +135,17 @@ public class MealPlanAppService {
         this.clock = clock;
         HeuristicMealArranger heuristic = new HeuristicMealArranger();
         this.planner = new MealPlanner(modelPort == null ? heuristic : new LlmMealArranger(modelPort, heuristic));
+    }
+
+    /**
+     * 生成草稿（会调大模型排餐）。
+     *
+     * @param platform 请求端；该端一周餐程关停则抛 5035（null 按 App，与 X-Client 缺省一致）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public MealPlanDraftView create(Long memberId, CreateDraftCommand cmd, Platform platform) {
+        if (switchPolicy != null) switchPolicy.requireEnabled(platform == null ? Platform.APP : platform);
+        return create(memberId, cmd);
     }
 
     @Transactional(rollbackFor = Exception.class)

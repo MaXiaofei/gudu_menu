@@ -81,6 +81,10 @@ class AiControllerTest {
     @MockBean
     private AiService svc;
 
+    /** 营养估算紧急关停判定（默认放行；关停场景在 EstimateSwitchPolicyTest 与下方用例里单测）。 */
+    @MockBean
+    private EstimateSwitchPolicy estimateSwitch;
+
     @MockBean
     private AiClientRouter router;
 
@@ -206,5 +210,19 @@ class AiControllerTest {
         n.setMetricId(metricId);
         n.setValue(new BigDecimal(val));
         return n;
+    }
+
+    @Test
+    void 营养估算关停_补全与估算接口抛5036_不调模型() throws Exception {
+        org.mockito.Mockito.doThrow(new com.gudu.xsd.common.BizException(5036, "营养估算暂停服务"))
+                .when(estimateSwitch).requireEnabled(any());
+        org.mockito.Mockito.doThrow(new com.gudu.xsd.common.BizException(5036, "营养估算暂停服务"))
+                .when(estimateSwitch).requireEnabledForFill(any());
+        mvc.perform(post("/ai/dish/estimate").header("X-Client", "mp-weixin").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"description\":\"一盘番茄炒蛋\",\"servingFactor\":1}"))
+                .andExpect(jsonPath("$.code").value(5036));
+        mvc.perform(post("/ai/nutrition/fill").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"番茄\"}"))
+                .andExpect(jsonPath("$.code").value(5036));
+        org.mockito.Mockito.verifyNoInteractions(svc);
     }
 }

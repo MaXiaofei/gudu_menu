@@ -54,6 +54,8 @@ public class PlanWeekTool implements AgentTool {
     @Override
     public ToolOutcome run(ToolContext ctx, Map<String, Object> args) {
         Kitchen k = ctx.kitchen();
+        // 紧急关停：一周餐程（该端）关停时不生成（含轻量草稿），让模型据此告知用户，其他功能不受影响
+        if (!k.mealPlanEnabled()) return ToolOutcome.fail("一周餐程暂停服务，其他功能不受影响");
         LocalDate today = k.now().toLocalDate();
         LocalDate start;
         String ws = str(args, "weekStart");

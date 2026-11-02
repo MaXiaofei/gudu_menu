@@ -4,6 +4,8 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.R;
 import com.gudu.xsd.modules.community.application.CommunityFeedAppService;
 import com.gudu.xsd.modules.community.application.CommunityPostAppService;
+import com.gudu.xsd.modules.community.application.PostTextSwitchPolicy;
+import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
 import com.gudu.xsd.modules.community.application.CommunityPostAppService.PublishCommand;
 import com.gudu.xsd.modules.community.application.dto.CommunityViews.AiText;
 import com.gudu.xsd.modules.community.application.dto.CommunityViews.Banner;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,6 +46,7 @@ public class CommunityController {
 
     private final CommunityPostAppService postAppService;
     private final CommunityFeedAppService feedAppService;
+    private final PostTextSwitchPolicy postTextSwitch;
 
     @Data
     public static class PublishReq {
@@ -176,7 +180,9 @@ public class CommunityController {
     }
 
     @PostMapping("/drafts/ai-text")
-    public R<AiText> aiText(@RequestBody AiTextReq req) {
+    public R<AiText> aiText(@RequestBody AiTextReq req,
+            @RequestHeader(value = com.gudu.xsd.common.web.ClientSource.HEADER, required = false) String client) {
+        postTextSwitch.requireEnabled(Platform.fromClientHeader(client)); // 紧急关停：不调模型
         return R.ok(postAppService.aiText(viewer(), req.getDishId(), req.getCookRecordId(), req.getStyle()));
     }
 

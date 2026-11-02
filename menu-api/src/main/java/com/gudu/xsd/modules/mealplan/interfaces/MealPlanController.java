@@ -53,8 +53,9 @@ public class MealPlanController {
     @PostMapping
     public R<MealPlanDraftView> create(@RequestBody(required = false) CreateDraftCommand cmd,
                                        @RequestHeader(value = ClientSource.HEADER, required = false) String client) {
-        switchPolicy.requireEnabled(Platform.fromClientHeader(client)); // 紧急关停：不生成、不调模型
-        return R.ok(safe(appService.create(com.gudu.xsd.common.security.CurrentMember.id(), cmd)));
+        Platform platform = Platform.fromClientHeader(client);
+        switchPolicy.requireEnabled(platform); // 紧急关停：不生成、不调模型（服务内另有兜底校验）
+        return R.ok(safe(appService.create(com.gudu.xsd.common.security.CurrentMember.id(), cmd, platform)));
     }
 
     @GetMapping("/{id}")

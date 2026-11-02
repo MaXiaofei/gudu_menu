@@ -98,4 +98,35 @@ class AgentSuggestionsPreferenceTest {
         verify(kitchens).forMember(MEMBER);
         verify(homeRecommend, never()).genericPicks(anyInt());
     }
+
+    @Test
+    void 一周餐程关停_通用快捷提问不再下发一周怎么吃() {
+        var meal = mock(com.gudu.xsd.modules.mealplan.application.MealPlanSwitchPolicy.class);
+        when(meal.isEnabled(com.gudu.xsd.modules.featureswitch.domain.model.Platform.MP)).thenReturn(false);
+        when(meal.isEnabled(com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP)).thenReturn(true);
+        svc.setMealPlanSwitch(meal);
+        when(preferences.personalizedRecommendEnabled(ACCOUNT)).thenReturn(false);
+        when(homeRecommend.genericPicks(anyInt())).thenReturn(List.of());
+
+        var mp = svc.suggestions(MEMBER, ACCOUNT, com.gudu.xsd.modules.featureswitch.domain.model.Platform.MP);
+        assertThat(mp.prompts()).containsExactly("今天吃什么", "有什么时令菜", "拍冰箱入库");
+        var app = svc.suggestions(MEMBER, ACCOUNT, com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP);
+        assertThat(app.prompts()).isEqualTo(AgentAppService.GENERIC_PROMPTS);
+    }
+
+    @Test
+    void 一周餐程关停_个性化快捷提问也去掉一周与辅食周计划() {
+        var meal = mock(com.gudu.xsd.modules.mealplan.application.MealPlanSwitchPolicy.class);
+        when(meal.isEnabled(any())).thenReturn(false);
+        svc.setMealPlanSwitch(meal);
+        when(preferences.personalizedRecommendEnabled(ACCOUNT)).thenReturn(true);
+        when(kitchen.members()).thenReturn(List.of());
+        when(kitchen.pantry()).thenReturn(List.of());
+        when(kitchen.recommendTonight(1, Set.of())).thenReturn(List.of());
+
+        var v = svc.suggestions(MEMBER, ACCOUNT, com.gudu.xsd.modules.featureswitch.domain.model.Platform.MP);
+        assertThat(v.prompts()).noneMatch(x -> x.contains("一周") || x.contains("这周辅食"));
+        assertThat(AgentAppService.withoutMealPlanPrompts(List.of("给朵朵安排这周辅食", "下周一周怎么吃", "冰箱里的能做什么")))
+                .containsExactly("冰箱里的能做什么");
+    }
 }

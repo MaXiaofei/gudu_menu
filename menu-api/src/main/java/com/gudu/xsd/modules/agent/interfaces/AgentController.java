@@ -126,7 +126,7 @@ public class AgentController {
                             "errorId", ""));
                     return;
                 }
-                svc.send(member, account, id, cmd, sink);
+                svc.send(member, account, id, cmd, platform, sink);
             } catch (RuntimeException e) {
                 sink.send("error", Map.of("code", 1, "message", e.getMessage() == null ? "出错了" : e.getMessage(),
                         "errorId", ""));
@@ -172,8 +172,10 @@ public class AgentController {
 
     @Operation(summary = "咕嘟首屏：问候、今晚推荐、快到期、快捷提问")
     @GetMapping("/suggestions")
-    public R<SuggestionsView> suggestions() {
-        return R.ok(svc.suggestions(me(), StpUtil.getLoginIdAsLong()));
+    public R<SuggestionsView> suggestions(
+            @RequestHeader(value = com.gudu.xsd.common.web.ClientSource.HEADER, required = false) String client) {
+        return R.ok(svc.suggestions(me(), StpUtil.getLoginIdAsLong(),
+                com.gudu.xsd.modules.featureswitch.domain.model.Platform.fromClientHeader(client)));
     }
 
     private static Long me() {

@@ -96,16 +96,42 @@ class FeatureSwitchAppServiceTest {
     static final Platform APP = Platform.APP;
 
     @Test
-    void 库里无记录_默认全开() {
+    void 库里无记录_小程序默认全开_App默认全关() {
         for (FeatureKey f : FeatureKey.values()) {
             assertThat(svc.isEnabled(f, MP)).isTrue();
-            assertThat(svc.isEnabled(f, APP)).isTrue();
+            assertThat(svc.isEnabled(f, APP)).isFalse();
         }
-        for (Platform p : Platform.values()) {
-            var st = svc.publicStatus(p);
-            assertThat(st.agentChat() && st.cookAsk() && st.vision() && st.mealPlan()).isTrue();
-        }
-        assertThat(svc.viewAll()).hasSize(8).allMatch(v -> v.enabled() && v.updatedBy() == null);
+        var mp = svc.publicStatus(MP);
+        assertThat(mp.agentChat() && mp.cookAsk() && mp.vision() && mp.mealPlan() && mp.estimate() && mp.postText()).isTrue();
+        var app = svc.publicStatus(APP);
+        assertThat(app.agentChat() || app.cookAsk() || app.vision() || app.mealPlan() || app.estimate() || app.postText())
+                .isFalse();
+        assertThat(svc.viewAll()).hasSize(12).allMatch(v -> v.updatedBy() == null)
+                .allMatch(v -> v.enabled() == v.platform().equals("mp"));
+    }
+
+    @Test
+    void 读库失败且从未读到_按端默认_小程序开App关_读到过则沿用() {
+        repo.failing = true;
+        assertThat(svc.isEnabled(FeatureKey.AGENT_CHAT, MP)).isTrue();
+        assertThat(svc.isEnabled(FeatureKey.AGENT_CHAT, APP)).isFalse();
+        // 已读到过 App 开：TTL 过后读库失败沿用上次值
+        repo.failing = false;
+        svc.set(7L, "agent.chat.enabled.app", true, null);
+        assertThat(svc.isEnabled(FeatureKey.AGENT_CHAT, APP)).isTrue();
+        clock.advance(FeatureSwitchAppService.CACHE_TTL.plusSeconds(1));
+        repo.failing = true;
+        assertThat(svc.isEnabled(FeatureKey.AGENT_CHAT, APP)).isTrue();
+    }
+
+    @Test
+    void 新增两类的键与类别名() {
+        assertThat(FeatureKey.ESTIMATE.key(MP)).isEqualTo("ai.estimate.enabled.mp");
+        assertThat(FeatureKey.ESTIMATE.category()).isEqualTo("estimate");
+        assertThat(FeatureKey.POST_TEXT.key(APP)).isEqualTo("ai.post_text.enabled.app");
+        assertThat(FeatureKey.POST_TEXT.category()).isEqualTo("postText");
+        assertThat(FeatureKey.ESTIMATE.label()).isEqualTo("营养估算");
+        assertThat(FeatureKey.POST_TEXT.label()).isEqualTo("AI 帮写");
     }
 
     @Test
@@ -130,12 +156,15 @@ class FeatureSwitchAppServiceTest {
     void 类别与端互不影响() {
         svc.set(7L, "agent.chat.enabled.mp", false, "内容风险");
         assertThat(svc.isEnabled(FeatureKey.AGENT_CHAT, MP)).isFalse();
-        assertThat(svc.isEnabled(FeatureKey.AGENT_CHAT, APP)).as("另一端不受影响").isTrue();
+        assertThat(svc.isEnabled(FeatureKey.AGENT_CHAT, APP)).as("另一端不受影响（App 默认关）").isFalse();
         assertThat(svc.isEnabled(FeatureKey.AGENT_COOK_ASK, MP)).isTrue();
         assertThat(svc.publicStatus(MP).agentChat()).isFalse();
         assertThat(svc.publicStatus(MP).cookAsk()).isTrue();
-        assertThat(svc.publicStatus(APP).agentChat()).isTrue();
+        assertThat(svc.publicStatus(APP).agentChat()).isFalse();
 
+        svc.set(7L, "ai.vision.enabled.app", true, null);
+        svc.set(7L, "ai.mealplan.enabled.app", true, null);
+        assertThat(svc.publicStatus(APP).vision()).isTrue();
         svc.set(7L, "ai.vision.enabled.app", false, "审核");
         assertThat(svc.publicStatus(APP).vision()).isFalse();
         assertThat(svc.publicStatus(MP).vision()).isTrue();
@@ -165,11 +194,11 @@ class FeatureSwitchAppServiceTest {
     @Test
     void 一键关闭某端全部_逐个留痕_另一端不动() {
         var views = svc.setAll(7L, "mp", false, "提审要求");
-        assertThat(views).hasSize(4).allMatch(v -> !v.enabled() && v.platform().equals("mp"));
-        assertThat(repo.logs).hasSize(4).allMatch(l -> l.key().endsWith(".mp") && "提审要求".equals(l.reason()));
+        assertThat(views).hasSize(6).allMatch(v -> !v.enabled() && v.platform().equals("mp"));
+        assertThat(repo.logs).hasSize(6).allMatch(l -> l.key().endsWith(".mp") && "提审要求".equals(l.reason()));
         for (FeatureKey f : FeatureKey.values()) {
             assertThat(svc.isEnabled(f, MP)).isFalse();
-            assertThat(svc.isEnabled(f, APP)).isTrue();
+            assertThat(svc.isEnabled(f, APP)).isFalse(); // App 默认关，不受影响
         }
         svc.setAll(7L, "mp", true, null);
         for (FeatureKey f : FeatureKey.values()) assertThat(svc.isEnabled(f, MP)).isTrue();

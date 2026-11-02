@@ -193,4 +193,20 @@ class MealPlanAppServiceTest {
         it.setIngredientId(ingredientId);
         return it;
     }
+
+    @Test
+    void 紧急关停兜底_带端生成入口_该端关停抛5035且不触碰排餐() {
+        var policy = org.mockito.Mockito.mock(com.gudu.xsd.modules.mealplan.application.MealPlanSwitchPolicy.class);
+        org.mockito.Mockito.doThrow(new com.gudu.xsd.common.BizException(5035, "一周餐程暂停服务"))
+                .when(policy).requireEnabled(com.gudu.xsd.modules.featureswitch.domain.model.Platform.MP);
+        svc.setSwitchPolicy(policy);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.create(10L, null,
+                        com.gudu.xsd.modules.featureswitch.domain.model.Platform.MP))
+                .isInstanceOfSatisfying(com.gudu.xsd.common.BizException.class, e -> assertThat(e.getCode()).isEqualTo(5035));
+        org.mockito.Mockito.verifyNoInteractions(catalog);
+        // 缺省端按 App 校验
+        svc.create(10L, null, null);
+        org.mockito.Mockito.verify(policy).requireEnabled(com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP);
+    }
 }

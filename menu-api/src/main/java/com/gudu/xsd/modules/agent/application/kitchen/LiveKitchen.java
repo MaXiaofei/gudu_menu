@@ -60,11 +60,15 @@ class LiveKitchen implements Kitchen {
 
     private final LiveKitchenFactory f;
     private final Long memberId;
+    /** 请求端；null 按 App（与 X-Client 缺省一致）。 */
+    private final com.gudu.xsd.modules.featureswitch.domain.model.Platform platform;
     private List<MemberInfo> membersCache;
 
-    LiveKitchen(LiveKitchenFactory f, Long memberId) {
+    LiveKitchen(LiveKitchenFactory f, Long memberId,
+                com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
         this.f = f;
         this.memberId = memberId;
+        this.platform = platform == null ? com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP : platform;
     }
 
     @Override
@@ -530,10 +534,15 @@ class LiveKitchen implements Kitchen {
     }
 
     @Override
+    public boolean mealPlanEnabled() {
+        return f.mealPlanSwitch.isEnabled(platform);
+    }
+
+    @Override
     public java.util.Optional<WeekPlan> draftWeekPlan(LocalDate weekStart, Integer servings, Integer weekdayMaxMinutes) {
         com.gudu.xsd.modules.mealplan.application.dto.MealPlanDraftView v = f.mealPlans.create(memberId,
                 new com.gudu.xsd.modules.mealplan.application.dto.CreateDraftCommand(weekStart, null, servings, null,
-                        weekdayMaxMinutes, null, true));
+                        weekdayMaxMinutes, null, true), platform); // 服务内再兜底校验一次一周餐程开关
         List<PlanDay> days = v.days().stream().map(d -> new PlanDay(d.date(), d.weekday(), d.slots().stream()
                 .map(s -> new PlanSlot(s.meal(), s.dish().id(), s.dish().name(), s.dish().coverUrl(), s.badges()))
                 .toList())).toList();

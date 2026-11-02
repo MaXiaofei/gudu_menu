@@ -5,14 +5,13 @@ import com.gudu.xsd.modules.featureswitch.domain.model.FeatureKey;
 import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** 紧急关停判定：cook_mode 看问咕嘟开关，其余看咕嘟助手开关；开着放行。 */
+/** 紧急关停判定：咕嘟助手关 → 全拒（5032）；问咕嘟关 → 只拒 cook_mode（5033）；开着放行。 */
 class AgentSwitchPolicyTest {
 
     private static final Platform MP = Platform.MP;
@@ -28,17 +27,6 @@ class AgentSwitchPolicyTest {
     }
 
     @Test
-    void 按上下文页面选开关() {
-        assertThat(AgentSwitchPolicy.keyOf(Map.of("page", "cook_mode"))).isEqualTo(FeatureKey.AGENT_COOK_ASK);
-        assertThat(AgentSwitchPolicy.keyOf(Map.of("page", "agent"))).isEqualTo(FeatureKey.AGENT_CHAT);
-        assertThat(AgentSwitchPolicy.keyOf(Map.of())).isEqualTo(FeatureKey.AGENT_CHAT);
-        assertThat(AgentSwitchPolicy.keyOf(null)).isEqualTo(FeatureKey.AGENT_CHAT);
-        Map<String, Object> nullPage = new HashMap<>();
-        nullPage.put("page", null);
-        assertThat(AgentSwitchPolicy.keyOf(nullPage)).isEqualTo(FeatureKey.AGENT_CHAT);
-    }
-
-    @Test
     void 全开放行() {
         var p = policy(true, true);
         assertThat(p.checkSend(Map.of("page", "cook_mode"), MP)).isEmpty();
@@ -46,21 +34,30 @@ class AgentSwitchPolicyTest {
     }
 
     @Test
-    void 咕嘟助手关闭_拦普通对话_不拦跟做模式问咕嘟() {
+    void 咕嘟助手关闭_拦所有发消息_包括跟做模式_不看自报的page() {
         var p = policy(false, true);
-        var b = p.checkSend(Map.of("page", "agent"), MP).orElseThrow();
-        assertThat(b.code()).isEqualTo(5032);
-        assertThat(b.message()).isEqualTo("咕嘟助手暂停服务");
-        assertThat(p.checkSend(Map.of("page", "cook_mode"), MP)).isEmpty();
+        for (Map<String, Object> ctx : java.util.Arrays.asList(Map.<String, Object>of("page", "agent"),
+                Map.<String, Object>of("page", "cook_mode"), Map.<String, Object>of("page", "随便填"), Map.<String, Object>of(), null)) {
+            var b = p.checkSend(ctx, MP).orElseThrow();
+            assertThat(b.code()).isEqualTo(5032);
+            assertThat(b.message()).isEqualTo("咕嘟助手暂停服务");
+        }
     }
 
     @Test
-    void 问咕嘟关闭_只拦跟做模式() {
+    void 问咕嘟关闭_只拦跟做模式_普通对话不拦() {
         var p = policy(true, false);
         var b = p.checkSend(Map.of("page", "cook_mode"), MP).orElseThrow();
         assertThat(b.code()).isEqualTo(5033);
         assertThat(b.message()).isEqualTo("问咕嘟暂停服务");
         assertThat(p.checkSend(Map.of("page", "agent"), MP)).isEmpty();
+        assertThat(p.checkSend(null, MP)).isEmpty();
+    }
+
+    @Test
+    void 两个都关_跟做模式先报咕嘟助手() {
+        var p = policy(false, false);
+        assertThat(p.checkSend(Map.of("page", "cook_mode"), MP).orElseThrow().code()).isEqualTo(5032);
     }
 
     @Test

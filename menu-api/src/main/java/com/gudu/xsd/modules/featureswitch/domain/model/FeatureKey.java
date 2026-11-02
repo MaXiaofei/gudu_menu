@@ -6,7 +6,7 @@ import java.util.Optional;
 /**
  * 生成式 AI 紧急关停开关的类别（每个类别按端各有一个 sys_switch 行）。
  * 库里的 switch_key = 类别基础键 + "." + 端（mp / app），如 {@code agent.chat.enabled.mp}。
- * 只用于出现内容风险 / 审核要求时一键关闭，默认开。
+ * 只用于出现内容风险 / 审核要求时一键关闭；小程序默认开，App 默认关（见 {@link Platform#defaultEnabled()}）。
  * 厨房圈开关（community.enabled）沿用 community 模块的原实现，不在此列。
  */
 public enum FeatureKey {
@@ -18,7 +18,11 @@ public enum FeatureKey {
     /** 拍照识别（创建识别任务）。 */
     VISION("ai.vision.enabled", "vision", "拍照识别"),
     /** 一周餐程（AI 生成草稿）。 */
-    MEAL_PLAN("ai.mealplan.enabled", "mealPlan", "一周餐程");
+    MEAL_PLAN("ai.mealplan.enabled", "mealPlan", "一周餐程"),
+    /** 营养估算（/ai/dish/estimate 一餐估算、/ai/nutrition/fill 食材营养补全；管理后台运营维护食材不受限）。 */
+    ESTIMATE("ai.estimate.enabled", "estimate", "营养估算"),
+    /** AI 帮写（厨房圈发帖文案生成）。 */
+    POST_TEXT("ai.post_text.enabled", "postText", "AI 帮写");
 
     private final String baseKey;
     private final String category;
@@ -40,7 +44,7 @@ public enum FeatureKey {
         return baseKey + "." + platform.code();
     }
 
-    /** 对外类别名（与用户侧接口字段一致）：agentChat / cookAsk / vision / mealPlan。 */
+    /** 对外类别名（与用户侧接口字段一致）：agentChat / cookAsk / vision / mealPlan / estimate / postText。 */
     public String category() {
         return category;
     }

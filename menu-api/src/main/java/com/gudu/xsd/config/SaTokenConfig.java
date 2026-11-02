@@ -62,7 +62,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
             "/dish/{id:\\d+}/nutrition",
             "/dict",
             "/dict/**",
-            // 本端 AI 开关状态：游客（含审核员未登录读协议）也要拿到真实状态；只返回四个布尔值，无任何用户信息
+            // 本端 AI 开关状态：游客（含审核员未登录读协议）也要拿到真实状态；只返回六个布尔值，无任何用户信息
             "/feature-switches",
             "/ingredient",
             "/ingredient/{id:\\d+}",

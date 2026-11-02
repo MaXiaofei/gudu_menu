@@ -30,6 +30,11 @@ public enum Platform {
         return label;
     }
 
+    /** 库里没有开关记录时该端的默认状态：小程序开，App 关（App 暂未上线，防止入口被恶意调用；上线时由运营在后台逐项打开）。 */
+    public boolean defaultEnabled() {
+        return this == MP;
+    }
+
     /** 由 X-Client 请求头判定端；缺省 / 未知按 App。 */
     public static Platform fromClientHeader(String clientHeader) {
         return ClientSource.isMiniProgram(clientHeader) ? MP : APP;

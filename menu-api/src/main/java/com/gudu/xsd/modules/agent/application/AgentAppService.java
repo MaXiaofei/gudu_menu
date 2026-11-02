@@ -62,6 +62,24 @@ import java.util.UUID;
 @Service
 public class AgentAppService {
 
+    /** 一周餐程开关（关停时不再下发「一周怎么吃」类快捷提问）；setter 注入以保持既有构造器与单测。 */
+    private com.gudu.xsd.modules.mealplan.application.MealPlanSwitchPolicy mealPlanSwitch;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setMealPlanSwitch(com.gudu.xsd.modules.mealplan.application.MealPlanSwitchPolicy mealPlanSwitch) {
+        this.mealPlanSwitch = mealPlanSwitch;
+    }
+
+    /** 该端一周餐程是否开放；未标明端按 App。没有注入开关时（单测）视为开。 */
+    private boolean mealPlanOn(com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
+        return mealPlanSwitch == null || mealPlanSwitch.isEnabled(platform == null ? com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP : platform);
+    }
+
+    /** 一周餐程关停时，去掉会引导用户去排一周餐程的快捷提问。 */
+    static List<String> withoutMealPlanPrompts(List<String> prompts) {
+        return prompts.stream().filter(p -> !p.contains("一周") && !p.contains("这周辅食")).toList();
+    }
+
     static final int HISTORY_MESSAGES = 20;
     /** 未通过内容安全的用户输入不落原文（也就不会作为历史再发给模型）。 */
     static final String BLOCKED_INPUT_PLACEHOLDER = "（该消息未通过内容安全检测，已屏蔽）";
@@ -171,6 +189,14 @@ public class AgentAppService {
      * @param accountId 登录账号（内容安全按它取 openid；memberId 是当前就餐成员，可能是没有 openid 的家庭成员档案）
      */
     public TurnResult send(Long memberId, Long accountId, String sessionId, SendCommand cmd, AgentEventSink sink) {
+        return send(memberId, accountId, sessionId, cmd, null, sink);
+    }
+
+    /**
+     * @param platform 请求端（X-Client 判定；工具里的一周餐程等生成能力据此判断该端开关，null 按 App）
+     */
+    public TurnResult send(Long memberId, Long accountId, String sessionId, SendCommand cmd, com.gudu.xsd.modules.featureswitch.domain.model.Platform platform,
+                           AgentEventSink sink) {
         AgentSession session = own(memberId, sessionId);
         String traceId = "tr_" + uuid();
         String text = cmd.text() == null ? "" : cmd.text().trim();
@@ -188,7 +214,7 @@ public class AgentAppService {
         List<ChatMessage> history = history(sessionId);
         messages.save(userMsg);
         boolean forceRule = !quota.consume(memberId, dailyLimit);
-        Kitchen kitchen = kitchens.forMember(memberId);
+        Kitchen kitchen = kitchens.forMember(memberId, platform);
         AgentOrchestrator.Env env = new AgentOrchestrator.Env(kitchen, new ActionDesk(actionStore, kitchen), gateway, Map.of(),
                 gate);
         TurnResult r;
@@ -364,12 +390,21 @@ public class AgentAppService {
      * @param accountId 登录账号（偏好按账号存）
      */
     public SuggestionsView suggestions(Long memberId, Long accountId) {
-        if (!preferences.personalizedRecommendEnabled(accountId)) return genericSuggestions();
-        return suggestions(memberId);
+        return suggestions(memberId, accountId, null);
+    }
+
+    /** @param platform 请求端：该端一周餐程关停时不下发「一周怎么吃」类快捷提问（null 按 App） */
+    public SuggestionsView suggestions(Long memberId, Long accountId, com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
+        if (!preferences.personalizedRecommendEnabled(accountId)) return genericSuggestions(platform);
+        return suggestions(memberId, platform);
     }
 
     /** 不针对个人特征的首屏建议。 */
     SuggestionsView genericSuggestions() {
+        return genericSuggestions(null);
+    }
+
+    SuggestionsView genericSuggestions(com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
         List<DishCard> picks = homeRecommend.genericPicks(1);
         Map<String, Object> tonight = null;
         if (!picks.isEmpty()) {
@@ -383,7 +418,8 @@ public class AgentAppService {
             tonight.put("coverage", Map.of("have", 0, "total", 0, "missing", List.of()));
             tonight.put("tags", List.of());
         }
-        return new SuggestionsView(greeting(now().getHour()), tonight, List.of(), GENERIC_PROMPTS);
+        return new SuggestionsView(greeting(now().getHour()), tonight, List.of(),
+                mealPlanOn(platform) ? GENERIC_PROMPTS : withoutMealPlanPrompts(GENERIC_PROMPTS));
     }
 
     static final List<String> GENERIC_PROMPTS = List.of("今天吃什么", "下周一周怎么吃", "有什么时令菜", "拍冰箱入库");
@@ -393,6 +429,10 @@ public class AgentAppService {
     }
 
     public SuggestionsView suggestions(Long memberId) {
+        return suggestions(memberId, (com.gudu.xsd.modules.featureswitch.domain.model.Platform) null);
+    }
+
+    public SuggestionsView suggestions(Long memberId, com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
         Kitchen k = kitchens.forMember(memberId);
         LocalDateTime now = k.now();
         List<MemberInfo> members = k.members();
@@ -412,7 +452,7 @@ public class AgentAppService {
         prompts.add("拍冰箱入库");
         return new SuggestionsView(hello + (me.isEmpty() ? "" : "，" + me),
                 tonight.isEmpty() ? null : com.gudu.xsd.modules.agent.application.tools.DishCards.of(tonight.get(0)),
-                expiring, prompts.stream().limit(4).toList());
+                expiring, (mealPlanOn(platform) ? prompts : withoutMealPlanPrompts(prompts)).stream().limit(4).toList());
     }
 
     // ================================================================== 视图

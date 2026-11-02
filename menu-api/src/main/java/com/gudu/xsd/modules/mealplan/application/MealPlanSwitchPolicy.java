@@ -22,6 +22,11 @@ public class MealPlanSwitchPolicy {
         this.switches = switches;
     }
 
+    /** 该端一周餐程是否开放。 */
+    public boolean isEnabled(Platform platform) {
+        return switches.isEnabled(FeatureKey.MEAL_PLAN, platform);
+    }
+
     /** 该端已关停则抛 5035。 */
     public void requireEnabled(Platform platform) {
         if (!switches.isEnabled(FeatureKey.MEAL_PLAN, platform)) {

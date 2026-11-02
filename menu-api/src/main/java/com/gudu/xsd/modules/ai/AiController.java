@@ -13,6 +13,7 @@ import com.gudu.xsd.modules.ai.dto.MenuRecommendRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillRequest;
 import com.gudu.xsd.modules.ai.dto.NutritionFillResponse;
 import cn.dev33.satoken.stp.StpUtil;
+import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
 import com.gudu.xsd.modules.member.MpPerm;
 import com.gudu.xsd.modules.preference.application.UserPreferenceAppService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * AI 能力接口：营养补全 + 菜单推荐。挂 {@code @MpPerm("ai.use")}。
+ * AI 能力接口：营养补全 + 菜单推荐 + 一餐营养估算（补全 / 估算受「营养估算」紧急关停开关控制）。挂 {@code @MpPerm("ai.use")}。
  * 范式照 PantryController / DishController：返回 R<T>，@Tag 分组。
  */
 @RestController
@@ -38,12 +39,15 @@ public class AiController {
     private final AiCallLogService callLogSvc;
     private final UserPreferenceAppService preferences;
     private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+    private final EstimateSwitchPolicy estimateSwitch;
 
     /** 营养补全：按食材名返回 per100g 6 项指标（可选 ingredientId 落库到该食材）。 */
     @PostMapping("/nutrition/fill")
     @AiRateLimited
     @MpPerm("ai.use")
-    public R<NutritionFillResponse> fillNutrition(@RequestBody NutritionFillRequest req) {
+    public R<NutritionFillResponse> fillNutrition(@RequestBody NutritionFillRequest req,
+            @RequestHeader(value = com.gudu.xsd.common.web.ClientSource.HEADER, required = false) String client) {
+        estimateSwitch.requireEnabledForFill(Platform.fromClientHeader(client)); // 紧急关停（后台运营豁免）：不调模型
         return R.ok(svc.fillNutrition(req));
     }
 
@@ -67,7 +71,9 @@ public class AiController {
     @PostMapping("/dish/estimate")
     @AiRateLimited
     @MpPerm("ai.use")
-    public R<DishEstimateResponse> estimateDish(@RequestBody DishEstimateRequest req) {
+    public R<DishEstimateResponse> estimateDish(@RequestBody DishEstimateRequest req,
+            @RequestHeader(value = com.gudu.xsd.common.web.ClientSource.HEADER, required = false) String client) {
+        estimateSwitch.requireEnabled(Platform.fromClientHeader(client)); // 紧急关停：不调模型
         DishEstimateResponse r = svc.estimateDish(req);
         // AI 生成文本输出检测：估算说明违规则替换为安全提示（description 是用户自己的输入回显，不再检）
         return R.ok(new DishEstimateResponse(r.description(), r.nutrition(), r.source(),

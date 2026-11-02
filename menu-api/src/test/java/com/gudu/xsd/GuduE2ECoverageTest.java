@@ -1634,20 +1634,21 @@ class GuduE2ECoverageTest {
         String admin = loginAdmin();
         String chef = loginAs("13900000088", "chef123");
 
-        // 非运营不能切换；用户侧状态接口免登录（游客也可读），默认全开（小程序 / App 各自返回）
+        // 非运营不能切换；用户侧状态接口免登录（游客也可读）。库里小程序 / App 两端的行都由种子置为开
+        // （生产环境 App 端行缺失默认关，E2E 种子显式打开，因为其余用例不带 X-Client 调 AI 接口）
         JsonNode denied = put(chef, "/admin/feature-switches",
                 Map.of("key", "agent.chat.enabled.app", "enabled", false, "reason", "E2E越权"));
         assertThat(denied.get("code").asInt()).as("非运营 msg=" + text(denied, "msg")).isNotZero();
         for (String client : new String[]{null, "mp-weixin"}) {
             JsonNode st0 = callAs(chef, client, HttpMethod.GET, "/feature-switches", null);
-            for (String f : new String[]{"agentChat", "cookAsk", "vision", "mealPlan"}) {
+            for (String f : new String[]{"agentChat", "cookAsk", "vision", "mealPlan", "estimate", "postText"}) {
                 assertThat(st0.get("data").get(f).asBoolean()).as(f + " client=" + client).isTrue();
             }
         }
-        // 游客（不带登录态）也能读本端状态：只有四个布尔值，无用户信息
+        // 游客（不带登录态）也能读本端状态：只有六个布尔值，无用户信息
         JsonNode guest = callAs("", "mp-weixin", HttpMethod.GET, "/feature-switches", null);
         assertThat(guest.get("code").asInt()).as("游客可读 msg=" + text(guest, "msg")).isZero();
-        assertThat(guest.get("data").size()).isEqualTo(4);
+        assertThat(guest.get("data").size()).isEqualTo(6);
         assertThat(guest.get("data").get("agentChat").asBoolean()).isTrue();
 
         String sid = post(chef, "/agent/sessions", Map.of("title", "E2E开关")).get("data").get("sessionId").asText();
@@ -1675,19 +1676,23 @@ class GuduE2ECoverageTest {
             String blocked = sendAgentMessage(chef, sid, Map.of("text", "E2E你好"), "mp-weixin");
             assertThat(blocked).contains("event:error").contains("5032").contains("咕嘟助手暂停服务");
             String cook = sendAgentMessage(chef, sid, Map.of("text", "E2E这步怎么做", "context", Map.of("page", "cook_mode")), "mp-weixin");
-            assertThat(cook).doesNotContain("5032");
+            // 咕嘟助手关停 → cook_mode 也被拦（不看自报的 page；需两个开关都开）
+            assertThat(cook).contains("5032").doesNotContain("5033");
             assertThat(sendAgentMessage(chef, sid, Map.of("text", "E2E你好"), null)).as("App 照常").doesNotContain("5032");
 
             // 不拦：会话与历史查看
             assertThat(get(chef, "/agent/sessions/" + sid + "/messages").get("code").asInt()).isZero();
             assertThat(get(chef, "/agent/sessions").get("code").asInt()).isZero();
 
-            // 问咕嘟（小程序）关停：只拦 cook_mode
+            // 恢复咕嘟助手，再测问咕嘟（小程序）关停：只拦 cook_mode，普通对话不受影响
+            assertThat(put(admin, "/admin/feature-switches",
+                    Map.of("key", "agent.chat.enabled.mp", "enabled", true)).get("code").asInt()).isZero();
             assertThat(put(admin, "/admin/feature-switches",
                     Map.of("key", "agent.cook_ask.enabled.mp", "enabled", false, "reason", "E2E问咕嘟关停"))
                     .get("code").asInt()).isZero();
             String cookBlocked = sendAgentMessage(chef, sid, Map.of("text", "E2E这步怎么做", "context", Map.of("page", "cook_mode")), "mp-weixin");
             assertThat(cookBlocked).contains("5033").contains("问咕嘟暂停服务");
+            assertThat(sendAgentMessage(chef, sid, Map.of("text", "E2E你好"), "mp-weixin")).doesNotContain("5033").doesNotContain("5032");
 
             // 拍照识别 / 一周餐程：小程序一键关闭全部（同一原因，逐个记日志）
             JsonNode noReasonAll = put(admin, "/admin/feature-switches/batch", Map.of("platform", "mp", "enabled", false));
@@ -1695,13 +1700,17 @@ class GuduE2ECoverageTest {
             JsonNode all = put(admin, "/admin/feature-switches/batch",
                     Map.of("platform", "mp", "enabled", false, "reason", "E2E小程序全关"));
             assertThat(all.get("code").asInt()).as("batch msg=" + text(all, "msg")).isZero();
-            assertThat(all.get("data")).hasSize(4);
+            assertThat(all.get("data")).hasSize(6);
 
             JsonNode visionMp = callAs(chef, "mp-weixin", HttpMethod.POST, "/vision/jobs",
                     Map.of("imageUrl", "https://example.com/e2e/x.jpg", "mode", "FRIDGE"));
             assertThat(visionMp.get("code").asInt()).isEqualTo(5034);
             JsonNode planMp = callAs(chef, "mp-weixin", HttpMethod.POST, "/mealplan/drafts", Map.of());
             assertThat(planMp.get("code").asInt()).isEqualTo(5035);
+            // 营养估算：小程序端被拦(5036)，不调模型（用 admin 家庭身份，有 ai.use 权限）
+            JsonNode estMp = callAs(admin, "mp-weixin", HttpMethod.POST, "/ai/dish/estimate",
+                    Map.of("description", "E2E一盘番茄炒蛋", "servingFactor", 1));
+            assertThat(estMp.get("code").asInt()).as("estimate mp msg=" + text(estMp, "msg")).isEqualTo(5036);
             // App 端不受影响（不是 5034 / 5035）
             JsonNode planApp = callAs(chef, null, HttpMethod.POST, "/mealplan/drafts", Map.of());
             assertThat(planApp.get("code").asInt()).isNotEqualTo(5035);
@@ -1713,9 +1722,25 @@ class GuduE2ECoverageTest {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_switch_log WHERE switch_key = 'agent.chat.enabled.mp' "
                     + "AND enabled = 0 AND reason = 'E2E紧急关停' AND operator_id IS NOT NULL", Integer.class)).isEqualTo(1);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_switch_log WHERE switch_key LIKE '%.mp' "
-                    + "AND enabled = 0 AND reason = 'E2E小程序全关'", Integer.class)).isEqualTo(4);
+                    + "AND enabled = 0 AND reason = 'E2E小程序全关'", Integer.class)).isEqualTo(6);
             JsonNode list = get(admin, "/admin/feature-switches");
-            assertThat(list.get("data")).hasSize(8);
+            assertThat(list.get("data")).hasSize(12);
+
+            // AI 帮写（App 端关停 → 不带 X-Client 的 ai-text 返回 5037；小程序端该接口另被厨房圈守卫拦，故用 App 端验）
+            assertThat(put(admin, "/admin/feature-switches",
+                    Map.of("key", "ai.post_text.enabled.app", "enabled", false, "reason", "E2E帮写关停")).get("code").asInt()).isZero();
+            JsonNode textApp = callAs(admin, null, HttpMethod.POST, "/community/drafts/ai-text", Map.of("style", "short"));
+            assertThat(textApp.get("code").asInt()).as("ai-text msg=" + text(textApp, "msg")).isEqualTo(5037);
+
+            // 运营豁免：App 端营养估算关停时，管理后台（scope=admin）补全食材营养不受限，普通接口（一餐估算）仍被拦
+            assertThat(put(admin, "/admin/feature-switches",
+                    Map.of("key", "ai.estimate.enabled.app", "enabled", false, "reason", "E2E估算关停")).get("code").asInt()).isZero();
+            String adminScope = loginAdminScope();
+            JsonNode fillOps = callAs(adminScope, null, HttpMethod.POST, "/ai/nutrition/fill", Map.of("name", "E2E番茄"));
+            assertThat(fillOps.get("code").asInt()).as("后台运营补全豁免 msg=" + text(fillOps, "msg")).isNotEqualTo(5036);
+            JsonNode estApp = callAs(admin, null, HttpMethod.POST, "/ai/dish/estimate",
+                    Map.of("description", "E2E一盘番茄炒蛋", "servingFactor", 1));
+            assertThat(estApp.get("code").asInt()).isEqualTo(5036);
         } finally {
             put(admin, "/admin/feature-switches/batch", Map.of("platform", "mp", "enabled", true, "reason", "E2E恢复"));
             put(admin, "/admin/feature-switches/batch", Map.of("platform", "app", "enabled", true, "reason", "E2E恢复"));
@@ -1723,7 +1748,7 @@ class GuduE2ECoverageTest {
         }
         for (String client : new String[]{null, "mp-weixin"}) {
             JsonNode st = callAs(chef, client, HttpMethod.GET, "/feature-switches", null);
-            for (String f : new String[]{"agentChat", "cookAsk", "vision", "mealPlan"}) {
+            for (String f : new String[]{"agentChat", "cookAsk", "vision", "mealPlan", "estimate", "postText"}) {
                 assertThat(st.get("data").get(f).asBoolean()).isTrue();
             }
         }

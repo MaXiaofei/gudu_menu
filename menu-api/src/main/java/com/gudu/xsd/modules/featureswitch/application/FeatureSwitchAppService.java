@@ -23,11 +23,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 按 switch_key 通用的紧急关停开关服务：4 类生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程）× 2 端（小程序 / App）。
+ * 按 switch_key 通用的紧急关停开关服务：6 类生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程、营养估算、AI 帮写）× 2 端（小程序 / App）。
  *
- * <p>只用于出现内容风险 / 审核要求时一键关闭，默认开。
+ * <p>只用于出现内容风险 / 审核要求时一键关闭；开关行缺失时小程序默认开、App 默认关。
  * 读路径走进程内短缓存 {@link #CACHE_TTL}：本实例切换立即生效，其他实例最迟 TTL 后生效。
- * 读库失败时沿用上次已知值（从未读到则视为开）。
+ * 读库失败时沿用上次已知值（从未读到则取该端默认：小程序开、App 关）。
  */
 @Slf4j
 @Service
@@ -56,7 +56,7 @@ public class FeatureSwitchAppService {
      * 管理后台：一个（类别 × 端）开关的当前状态与最近修改记录。
      *
      * @param key      完整 switch_key（带端后缀）
-     * @param category 类别名：agentChat / cookAsk / vision / mealPlan
+     * @param category 类别名：agentChat / cookAsk / vision / mealPlan / estimate / postText
      * @param label    类别中文名
      * @param platform 端：mp / app
      */
@@ -66,7 +66,8 @@ public class FeatureSwitchAppService {
     }
 
     /** 用户侧只读状态（按请求端；客户端据此隐藏入口）。 */
-    public record PublicStatus(boolean agentChat, boolean cookAsk, boolean vision, boolean mealPlan) {
+    public record PublicStatus(boolean agentChat, boolean cookAsk, boolean vision, boolean mealPlan,
+                              boolean estimate, boolean postText) {
     }
 
     /** 是否开放（带短缓存，拦截判定用）。 */
@@ -77,9 +78,9 @@ public class FeatureSwitchAppService {
         if (c != null && now.isBefore(c.expiresAt())) return c.enabled();
         boolean enabled;
         try {
-            enabled = repository.load(key).map(FeatureSwitch::enabled).orElse(true);
+            enabled = repository.load(key).map(FeatureSwitch::enabled).orElse(platform.defaultEnabled());
         } catch (RuntimeException e) {
-            enabled = c == null || c.enabled();
+            enabled = c == null ? platform.defaultEnabled() : c.enabled();
             log.warn("读取开关 {} 失败，沿用 {}：{}", key, enabled ? "开" : "关", e.getMessage());
         }
         cache.put(key, new Cached(enabled, now.plus(CACHE_TTL)));
@@ -91,7 +92,9 @@ public class FeatureSwitchAppService {
         return new PublicStatus(isEnabled(FeatureKey.AGENT_CHAT, platform),
                 isEnabled(FeatureKey.AGENT_COOK_ASK, platform),
                 isEnabled(FeatureKey.VISION, platform),
-                isEnabled(FeatureKey.MEAL_PLAN, platform));
+                isEnabled(FeatureKey.MEAL_PLAN, platform),
+                isEnabled(FeatureKey.ESTIMATE, platform),
+                isEnabled(FeatureKey.POST_TEXT, platform));
     }
 
     /** 管理后台：全部开关（类别 × 端，不走缓存）。 */
@@ -102,7 +105,7 @@ public class FeatureSwitchAppService {
 
     public SwitchView view(FeatureKey feature, Platform platform) {
         String key = feature.key(platform);
-        FeatureSwitch s = repository.load(key).orElse(FeatureSwitch.defaultOn(key));
+        FeatureSwitch s = repository.load(key).orElse(FeatureSwitch.defaultFor(key, platform));
         return new SwitchView(key, feature.category(), feature.label(), platform.code(), s.enabled(), s.updatedBy(),
                 s.updatedByName(), s.updatedAt(), s.reason(), repository.recentChanges(key, RECENT_CHANGES));
     }

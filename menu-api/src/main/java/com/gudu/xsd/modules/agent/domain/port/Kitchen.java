@@ -62,6 +62,11 @@ public interface Kitchen {
 
     WriteResult addPantry(List<PantryLine> items);
 
+    /** 一周餐程（生成式，调大模型排餐）在当前请求端是否开放；关停时 plan_week 不得生成。评测夹具恒为开。 */
+    default boolean mealPlanEnabled() {
+        return true;
+    }
+
     /**
      * 生成一周餐程草稿（mealplan 上下文：规则过滤 → 排布 → 校验回环，可在「一周餐程」页换菜后生成食集）。
      * 只写草稿、不动食集与余量，因此按读工具对待。评测夹具不支持时为空，工具退回轻量草稿。

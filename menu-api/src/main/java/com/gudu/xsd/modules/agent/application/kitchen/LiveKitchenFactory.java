@@ -37,9 +37,15 @@ public class LiveKitchenFactory {
     final HomeRecommendAppService homeRecommend;
     final ShoppingService shoppingService;
     final MealPlanAppService mealPlans;
+    final com.gudu.xsd.modules.mealplan.application.MealPlanSwitchPolicy mealPlanSwitch;
     final Clock clock;
 
     public Kitchen forMember(Long memberId) {
-        return new LiveKitchen(this, memberId);
+        return new LiveKitchen(this, memberId, null);
+    }
+
+    /** @param platform 请求端（X-Client 判定）；工具里的生成类能力据此检查该端开关，null 按 App。 */
+    public Kitchen forMember(Long memberId, com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
+        return new LiveKitchen(this, memberId, platform);
     }
 }

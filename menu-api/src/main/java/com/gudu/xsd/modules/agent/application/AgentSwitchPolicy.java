@@ -12,7 +12,9 @@ import java.util.Optional;
  * 咕嘟助手 / 问咕嘟紧急关停的判定（按端；出现内容风险时一键关闭，默认开）。
  *
  * <p>只拦「发新消息 / 生成」；查看、删除会话与历史、确认 / 取消 / 撤销、反馈、建议均不受影响。
- * context.page == 'cook_mode' 时看「问咕嘟」开关，其余看「咕嘟助手」开关。
+ * 咕嘟助手（该端）关停 → 拒绝所有发消息（不看客户端自报的 page，返回 5032）；
+ * 问咕嘟关停 → 只拒绝 page == 'cook_mode'（5033）。即跟做模式里提问需要两个开关都开，
+ * 避免客户端改 page 值绕过其中一个开关。
  */
 @Component
 public class AgentSwitchPolicy {
@@ -34,18 +36,19 @@ public class AgentSwitchPolicy {
         this.switches = switches;
     }
 
-    /** 该请求上下文对应哪个开关。 */
-    public static FeatureKey keyOf(Map<String, Object> context) {
-        Object page = context == null ? null : context.get("page");
-        return COOK_MODE_PAGE.equals(page) ? FeatureKey.AGENT_COOK_ASK : FeatureKey.AGENT_CHAT;
+    /** 发消息前检查：开关关闭返回 Blocked，开放返回空。先看咕嘟助手（所有对话入口），再看跟做模式的问咕嘟。 */
+    public Optional<Blocked> checkSend(Map<String, Object> context, Platform platform) {
+        if (!switches.isEnabled(FeatureKey.AGENT_CHAT, platform)) {
+            return Optional.of(new Blocked(CODE_AGENT_SUSPENDED, MSG_AGENT_SUSPENDED));
+        }
+        if (isCookMode(context) && !switches.isEnabled(FeatureKey.AGENT_COOK_ASK, platform)) {
+            return Optional.of(new Blocked(CODE_COOK_ASK_SUSPENDED, MSG_COOK_ASK_SUSPENDED));
+        }
+        return Optional.empty();
     }
 
-    /** 发消息前检查：开关关闭返回 Blocked，开放返回空。 */
-    public Optional<Blocked> checkSend(Map<String, Object> context, Platform platform) {
-        FeatureKey key = keyOf(context);
-        if (switches.isEnabled(key, platform)) return Optional.empty();
-        return Optional.of(key == FeatureKey.AGENT_COOK_ASK
-                ? new Blocked(CODE_COOK_ASK_SUSPENDED, MSG_COOK_ASK_SUSPENDED)
-                : new Blocked(CODE_AGENT_SUSPENDED, MSG_AGENT_SUSPENDED));
+    private static boolean isCookMode(Map<String, Object> context) {
+        Object page = context == null ? null : context.get("page");
+        return COOK_MODE_PAGE.equals(page);
     }
 }

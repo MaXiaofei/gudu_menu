@@ -17,9 +17,9 @@ public record FeatureSwitch(String key, boolean enabled, Long updatedBy, String 
 
     public static final int MAX_REASON = 200;
 
-    /** 库里没有记录时的默认值：开。 */
-    public static FeatureSwitch defaultOn(String key) {
-        return new FeatureSwitch(key, true, null, null, null, null);
+    /** 库里没有记录时该端的默认值：小程序开，App 关。 */
+    public static FeatureSwitch defaultFor(String key, Platform platform) {
+        return new FeatureSwitch(key, platform.defaultEnabled(), null, null, null, null);
     }
 
     /** 一次切换（原因去空白、截断到 MAX_REASON；关停必须有原因）。 */
