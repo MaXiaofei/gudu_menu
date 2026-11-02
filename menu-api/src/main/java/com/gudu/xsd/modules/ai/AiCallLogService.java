@@ -24,6 +24,14 @@ public class AiCallLogService {
 
     private final AiCallLogMapper callLogMapper;
 
+    /** 自 from 起的模型花费合计（分）：AI 额度的全站每日花费上限用（只有网关尝试行带 cost_fen，业务行为空，不会重复计）。 */
+    public java.math.BigDecimal spentFenSince(LocalDateTime from) {
+        List<Map<String, Object>> rows = callLogMapper.selectMaps(new QueryWrapper<AiCallLog>()
+                .select("IFNULL(SUM(cost_fen), 0) AS spent").ge("create_time", from));
+        if (rows.isEmpty() || rows.get(0) == null || rows.get(0).get("spent") == null) return java.math.BigDecimal.ZERO;
+        return new java.math.BigDecimal(rows.get(0).get("spent").toString());
+    }
+
     /**
      * 调用日志分页查询。
      * 支持按 scene（nutrition_fill/menu_recommend/dish_estimate）和 status（ok/fail）筛选。
