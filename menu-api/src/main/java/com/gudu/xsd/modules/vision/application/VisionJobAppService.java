@@ -1,6 +1,9 @@
 package com.gudu.xsd.modules.vision.application;
 
 import com.gudu.xsd.common.BizException;
+import com.gudu.xsd.common.security.AiQuotaCategory;
+import com.gudu.xsd.common.security.AiQuotaGate;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
 import com.gudu.xsd.modules.pantry.PantryService;
 import com.gudu.xsd.modules.pantry.application.StockAppService;
@@ -54,6 +57,7 @@ public class VisionJobAppService {
     private final ImageStore imageStore;
     private final Clock clock;
     private final ContentSecurityAppService contentSecurity;
+    private AiQuotaGate quotaGate;
     private Executor executor = defaultExecutor();
 
     public VisionJobAppService(VisionJobRepository repository, VisionProvider provider, IngredientAligner aligner,
@@ -74,8 +78,16 @@ public class VisionJobAppService {
         this.executor = e;
     }
 
+    /** 每账号每日次数闸门（单测可不注入）。 */
+    @Autowired(required = false)
+    public void setQuotaGate(AiQuotaGate quotaGate) {
+        this.quotaGate = quotaGate;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public VisionJobView create(Long memberId, String mode, String imageUrl) {
+        // 按登录账号计，不按成员档案；超限 429，Redis 故障拒绝
+        if (quotaGate != null) quotaGate.require(AiQuotaCategory.VISION, AiQuotaGate.currentAccountId(memberId));
         VisionJob job = VisionJob.create(memberId, VisionMode.of(mode), imageUrl, LocalDateTime.now(clock));
         repository.save(job);
         Long id = job.id();
@@ -108,7 +120,10 @@ public class VisionJobAppService {
             job.complete(aligner.align(r.items()), r.recipe(), r.degraded());
         } catch (RuntimeException e) {
             log.warn("识别失败 job={} provider={}: {}", jobId, provider.name(), e.getMessage());
-            job.fail("识别失败，请换个角度再拍一张");
+            // 全站今日 AI 额度用完：如实告知，别让用户反复换角度重拍
+            job.fail(e instanceof com.gudu.xsd.modules.ai.gateway.application.AiBudgetExceededException
+                    ? com.gudu.xsd.modules.ai.gateway.application.AiBudgetExceededException.MESSAGE
+                    : "识别失败，请换个角度再拍一张");
         }
         repository.save(job);
     }

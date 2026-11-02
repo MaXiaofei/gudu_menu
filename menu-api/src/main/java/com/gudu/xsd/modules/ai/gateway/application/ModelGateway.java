@@ -16,6 +16,7 @@ import com.gudu.xsd.modules.ai.gateway.domain.model.RouteTarget;
 import com.gudu.xsd.modules.ai.gateway.domain.model.RuleResponder;
 import com.gudu.xsd.modules.ai.gateway.domain.model.ThinkingMode;
 import com.gudu.xsd.modules.ai.gateway.domain.model.TokenUsage;
+import com.gudu.xsd.modules.ai.gateway.domain.port.AiBudgetGuard;
 import com.gudu.xsd.modules.ai.gateway.domain.port.EnvKeyLookup;
 import com.gudu.xsd.modules.ai.gateway.domain.port.ImageInliner;
 import com.gudu.xsd.modules.ai.gateway.domain.port.ModelTransport;
@@ -30,6 +31,7 @@ import com.gudu.xsd.modules.ai.gateway.domain.service.Pseudonymizer;
 import com.gudu.xsd.modules.ai.gateway.domain.service.RouteChainResolver;
 import com.gudu.xsd.modules.ai.gateway.domain.service.RouteChainResolver.Candidate;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -69,12 +71,23 @@ public class ModelGateway {
     private final EnvKeyLookup envKeys;
     private final ImageInliner imageInliner;
     private final Clock clock;
+    private final AiBudgetGuard budgetGuard;
 
     private volatile Snapshot snapshot;
 
+    /** 不设全站花费上限（单测 / 评测夹具）。 */
     public ModelGateway(ModelProviderRepository providerRepository, ModelRouteRepository routeRepository,
                         GatewayCallLogRepository callLogRepository, ModelTransport transport, SecretCipher cipher,
                         EnvKeyLookup envKeys, ImageInliner imageInliner, Clock clock) {
+        this(providerRepository, routeRepository, callLogRepository, transport, cipher, envKeys, imageInliner, clock,
+                AiBudgetGuard.NONE);
+    }
+
+    @Autowired
+    public ModelGateway(ModelProviderRepository providerRepository, ModelRouteRepository routeRepository,
+                        GatewayCallLogRepository callLogRepository, ModelTransport transport, SecretCipher cipher,
+                        EnvKeyLookup envKeys, ImageInliner imageInliner, Clock clock, AiBudgetGuard budgetGuard) {
+        this.budgetGuard = budgetGuard;
         this.providerRepository = providerRepository;
         this.routeRepository = routeRepository;
         this.callLogRepository = callLogRepository;
@@ -109,6 +122,13 @@ public class ModelGateway {
         List<CallAttempt> attempts = new ArrayList<>();
         if (request.forceRule()) {
             return runRule(request, attempts, started, true);
+        }
+        if (budgetGuard.exhausted()) {
+            // 全站今日花费已达上限：不调任何真实模型。有规则兜底的走规则，没有的抛额度用完（调用方自行降级或提示）
+            if (request.ruleFallback() != null) {
+                return runRule(request, attempts, started, true);
+            }
+            throw new AiBudgetExceededException();
         }
         RouteChainResolver.Resolution resolution = RouteChainResolver.resolve(route, s.providers(), this::hasKey);
         RouteTarget primary = route.primary();

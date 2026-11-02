@@ -10,4 +10,8 @@ public class ModelUnavailableException extends BizException {
     public ModelUnavailableException(String message) {
         super(CODE, message);
     }
+
+    protected ModelUnavailableException(int code, String message) {
+        super(code, message);
+    }
 }

@@ -208,7 +208,9 @@ export async function request<T = any>(
     throw new Error(body.msg || '咕嘟暂停服务')
   }
   if (body.code === 429) {
-    toast(MSG_TOO_FREQUENT)
+    // 次数配额用完（拍照识别 / 一周餐程 / AI 每日上限等）后端给的是可读中文，原样提示；英文兜底句才用「太频繁」
+    const readable = /[\u4e00-\u9fa5]/.test(body.msg || '')
+    toast(readable ? body.msg : MSG_TOO_FREQUENT)
     throw new Error(body.msg || MSG_TOO_FREQUENT)
   }
   if (isFamilyDenied(body)) {

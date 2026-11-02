@@ -1,36 +1,23 @@
 package com.gudu.xsd.modules.agent.infrastructure;
 
+import com.gudu.xsd.common.security.AiQuotaCategory;
+import com.gudu.xsd.common.security.AiQuotaGate;
 import com.gudu.xsd.modules.agent.domain.repository.AgentQuota;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.time.Clock;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-
-/** 每人每日对话轮数（Redis 计数，48h 过期）；Redis 不可用时放行。 */
-@Slf4j
+/**
+ * 咕嘟每日对话轮数：委托统一的 AI 次数闸门（类别 AGENT，按登录账号计，Redis 故障拒绝）。
+ * 返回 false 时对话退回规则回复（不调模型），不是报错。
+ */
 @Component
 @RequiredArgsConstructor
 public class RedisAgentQuota implements AgentQuota {
 
-    private final StringRedisTemplate redis;
-    private final Clock clock;
+    private final AiQuotaGate gate;
 
     @Override
-    public boolean consume(Long memberId, int limit) {
-        if (limit <= 0) return true;
-        String key = "agent:quota:" + memberId + ":" + LocalDate.now(clock).format(DateTimeFormatter.BASIC_ISO_DATE);
-        try {
-            Long n = redis.opsForValue().increment(key);
-            if (n != null && n == 1L) redis.expire(key, Duration.ofHours(48));
-            return n == null || n <= limit;
-        } catch (RuntimeException e) {
-            log.warn("咕嘟配额计数失败 member={} err={}", memberId, e.getMessage());
-            return true;
-        }
+    public boolean consume(Long accountId, int defaultLimit) {
+        return gate.tryConsume(AiQuotaCategory.AGENT, accountId);
     }
 }

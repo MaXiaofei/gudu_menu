@@ -139,6 +139,33 @@ describe('utils/request 错误码提示', () => {
     expect(__testUni.mocks.showToast).toHaveBeenCalledWith({ title: '操作太频繁，请稍后再试', icon: 'none' })
   })
 
+  it('code==429 且后端给了中文提示（次数用完）→ 原样 toast，不说太频繁', async () => {
+    vi.mocked(__testUni.mocks.request).mockResolvedValue({
+      data: { code: 429, msg: '今日拍照识别次数已用完，明天再试' },
+      statusCode: 200,
+    } as any)
+    await expect(request({ url: '/vision/jobs', method: 'POST' })).rejects.toThrow('今日拍照识别次数已用完，明天再试')
+    expect(__testUni.mocks.showToast).toHaveBeenCalledWith({ title: '今日拍照识别次数已用完，明天再试', icon: 'none' })
+  })
+
+  it('code==453（全站今日额度用完）→ toast 后端提示', async () => {
+    vi.mocked(__testUni.mocks.request).mockResolvedValue({
+      data: { code: 453, msg: 'AI 服务今日额度已用完，明天自动恢复' },
+      statusCode: 200,
+    } as any)
+    await expect(request({ url: '/ai/menu/recommend', method: 'POST' })).rejects.toThrow('AI 服务今日额度已用完，明天自动恢复')
+    expect(__testUni.mocks.showToast).toHaveBeenCalledWith({ title: 'AI 服务今日额度已用完，明天自动恢复', icon: 'none' })
+  })
+
+  it('code==503（AI 计数服务故障被拒）→ toast 后端提示', async () => {
+    vi.mocked(__testUni.mocks.request).mockResolvedValue({
+      data: { code: 503, msg: 'AI 服务暂时不可用，请稍后再试' },
+      statusCode: 200,
+    } as any)
+    await expect(request({ url: '/mealplan/drafts', method: 'POST' })).rejects.toThrow('AI 服务暂时不可用，请稍后再试')
+    expect(__testUni.mocks.showToast).toHaveBeenCalledWith({ title: 'AI 服务暂时不可用，请稍后再试', icon: 'none' })
+  })
+
   it('网关 HTTP 429 非 R 响应 → 同样提示太频繁', async () => {
     vi.mocked(__testUni.mocks.request).mockResolvedValue({ data: '<html>429</html>', statusCode: 429 } as any)
     await expect(request({ url: '/x', method: 'GET' })).rejects.toThrow('操作太频繁，请稍后再试')

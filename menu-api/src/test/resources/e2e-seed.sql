@@ -156,6 +156,12 @@ INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.estimate.enabled.app', 1
 INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.post_text.enabled.mp', 1) ON DUPLICATE KEY UPDATE enabled = 1;
 INSERT INTO sys_switch(switch_key, enabled) VALUES ('ai.post_text.enabled.app', 1) ON DUPLICATE KEY UPDATE enabled = 1;
 DELETE FROM sys_switch_log WHERE reason LIKE 'E2E%';
+-- V100 AI 额度：E2E 反复跑同一批账号，次数上限与全站预算放宽到不会触发（每次重置，留痕表清空）
+DELETE FROM ai_guard_config;
+DELETE FROM ai_guard_config_log;
+INSERT INTO ai_guard_config(config_key, config_value) VALUES
+  ('budget.daily_yuan', '100000'), ('limit.vision', '100000'), ('limit.mealplan', '100000'),
+  ('limit.agent', '100000'), ('limit.other', '100000');
 
 -- ============================================================
 -- 静态种子自愈：把「番茄/鸡蛋」规范化到测试常量依赖的固定 id(1/2)，

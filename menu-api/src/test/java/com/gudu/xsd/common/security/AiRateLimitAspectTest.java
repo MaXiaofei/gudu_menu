@@ -6,54 +6,56 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.*;
 
-/** AI 限流：按登录账号计数，超限 429；Redis 故障放行。 */
+/** AI 限流切面：按登录账号 + 类别向闸门计数；闸门拒绝（429 / Redis 故障 503）则不执行方法。 */
 class AiRateLimitAspectTest {
 
-    private StringRedisTemplate redis;
-    private ValueOperations<String, String> ops;
+    private AiQuotaGate gate;
     private AiRateLimitAspect aspect;
     private ProceedingJoinPoint pjp;
 
+    @AiRateLimited(AiQuotaCategory.VISION)
+    void vision() {
+    }
+
+    @AiRateLimited
+    void other() {
+    }
+
+    private static AiRateLimited ann(String method) throws Exception {
+        return AiRateLimitAspectTest.class.getDeclaredMethod(method).getAnnotation(AiRateLimited.class);
+    }
+
     @BeforeEach
-    @SuppressWarnings("unchecked")
     void setUp() throws Throwable {
-        redis = mock(StringRedisTemplate.class);
-        ops = mock(ValueOperations.class);
-        when(redis.opsForValue()).thenReturn(ops);
-        aspect = new AiRateLimitAspect(redis);
-        ReflectionTestUtils.setField(aspect, "dailyLimit", 50);
+        gate = mock(AiQuotaGate.class);
+        aspect = new AiRateLimitAspect(gate);
         pjp = mock(ProceedingJoinPoint.class);
         when(pjp.proceed()).thenReturn("OK");
     }
 
     @Test
-    void 未超限_放行_计数键含登录账号() throws Throwable {
-        when(ops.increment(anyString())).thenReturn(1L);
+    void 放行_按登录账号和注解类别计数() throws Throwable {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginId).thenReturn(7L);
-            assertThat(aspect.limit(pjp)).isEqualTo("OK");
-            verify(ops).increment(startsWith("ai:limit:7:"));
-            verify(redis).expire(startsWith("ai:limit:7:"), any());
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            assertThat(aspect.limit(pjp, ann("vision"))).isEqualTo("OK");
+            assertThat(aspect.limit(pjp, ann("other"))).isEqualTo("OK");
+            verify(gate).require(AiQuotaCategory.VISION, 7L);
+            verify(gate).require(AiQuotaCategory.OTHER, 7L);
         }
     }
 
     @Test
     void 超限_429且不执行() throws Throwable {
-        when(ops.increment(anyString())).thenReturn(51L);
+        doThrow(BizException.tooManyRequests("今日 AI 调用已达上限（50 次），明天再试"))
+                .when(gate).require(AiQuotaCategory.OTHER, 7L);
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginId).thenReturn(7L);
-            assertThatThrownBy(() -> aspect.limit(pjp))
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            assertThatThrownBy(() -> aspect.limit(pjp, ann("other")))
                     .isInstanceOf(BizException.class)
                     .extracting(e -> ((BizException) e).getCode()).isEqualTo(429);
             verify(pjp, never()).proceed();
@@ -61,11 +63,12 @@ class AiRateLimitAspectTest {
     }
 
     @Test
-    void Redis故障_放行() throws Throwable {
-        when(ops.increment(anyString())).thenThrow(new RuntimeException("redis down"));
+    void Redis故障_闸门拒绝_不放行() throws Throwable {
+        doThrow(new BizException(503, "AI 服务暂时不可用，请稍后再试")).when(gate).require(any(), any());
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginId).thenReturn(7L);
-            assertThat(aspect.limit(pjp)).isEqualTo("OK");
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
+            assertThatThrownBy(() -> aspect.limit(pjp, ann("other"))).isInstanceOf(BizException.class);
+            verify(pjp, never()).proceed();
         }
     }
 }

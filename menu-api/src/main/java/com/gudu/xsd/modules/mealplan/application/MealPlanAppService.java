@@ -33,6 +33,8 @@ import com.gudu.xsd.modules.shopping.ShoppingItem;
 import com.gudu.xsd.modules.shopping.ShoppingListVO;
 import com.gudu.xsd.modules.shopping.ShoppingService;
 import org.springframework.beans.factory.ObjectProvider;
+import com.gudu.xsd.common.security.AiQuotaCategory;
+import com.gudu.xsd.common.security.AiQuotaGate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -100,6 +102,7 @@ public class MealPlanAppService {
     private final ShoppingService shoppingService;
     private final DictService dictService;
     private final Clock clock;
+    private AiQuotaGate quotaGate;
     private final MealPlanner planner;
 
     /** Spring 注入：有排餐模型端口时用 LLM 排布（失败退回启发式），否则纯启发式。 */
@@ -148,8 +151,16 @@ public class MealPlanAppService {
         return create(memberId, cmd);
     }
 
+    /** 每账号每日次数闸门（单测可不注入）。HTTP 与咕嘟 plan_week 工具都经 {@link #create}，计数放这里两条路径都覆盖。 */
+    @Autowired(required = false)
+    public void setQuotaGate(AiQuotaGate quotaGate) {
+        this.quotaGate = quotaGate;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public MealPlanDraftView create(Long memberId, CreateDraftCommand cmd) {
+        // 按登录账号计（member 是成员档案，可无限新建）；咕嘟子线程没有登录态，取租户上下文里的账号
+        if (quotaGate != null) quotaGate.require(AiQuotaCategory.MEALPLAN, AiQuotaGate.currentAccountId(memberId));
         CreateDraftCommand c = cmd == null ? new CreateDraftCommand(null, null, null, null, null, null, null) : cmd;
         LocalDate today = LocalDate.now(clock);
         WeekRange week = c.weekStart() == null ? WeekRange.defaultFor(today) : new WeekRange(c.weekStart());

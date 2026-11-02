@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
+import java.math.BigDecimal;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1755,6 +1756,48 @@ class GuduE2ECoverageTest {
     }
 
     // ===================== mini-release-compliance B.2 / B.3 / C.1 / C.2 =====================
+
+    @Test
+    void Z3_AI用量与额度_非运营拒绝_概览结构_改限额留痕_非法值拒绝_改完还原() throws Exception {
+        String admin = loginAdmin();
+        String chef = loginAs("13900000088", "chef123");
+
+        // 非运营不能看也不能改
+        assertThat(get(chef, "/admin/ai-guard").get("code").asInt()).isNotZero();
+        assertThat(put(chef, "/admin/ai-guard", Map.of("dailyBudgetYuan", 1)).get("code").asInt()).isNotZero();
+
+        JsonNode ov = get(admin, "/admin/ai-guard");
+        assertThat(ov.get("code").asInt()).as("概览 msg=" + text(ov, "msg")).isZero();
+        JsonNode d = ov.get("data");
+        assertThat(d.has("spentYuan") && d.has("limitYuan") && d.has("percent") && d.has("level")).isTrue();
+        assertThat(d.get("level").asText()).isIn("NORMAL", "WARN", "PAUSED");
+        assertThat(d.get("categories")).hasSize(4);
+        assertThat(d.get("categories").get(0).get("key").asText()).isEqualTo("vision");
+        BigDecimal oldBudget = new BigDecimal(d.get("limitYuan").asText());
+        int oldVision = d.get("categories").get(0).get("limitPerAccount").asInt();
+        int oldMealplan = d.get("categories").get(1).get("limitPerAccount").asInt();
+
+        try {
+            // 非法值被拒绝，配置不变
+            assertThat(put(admin, "/admin/ai-guard", Map.of("dailyBudgetYuan", -5)).get("code").asInt()).isNotZero();
+            assertThat(put(admin, "/admin/ai-guard", Map.of("warnPercent", 0)).get("code").asInt()).isNotZero();
+            assertThat(put(admin, "/admin/ai-guard", Map.of("limits", Map.of("vision", -1))).get("code").asInt()).isNotZero();
+
+            // 合法修改：立即在本实例反映，日志含新旧值与操作人
+            JsonNode upd = put(admin, "/admin/ai-guard", Map.of("dailyBudgetYuan", 33,
+                    "limits", Map.of("vision", oldVision + 1, "mealplan", oldMealplan + 1)));
+            assertThat(upd.get("code").asInt()).as("修改 msg=" + text(upd, "msg")).isZero();
+            assertThat(new BigDecimal(upd.get("data").get("limitYuan").asText())).isEqualByComparingTo("33");
+            assertThat(upd.get("data").get("categories").get(0).get("limitPerAccount").asInt()).isEqualTo(oldVision + 1);
+            JsonNode logs = upd.get("data").get("logs");
+            assertThat(logs.size()).isGreaterThanOrEqualTo(3);
+            assertThat(logs.get(0).get("operatorId").asLong()).isPositive();
+            assertThat(logs.get(0).has("oldValue") && logs.get(0).has("newValue")).isTrue();
+        } finally {
+            put(admin, "/admin/ai-guard", Map.of("dailyBudgetYuan", oldBudget,
+                    "limits", Map.of("vision", oldVision, "mealplan", oldMealplan)));
+        }
+    }
 
     @Test
     void Q_单独同意_撤回即删除_健康档案与手机号加密存储() {

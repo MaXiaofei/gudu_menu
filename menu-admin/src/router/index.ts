@@ -111,6 +111,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '功能开关', group: 'agent' },
       },
       {
+        path: 'ai-guard',
+        name: 'AiGuard',
+        component: () => import('@/views/ai-guard/Index.vue'),
+        meta: { title: 'AI 用量与额度', group: 'agent' },
+      },
+      {
         path: 'dish',
         name: 'Dish',
         component: () => import('@/views/dish/Index.vue'),

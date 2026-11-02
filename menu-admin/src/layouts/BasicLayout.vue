@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 import {
   Brush, ArrowDown, SwitchButton, Setting, Apple, Food, DataBoard, Notebook,
   ChatDotRound, House, MagicStick, Odometer, Menu as MenuIcon, Connection, Share, Histogram, Opportunity,
-  UserFilled, Warning, Tickets, Switch,
+  UserFilled, Warning, Tickets, Switch, Coin,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/auth'
 import { useThemeStore } from '@/store/theme'
@@ -45,6 +45,7 @@ const iconByPath: Record<string, Component> = {
   '/agent-eval': Histogram,
   '/community': Opportunity,
   '/feature-switch': Switch,
+  '/ai-guard': Coin,
   '/dish': Food,
   '/dict': Setting,
 }

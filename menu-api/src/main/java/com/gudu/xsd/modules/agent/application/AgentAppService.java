@@ -213,7 +213,7 @@ public class AgentAppService {
         String assistantId = "msg_" + uuid();
         List<ChatMessage> history = history(sessionId);
         messages.save(userMsg);
-        boolean forceRule = !quota.consume(memberId, dailyLimit);
+        boolean forceRule = !quota.consume(accountId, dailyLimit); // 按登录账号计，不按成员档案（加成员绕不过）
         Kitchen kitchen = kitchens.forMember(memberId, platform == null ? com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP : platform);
         AgentOrchestrator.Env env = new AgentOrchestrator.Env(kitchen, new ActionDesk(actionStore, kitchen), gateway, Map.of(),
                 gate);

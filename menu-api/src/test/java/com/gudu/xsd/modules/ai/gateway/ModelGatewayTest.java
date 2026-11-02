@@ -194,4 +194,41 @@ class ModelGatewayTest {
         transport.behavior.put("DeepSeek", k -> new ModelReply("ok", null, List.of(), new TokenUsage(0, 0, 1_000_000)));
         assertThat(g.chat(chat()).costFen()).isEqualByComparingTo(new BigDecimal("400"));
     }
+
+    @Test
+    void 全站额度用完_不调真实模型_有规则兜底走规则() {
+        transport.behavior.put("DeepSeek", k -> ModelReply.text("不该被调用"));
+        ModelGateway g = new ModelGateway(providers, routes, calls, transport, GatewayFakes.NO_CIPHER, env::get,
+                url -> "data:image/png;base64,AAA", PEAK, () -> true);
+        ChatRequest withRule = new ChatRequest(Capability.CHAT, "test", List.of(ChatMessage.user("hi")), List.of(), false,
+                null, null, req -> ModelReply.text("规则回复"), false);
+        ChatResult r = g.chat(withRule);
+        assertThat(r.provider()).isEqualTo("mock");
+        assertThat(r.degraded()).isTrue();
+        assertThat(r.content()).isEqualTo("规则回复");
+        assertThat(transport.calls).as("没有任何真实模型调用").isEmpty();
+    }
+
+    @Test
+    void 全站额度用完_没有规则兜底抛额度用完业务码() {
+        ModelGateway g = new ModelGateway(providers, routes, calls, transport, GatewayFakes.NO_CIPHER, env::get,
+                url -> "data:image/png;base64,AAA", PEAK, () -> true);
+        assertThatThrownBy(() -> g.chat(chat()))
+                .isInstanceOf(com.gudu.xsd.modules.ai.gateway.application.AiBudgetExceededException.class)
+                .isInstanceOf(ModelUnavailableException.class) // 调用方原有的「模型不可用」降级照常生效
+                .hasMessage("AI 服务今日额度已用完，明天自动恢复")
+                .extracting(e -> ((com.gudu.xsd.common.BizException) e).getCode()).isEqualTo(453);
+        assertThat(transport.calls).isEmpty();
+    }
+
+    @Test
+    void 额度恢复后_恢复调用真实模型() {
+        transport.behavior.put("DeepSeek", k -> ModelReply.text("ok"));
+        boolean[] exhausted = {true};
+        ModelGateway g = new ModelGateway(providers, routes, calls, transport, GatewayFakes.NO_CIPHER, env::get,
+                url -> "data:image/png;base64,AAA", PEAK, () -> exhausted[0]);
+        assertThatThrownBy(() -> g.chat(chat())).isInstanceOf(ModelUnavailableException.class);
+        exhausted[0] = false;
+        assertThat(g.chat(chat()).provider()).isEqualTo("DeepSeek");
+    }
 }

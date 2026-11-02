@@ -209,4 +209,32 @@ class MealPlanAppServiceTest {
         svc.create(10L, null, null);
         org.mockito.Mockito.verify(policy).requireEnabled(com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP);
     }
+
+    @Test
+    void 生成按登录账号计次_咕嘟子线程取租户上下文的账号_超限不生成() {
+        java.util.List<Long> accounts = new java.util.ArrayList<>();
+        int[] left = {1};
+        svc.setQuotaGate(new com.gudu.xsd.common.security.AiQuotaGate() {
+            @Override
+            public void require(com.gudu.xsd.common.security.AiQuotaCategory c, Long accountId) {
+                assertThat(c).isEqualTo(com.gudu.xsd.common.security.AiQuotaCategory.MEALPLAN);
+                accounts.add(accountId);
+                if (left[0]-- <= 0) throw BizException.tooManyRequests("今日一周餐程次数已用完，明天再试");
+            }
+
+            @Override
+            public boolean tryConsume(com.gudu.xsd.common.security.AiQuotaCategory c, Long accountId) {
+                return true;
+            }
+        });
+        // 成员档案 id=10，登录账号 id=77：计数必须按账号（加成员档案绕不过）
+        com.gudu.xsd.common.tenant.TenantContextHolder.runAs(
+                new com.gudu.xsd.common.tenant.TenantContext(1L, 77L, 10L, "OWNER"), () -> {
+                    svc.create(10L, null);
+                    assertThatThrownBy(() -> svc.create(10L, null)).isInstanceOf(BizException.class)
+                            .hasMessage("今日一周餐程次数已用完，明天再试");
+                });
+        assertThat(accounts).containsExactly(77L, 77L);
+        assertThat(store).as("第二次被拦在入口，没有生成").hasSize(1);
+    }
 }

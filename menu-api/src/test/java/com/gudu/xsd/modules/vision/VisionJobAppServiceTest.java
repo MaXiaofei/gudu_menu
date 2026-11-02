@@ -89,6 +89,28 @@ class VisionJobAppServiceTest {
     }
 
     @Test
+    void 建任务按登录账号计次_超限429且不建任务() {
+        svc.setQuotaGate(new com.gudu.xsd.common.security.AiQuotaGate() {
+            @Override
+            public void require(com.gudu.xsd.common.security.AiQuotaCategory c, Long accountId) {
+                assertThat(c).isEqualTo(com.gudu.xsd.common.security.AiQuotaCategory.VISION);
+                assertThat(accountId).isEqualTo(77L); // 成员档案 10 不是计数主体，租户上下文里的登录账号才是
+                throw com.gudu.xsd.common.BizException.tooManyRequests("今日拍照识别次数已用完，明天再试");
+            }
+
+            @Override
+            public boolean tryConsume(com.gudu.xsd.common.security.AiQuotaCategory c, Long accountId) {
+                return false;
+            }
+        });
+        com.gudu.xsd.common.tenant.TenantContextHolder.runAs(
+                new com.gudu.xsd.common.tenant.TenantContext(1L, 77L, 10L, "OWNER"), () ->
+                        org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.create(10L, "pantry", "http://x/a.jpg"))
+                                .isInstanceOf(com.gudu.xsd.common.BizException.class)
+                                .hasMessage("今日拍照识别次数已用完，明天再试"));
+    }
+
+    @Test
     void 对齐_别名_分级_丢弃低置信_合并_待确认排前() {
         List<RecognizedItem> out = aligner.align(List.of(
                 raw("鸡蛋", 6, 0.98), raw("西红柿", 3, 0.94), raw("菠菜", 1, 0.72), raw("柠檬", 1, 0.31),
@@ -187,6 +209,26 @@ class VisionJobAppServiceTest {
         VisionJobView v = failing.get(7L, created.jobId());
         assertThat(v.status()).isEqualTo("FAILED");
         assertThat(v.error()).contains("识别失败");
+    }
+
+    @Test
+    void 全站额度用完_任务失败并如实提示() throws Exception {
+        VisionJobAppService exhausted = newService(new VisionProvider() {
+            @Override
+            public com.gudu.xsd.modules.vision.domain.model.RecognitionResult recognize(
+                    com.gudu.xsd.modules.vision.domain.model.VisionMode mode, String imageUrl) {
+                throw new com.gudu.xsd.modules.ai.gateway.application.AiBudgetExceededException();
+            }
+
+            @Override
+            public String name() {
+                return "budget";
+            }
+        });
+        VisionJobView created = exhausted.create(7L, "FRIDGE", IMG);
+        VisionJobView v = exhausted.get(7L, created.jobId());
+        assertThat(v.status()).isEqualTo("FAILED");
+        assertThat(v.error()).isEqualTo("AI 服务今日额度已用完，明天自动恢复");
     }
 
     @Test
