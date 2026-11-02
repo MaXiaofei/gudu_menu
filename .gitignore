@@ -24,3 +24,4 @@ menu-api/src/test/resources/archunit_store/
 # 种子脚本依赖
 scripts/seed/node_modules/
 scripts/seed/.cache/
+.deployed
