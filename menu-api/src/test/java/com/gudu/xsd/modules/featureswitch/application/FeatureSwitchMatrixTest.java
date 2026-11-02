@@ -199,8 +199,8 @@ class FeatureSwitchMatrixTest {
     void 只有生成类入口参与拦截_查看历史等方法不读端头() {
         assertThat(methodsReadingClientHeader(VisionController.class)).containsExactly("create");
         assertThat(methodsReadingClientHeader(MealPlanController.class)).containsExactly("create");
-        // 咕嘟：发消息拦截；首屏建议 suggestions 读端头只为一周餐程关停时不下发快捷提问，不拦截
-        assertThat(methodsReadingClientHeader(AgentController.class)).containsExactlyInAnyOrder("streamMessage", "suggestions");
+        // 咕嘟：发消息拦截；首屏建议 suggestions 读端头只为一周餐程关停时不下发快捷提问，revise 重跑原工具需按端判开关，二者本身不拦截
+        assertThat(methodsReadingClientHeader(AgentController.class)).containsExactlyInAnyOrder("streamMessage", "suggestions", "revise");
         assertThat(methodsReadingClientHeader(com.gudu.xsd.modules.ai.AiController.class))
                 .containsExactlyInAnyOrder("fillNutrition", "estimateDish");
         assertThat(methodsReadingClientHeader(com.gudu.xsd.modules.community.interfaces.CommunityController.class))

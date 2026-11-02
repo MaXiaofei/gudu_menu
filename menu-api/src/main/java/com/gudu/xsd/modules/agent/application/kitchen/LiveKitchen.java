@@ -60,7 +60,7 @@ class LiveKitchen implements Kitchen {
 
     private final LiveKitchenFactory f;
     private final Long memberId;
-    /** 请求端；null 按 App（与 X-Client 缺省一致）。 */
+    /** 请求端；null 表示不带端的厨房（见 LiveKitchenFactory.forMemberWithoutSwitches），生成类能力一律不放行。 */
     private final com.gudu.xsd.modules.featureswitch.domain.model.Platform platform;
     private List<MemberInfo> membersCache;
 
@@ -68,7 +68,7 @@ class LiveKitchen implements Kitchen {
                 com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
         this.f = f;
         this.memberId = memberId;
-        this.platform = platform == null ? com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP : platform;
+        this.platform = platform;
     }
 
     @Override
@@ -535,11 +535,12 @@ class LiveKitchen implements Kitchen {
 
     @Override
     public boolean mealPlanEnabled() {
-        return f.mealPlanSwitch.isEnabled(platform);
+        return platform != null && f.mealPlanSwitch.isEnabled(platform);
     }
 
     @Override
     public java.util.Optional<WeekPlan> draftWeekPlan(LocalDate weekStart, Integer servings, Integer weekdayMaxMinutes) {
+        if (platform == null) throw new IllegalStateException("生成一周餐程必须带请求端");
         com.gudu.xsd.modules.mealplan.application.dto.MealPlanDraftView v = f.mealPlans.create(memberId,
                 new com.gudu.xsd.modules.mealplan.application.dto.CreateDraftCommand(weekStart, null, servings, null,
                         weekdayMaxMinutes, null, true), platform); // 服务内再兜底校验一次一周餐程开关

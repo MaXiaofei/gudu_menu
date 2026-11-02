@@ -40,12 +40,18 @@ public class LiveKitchenFactory {
     final com.gudu.xsd.modules.mealplan.application.MealPlanSwitchPolicy mealPlanSwitch;
     final Clock clock;
 
-    public Kitchen forMember(Long memberId) {
-        return new LiveKitchen(this, memberId, null);
+    /**
+     * @param platform 请求端（X-Client 判定，必须显式传）；工具里的生成类能力据此检查该端开关。
+     */
+    public Kitchen forMember(Long memberId, com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
+        return new LiveKitchen(this, memberId, java.util.Objects.requireNonNull(platform, "platform"));
     }
 
-    /** @param platform 请求端（X-Client 判定）；工具里的生成类能力据此检查该端开关，null 按 App。 */
-    public Kitchen forMember(Long memberId, com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
-        return new LiveKitchen(this, memberId, platform);
+    /**
+     * 不带端的厨房：只给确认 / 取消 / 撤销等只读时钟与执行补偿的路径用，这些路径不会走到任何生成类能力。
+     * 若在它上面调用 mealPlanEnabled / draftWeekPlan 会按关停处理 / 抛异常（失败即关），防止漏传端。
+     */
+    public Kitchen forMemberWithoutSwitches(Long memberId) {
+        return new LiveKitchen(this, memberId, null);
     }
 }

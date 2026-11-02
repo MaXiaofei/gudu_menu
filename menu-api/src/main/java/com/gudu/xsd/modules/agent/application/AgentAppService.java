@@ -214,7 +214,7 @@ public class AgentAppService {
         List<ChatMessage> history = history(sessionId);
         messages.save(userMsg);
         boolean forceRule = !quota.consume(memberId, dailyLimit);
-        Kitchen kitchen = kitchens.forMember(memberId, platform);
+        Kitchen kitchen = kitchens.forMember(memberId, platform == null ? com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP : platform);
         AgentOrchestrator.Env env = new AgentOrchestrator.Env(kitchen, new ActionDesk(actionStore, kitchen), gateway, Map.of(),
                 gate);
         TurnResult r;
@@ -284,7 +284,7 @@ public class AgentAppService {
     // ================================================================== 动作
 
     public ConfirmView confirm(Long memberId, String actionId) {
-        Kitchen kitchen = kitchens.forMember(memberId);
+        Kitchen kitchen = kitchens.forMemberWithoutSwitches(memberId); // 只执行已确认的写动作，不走生成类工具
         ActionDesk desk = new ActionDesk(actionStore, kitchen);
         try {
             ActionDesk.Confirmed c = desk.confirm(memberId, actionId);
@@ -298,12 +298,12 @@ public class AgentAppService {
     }
 
     public void cancel(Long memberId, String actionId) {
-        PendingAction a = new ActionDesk(actionStore, kitchens.forMember(memberId)).cancel(memberId, actionId);
+        PendingAction a = new ActionDesk(actionStore, kitchens.forMemberWithoutSwitches(memberId)).cancel(memberId, actionId);
         messages.updateAction(a.messageId(), a);
     }
 
     public void undo(Long memberId, String undoToken) {
-        PendingAction a = new ActionDesk(actionStore, kitchens.forMember(memberId)).undo(memberId, undoToken);
+        PendingAction a = new ActionDesk(actionStore, kitchens.forMemberWithoutSwitches(memberId)).undo(memberId, undoToken);
         if (a != null) messages.updateAction(a.messageId(), a);
     }
 
@@ -311,9 +311,9 @@ public class AgentAppService {
      * 修改待确认卡（人份 / 谁吃了 / 实际用量 / 日期…）：合并到原始工具参数后重新跑工具（重新校验归属、重算预览），
      * 旧卡置为 SUPERSEDED，返回新卡。客户端确认的始终是最新预览。
      */
-    public ActionView revise(Long memberId, String actionId, Map<String, Object> patch) {
+    public ActionView revise(Long memberId, String actionId, Map<String, Object> patch, com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
         PendingAction old = actionStore.find(actionId).orElseThrow(() -> new BizException(404, "动作不存在或已过期"));
-        Kitchen kitchen = kitchens.forMember(memberId);
+        Kitchen kitchen = kitchens.forMember(memberId, platform == null ? com.gudu.xsd.modules.featureswitch.domain.model.Platform.APP : platform); // 重跑原工具，按请求端判开关
         old.assertConfirmable(memberId, kitchen.now());
         AgentTool tool = registry.find(old.tool()).orElseThrow(() -> new BizException("未知的工具"));
         Map<String, Object> merged = mergeRevision(old, patch == null ? Map.of() : patch, kitchen);
@@ -433,7 +433,8 @@ public class AgentAppService {
     }
 
     public SuggestionsView suggestions(Long memberId, com.gudu.xsd.modules.featureswitch.domain.model.Platform platform) {
-        Kitchen k = kitchens.forMember(memberId);
+        // 首屏建议只读余量 / 推荐，不走生成类工具；一周餐程开关在本类里按端判断
+        Kitchen k = kitchens.forMemberWithoutSwitches(memberId);
         LocalDateTime now = k.now();
         List<MemberInfo> members = k.members();
         String me = members.stream().filter(MemberInfo::me).map(MemberInfo::name).findFirst().orElse("");

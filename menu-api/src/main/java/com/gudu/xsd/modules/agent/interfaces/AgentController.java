@@ -152,8 +152,11 @@ public class AgentController {
 
     @Operation(summary = "修改待确认卡（人份 / 谁吃了 / 实际用量 / 日期），返回新卡")
     @PostMapping("/actions/{actionId}/revise")
-    public R<ActionView> revise(@PathVariable String actionId, @RequestBody ReviseCommand cmd) {
-        return R.ok(svc.revise(me(), actionId, cmd == null ? Map.of() : cmd.args()));
+    public R<ActionView> revise(@PathVariable String actionId, @RequestBody ReviseCommand cmd,
+            @RequestHeader(value = com.gudu.xsd.common.web.ClientSource.HEADER, required = false) String client) {
+        // 修改卡片会重跑原工具，需按请求端判开关
+        return R.ok(svc.revise(me(), actionId, cmd == null ? Map.of() : cmd.args(),
+                com.gudu.xsd.modules.featureswitch.domain.model.Platform.fromClientHeader(client)));
     }
 
     @Operation(summary = "撤销已执行的动作（5 分钟内）")

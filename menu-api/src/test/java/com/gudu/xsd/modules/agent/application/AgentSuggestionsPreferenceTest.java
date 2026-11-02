@@ -50,7 +50,7 @@ class AgentSuggestionsPreferenceTest {
     void setUp() {
         kitchens = mock(LiveKitchenFactory.class);
         kitchen = mock(Kitchen.class);
-        when(kitchens.forMember(any())).thenReturn(kitchen);
+        when(kitchens.forMemberWithoutSwitches(any())).thenReturn(kitchen);
         when(kitchen.now()).thenReturn(LocalDateTime.of(2026, 10, 26, 19, 0));
         preferences = mock(UserPreferenceAppService.class);
         homeRecommend = mock(HomeRecommendAppService.class);
@@ -95,7 +95,7 @@ class AgentSuggestionsPreferenceTest {
 
         svc.suggestions(MEMBER, ACCOUNT);
 
-        verify(kitchens).forMember(MEMBER);
+        verify(kitchens).forMemberWithoutSwitches(MEMBER);
         verify(homeRecommend, never()).genericPicks(anyInt());
     }
 
