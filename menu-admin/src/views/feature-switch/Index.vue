@@ -1,17 +1,37 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listFeatureSwitches, setFeatureSwitch, type FeatureSwitchState } from '@/api/featureSwitch'
-import { featureConfirmCopy, featureStatusText, lastOperationText, validateSwitchReason } from '@/utils/featureSwitch'
+import {
+  listFeatureSwitches,
+  setFeatureSwitch,
+  setPlatformSwitches,
+  type FeaturePlatform,
+  type FeatureSwitchState,
+} from '@/api/featureSwitch'
+import {
+  PLATFORM_LABEL,
+  buildMatrix,
+  featureConfirmCopy,
+  lastOperationText,
+  platformBatchCopy,
+  recentChangeRows,
+  switchName,
+  validateSwitchReason,
+} from '@/utils/featureSwitch'
 
 /**
- * 功能开关：咕嘟助手、问咕嘟的紧急关停。
- * 只用于出现内容风险时一键关闭（默认开启，提审版本即线上版本）；关停必须填原因，切换留痕。
+ * 功能开关：4 类生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程）按「小程序 / App」分别紧急关停。
+ * 默认开启；关停必须填原因，切换留痕。小程序可一键关闭全部 AI。
  */
 const states = ref<FeatureSwitchState[]>([])
 const loadError = ref('')
 const loading = ref(false)
 const savingKey = ref('')
+const batchSaving = ref('')
+
+const rows = computed(() => buildMatrix(states.value))
+const recent = computed(() => recentChangeRows(states.value, 20))
+const platforms: FeaturePlatform[] = ['mp', 'app']
 
 async function load() {
   loadError.value = ''
@@ -25,10 +45,8 @@ async function load() {
   }
 }
 
-async function toggle(s: FeatureSwitchState) {
-  const next = !s.enabled
-  const copy = featureConfirmCopy(s.label, next)
-  let reason = ''
+/** 弹确认（恢复）或填原因（关停），返回 null 表示取消。 */
+async function askReason(copy: { title: string; message: string; confirm: string }, next: boolean): Promise<string | null> {
   try {
     if (next) {
       await ElMessageBox.confirm(copy.message, copy.title, {
@@ -36,26 +54,48 @@ async function toggle(s: FeatureSwitchState) {
         cancelButtonText: '取消',
         type: 'info',
       })
-    } else {
-      const r = await ElMessageBox.prompt(copy.message, copy.title, {
-        confirmButtonText: copy.confirm,
-        cancelButtonText: '取消',
-        type: 'warning',
-        inputPlaceholder: '关停原因（必填，例如：出现违规回复）',
-        inputValidator: (v: string) => validateSwitchReason(false, v) || true,
-      })
-      reason = (r.value ?? '').trim()
+      return ''
     }
+    const r = await ElMessageBox.prompt(copy.message, copy.title, {
+      confirmButtonText: copy.confirm,
+      cancelButtonText: '取消',
+      type: 'warning',
+      inputPlaceholder: '关停原因（必填，例如：提审要求 / 出现违规内容）',
+      inputValidator: (v: string) => validateSwitchReason(false, v) || true,
+    })
+    return (r.value ?? '').trim()
   } catch {
-    return
+    return null
   }
+}
+
+async function toggle(s: FeatureSwitchState) {
+  const next = !s.enabled
+  const name = switchName(s.platform, s.label)
+  const reason = await askReason(featureConfirmCopy(name, next, s.label), next)
+  if (reason === null) return
   savingKey.value = s.key
   try {
     const updated = await setFeatureSwitch({ key: s.key, enabled: next, reason: reason || undefined })
     states.value = states.value.map((x) => (x.key === updated.key ? updated : x))
-    ElMessage.success(next ? `${s.label}已恢复` : `${s.label}已暂停，最迟 15 秒全部生效`)
+    ElMessage.success(next ? `${name}已恢复` : `${name}已暂停，最迟 15 秒全部生效`)
   } finally {
     savingKey.value = ''
+  }
+}
+
+/** 某端一键关闭 / 恢复全部 AI。 */
+async function batch(platform: FeaturePlatform, next: boolean) {
+  const reason = await askReason(platformBatchCopy(platform, next), next)
+  if (reason === null) return
+  batchSaving.value = `${platform}:${next}`
+  try {
+    const updated = await setPlatformSwitches({ platform, enabled: next, reason: reason || undefined })
+    const byKey = new Map(updated.map((x) => [x.key, x]))
+    states.value = states.value.map((x) => byKey.get(x.key) ?? x)
+    ElMessage.success(next ? `${PLATFORM_LABEL[platform]}全部 AI 已恢复` : `${PLATFORM_LABEL[platform]}全部 AI 已暂停，最迟 15 秒生效`)
+  } finally {
+    batchSaving.value = ''
   }
 }
 
@@ -68,7 +108,7 @@ onMounted(load)
   <div class="page" v-loading="loading">
     <div class="head">
       <h2 class="title">功能开关</h2>
-      <p class="desc">出现内容风险时一键关闭。默认开启，关停后用户侧显示「暂停服务」，其他功能不受影响。</p>
+      <p class="desc">生成式 AI 按类别、按端紧急关停。默认开启，关停后对应端的用户看到「暂停服务」，其他功能不受影响。</p>
     </div>
 
     <div v-if="loadError" class="yh-card err">
@@ -76,38 +116,63 @@ onMounted(load)
       <el-button link @click="load">重试</el-button>
     </div>
 
-    <div
-      v-for="s in states"
-      :key="s.key"
-      class="yh-card switch-bar"
-      :class="{ off: !s.enabled }"
-      :data-testid="`feature-switch-${s.key}`"
-    >
-      <span class="dot" :class="s.enabled ? 'on' : 'off'" />
-      <div class="info">
-        <div class="status">{{ featureStatusText(s.label, s.enabled) }}</div>
-        <div class="meta">
-          {{ lastOperationText(s) }}<template v-if="s.reason"> · {{ s.reason }}</template>
-        </div>
-      </div>
-      <el-popover v-if="s.recentChanges?.length" placement="bottom-end" :width="360" trigger="click">
-        <template #reference>
-          <el-button link>修改记录</el-button>
-        </template>
-        <ul class="logs">
-          <li v-for="(c, i) in s.recentChanges" :key="i">
-            <span :class="c.enabled ? 'tag-on' : 'tag-off'">{{ c.enabled ? '恢复' : '关停' }}</span>
-            <span>{{ c.updatedByName || `用户 #${c.updatedBy}` }}</span>
-            <span class="at">{{ fmtAt(c.updatedAt) }}</span>
-            <span v-if="c.reason" class="reason">{{ c.reason }}</span>
-          </li>
-        </ul>
-      </el-popover>
-      <el-button
-        :type="s.enabled ? 'danger' : 'primary'"
-        :loading="savingKey === s.key"
-        @click="toggle(s)"
-      >{{ s.enabled ? '紧急关停' : `恢复${s.label}` }}</el-button>
+    <div class="yh-card batch" data-testid="feature-switch-batch">
+      <span class="batch-title">一键操作</span>
+      <template v-for="p in platforms" :key="p">
+        <el-button
+          type="danger"
+          plain
+          :loading="batchSaving === `${p}:false`"
+          :data-testid="`batch-off-${p}`"
+          @click="batch(p, false)"
+        >{{ PLATFORM_LABEL[p] }}一键关闭全部 AI</el-button>
+        <el-button
+          link
+          :loading="batchSaving === `${p}:true`"
+          :data-testid="`batch-on-${p}`"
+          @click="batch(p, true)"
+        >恢复{{ PLATFORM_LABEL[p] }}全部</el-button>
+      </template>
+    </div>
+
+    <div class="yh-card table-card">
+      <el-table :data="rows" row-key="category" data-testid="feature-switch-table">
+        <el-table-column label="AI 功能" prop="label" min-width="120" />
+        <el-table-column v-for="p in platforms" :key="p" :label="PLATFORM_LABEL[p]" min-width="240">
+          <template #default="{ row }">
+            <div v-if="row[p]" class="cell" :class="{ off: !row[p].enabled }" :data-testid="`feature-switch-${row[p].key}`">
+              <span class="dot" :class="row[p].enabled ? 'on' : 'off'" />
+              <div class="info">
+                <div class="status">{{ row[p].enabled ? '运行中' : '已暂停' }}</div>
+                <div class="meta">
+                  {{ lastOperationText(row[p]) }}<template v-if="row[p].reason"> · {{ row[p].reason }}</template>
+                </div>
+              </div>
+              <el-button
+                size="small"
+                :type="row[p].enabled ? 'danger' : 'primary'"
+                :loading="savingKey === row[p].key"
+                @click="toggle(row[p])"
+              >{{ row[p].enabled ? '关停' : '恢复' }}</el-button>
+            </div>
+            <span v-else class="meta">—</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <div class="yh-card recent" data-testid="feature-switch-recent">
+      <div class="status">最近修改记录</div>
+      <div v-if="!recent.length" class="meta">暂无记录</div>
+      <ul v-else class="logs">
+        <li v-for="(c, i) in recent" :key="i">
+          <span :class="c.enabled ? 'tag-on' : 'tag-off'">{{ c.enabled ? '恢复' : '关停' }}</span>
+          <span class="at">{{ PLATFORM_LABEL[c.platform] }}{{ c.label }}</span>
+          <span>{{ c.updatedByName || `用户 #${c.updatedBy}` }}</span>
+          <span class="at">{{ fmtAt(c.updatedAt) }}</span>
+          <span v-if="c.reason" class="reason">{{ c.reason }}</span>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -117,7 +182,7 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 880px;
+  max-width: 960px;
 }
 .title {
   margin: 0;
@@ -132,15 +197,26 @@ onMounted(load)
   padding: 12px 16px;
   color: var(--yh-error-text);
 }
-.switch-bar {
+.batch {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 12px 16px;
 }
-.switch-bar.off {
-  background: var(--yh-error-soft);
-  border: 1px solid var(--yh-error);
+.batch-title {
+  font-weight: 700;
+  color: var(--yh-title);
+  margin-right: 8px;
+}
+.table-card,
+.recent {
+  padding: 12px 16px;
+}
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .dot {
   width: 10px;
@@ -162,7 +238,7 @@ onMounted(load)
   font-weight: 700;
   color: var(--yh-title);
 }
-.switch-bar.off .status {
+.cell.off .status {
   color: var(--yh-error-text);
 }
 .meta {

@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -101,7 +102,10 @@ public class AgentController {
      */
     @Operation(summary = "发消息（SSE 事件流）")
     @PostMapping(value = "/sessions/{id}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamMessage(@PathVariable String id, @RequestBody SendCommand cmd) {
+    public SseEmitter streamMessage(@PathVariable String id, @RequestBody SendCommand cmd,
+                                    @RequestHeader(value = com.gudu.xsd.common.web.ClientSource.HEADER, required = false) String client) {
+        com.gudu.xsd.modules.featureswitch.domain.model.Platform platform =
+                com.gudu.xsd.modules.featureswitch.domain.model.Platform.fromClientHeader(client); // 子线程里读不到请求头，先取
         Long member = me();
         Long account = StpUtil.getLoginIdAsLong(); // 内容安全按登录账号取 openid（A.6）
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
@@ -116,7 +120,7 @@ public class AgentController {
         executor.execute(com.gudu.xsd.common.tenant.TenantContextHolder.wrap(() -> {
             try {
                 // 紧急关停：不落库、不调模型，走与其他失败一致的 SSE error 事件（客户端按 code 识别暂停）
-                Optional<AgentSwitchPolicy.Blocked> blocked = switchPolicy.checkSend(cmd.context());
+                Optional<AgentSwitchPolicy.Blocked> blocked = switchPolicy.checkSend(cmd.context(), platform);
                 if (blocked.isPresent()) {
                     sink.send("error", Map.of("code", blocked.get().code(), "message", blocked.get().message(),
                             "errorId", ""));

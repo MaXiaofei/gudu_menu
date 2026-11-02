@@ -5,7 +5,7 @@ vi.mock('./request', () => ({
   request: (...args: any[]) => requestFn(...args),
 }))
 
-const { listFeatureSwitches, setFeatureSwitch } = await import('./featureSwitch')
+const { listFeatureSwitches, setFeatureSwitch, setPlatformSwitches } = await import('./featureSwitch')
 
 describe('api/featureSwitch 紧急关停开关', () => {
   beforeEach(() => {
@@ -19,11 +19,19 @@ describe('api/featureSwitch 紧急关停开关', () => {
   })
 
   it('setFeatureSwitch → PUT，带 key / enabled / reason', async () => {
-    await setFeatureSwitch({ key: 'agent.chat.enabled', enabled: false, reason: '出现违规内容' })
+    await setFeatureSwitch({ key: 'agent.chat.enabled.mp', enabled: false, reason: '出现违规内容' })
     expect(requestFn).toHaveBeenCalledWith({
       url: '/admin/feature-switches',
       method: 'put',
-      data: { key: 'agent.chat.enabled', enabled: false, reason: '出现违规内容' },
+      data: { key: 'agent.chat.enabled.mp', enabled: false, reason: '出现违规内容' },
+    })
+  })
+  it('setPlatformSwitches → PUT /batch，带 platform / enabled / reason', async () => {
+    await setPlatformSwitches({ platform: 'mp', enabled: false, reason: '提审要求' })
+    expect(requestFn).toHaveBeenCalledWith({
+      url: '/admin/feature-switches/batch',
+      method: 'put',
+      data: { platform: 'mp', enabled: false, reason: '提审要求' },
     })
   })
 })

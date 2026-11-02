@@ -82,7 +82,7 @@
       <view style="height: 96px" />
     </scroll-view>
 
-    <view class="fab fab-scan" data-testid="fab-scan" @click="goScan">
+    <view v-if="featureStatus.vision" class="fab fab-scan" data-testid="fab-scan" @click="goScan">
       <ui-icon name="camera" tone="primary" :size="18" />
       <text class="fab-scan-txt">拍照</text>
     </view>
@@ -94,6 +94,7 @@
 </template>
 
 <script setup lang="ts">
+import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
 import { PAGES } from '@/utils/nav'
 import { ref, reactive, computed } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
@@ -180,6 +181,7 @@ function goDish(id: number) {
 }
 
 onShow(() => {
+  loadFeatureSwitches()
   reload()
   loadExtras()
 })

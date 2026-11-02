@@ -4,7 +4,11 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.R;
 import com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService;
+import com.gudu.xsd.common.web.ClientSource;
+import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
+import org.springframework.web.bind.annotation.RequestHeader;
 import com.gudu.xsd.modules.vision.application.VisionJobAppService;
+import com.gudu.xsd.modules.vision.application.VisionSwitchPolicy;
 import com.gudu.xsd.modules.vision.application.dto.ApplyItem;
 import com.gudu.xsd.modules.vision.application.dto.VisionJobView;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,6 +32,7 @@ import java.util.Map;
 public class VisionController {
 
     private final VisionJobAppService appService;
+    private final VisionSwitchPolicy switchPolicy;
 
     @Data
     public static class CreateReq {
@@ -43,7 +48,9 @@ public class VisionController {
     }
 
     @PostMapping
-    public R<Map<String, Object>> create(@RequestBody CreateReq req) {
+    public R<Map<String, Object>> create(@RequestBody CreateReq req,
+                                         @RequestHeader(value = ClientSource.HEADER, required = false) String client) {
+        switchPolicy.requireEnabled(Platform.fromClientHeader(client)); // 紧急关停：不建任务、不调模型
         if (req.getImageUrl() == null && req.getFileId() != null) {
             throw new BizException("暂不支持 fileId，请传上传接口返回的 imageUrl");
         }

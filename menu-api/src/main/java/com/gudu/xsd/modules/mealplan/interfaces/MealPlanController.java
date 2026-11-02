@@ -2,7 +2,11 @@ package com.gudu.xsd.modules.mealplan.interfaces;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.gudu.xsd.common.R;
+import com.gudu.xsd.common.web.ClientSource;
+import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
+import org.springframework.web.bind.annotation.RequestHeader;
 import com.gudu.xsd.modules.mealplan.application.MealPlanAppService;
+import com.gudu.xsd.modules.mealplan.application.MealPlanSwitchPolicy;
 import com.gudu.xsd.modules.mealplan.application.dto.CreateDraftCommand;
 import com.gudu.xsd.modules.mealplan.application.dto.DishCardView;
 import com.gudu.xsd.modules.mealplan.application.dto.MealPlanDraftView;
@@ -28,6 +32,7 @@ import java.util.Map;
 public class MealPlanController {
 
     private final MealPlanAppService appService;
+    private final MealPlanSwitchPolicy switchPolicy;
     private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
 
     /** AI 生成文本输出检测：每日提示与校验说明违规则替换为安全提示（菜品卡来自家庭菜谱库，录入时已检）。 */
@@ -46,7 +51,9 @@ public class MealPlanController {
     }
 
     @PostMapping
-    public R<MealPlanDraftView> create(@RequestBody(required = false) CreateDraftCommand cmd) {
+    public R<MealPlanDraftView> create(@RequestBody(required = false) CreateDraftCommand cmd,
+                                       @RequestHeader(value = ClientSource.HEADER, required = false) String client) {
+        switchPolicy.requireEnabled(Platform.fromClientHeader(client)); // 紧急关停：不生成、不调模型
         return R.ok(safe(appService.create(com.gudu.xsd.common.security.CurrentMember.id(), cmd)));
     }
 

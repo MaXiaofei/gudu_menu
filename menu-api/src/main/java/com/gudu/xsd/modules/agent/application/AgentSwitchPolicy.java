@@ -2,13 +2,14 @@ package com.gudu.xsd.modules.agent.application;
 
 import com.gudu.xsd.modules.featureswitch.application.FeatureSwitchAppService;
 import com.gudu.xsd.modules.featureswitch.domain.model.FeatureKey;
+import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * 咕嘟助手 / 问咕嘟紧急关停的判定（出现内容风险时一键关闭，默认开）。
+ * 咕嘟助手 / 问咕嘟紧急关停的判定（按端；出现内容风险时一键关闭，默认开）。
  *
  * <p>只拦「发新消息 / 生成」；查看、删除会话与历史、确认 / 取消 / 撤销、反馈、建议均不受影响。
  * context.page == 'cook_mode' 时看「问咕嘟」开关，其余看「咕嘟助手」开关。
@@ -40,9 +41,9 @@ public class AgentSwitchPolicy {
     }
 
     /** 发消息前检查：开关关闭返回 Blocked，开放返回空。 */
-    public Optional<Blocked> checkSend(Map<String, Object> context) {
+    public Optional<Blocked> checkSend(Map<String, Object> context, Platform platform) {
         FeatureKey key = keyOf(context);
-        if (switches.isEnabled(key)) return Optional.empty();
+        if (switches.isEnabled(key, platform)) return Optional.empty();
         return Optional.of(key == FeatureKey.AGENT_COOK_ASK
                 ? new Blocked(CODE_COOK_ASK_SUSPENDED, MSG_COOK_ASK_SUSPENDED)
                 : new Blocked(CODE_AGENT_SUSPENDED, MSG_AGENT_SUSPENDED));
