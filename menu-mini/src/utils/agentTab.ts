@@ -16,10 +16,13 @@ export const AGENT_TAB_ITEMS: Record<AgentTabMode, { text: string; icon: string 
   recommend: { text: '推荐', icon: 'recommend' },
 }
 
-/** 游客与开关关闭都显示推荐；登录且开关开显示咕嘟。 */
-export function resolveAgentTabMode(loggedIn: boolean, agentChat: boolean): AgentTabMode {
-  return loggedIn && agentChat ? 'agent' : 'recommend'
+/**
+ * 游客、开关关闭、开关状态未知（还没拉到也没有本地缓存）都显示推荐；登录且开关开显示咕嘟。
+ * 只看咕嘟助手（agentChat），问咕嘟 / 拍照识别 / 一周餐程的组合绝不影响标签。
+ */
+export function resolveAgentTabMode(loggedIn: boolean, agentChat: boolean, known = true): AgentTabMode {
+  return loggedIn && agentChat && known ? 'agent' : 'recommend'
 }
 
 /** 当前模式（响应式；tabBar 同步见 utils/theme.syncAgentTab）。 */
-export const agentTabState = reactive<{ mode: AgentTabMode }>({ mode: 'agent' })
+export const agentTabState = reactive<{ mode: AgentTabMode }>({ mode: 'recommend' })

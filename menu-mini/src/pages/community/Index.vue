@@ -69,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAgentTabSync } from '@/composables/useAgentTabSync'
 import { computed, ref, watch } from 'vue'
 import { onShow, onPullDownRefresh, onReachBottom, onShareAppMessage } from '@dcloudio/uni-app'
 import { banner, countText, coverHeightRatio, feed, react, toggleLikeLocal, weekNoText, type FeedTab, type PostCard as Post, type Topic } from '@/api/community'
@@ -92,6 +93,7 @@ const list = createCursorList<Post>((cursor) => feed(tab.value as FeedTab, curso
 const cols = computed(() => splitColumns(list.items, (p) => coverHeightRatio(p.coverRatio) + 0.45))
 
 let loaded = false
+useAgentTabSync()
 onShow(() => {
   banner()
     .then((b) => {

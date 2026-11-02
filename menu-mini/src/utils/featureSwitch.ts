@@ -44,11 +44,76 @@ export const featureStatus = reactive<Record<FeatureName, boolean>>({
   mealPlan: true,
 })
 
+/** 本地缓存键：上次从服务端拿到（或收到暂停码确认）的四类开关，启动时先用它，再以服务端为准。 */
+export const FEATURE_CACHE_KEY = 'feature_switches_cache'
+
+/**
+ * 开关状态是否「已知」：本次启动已从服务端拉到过，或本地有上次的缓存。
+ * 未知时标签保守显示「推荐」（宁可晚一步出现「咕嘟」，也不能在关停期间闪出「咕嘟」）。
+ */
+export const featureState = reactive({ known: false })
+
+/** 前台节流窗口：底部标签页 onShow 在此窗口内不重复请求。 */
+export const FEATURE_THROTTLE_MS = 10_000
+/** 前台轮询周期：用户停在页面不操作时，最迟这么久感知到后台改动。 */
+export const FEATURE_POLL_MS = 60_000
+/** 服务端开关读缓存 TTL（FeatureSwitchAppService.CACHE_TTL = 15 秒，其他实例最迟此时间生效）。 */
+export const SERVER_CACHE_TTL_MS = 15_000
+/** 后台改开关后，前台用户最长多久能看到（服务端缓存 + 轮询周期）；回前台 / 切页 / 进 AI 页时更快。 */
+export const FEATURE_MAX_STALE_MS = SERVER_CACHE_TTL_MS + FEATURE_POLL_MS
+
+type Listener = () => void
+const listeners = new Set<Listener>()
+/** 订阅开关状态变化（拉取完成 / 收到暂停码 / 恢复缓存）；返回取消订阅函数。theme.ts 用它实时同步底部标签。 */
+export function onFeatureStatusChange(cb: Listener): () => void {
+  listeners.add(cb)
+  return () => listeners.delete(cb)
+}
+function notify(): void {
+  listeners.forEach((cb) => {
+    try {
+      cb()
+    } catch {
+      // 订阅者异常不影响开关状态
+    }
+  })
+}
+
+function persist(): void {
+  try {
+    uni.setStorageSync(FEATURE_CACHE_KEY, {
+      agentChat: featureStatus.agentChat,
+      cookAsk: featureStatus.cookAsk,
+      vision: featureStatus.vision,
+      mealPlan: featureStatus.mealPlan,
+    })
+  } catch {
+    // 存储不可用时忽略
+  }
+}
+
+/** 启动时恢复上次的开关状态（App.onLaunch 最先调用）；缓存缺失 / 损坏则保持「未知」。 */
+export function restoreFeatureSwitches(): void {
+  let c: any
+  try {
+    c = uni.getStorageSync(FEATURE_CACHE_KEY)
+  } catch {
+    return
+  }
+  const keys: FeatureName[] = ['agentChat', 'cookAsk', 'vision', 'mealPlan']
+  if (!c || typeof c !== 'object' || !keys.every((k) => typeof c[k] === 'boolean')) return
+  keys.forEach((k) => (featureStatus[k] = c[k]))
+  featureState.known = true
+  notify()
+}
+
 /** 5032 ~ 5035 → 切到对应暂停状态；返回是否识别为暂停码。 */
 export function noteSuspendedCode(code: unknown): boolean {
   const f = CODE_TO_FEATURE[Number(code)]
   if (!f) return false
   featureStatus[f] = false
+  if (featureState.known) persist()
+  notify()
   return true
 }
 
@@ -65,11 +130,26 @@ export function anyAiEnabled(): boolean {
   return featureStatus.agentChat || featureStatus.cookAsk || featureStatus.vision || featureStatus.mealPlan
 }
 
+let loadSeq = 0
+let lastAttemptAt = 0
+let inflight: Promise<void> | null = null
+
+/** 仅测试用：清节流时钟与在途请求。 */
+export function resetFeatureRefreshClock(): void {
+  lastAttemptAt = 0
+  inflight = null
+}
+
 /**
- * 拉取本端状态。游客（无 token）也拉取：后端 GET /feature-switches 免登录、只返回四个布尔值，
- * 审核员未登录读协议时也要拿到真实状态；失败保持原状（按开处理）。
+ * 拉取本端状态（强制，不节流）。游客（无 token）也拉取：后端 GET /feature-switches 免登录、只返回四个布尔值，
+ * 审核员未登录读协议时也要拿到真实状态。
+ * - 并发时以「最后发起」的请求为准：序号落后的晚到响应直接丢弃，不覆盖新结果；
+ * - 失败保持原状（本地缓存的上次结果；没有缓存则仍是「未知」，标签保守显示「推荐」），并通知订阅者按最新登录态重算；
+ * - 成功后写入本地缓存。
  */
 export async function loadFeatureSwitches(): Promise<void> {
+  const seq = ++loadSeq
+  lastAttemptAt = Date.now()
   try {
     // 动态引入避免与 request.ts 循环依赖
     const { request } = await import('./request')
@@ -78,11 +158,35 @@ export async function loadFeatureSwitches(): Promise<void> {
       method: 'GET',
       silent: true,
     })
+    if (seq !== loadSeq) return // 过期响应
     featureStatus.agentChat = r?.agentChat !== false
     featureStatus.cookAsk = r?.cookAsk !== false
     featureStatus.vision = r?.vision !== false
     featureStatus.mealPlan = r?.mealPlan !== false
+    featureState.known = true
+    persist()
   } catch {
-    // 拉取失败不阻塞：按已知状态（默认开）
+    // 拉取失败不阻塞：沿用已知状态
+    if (seq === loadSeq) lastAttemptAt = 0 // 失败不算成功，下次 onShow 立即重试
   }
+  if (seq === loadSeq) notify()
+}
+
+/** 节流版：窗口内（FEATURE_THROTTLE_MS）已成功拉过则跳过；在途请求共用。底部标签页 onShow 用。 */
+export function refreshFeatureSwitchesThrottled(): Promise<void> {
+  if (inflight) return inflight
+  if (lastAttemptAt && Date.now() - lastAttemptAt < FEATURE_THROTTLE_MS) return Promise.resolve()
+  inflight = loadFeatureSwitches().finally(() => (inflight = null))
+  return inflight
+}
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
+/** 前台轮询（App.onShow 开启、onHide 停止）：重复调用只保留一个定时器。 */
+export function startFeaturePolling(): void {
+  if (pollTimer) return
+  pollTimer = setInterval(() => void loadFeatureSwitches(), FEATURE_POLL_MS)
+}
+export function stopFeaturePolling(): void {
+  if (pollTimer) clearInterval(pollTimer)
+  pollTimer = null
 }

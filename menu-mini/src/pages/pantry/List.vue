@@ -96,6 +96,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAgentTabSync } from '@/composables/useAgentTabSync'
 import { featureStatus, loadFeatureSwitches } from '@/utils/featureSwitch'
 import { PAGES } from '@/utils/nav'
 import { ref, reactive, computed } from 'vue'
@@ -185,6 +186,7 @@ function goDish(id: number) {
   uni.navigateTo({ url: `/pages/dish/Detail?id=${id}` })
 }
 
+useAgentTabSync()
 onShow(async () => {
   // 游客不请求家庭数据（占位页）
   if (!(await refreshLogin())) return

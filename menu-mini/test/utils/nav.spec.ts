@@ -21,9 +21,13 @@ describe('utils/nav 主导航改版', () => {
   it('pages.json tabBar 与 TABS、TAB_ICONS 顺序一致', () => {
     const list = pagesJson.tabBar.list
     expect(list.map((x: any) => '/' + x.pagePath)).toEqual(TABS.map((t) => t.path))
-    expect(list.map((x: any) => x.text)).toEqual(TABS.map((t) => t.text))
+    // 第三个 tab 的静态文字 / 图标是「推荐」（安全默认，运行时由 syncAgentTab 按登录态与开关换成「咕嘟」）
+    const isAgent = (i: number) => TAB_ICONS[i] === 'agent'
+    expect(list.map((x: any, i: number) => (isAgent(i) ? '推荐' : x.text))).toEqual(
+      TABS.map((t, i) => (isAgent(i) ? '推荐' : t.text)),
+    )
     expect([...TAB_ICONS]).toEqual(TABS.map((t) => t.key))
-    list.forEach((x: any, i: number) => expect(x.iconPath).toContain(`/${TAB_ICONS[i]}-`))
+    list.forEach((x: any, i: number) => expect(x.iconPath).toContain(`/${isAgent(i) ? 'recommend' : TAB_ICONS[i]}-`))
   })
 
   it('「我的」「智荐」不再是 Tab；Tab 页都在主包', () => {

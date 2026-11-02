@@ -229,6 +229,12 @@ export function currentPageTarget(): string | null {
 // ---------------------------------------------------------------------------
 
 let launchAuth: Promise<void> = Promise.resolve()
+let launchedOnLogin = false
+
+/** App onLaunch 登记冷启动落地页：落在登录页（扫码路径 / 旧入口）时，登录页首次加载按游客规则回首页。 */
+export function noteLaunchPath(path?: string | null): void {
+  launchedOnLogin = ('/' + String(path || '').replace(/^\//, '')) === LOGIN_PAGE
+}
 let loginRedirected = false
 
 /** App.vue onLaunch 同步调用：登记启动登录流程。 */
@@ -260,7 +266,17 @@ export function resetLoginRedirect(): void {
  */
 export async function resumeIfLoggedIn(raw?: unknown): Promise<string | null> {
   await launchAuth
-  if (!uni.getStorageSync('token')) return null
+  const landedAtLaunch = launchedOnLogin
+  launchedOnLogin = false // 只对冷启动落地的那一次生效
+  if (!uni.getStorageSync('token')) {
+    // 游客冷启动被带到登录页（如体验版二维码的页面路径仍是旧的登录页）且不是分享落地要求登录：回首页逛，
+    // 只有点到需要登录的功能才进登录页（游客浏览要求）
+    if (landedAtLaunch && !sanitizeRedirect(raw)) {
+      uni.switchTab({ url: HOME_PAGE })
+      return HOME_PAGE
+    }
+    return null
+  }
   resetLoginRedirect()
   return goAfterLogin(raw)
 }

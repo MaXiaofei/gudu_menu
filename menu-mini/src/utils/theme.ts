@@ -17,7 +17,7 @@ import { reactive } from 'vue'
 import { DEFAULT_SKIN, SKINS, skinCssVars, type SkinPalette } from '@/styles/tokens.generated'
 import { TABS } from '@/utils/nav'
 import { AGENT_TAB_ITEMS, agentTabState, resolveAgentTabMode, type AgentTabMode } from '@/utils/agentTab'
-import { featureStatus } from '@/utils/featureSwitch'
+import { featureState, featureStatus, onFeatureStatusChange } from '@/utils/featureSwitch'
 
 /** 皮肤 key（cream / matcha / …，以 tokens.json 为准）。 */
 export type ThemeName = string
@@ -89,7 +89,7 @@ export function applyTabBar(name: ThemeName = themeState.name): void {
     } as any)
     TAB_ICONS.forEach((key, index) => {
       // 咕嘟 Tab 在游客 / AI 关停时换成「推荐」（文字 + 图标），与主题图标一起设置，避免互相覆盖
-      const agent = key === 'agent' ? AGENT_TAB_ITEMS[agentTabState.mode] : null
+      const agent = key === 'agent' ? AGENT_TAB_ITEMS[(agentTabState.mode = currentAgentTabMode())] : null
       const icon = agent ? agent.icon : key
       uni.setTabBarItem({
         index,
@@ -109,10 +109,20 @@ export function applyTabBar(name: ThemeName = themeState.name): void {
  * 登录 / 退出 / 开关拉取后 / 咕嘟页 onShow 调用。返回当前模式。
  */
 export function syncAgentTab(): AgentTabMode {
-  agentTabState.mode = resolveAgentTabMode(!!uni.getStorageSync('token'), featureStatus.agentChat)
+  agentTabState.mode = currentAgentTabMode()
   applyTabBar()
   return agentTabState.mode
 }
+
+/** 按登录态与开关实时算出的模式（applyTabBar 每次都重算，换主题 / 任何时序都不会用到过期模式）。 */
+function currentAgentTabMode(): AgentTabMode {
+  return resolveAgentTabMode(!!uni.getStorageSync('token'), featureStatus.agentChat, featureState.known)
+}
+
+// 开关状态变化（拉取完成 / 收到 5032 / 恢复缓存）立即同步标签，不依赖各页面记得调用
+onFeatureStatusChange(() => {
+  syncAgentTab()
+})
 
 /** H5：注入全局样式覆盖所有页面栈（page-meta 只改第一个 uni-page-body）。 */
 function applyH5(name: ThemeName): void {

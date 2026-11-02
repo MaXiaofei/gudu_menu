@@ -123,6 +123,7 @@ import { addDishToMenu } from '@/api/menu'
 import { navInset } from '@/utils/token'
 import { isAllActive, pickTag, pickCuisine, toSearchParams, createLatestGuard } from '@/utils/dishFilter'
 import { useLoginState } from '@/composables/useLoginState'
+import { useAgentTabSync } from '@/composables/useAgentTabSync'
 
 // 游客浏览：未登录也能看公共菜谱；家庭数据（余量够不够、做过几次、成员头像）登录后才有
 const { loggedIn, refresh: refreshLogin } = useLoginState()
@@ -209,6 +210,7 @@ function goMembers() {
 }
 
 // 写菜谱发布后 switchTab 无法带参 → 全局标志（storage）触发「最新」排序
+useAgentTabSync()
 onShow(() => {
   if (uni.getStorageSync('dish_sort_latest')) {
     uni.removeStorageSync('dish_sort_latest')

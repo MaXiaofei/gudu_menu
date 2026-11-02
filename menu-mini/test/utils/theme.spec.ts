@@ -6,6 +6,7 @@ import {
   THEMES, THEME_OPTIONS, TAB_ICONS, THEME_STORAGE_KEY, themeState, setTheme, initTheme, themeCssVars, normalizeTheme, palette, tabIconPath, applyTabBar,
 } from '@/utils/theme'
 import { T } from '@/utils/token'
+import { featureState } from '@/utils/featureSwitch'
 import { SKINS, DEFAULT_SKIN } from '@/styles/tokens.generated'
 
 const srcDir = resolve(process.cwd(), 'src') + '/'
@@ -33,6 +34,8 @@ describe('utils/theme 双主题', () => {
   })
 
   it('setTheme：持久化 + 响应式状态 + T 跟随 + tabBar 同步', () => {
+    __testUni.setStorage('token', 't')
+    featureState.known = true
     setTheme('matcha')
     expect(__testUni.getStorage(THEME_STORAGE_KEY)).toBe('matcha')
     expect(themeState.name).toBe('matcha')

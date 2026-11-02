@@ -103,6 +103,7 @@ import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { listMenus, createMenu, deleteMenu, menuDetail, type Menu } from '@/api/menu'
 import { parseDate } from '@/utils/datetime'
 import { useLoginState } from '@/composables/useLoginState'
+import { useAgentTabSync } from '@/composables/useAgentTabSync'
 
 const { loggedIn, refresh: refreshLogin } = useLoginState()
 
@@ -177,6 +178,7 @@ async function reload() {
   loadCovers(menus.value)
 }
 
+useAgentTabSync()
 onPullDownRefresh(async () => {
   if (loggedIn.value) await reload()
   uni.stopPullDownRefresh()

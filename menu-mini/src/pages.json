@@ -238,9 +238,9 @@
       },
       {
         "pagePath": "pages/agent/Index",
-        "text": "咕嘟",
-        "iconPath": "static/tabbar/agent-cream.png",
-        "selectedIconPath": "static/tabbar/agent-cream-on.png"
+        "text": "推荐",
+        "iconPath": "static/tabbar/recommend-cream.png",
+        "selectedIconPath": "static/tabbar/recommend-cream-on.png"
       },
       // #ifndef MP-WEIXIN
       {

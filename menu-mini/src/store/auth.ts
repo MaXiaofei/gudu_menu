@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { request } from '@/utils/request'
 import { syncAgentTab } from '@/utils/theme'
+import { loadFeatureSwitches } from '@/utils/featureSwitch'
 import { applyLoginResult, clearLocalSession, type LoginResult } from '@/utils/family'
 
 export const useAuthStore = defineStore('auth', {
@@ -34,6 +35,7 @@ export const useAuthStore = defineStore('auth', {
       uni.setStorageSync('logged_out', '1') // 主动退出：下次启动不再自动静默登录
       // 游客浏览：退出后回到游客态的首页（不再停在登录页）；第三个 Tab 同步换回「推荐」
       syncAgentTab()
+      void loadFeatureSwitches() // 退出后按游客身份重拉开关
       uni.reLaunch({ url: '/pages/dish/List' })
     }
   }

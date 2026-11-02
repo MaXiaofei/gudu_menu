@@ -8,7 +8,7 @@ import { applyLoginResult, handleFamilyDenied, isFamilyDenied } from './family'
 import { currentPageTarget } from './loginRedirect'
 import { afterReloginFailed, classify401, promptLogin } from './guest'
 import { COMMUNITY_SUSPENDED, MSG_COMMUNITY_SUSPENDED, noteCommunityResponse } from './communityStatus'
-import { noteSuspendedCode } from './featureSwitch'
+import { loadFeatureSwitches, noteSuspendedCode } from './featureSwitch'
 
 /** 默认请求超时（毫秒），调用方可通过 opt.timeout 覆盖。 */
 export const REQUEST_TIMEOUT = 15000
@@ -95,6 +95,7 @@ async function trySilentRelogin(): Promise<boolean> {
         if (body.code !== 0 || !body.data?.token) return false
         // 新会话：token + 家庭上下文（服务端按上次使用的家庭落会话）
         applyLoginResult(body.data)
+        void loadFeatureSwitches() // 新会话：重拉开关（订阅者会同步底部标签）
         return true
       } catch {
         return false

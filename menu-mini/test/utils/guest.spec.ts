@@ -14,7 +14,7 @@ import {
 } from '@/utils/guest'
 import { resolveAgentTabMode } from '@/utils/agentTab'
 import { syncAgentTab } from '@/utils/theme'
-import { featureStatus } from '@/utils/featureSwitch'
+import { featureState, featureStatus } from '@/utils/featureSwitch'
 import { shouldPromptProfile, DEFAULT_NICKNAME } from '@/utils/profileSetup'
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../../src', p), 'utf8')
@@ -137,6 +137,7 @@ describe('第三个 Tab：咕嘟 / 推荐', () => {
 
   it('登录且开关开：恢复「咕嘟」；开关关闭：又是「推荐」；applyTabBar 不覆盖', () => {
     __testUni.setStorage('token', 't')
+    featureState.known = true
     expect(syncAgentTab()).toBe('agent')
     expect(agentCall().text).toBe('咕嘟')
     expect(agentCall().iconPath).toContain('agent-')
@@ -179,9 +180,8 @@ describe('源码守卫：冷启动不是登录页；登录流程不要求头像�
   })
 
   it('App.vue onLaunch 不再跳登录页', () => {
-    const app = src('App.vue')
-    expect(app).not.toMatch(/redirectToLogin|reLaunch/)
-    expect(app).toContain('installRouteGuard')
+    for (const f of ['App.vue', 'utils/launch.ts']) expect(src(f)).not.toMatch(/redirectToLogin|reLaunch/)
+    expect(src('utils/launch.ts')).toContain('installRouteGuard')
   })
 
   it('登录页与登录后流程不调用头像昵称授权', () => {
