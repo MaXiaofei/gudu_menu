@@ -36,6 +36,10 @@ const ALL: FeatureSwitchState[] = [
   st('cookAsk', 'app', '问咕嘟'),
   st('vision', 'app', '拍照识别'),
   st('mealPlan', 'mp', '一周餐程'),
+  st('estimate', 'mp', '营养估算'),
+  st('postText', 'app', 'AI 帮写'),
+  st('estimate', 'app', '营养估算'),
+  st('postText', 'mp', 'AI 帮写'),
 ]
 
 describe('生成式 AI 紧急关停开关文案', () => {
@@ -53,6 +57,9 @@ describe('生成式 AI 紧急关停开关文案', () => {
     expect(featureConfirmCopy('App问咕嘟', false, '问咕嘟').message).toContain('跟做模式其余功能不受影响')
     expect(featureConfirmCopy('小程序拍照识别', false, '拍照识别').message).toContain('已有识别结果仍可查看')
     expect(featureConfirmCopy('小程序一周餐程', false, '一周餐程').message).toContain('已生成的餐程仍可查看')
+    // 与后端行为一致：对话里的排一周也暂停、首页不再给一周快捷提问
+    expect(featureConfirmCopy('小程序一周餐程', false, '一周餐程').message).toContain('咕嘟对话里的「排一周」同样暂停')
+    expect(featureConfirmCopy('小程序咕嘟助手', false, '咕嘟助手').message).toContain('跟做模式里的提问同时暂停')
     expect(featureConfirmCopy('App问咕嘟', true, '问咕嘟').confirm).toBe('确认恢复')
   })
 
@@ -70,9 +77,9 @@ describe('生成式 AI 紧急关停开关文案', () => {
 })
 
 describe('开关矩阵与最近记录', () => {
-  it('乱序扁平列表 → 行固定为 4 类，列为小程序 / App', () => {
+  it('乱序扁平列表 → 行固定为 6 类，列为小程序 / App', () => {
     const rows = buildMatrix(ALL)
-    expect(rows.map((r) => r.category)).toEqual(['agentChat', 'cookAsk', 'vision', 'mealPlan'])
+    expect(rows.map((r) => r.category)).toEqual(['agentChat', 'cookAsk', 'vision', 'mealPlan', 'estimate', 'postText'])
     expect(rows.every((r) => r.mp?.platform === 'mp' && r.app?.platform === 'app')).toBe(true)
     expect(rows[2].label).toBe('拍照识别')
   })

@@ -2,10 +2,10 @@ import { request } from './request'
 import type { SwitchChange } from './communityAdmin'
 
 /**
- * 生成式 AI 紧急关停开关（4 类 × 小程序 / App）：只用于出现内容风险 / 审核要求时一键关闭，默认开启。
+ * 生成式 AI 紧急关停开关（6 类 × 小程序 / App）：只用于出现内容风险 / 审核要求时一键关闭；小程序默认开启，App 默认关闭。
  * 后端 GET/PUT /admin/feature-switches（运营 / 超管）；开关键带端后缀，如 agent.chat.enabled.mp。
  */
-export type FeatureCategory = 'agentChat' | 'cookAsk' | 'vision' | 'mealPlan'
+export type FeatureCategory = 'agentChat' | 'cookAsk' | 'vision' | 'mealPlan' | 'estimate' | 'postText'
 export type FeaturePlatform = 'mp' | 'app'
 export type FeatureKey =
   | 'agent.chat.enabled.mp'
@@ -16,6 +16,10 @@ export type FeatureKey =
   | 'ai.vision.enabled.app'
   | 'ai.mealplan.enabled.mp'
   | 'ai.mealplan.enabled.app'
+  | 'ai.estimate.enabled.mp'
+  | 'ai.estimate.enabled.app'
+  | 'ai.post_text.enabled.mp'
+  | 'ai.post_text.enabled.app'
 
 export interface FeatureSwitchState extends SwitchChange {
   key: FeatureKey

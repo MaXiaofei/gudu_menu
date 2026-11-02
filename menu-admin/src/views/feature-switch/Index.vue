@@ -20,8 +20,8 @@ import {
 } from '@/utils/featureSwitch'
 
 /**
- * 功能开关：4 类生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程）按「小程序 / App」分别紧急关停。
- * 默认开启；关停必须填原因，切换留痕。小程序可一键关闭全部 AI。
+ * 功能开关：6 类生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程、营养估算、AI 帮写）按「小程序 / App」分别紧急关停。
+ * 小程序默认开启，App 默认关闭；关停必须填原因，切换留痕。每端可一键关闭 / 恢复全部 AI。
  */
 const states = ref<FeatureSwitchState[]>([])
 const loadError = ref('')
@@ -108,7 +108,7 @@ onMounted(load)
   <div class="page" v-loading="loading">
     <div class="head">
       <h2 class="title">功能开关</h2>
-      <p class="desc">生成式 AI 按类别、按端紧急关停。默认开启，关停后对应端的用户看到「暂停服务」，其他功能不受影响。</p>
+      <p class="desc">生成式 AI 按类别、按端紧急关停。小程序默认开启，App 默认关闭（App 上线前保持关闭，上线时在此逐项打开）；关停后对应端的用户看到「暂停服务」，其他功能不受影响。</p>
     </div>
 
     <div v-if="loadError" class="yh-card err">
@@ -145,7 +145,7 @@ onMounted(load)
               <div class="info">
                 <div class="status">{{ row[p].enabled ? '运行中' : '已暂停' }}</div>
                 <div class="meta">
-                  {{ lastOperationText(row[p]) }}<template v-if="row[p].reason"> · {{ row[p].reason }}</template>
+                  {{ lastOperationText(row[p], p) }}<template v-if="row[p].reason"> · {{ row[p].reason }}</template>
                 </div>
               </div>
               <el-button
