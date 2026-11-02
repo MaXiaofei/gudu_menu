@@ -70,10 +70,10 @@ class ApiClient {
             return;
           }
           if (FeatureSwitch.noteCode(api.code)) {
-            // 咕嘟助手 / 问咕嘟紧急关停（5032 / 5033）：切到暂停状态，不弹报错
+            // 生成式 AI 紧急关停（5032 ~ 5035）：切到暂停状态，不弹报错
             handler.reject(DioException(
               requestOptions: response.requestOptions,
-              message: api.msg.isEmpty ? FeatureSwitch.agentMessage : api.msg,
+              message: api.msg.isEmpty ? (FeatureSwitch.messageOfCode(api.code) ?? FeatureSwitch.agentMessage) : api.msg,
             ));
             return;
           }

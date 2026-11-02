@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/feature_switch.dart';
 import '../../services/pantry_service.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/illustration.dart';
@@ -87,6 +88,7 @@ class _PantryListPageState extends State<PantryListPage> {
   @override
   void initState() {
     super.initState();
+    FeatureSwitch.load(); // 拍照入口随开关显示
     _load();
   }
 
@@ -220,20 +222,28 @@ class _PantryListPageState extends State<PantryListPage> {
       floatingActionButton: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          FloatingActionButton.extended(
-            key: const Key('pantry-scan'),
-            heroTag: 'pantry-scan',
-            backgroundColor: t.card,
-            foregroundColor: t.primaryDeep,
-            shape: StadiumBorder(side: BorderSide(color: t.border)),
-            onPressed: () async {
-              await context.push('/scan');
-              _load();
-            },
-            icon: const Icon(Icons.photo_camera_outlined),
-            label: Text('拍照', style: ts.cardTitle.copyWith(color: t.primaryDeep)),
+          // 拍照识别紧急关停时隐藏拍照入口
+          ValueListenableBuilder<bool>(
+            valueListenable: FeatureSwitch.vision,
+            builder: (_, visionOn, __) => !visionOn
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(right: AppTokens.sp10),
+                    child: FloatingActionButton.extended(
+                      key: const Key('pantry-scan'),
+                      heroTag: 'pantry-scan',
+                      backgroundColor: t.card,
+                      foregroundColor: t.primaryDeep,
+                      shape: StadiumBorder(side: BorderSide(color: t.border)),
+                      onPressed: () async {
+                        await context.push('/scan');
+                        _load();
+                      },
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      label: Text('拍照', style: ts.cardTitle.copyWith(color: t.primaryDeep)),
+                    ),
+                  ),
           ),
-          const SizedBox(width: AppTokens.sp10),
           FloatingActionButton.extended(
         heroTag: 'pantry-add',
         backgroundColor: t.primaryDeep,

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/ai_label.dart';
 import '../../core/app_theme.dart';
+import '../../core/feature_switch.dart';
 import '../../core/error_text.dart';
 import '../../core/lite_markdown.dart';
 import '../../models/showcase_types.dart';
@@ -396,18 +397,24 @@ class AgentCardView extends StatelessWidget {
           ),
         );
       case 'plan':
-        return _plainCard(
-          t,
-          onTap: () => context.push('/mealplan?draftId=${Json.i(card.raw['draftId'])}'),
-          leading: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: t.primaryDeep, borderRadius: BorderRadius.circular(AppTokens.rMd)),
-            child: Icon(Icons.calendar_month_rounded, color: t.card),
-          ),
-          title: '一周餐程 · ${Json.i(card.raw['days'], 7)} 天',
-          subtitle: Json.s(card.raw['range']),
-          trailing: Text('打开 ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),
+        // 一周餐程暂停服务时不展示草稿卡（点进去也是暂停页）
+        return ValueListenableBuilder<bool>(
+          valueListenable: FeatureSwitch.mealPlan,
+          builder: (_, planOn, __) => !planOn
+              ? const SizedBox.shrink()
+              : _plainCard(
+                  t,
+                  onTap: () => context.push('/mealplan?draftId=${Json.i(card.raw['draftId'])}'),
+                  leading: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(color: t.primaryDeep, borderRadius: BorderRadius.circular(AppTokens.rMd)),
+                    child: Icon(Icons.calendar_month_rounded, color: t.card),
+                  ),
+                  title: '一周餐程 · ${Json.i(card.raw['days'], 7)} 天',
+                  subtitle: Json.s(card.raw['range']),
+                  trailing: Text('打开 ›', style: ts.caption.copyWith(color: t.primaryDeep, fontWeight: FontWeight.w700)),
+                ),
         );
       default:
         return const SizedBox.shrink();
@@ -836,11 +843,18 @@ class AgentInputBar extends StatelessWidget {
               ),
             ),
           ),
+          // 拍照识别紧急关停时隐藏相机入口
           if (onCamera != null)
-            IconButton(
-              tooltip: '拍照识别',
-              onPressed: onCamera,
-              icon: Icon(Icons.photo_camera_outlined, color: t.body),
+            ValueListenableBuilder<bool>(
+              valueListenable: FeatureSwitch.vision,
+              builder: (_, visionOn, __) => visionOn
+                  ? IconButton(
+                      key: const Key('agent-camera'),
+                      tooltip: '拍照识别',
+                      onPressed: onCamera,
+                      icon: Icon(Icons.photo_camera_outlined, color: t.body),
+                    )
+                  : const SizedBox.shrink(),
             ),
           if (onSubmit != null && controller != null)
             ValueListenableBuilder<TextEditingValue>(
