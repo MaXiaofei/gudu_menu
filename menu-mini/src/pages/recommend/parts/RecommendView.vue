@@ -39,7 +39,7 @@
           <text class="generic-txt">先看看大家都在做的菜，登录后按你家的食材和口味推荐</text>
           <text class="generic-link">去登录 ›</text>
         </view>
-        <!-- 关闭个性化推荐（A.8） -->：说明当前是通用推荐，可去设置里打开 -->
+        <!-- 关闭个性化推荐（A.8）：说明当前是通用推荐，可去设置里打开 -->
         <view v-else-if="!home.personalized" class="generic-note" data-testid="smart-generic" @click="goSettings">
           <text class="generic-txt">已关闭个性化推荐，当前展示时令和大家常做的菜</text>
           <text class="generic-link">去设置 ›</text>
@@ -184,7 +184,7 @@ import { listMembers } from '@/api/member'
 import { unreadCount } from '@/api/notification'
 import { relativeDate } from '@/utils/datetime'
 import { expiryText } from '@/utils/freshness'
-import AskBlock from './parts/AskBlock.vue'
+import AskBlock from './AskBlock.vue'
 import { goTab } from '@/utils/nav'
 import { useLoginState } from '@/composables/useLoginState'
 import { currentPageTarget, loginUrl } from '@/utils/loginRedirect'

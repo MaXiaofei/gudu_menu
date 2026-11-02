@@ -193,6 +193,6 @@ describe('源码守卫：冷启动不是登录页；登录流程不要求头像�
   })
 
   it('咕嘟 Tab 页不再渲染「咕嘟助手暂停服务」提示页', () => {
-    expect(src('pages/agent/Index.vue')).not.toContain('ui-agent-paused')
+    expect(src('pages/agent/Index.vue')).not.toMatch(/ui-(agent|feature)-paused/)
   })
 })

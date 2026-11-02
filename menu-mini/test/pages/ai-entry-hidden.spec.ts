@@ -40,10 +40,12 @@ describe('一周餐程入口', () => {
 })
 
 describe('咕嘟助手 / 问咕嘟', () => {
-  it('咕嘟页、对话页、语音页挂咕嘟助手暂停盖层；跟做模式问咕嘟受 cookAsk 控制', () => {
-    for (const f of ['pages/agent/Index.vue', 'pkg-agent/Chat.vue', 'pkg-agent/Voice.vue']) {
+  it('对话页、语音页挂咕嘟助手暂停盖层；咕嘟 Tab 页改为整页渲染推荐（不再显示暂停提示页）；跟做模式问咕嘟受 cookAsk 控制（且游客不可用）', () => {
+    for (const f of ['pkg-agent/Chat.vue', 'pkg-agent/Voice.vue']) {
       expect(tpl(f)).toContain('<ui-agent-paused')
     }
-    expect(tpl('pkg-ai/CookMode.vue')).toContain('featureStatus.cookAsk')
+    expect(tpl('pages/agent/Index.vue')).not.toContain('<ui-agent-paused')
+    expect(tpl('pkg-ai/CookMode.vue')).toContain('askOn')
+    expect(readFileSync(resolve(__dirname, '../../src/pkg-ai/CookMode.vue'), 'utf8')).toContain('featureStatus.cookAsk && isLoggedIn()')
   })
 })
