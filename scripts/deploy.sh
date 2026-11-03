@@ -56,13 +56,43 @@ echo "  compose:  $COMPOSE_FILE $PROJECT_OPT"
 echo "  时间:     $(date '+%Y-%m-%d %H:%M:%S')"
 echo "============================================================"
 
+# --- 部署前备份清理 ---------------------------------------------------------
+# 命名约定：
+#   自动备份  gudu-auto-YYYYMMDD-HHMMSS-<SAFE_REF>.sql.gz   （仅部署脚本生成，只有这类会被自动清理）
+#   手动备份  请用 manual- 前缀命名（如 manual-before-xxx-20261101.sql.gz），不会被自动清理；
+#            其他任何不匹配自动格式的文件（含旧格式 gudu-prod-*、before-*）同样一律不碰。
+# 为什么换前缀：SAFE_REF 可含 [A-Za-z0-9._-]，手动在旧格式 gudu-prod-时间-ref 后加标注，
+#   与自动备份在格式上无法区分，所以自动备份改用专属前缀 gudu-auto-，旧格式 gudu-prod-* 不再被自动清理。
+# 保留规则：自动备份按文件名时间倒序，「不在最新 keep 份内」且「修改时间早于 min_days 天」才删。
+#   环境变量 BACKUP_KEEP（默认 10）、BACKUP_MIN_DAYS（默认 14）可覆盖。
+cleanup_auto_backups() {
+  local dir="$1" keep="$2" days="$3" f n=0 deleted=0
+  case "$keep$days" in *[!0-9]*|"") echo "  ⚠ BACKUP_KEEP/BACKUP_MIN_DAYS 必须是非负整数，跳过备份清理"; return 0;; esac
+  local mins=$((days * 1440))
+  local files
+  files=$(ls -1 "$dir" 2>/dev/null \
+    | grep -E '^gudu-auto-[0-9]{8}-[0-9]{6}-[A-Za-z0-9._-]+\.sql\.gz$' | sort -r || true)
+  for f in $files; do
+    n=$((n + 1))
+    [ "$n" -le "$keep" ] && continue
+    # find -mmin +N 在 GNU/BSD 都可用：修改时间早于 N 分钟
+    if [ -n "$(find "$dir/$f" -maxdepth 0 -type f -mmin +"$mins" 2>/dev/null)" ]; then
+      rm -f "$dir/$f" && echo "  清理旧自动备份: $f" && deleted=$((deleted + 1))
+    fi
+  done
+  if [ "$deleted" -eq 0 ]; then
+    echo "  无需清理自动备份（共 $n 份，保留最新 $keep 份且 ${days} 天内的不删）"
+  fi
+}
+# --- /部署前备份清理 --------------------------------------------------------
+
 # 0.5 非 main 分支部署 prod 前先全量备份数据库（迁移不可自动撤回，需要能回到部署前的数据）。
 #     备份失败（dump 出错 / gzip 校验失败 / 缺 Dump completed 结尾）→ 中止部署，不动线上。
 #     密码从容器内 MYSQL_ROOT_PASSWORD 取，不落盘。
 if [ "$DEPLOY_BACKUP" = "1" ]; then
   BACKUP_DIR=/root/gudu-backups
   SAFE_REF=$(echo "${DEPLOY_REF:-unknown}" | sed 's/[^A-Za-z0-9._-]/-/g' | cut -c1-60)
-  BACKUP_FILE="$BACKUP_DIR/gudu-prod-$(date +%Y%m%d-%H%M%S)-$SAFE_REF.sql.gz"
+  BACKUP_FILE="$BACKUP_DIR/gudu-auto-$(date +%Y%m%d-%H%M%S)-$SAFE_REF.sql.gz"
   mkdir -p "$BACKUP_DIR"
   echo "→ 部署前备份数据库 → $BACKUP_FILE"
   backup_ok=1
@@ -83,11 +113,8 @@ if [ "$DEPLOY_BACKUP" = "1" ]; then
   fi
   mv "$BACKUP_FILE.tmp" "$BACKUP_FILE"
   echo "  备份完成: $BACKUP_FILE（$(du -h "$BACKUP_FILE" | awk '{print $1}')，gzip -t 校验通过）"
-  # 只保留最近 BACKUP_KEEP 份（默认 5，服务器磁盘紧张）；新备份校验通过后才清理旧的
-  BACKUP_KEEP=${BACKUP_KEEP:-5}
-  ls -1t "$BACKUP_DIR"/gudu-prod-*.sql.gz 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)) | while read -r old; do
-    rm -f "$old" && echo "  清理旧备份: $old"
-  done
+  # 清理旧的「自动备份」：新备份校验通过后才执行（规则见上方 cleanup_auto_backups）
+  cleanup_auto_backups "$BACKUP_DIR" "${BACKUP_KEEP:-10}" "${BACKUP_MIN_DAYS:-14}"
 fi
 
 # 部署成功后记录来源到 ./.deployed（仓库根目录；prod 即 /root/gudu/.deployed）
