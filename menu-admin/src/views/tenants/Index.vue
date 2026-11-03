@@ -116,7 +116,7 @@ onMounted(async () => {
     <div class="yh-head">
       <div>
         <h1>账号与家庭</h1>
-        <div class="yh-sub">只看账号元数据与所属家庭数，不展示家庭的菜单、余量、采购、成员档案（最小可见原则）</div>
+        <div class="yh-sub">账号 · 家庭数</div>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>

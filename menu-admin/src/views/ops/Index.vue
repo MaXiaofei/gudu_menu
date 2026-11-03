@@ -39,7 +39,7 @@ onMounted(async () => {
     <div class="yh-head">
       <div>
         <h1>系统健康</h1>
-        <div class="yh-sub">服务状态、按报错编号聚合的错误与后台操作审计；健康检查接口上线前，仅 AI 服务有实时数据</div>
+        <div class="yh-sub">服务状态 · 错误 · 审计</div>
       </div>
     </div>
 

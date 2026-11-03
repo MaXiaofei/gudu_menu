@@ -226,7 +226,7 @@ onMounted(() => {
     <div class="yh-head">
       <div>
         <h1>Agent 调用链</h1>
-        <div class="yh-sub">每轮对话一条 trace，模型调用、检索、工具、护栏各为一个 span；输入输出已脱敏</div>
+        <div class="yh-sub">对话 · 工具 · 护栏</div>
       </div>
       <div class="head-tools">
         <el-input

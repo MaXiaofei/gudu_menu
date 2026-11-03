@@ -68,7 +68,7 @@ onMounted(load)
   <div class="page" v-loading="loading">
     <div class="head">
       <h2 class="title">功能开关</h2>
-      <p class="desc">出现内容风险时一键关闭。默认开启，关停后用户侧显示「暂停服务」，其他功能不受影响。</p>
+      <p class="desc">一键关停 · 默认开启</p>
     </div>
 
     <div v-if="loadError" class="yh-card err">

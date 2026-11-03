@@ -113,7 +113,7 @@ onMounted(() => {
     <div class="yh-head">
       <div>
         <h1>内容安全复核</h1>
-        <div class="yh-sub">微信内容安全 / 规则拦下的文本与图片；违规图片已隔离（原地址显示占位图），误判可恢复</div>
+        <div class="yh-sub">拦截文本 · 隔离图片</div>
       </div>
       <el-button @click="tab === 'media' ? loadMedia() : loadText()">刷新</el-button>
     </div>

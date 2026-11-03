@@ -140,7 +140,7 @@ onUnmounted(disposeChart)
     <div class="yh-head">
       <div>
         <h1>运营仪表盘</h1>
-        <div class="yh-sub">{{ updatedAt ? `数据更新于 ${updatedAt}` : '运营概览' }} · 近 {{ days }} 天趋势</div>
+        <div class="yh-sub">运营概览 · 近 {{ days }} 天{{ updatedAt ? ` · ${updatedAt} 更新` : '' }}</div>
       </div>
       <div class="yh-seg" role="group" aria-label="统计天数">
         <button

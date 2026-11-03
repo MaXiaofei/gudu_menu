@@ -117,7 +117,7 @@ onMounted(() => {
     <div class="yh-head">
       <div>
         <h1>公共菜谱库</h1>
-        <div class="yh-sub">所有家庭都能看到并加入自家；家庭投稿需审核后上架（审核流程待上线）</div>
+        <div class="yh-sub">公共菜谱 · 家庭投稿</div>
       </div>
       <el-button type="primary" @click="router.push('/dish')">去菜谱管理</el-button>
     </div>

@@ -168,7 +168,7 @@ onMounted(async () => {
     <div class="yh-head">
       <div>
         <h1>家庭新建食材</h1>
-        <div class="yh-sub">家庭自己新建的食材只在本家可见；这里按名称汇总，高频的收编为公共食材，或合并到已有公共食材（名称记为别名）</div>
+        <div class="yh-sub">私有食材 · 收编 · 合并</div>
       </div>
       <el-button @click="tab === 'groups' ? loadGroups() : loadAliases()">刷新</el-button>
     </div>
