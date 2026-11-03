@@ -162,9 +162,15 @@ class GuduProdE2ECommunityTest extends ProdE2EBase {
         assertThat(topicList.toString()).contains("一周不重样").contains("宝宝辅食");
         assertThat(ok(get(bob, "/community/topics"), "进行中话题").size()).isPositive();
 
-        // AI 帮写（模板）
-        assertThat(ok(post(bob, "/community/drafts/ai-text", Map.of("dishId", publicDishId, "style", "short")), "AI 帮写")
-                .get("text").asText()).isNotBlank();
+        // AI 帮写（模板）：不带 X-Client 按 App 端判定；生产 App 端 AI 可能整体关停，按当前开关断言（不改全站开关）
+        Integer appPostText = jdbc.queryForObject(
+                "SELECT enabled FROM sys_switch WHERE switch_key = 'ai.post_text.enabled.app'", Integer.class);
+        JsonNode aiText = post(bob, "/community/drafts/ai-text", Map.of("dishId", publicDishId, "style", "short"));
+        if (appPostText != null && appPostText == 1) {
+            assertThat(ok(aiText, "AI 帮写").get("text").asText()).isNotBlank();
+        } else {
+            assertThat(aiText.get("code").asInt()).as("App 端 AI 帮写已关停").isEqualTo(5037);
+        }
 
         // 删除：他人看不到
         ok(delete(bob, "/community/posts/" + p2), "删帖");
