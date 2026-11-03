@@ -8,11 +8,15 @@ export interface UsageRow {
   tokensIn: number
   tokensOut: number
   latencyAvgMs: number
+  /** 后端按 cost_fen 优先换算的成本（元） */
+  costYuan?: number | string | null
 }
 
 export interface CallLogLite {
   scene: string
   cost?: number | string | null
+  costFen?: number | string | null
+  costYuan?: number | string | null
   latencyMs?: number | null
   status?: string | null
   createTime: string
@@ -22,6 +26,10 @@ export const SCENE_LABEL: Record<string, string> = {
   nutrition_fill: '营养补全',
   menu_recommend: '首页智荐',
   dish_estimate: '菜品估营养',
+  mealplan: '餐程智排',
+  agent: '智能助手',
+  vision: '图片识别',
+  community_text: '社区文本审核',
 }
 
 export function sceneLabel(scene: string): string {
@@ -38,18 +46,33 @@ export function percentile(values: number[], p: number): number | null {
 
 export interface UsageSummary {
   totalCalls: number
+  costYuan: number
   failCalls: number
   successRate: number | null
   tokens: number
+}
+
+function num(v: number | string | null | undefined): number {
+  const n = Number(v ?? 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+/** 单条调用成本（元）：后端已换算的 costYuan > cost_fen/100 > cost。 */
+export function logCostYuan(l: Pick<CallLogLite, 'cost' | 'costFen' | 'costYuan'>): number {
+  if (l.costYuan != null) return num(l.costYuan)
+  if (l.costFen != null) return num(l.costFen) / 100
+  return num(l.cost)
 }
 
 export function summarizeUsage(rows: UsageRow[] | null | undefined): UsageSummary {
   const list = Array.isArray(rows) ? rows : []
   const totalCalls = list.reduce((s, r) => s + (Number(r.totalCalls) || 0), 0)
   const failCalls = list.reduce((s, r) => s + (Number(r.failCalls) || 0), 0)
+  const costYuan = list.reduce((s, r) => s + num(r.costYuan), 0)
   const tokens = list.reduce((s, r) => s + (Number(r.tokensIn) || 0) + (Number(r.tokensOut) || 0), 0)
   return {
     totalCalls,
+    costYuan,
     failCalls,
     successRate: totalCalls > 0 ? (totalCalls - failCalls) / totalCalls : null,
     tokens,
@@ -80,7 +103,7 @@ export function sampleStats(logs: CallLogLite[]): SampleStats {
   let costYuan = 0
   const lat: number[] = []
   for (const l of logs) {
-    const c = Number(l.cost ?? 0)
+    const c = logCostYuan(l)
     if (Number.isFinite(c)) {
       costYuan += c
       costByScene[l.scene] = (costByScene[l.scene] ?? 0) + c
@@ -105,4 +128,11 @@ export function sampleStats(logs: CallLogLite[]): SampleStats {
 export function formatMs(ms: number | null | undefined): string {
   if (ms == null || !Number.isFinite(ms)) return '-'
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)} 秒` : `${Math.round(ms)} ms`
+}
+
+/** 成本展示：小额（不足 1 分）保留 4 位，避免全显示 ¥0.00。 */
+export function formatCost(yuan: number | null | undefined): string {
+  if (yuan == null || !Number.isFinite(yuan)) return '-'
+  if (yuan > 0 && yuan < 0.01) return `¥${yuan.toFixed(4)}`
+  return `¥${yuan.toFixed(2)}`
 }

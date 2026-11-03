@@ -4,18 +4,21 @@ import { MagicStick, Food, DataAnalysis, Bowl } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 import { getAiUsage, listAiCallLogs, type AiCallLog } from '@/api/ai'
 import {
+  formatCost,
   formatMs,
   percentile,
   sampleStats,
+  logCostYuan,
+  SCENE_LABEL,
   sceneLabel,
   summarizeUsage,
   withinDays,
   type UsageRow,
 } from '@/utils/aiStats'
-import { formatCount, formatYuan } from '@/utils/dashboard'
+import { formatCount } from '@/utils/dashboard'
 import StatCard from '@/components/StatCard.vue'
 
-/** 成本 / P95 由最近一批明细计算（/ai/usage 不含成本与分位数） */
+/** P95 由最近一批明细计算；成本取 /ai/usage 的汇总（含网关行、已按 cost_fen 换算） */
 const SAMPLE_SIZE = 500
 const DAY_OPTIONS = [
   { value: 1, label: '今天' },
@@ -26,6 +29,7 @@ const SCENE_ICON: Record<string, Component> = {
   menu_recommend: Bowl,
   nutrition_fill: Food,
   dish_estimate: DataAnalysis,
+  vision: DataAnalysis,
 }
 
 const days = ref(7)
@@ -37,8 +41,6 @@ const sampleError = ref('')
 const summary = computed(() => summarizeUsage(usage.value))
 const windowed = computed(() => withinDays(sample.value, days.value))
 const stats = computed(() => sampleStats(windowed.value))
-/** 明细样本是否完整覆盖了时间窗口（样本满 500 条且最早一条仍在窗口内 → 不完整） */
-const sampleTruncated = computed(() => sample.value.length >= SAMPLE_SIZE && windowed.value.length === sample.value.length)
 
 const sceneRows = computed(() => {
   const max = Math.max(1, ...usage.value.map((r) => Number(r.totalCalls) || 0))
@@ -49,7 +51,7 @@ const sceneRows = computed(() => {
       return {
         ...r,
         pct: Math.round(((Number(r.totalCalls) || 0) / max) * 100),
-        cost: stats.value.costByScene[r.scene] ?? 0,
+        cost: Number(r.costYuan) || 0,
         p95: percentile(lat, 95),
       }
     })
@@ -169,8 +171,8 @@ onMounted(() => {
       />
       <StatCard
         label="成本"
-        :value="formatYuan(stats.costYuan)"
-        :hint="`基于最近 ${stats.sampleSize} 条明细${sampleTruncated ? '（不足以覆盖整个范围）' : ''}`"
+        :value="formatCost(summary.costYuan)"
+        hint="按调用汇总（含降级的失败尝试）"
         data-testid="ai-kpi-cost"
       />
       <StatCard
@@ -205,7 +207,7 @@ onMounted(() => {
             <span class="s-name">{{ sceneLabel(r.scene) }}</span>
             <span class="s-bar"><i :style="{ width: `${r.pct}%`, background: `var(--chart-${i % 4})` }" /></span>
             <span class="s-num">{{ formatCount(r.totalCalls) }} 次</span>
-            <span class="s-meta yh-muted">P95 {{ formatMs(r.p95) }} · {{ formatYuan(r.cost) }}<template v-if="r.failCalls"> · <span class="fail">失败 {{ r.failCalls }}</span></template></span>
+            <span class="s-meta yh-muted">P95 {{ formatMs(r.p95) }} · {{ formatCost(r.cost) }}<template v-if="r.failCalls"> · <span class="fail">失败 {{ r.failCalls }}</span></template></span>
           </div>
         </div>
       </section>
@@ -217,9 +219,7 @@ onMounted(() => {
         <span class="yh-card-title">调用明细</span>
         <div class="filters">
           <el-select v-model="query.scene" placeholder="全部功能" clearable size="small" style="width: 130px" @change="onFilter">
-            <el-option value="menu_recommend" label="首页智荐" />
-            <el-option value="nutrition_fill" label="营养补全" />
-            <el-option value="dish_estimate" label="菜品估营养" />
+            <el-option v-for="(label, key) in SCENE_LABEL" :key="key" :value="key" :label="label" />
           </el-select>
           <el-select v-model="query.status" placeholder="全部结果" clearable size="small" style="width: 110px" @change="onFilter">
             <el-option value="ok" label="成功" />
@@ -241,8 +241,14 @@ onMounted(() => {
         <el-table-column label="成员" width="100">
           <template #default="{ row }">{{ row.memberId ? `#${row.memberId}` : '-' }}</template>
         </el-table-column>
-        <el-table-column label="模型" width="110">
-          <template #default="{ row }">{{ row.provider || '—' }}</template>
+        <el-table-column label="能力" width="90">
+          <template #default="{ row }">{{ row.capability || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="模型" width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.model || row.provider || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="成本" width="90">
+          <template #default="{ row }">{{ formatCost(logCostYuan(row)) }}</template>
         </el-table-column>
         <el-table-column label="耗时" width="90">
           <template #default="{ row }">{{ formatMs(row.latencyMs) }}</template>
@@ -282,14 +288,15 @@ onMounted(() => {
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="时间">{{ detailLog.createTime }}</el-descriptions-item>
           <el-descriptions-item label="功能">{{ sceneLabel(detailLog.scene) }}</el-descriptions-item>
-          <el-descriptions-item label="模型">{{ detailLog.provider || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="能力">{{ detailLog.capability || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="模型">{{ detailLog.model || detailLog.provider || '—' }}</el-descriptions-item>
           <el-descriptions-item label="结果">
             <span class="yh-tag" :class="detailLog.status === 'ok' ? 'ok' : 'err'">{{ detailLog.status === 'ok' ? '成功' : '失败' }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="输入 Token">{{ detailLog.tokensIn ?? '-' }}</el-descriptions-item>
           <el-descriptions-item label="输出 Token">{{ detailLog.tokensOut ?? '-' }}</el-descriptions-item>
           <el-descriptions-item label="耗时">{{ formatMs(detailLog.latencyMs) }}</el-descriptions-item>
-          <el-descriptions-item label="成本">{{ formatYuan(detailLog.cost) }}</el-descriptions-item>
+          <el-descriptions-item label="成本">{{ formatCost(logCostYuan(detailLog)) }}</el-descriptions-item>
           <el-descriptions-item v-if="detailLog.errorMsg" label="错误信息" :span="2">
             <span class="fail">{{ detailLog.errorMsg }}</span>
           </el-descriptions-item>

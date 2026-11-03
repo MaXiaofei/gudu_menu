@@ -31,6 +31,12 @@ export interface AiCallLog {
   tokensIn: number | null
   tokensOut: number | null
   cost: number | null
+  costFen?: number | null
+  /** 后端换算的成本（元，cost_fen 优先） */
+  costYuan?: number | null
+  /** 网关能力（CHAT/VISION 等；业务行为空） */
+  capability?: string | null
+  model?: string | null
   provider: string | null
   latencyMs: number | null
   status: string

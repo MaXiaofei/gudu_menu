@@ -127,8 +127,8 @@ test.describe('AI 调用明细', () => {
     await page.route(/\/gudu\//, (route) => route.fulfill(ok({})))
     await page.route(/\/gudu\/ai\/provider/, (route) => route.fulfill(ok({ current: 'deepseek', providers: ['deepseek', 'glm'], ready: [{ provider: 'deepseek', ready: true }, { provider: 'glm', ready: true }] })))
     await page.route(/\/gudu\/ai\/usage/, (route) => route.fulfill(ok([
-      { scene: 'menu_recommend', totalCalls: 90, failCalls: 1, tokensIn: 1000, tokensOut: 500, latencyAvgMs: 1200 },
-      { scene: 'nutrition_fill', totalCalls: 10, failCalls: 0, tokensIn: 100, tokensOut: 50, latencyAvgMs: 3000 },
+      { scene: 'menu_recommend', totalCalls: 90, failCalls: 1, tokensIn: 1000, tokensOut: 500, latencyAvgMs: 1200, costYuan: 0.2 },
+      { scene: 'nutrition_fill', totalCalls: 10, failCalls: 0, tokensIn: 100, tokensOut: 50, latencyAvgMs: 3000, costYuan: 0.1 },
     ])))
     await page.route(/\/gudu\/ai\/call-log/, (route) => route.fulfill(ok({
       records: [
@@ -142,7 +142,7 @@ test.describe('AI 调用明细', () => {
     await expect(page.getByTestId('ai-kpi-calls')).toContainText('100')
     await expect(page.getByTestId('ai-kpi-calls')).toContainText('成功率 99.0%')
     await expect(page.getByTestId('ai-kpi-cost')).toContainText('¥0.30')
-    await expect(page.getByTestId('ai-kpi-cost')).toContainText('基于最近 2 条明细')
+    await expect(page.getByTestId('ai-kpi-cost')).toContainText('按调用汇总')
     await expect(page.getByTestId('ai-kpi-p95')).toContainText('3.2 秒')
     await expect(page.getByTestId('ai-kpi-p95')).toContainText('营养补全最慢')
     await expect(page.getByTestId('ai-scenes')).toContainText('首页智荐')

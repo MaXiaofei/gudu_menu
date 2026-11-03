@@ -41,4 +41,7 @@ public class AiCallLog {
     private BigDecimal costFen;
     /** V73 关联追踪 id。 */
     private String traceId;
+    /** 展示用成本（元）：优先 costFen/100，缺失用 cost；非表字段。 */
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private BigDecimal costYuan;
 }
