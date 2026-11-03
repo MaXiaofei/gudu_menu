@@ -1,36 +1,89 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { getAiUsage, listAiCallLogs, type AiCallLog } from '@/api/ai'
-import { sceneLabel, summarizeUsage, type UsageRow } from '@/utils/aiStats'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { listAiCallLogs, type AiCallLog } from '@/api/ai'
+import { getOpsHealth, rebuildDishVectors, type HealthItem } from '@/api/ops'
+import { sceneLabel } from '@/utils/aiStats'
 import { relativeTime } from '@/utils/feedback'
+import { isSuperAdminStored } from '@/utils/auth-storage'
 import HealthCard from '@/components/HealthCard.vue'
-import PendingApi from '@/components/PendingApi.vue'
 
 /**
- * 系统健康（原型 AdminOps）。API / MySQL / Redis / 语义搜索 / 迁移一致性、按报错编号聚合、审计日志
- * 都依赖新接口（prototype-ui-rollout 3.9、3.10）；当前只有 AI 服务能用真实数据（近 24 小时失败率 + 最近失败调用）。
+ * 系统健康：服务探测来自运营可读的 /ops/health（应用 / MySQL / Redis / 语义搜索 / AI）。
+ * 「最近失败的 AI 调用」「重建语义检索」仅超管可见，运营不发这些请求。
  */
-const usage = ref<UsageRow[] | null>(null)
+const router = useRouter()
+const isSuper = isSuperAdminStored()
+
+const items = ref<HealthItem[]>([])
+const healthLoaded = ref(false)
+const healthFailed = ref(false)
 const failures = ref<AiCallLog[]>([])
-const loaded = ref(false)
+const failuresLoaded = ref(false)
+const rebuilding = ref(false)
 
-const ai = computed(() => {
-  if (!usage.value) return { status: 'pending' as const, detail: '读取失败' }
-  const s = summarizeUsage(usage.value)
-  if (s.totalCalls === 0) return { status: 'ok' as const, detail: '近 24 小时无调用' }
-  const failRate = s.failCalls / s.totalCalls
-  const status = failRate > 0.2 ? ('err' as const) : failRate > 0.05 ? ('warn' as const) : ('ok' as const)
-  return { status, detail: `近 24 小时 ${s.totalCalls} 次 · 失败率 ${(failRate * 100).toFixed(1)}%` }
-})
+const cards = computed(() =>
+  items.value.map((i) => ({
+    key: i.key,
+    title: i.label,
+    status: i.status,
+    detail:
+      i.status === 'ok'
+        ? [i.detail, `${i.latencyMs} 毫秒`].filter(Boolean).join(' · ')
+        : `${i.error || '探测失败'} · ${i.latencyMs} 毫秒`,
+  })),
+)
 
-onMounted(async () => {
-  const [u, f] = await Promise.allSettled([
-    getAiUsage(1),
-    listAiCallLogs({ pageNum: 1, pageSize: 5, status: 'fail' }),
-  ])
-  usage.value = u.status === 'fulfilled' && Array.isArray(u.value) ? u.value : null
-  failures.value = f.status === 'fulfilled' && Array.isArray(f.value?.records) ? f.value.records : []
-  loaded.value = true
+async function loadHealth() {
+  try {
+    const r = await getOpsHealth()
+    items.value = Array.isArray(r?.items) ? r.items : []
+    healthFailed.value = false
+  } catch {
+    healthFailed.value = true
+  } finally {
+    healthLoaded.value = true
+  }
+}
+
+async function loadFailures() {
+  try {
+    const f = await listAiCallLogs({ pageNum: 1, pageSize: 5, status: 'fail' })
+    failures.value = Array.isArray(f?.records) ? f.records : []
+  } catch {
+    failures.value = []
+  } finally {
+    failuresLoaded.value = true
+  }
+}
+
+async function onRebuild() {
+  try {
+    await ElMessageBox.confirm(
+      '将对全部菜谱重新生成语义检索向量，耗时较长且会调用嵌入模型，确定执行吗？',
+      '重建语义检索',
+      { type: 'warning', confirmButtonText: '确定重建', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  rebuilding.value = true
+  try {
+    const r = await rebuildDishVectors()
+    if (r.error) ElMessage.warning(`已重建 ${r.ok}/${r.total} 道，首个失败原因：${r.error}`)
+    else ElMessage.success(`重建完成，共 ${r.total} 道，成功 ${r.ok} 道`)
+    await loadHealth()
+  } catch {
+    // 失败提示由请求拦截器统一弹出
+  } finally {
+    rebuilding.value = false
+  }
+}
+
+onMounted(() => {
+  loadHealth()
+  if (isSuper) loadFailures()
 })
 </script>
 
@@ -39,20 +92,19 @@ onMounted(async () => {
     <div class="yh-head">
       <div>
         <h1>系统健康</h1>
-        <div class="yh-sub">服务状态 · 错误 · 审计</div>
+        <div class="yh-sub">服务探测 · 操作日志</div>
       </div>
+      <el-button v-if="isSuper" :loading="rebuilding" data-testid="btn-rebuild" @click="onRebuild">重建语义检索</el-button>
     </div>
 
-    <div class="health-grid">
-      <HealthCard title="API 服务" status="pending" detail="需要健康检查接口（P95 / 错误率）" />
-      <HealthCard title="MySQL" status="pending" detail="需要连接数与最近备份时间" />
-      <HealthCard title="Redis" status="pending" detail="需要内存与连通性" />
-      <HealthCard title="语义搜索" status="pending" detail="需要向量检索 P95" />
-      <HealthCard title="AI 服务" :status="ai.status" :detail="ai.detail" data-testid="ops-ai" />
+    <el-alert v-if="healthFailed" type="error" :closable="false" title="健康摘要读取失败，请稍后重试" data-testid="ops-health-failed" />
+    <div v-else class="health-grid" data-testid="ops-cards">
+      <HealthCard v-for="c in cards" :key="c.key" :title="c.title" :status="c.status" :detail="c.detail" :data-testid="`ops-${c.key}`" />
+      <el-skeleton v-if="!healthLoaded" :rows="2" animated />
     </div>
 
     <div class="grid">
-      <section class="yh-card errors" aria-label="最近失败的 AI 调用">
+      <section v-if="isSuper" class="yh-card errors" aria-label="最近失败的 AI 调用">
         <div class="yh-card-title">最近失败的 AI 调用</div>
         <div v-if="failures.length" class="fail-list" data-testid="ops-failures">
           <div v-for="f in failures" :key="f.id" class="fail-row">
@@ -64,14 +116,14 @@ onMounted(async () => {
             <span class="yh-muted">{{ relativeTime(f.createTime) }}</span>
           </div>
         </div>
-        <el-empty v-else-if="loaded" description="近期没有失败的 AI 调用" :image-size="64" />
+        <el-empty v-else-if="failuresLoaded" description="近期没有失败的 AI 调用" :image-size="64" />
         <el-skeleton v-else :rows="3" animated />
-        <PendingApi compact title="全站报错聚合待上线" needs="按报错编号（traceId）聚合的接口错误" task="prototype-ui-rollout 3.10" />
       </section>
 
-      <section class="yh-card" aria-label="审计日志">
-        <div class="yh-card-title">审计日志</div>
-        <PendingApi compact needs="后台写操作审计记录（audit_log）" task="prototype-ui-rollout 3.9" />
+      <section class="yh-card" aria-label="操作日志">
+        <div class="yh-card-title">操作日志</div>
+        <p class="yh-muted">后台写操作的审计记录在操作日志页查看。</p>
+        <el-button type="primary" plain data-testid="goto-oplog" @click="router.push('/oplog')">前往操作日志</el-button>
       </section>
     </div>
   </div>

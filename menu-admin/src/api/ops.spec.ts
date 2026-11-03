@@ -5,7 +5,24 @@ vi.mock('./request', () => ({
   request: (...args: any[]) => requestFn(...args),
 }))
 
-const { getOpsStats } = await import('./ops')
+const { getOpsStats, getOpsHealth, rebuildDishVectors } = await import('./ops')
+
+describe('api/ops 系统健康', () => {
+  beforeEach(() => {
+    requestFn.mockReset()
+    requestFn.mockResolvedValue({})
+  })
+
+  it('getOpsHealth → GET /ops/health', async () => {
+    await getOpsHealth()
+    expect(requestFn).toHaveBeenCalledWith({ url: '/ops/health', method: 'get' })
+  })
+
+  it('rebuildDishVectors → POST /dish/vector/rebuild 且放宽超时', async () => {
+    await rebuildDishVectors()
+    expect(requestFn).toHaveBeenCalledWith({ url: '/dish/vector/rebuild', method: 'post', timeout: 600000 })
+  })
+})
 
 describe('api/ops 运营统计', () => {
   beforeEach(() => {
