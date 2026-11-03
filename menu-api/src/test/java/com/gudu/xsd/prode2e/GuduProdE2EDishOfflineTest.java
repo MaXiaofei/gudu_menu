@@ -40,7 +40,8 @@ class GuduProdE2EDishOfflineTest extends ProdE2EBase {
         // 普通账号（自建家庭，非运营）
         JsonNode login = registerAndLogin(phoneFor("offline-user"), "下架用户");
         String user = login.get("token").asText();
-        String kw = java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8);
+        // 不要手动 URL 编码：RestTemplate 会再编码一次，导致关键词失配（搜不到 = 假阳性）
+        String kw = name;
 
         // 上架时：搜索得到、详情不带下架标记
         assertThat(total(get(user, "/dish/search?keyword=" + kw + "&pageNum=1&pageSize=10"))).isEqualTo(1);
