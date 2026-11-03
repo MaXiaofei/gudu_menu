@@ -137,7 +137,8 @@ public class MealPlanAppService {
         this.dictService = dictService;
         this.clock = clock;
         HeuristicMealArranger heuristic = new HeuristicMealArranger();
-        this.planner = new MealPlanner(modelPort == null ? heuristic : new LlmMealArranger(modelPort, heuristic));
+        this.planner = new MealPlanner(modelPort == null ? heuristic : new LlmMealArranger(modelPort, heuristic),
+                heuristic, clock, MealPlanner.DEFAULT_LLM_REWORK_BUDGET);
     }
 
     /**
@@ -170,14 +171,15 @@ public class MealPlanAppService {
         PlanRequest req = new PlanRequest(week, meals, servings, members.stream().map(Member::getId).toList(),
                 c.weekdayMaxMinutes(), c.budgetFen(), c.preferExpiring() == null || c.preferExpiring());
         HouseholdProfile profile = household.merge(members);
-        List<String> labels = new ArrayList<>(household.labels(members, servings));
-        if (req.weekdayMaxMinutes() != null) labels.add("工作日 ≤" + req.weekdayMaxMinutes() + " 分钟");
-        if (req.preferExpiring()) labels.add("优先用快到期");
-        if (req.budgetFen() != null) labels.add("预算 ¥" + req.budgetFen() / 100);
-
         DishCatalog.Snapshot snap = catalog.load();
-        MealPlanner.Outcome outcome = planner.plan(req, profile, snap.candidateList(), expiringIds(today, week));
-        MealPlanDraft draft = MealPlanDraft.generate(memberId, req, labels, outcome.slots(), outcome.check(),
+        MealPlanner.Outcome outcome = planner.plan(req, profile, snap.candidateList(), expiringIds(today, week), memberId);
+        // 时长上限被放宽时（outcome.request 的上限为空）不再显示「工作日 ≤N 分钟」，说明见校验结论
+        PlanRequest effective = outcome.request();
+        List<String> labels = new ArrayList<>(household.labels(members, servings));
+        if (effective.weekdayMaxMinutes() != null) labels.add("工作日 ≤" + effective.weekdayMaxMinutes() + " 分钟");
+        if (effective.preferExpiring()) labels.add("优先用快到期");
+        if (effective.budgetFen() != null) labels.add("预算 ¥" + effective.budgetFen() / 100);
+        MealPlanDraft draft = MealPlanDraft.generate(memberId, effective, labels, outcome.slots(), outcome.check(),
                 LocalDateTime.now(clock));
         repository.save(draft);
         return view(draft, snap);
@@ -231,7 +233,7 @@ public class MealPlanAppService {
         }
         draft.replaceDish(slotId, dishId, badges);
         int rounds = draft.check() == null ? 1 : draft.check().rounds();
-        PlanCheck check = MealPlanner.recheck(planned(draft), snap.candidateList(), profile, draft.request(), rounds);
+        PlanCheck check = MealPlanner.recheck(planned(draft), snap.candidateList(), profile, draft.request(), rounds, draft.check());
         draft.recheck(check);
         repository.save(draft);
         return view(draft, snap);

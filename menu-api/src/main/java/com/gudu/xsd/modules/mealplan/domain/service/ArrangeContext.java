@@ -17,10 +17,17 @@ import java.util.Set;
  * @param days                本次要排的日期（回炉时只排未通过的天）
  * @param fixed               不动的格（其它天的结果，参与去重与预算）
  * @param excludedDishIds     本轮禁用的菜（上一轮导致超标的）
+ * @param operatorId          发起人（记模型调用账，可空）
  */
 public record ArrangeContext(PlanRequest request, HouseholdProfile profile, List<DishCandidate> pool,
                              Set<Long> expiringIngredientIds, List<LocalDate> days, List<PlannedSlot> fixed,
-                             Set<Long> excludedDishIds) {
+                             Set<Long> excludedDishIds, Long operatorId) {
+
+    public ArrangeContext(PlanRequest request, HouseholdProfile profile, List<DishCandidate> pool,
+                          Set<Long> expiringIngredientIds, List<LocalDate> days, List<PlannedSlot> fixed,
+                          Set<Long> excludedDishIds) {
+        this(request, profile, pool, expiringIngredientIds, days, fixed, excludedDishIds, null);
+    }
 
     public ArrangeContext {
         pool = pool == null ? List.of() : List.copyOf(pool);

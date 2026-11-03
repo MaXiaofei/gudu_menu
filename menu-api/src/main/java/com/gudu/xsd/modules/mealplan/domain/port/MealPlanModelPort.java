@@ -12,4 +12,9 @@ public interface MealPlanModelPort {
      * @return 模型原始文本
      */
     String arrange(String prompt, String jsonSchema);
+
+    /** 带发起人（记调用账）；默认忽略发起人。 */
+    default String arrange(String prompt, String jsonSchema, Long operatorId) {
+        return arrange(prompt, jsonSchema);
+    }
 }

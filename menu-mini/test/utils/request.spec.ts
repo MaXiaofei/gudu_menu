@@ -176,4 +176,13 @@ describe('utils/request 错误码提示', () => {
     await expect(request({ url: '/x', method: 'GET' })).rejects.toThrow('网络异常，请检查网络')
     expect(__testUni.mocks.showToast).toHaveBeenCalledWith({ title: '网络异常，请检查网络', icon: 'none' })
   })
+
+  it('超时且调用方给了 timeoutMsg → 用专用提示；非超时失败仍是通用网络异常', async () => {
+    vi.mocked(__testUni.mocks.request).mockRejectedValue({ errMsg: 'request:fail timeout' })
+    await expect(request({ url: '/x', method: 'POST', timeoutMsg: '排餐时间较长，请稍后点「重新排」' }))
+      .rejects.toThrow('排餐时间较长，请稍后点「重新排」')
+    expect(__testUni.mocks.showToast).toHaveBeenLastCalledWith({ title: '排餐时间较长，请稍后点「重新排」', icon: 'none' })
+    vi.mocked(__testUni.mocks.request).mockRejectedValue({ errMsg: 'request:fail dns' })
+    await expect(request({ url: '/x', method: 'POST', timeoutMsg: '排餐时间较长' })).rejects.toThrow('网络异常，请检查网络')
+  })
 })

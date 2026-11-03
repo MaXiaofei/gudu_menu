@@ -5,7 +5,7 @@
     <ui-feature-paused feature="mealPlan" />
     <ui-back-header title="AI 一周餐程" :subtitle="rangeText">
       <template #action>
-        <view class="redo" data-testid="plan-redo" @click="generate"><ui-icon name="undo" :size="14" /><text class="redo-txt">重新排</text></view>
+        <view class="redo" :class="{ disabled: loading }" data-testid="plan-redo" @click="generate"><ui-icon name="undo" :size="14" /><text class="redo-txt">重新排</text></view>
       </template>
     </ui-back-header>
 
@@ -112,6 +112,7 @@ import { defaultPlanWeekStart, isoDate, shortDate, weekRangeLabel, weekdayLabel 
 const MEALS: Meal[] = ['LUNCH', 'DINNER']
 const draft = ref<MealPlanDraft | null>(null)
 const loading = ref(true)
+let generating = false
 const applying = ref(false)
 const members = ref<Member[]>([])
 const fast = ref(true)
@@ -155,6 +156,9 @@ onLoad(async (q: any) => {
 })
 
 async function generate() {
+  // 防重入：排餐一次要二三十秒，加载中再点会并发多个请求，各自消耗每日次数
+  if (generating) return
+  generating = true
   loading.value = true
   try {
     draft.value = await createDraft({
@@ -169,6 +173,7 @@ async function generate() {
   } catch {
     draft.value = null
   } finally {
+    generating = false
     loading.value = false
   }
 }
@@ -219,6 +224,10 @@ async function apply() {
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--card);
+}
+.redo.disabled {
+  opacity: 0.4;
+  pointer-events: none;
 }
 .redo-txt {
   font-size: var(--fs-sm);

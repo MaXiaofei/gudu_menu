@@ -131,6 +131,8 @@ export async function request<T = any>(
     silent?: boolean
     /** 内容安全拒绝（451/452）时按此场景给友好提示 */
     contentScene?: ContentScene
+    /** 请求超时时的专用提示（默认走通用网络异常；排餐等耗时长的接口用） */
+    timeoutMsg?: string
   },
 ): Promise<T> {
   const toast = (title: string) => {
@@ -150,11 +152,12 @@ export async function request<T = any>(
         ...opt.header,
       },
     })
-  } catch {
+  } catch (e: any) {
     // 断网 / 超时 / DNS 失败：uni.request 直接 reject
     lastTraceId = ''
-    toast(MSG_NETWORK)
-    throw new Error(MSG_NETWORK)
+    const msg = opt.timeoutMsg && /timeout/i.test(String(e?.errMsg || e?.message || '')) ? opt.timeoutMsg : MSG_NETWORK
+    toast(msg)
+    throw new Error(msg)
   }
   const traceId = traceOf(res)
   const body = res?.data // 后端统一 R{code,msg,data}（限流/权限也走 HTTP 200 + R.code）

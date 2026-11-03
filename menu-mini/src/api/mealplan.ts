@@ -61,6 +61,7 @@ export function createDraft(b: DraftRequest, today = new Date()): Promise<MealPl
     method: 'POST',
     data: { ...b, weekStart: b.weekStart || isoDate(defaultPlanWeekStart(today)) },
     timeout: 60000,
+    timeoutMsg: '排餐时间较长，请稍后点「重新排」',
   })
 }
 

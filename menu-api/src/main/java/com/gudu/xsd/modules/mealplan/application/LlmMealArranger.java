@@ -26,7 +26,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * LLM 排布（经 {@link MealPlanModelPort}，默认模型网关 CHAT · thinking low · JSON）：
+ * LLM 排布（经 {@link MealPlanModelPort}，默认模型网关 CHAT · 不思考 · JSON）：
  * 把过滤后的候选、约束、已固定的格子交给模型排，结果只接受「候选池内、未被排除、本周未用、时长合规」的菜；
  * 某天没排满就整天交给启发式补；模型失败或输出不可解析时整体退回启发式。之后照常走 PlanValidator 校验回环。
  */
@@ -54,7 +54,7 @@ public class LlmMealArranger implements MealArranger {
         if (offered.isEmpty()) return fallback.arrange(ctx);
         Map<LocalDate, List<PlannedSlot>> byDay;
         try {
-            String raw = model.arrange(prompt(ctx, offered), SCHEMA);
+            String raw = model.arrange(prompt(ctx, offered), SCHEMA, ctx.operatorId());
             byDay = accept(parse(raw), ctx, offered);
         } catch (RuntimeException e) {
             log.warn("LLM 排餐失败，退回启发式: {}", e.getMessage());
@@ -72,7 +72,7 @@ public class LlmMealArranger implements MealArranger {
         List<PlannedSlot> fixed = new ArrayList<>(ctx.fixed());
         fixed.addAll(kept);
         List<PlannedSlot> filled = fallback.arrange(new ArrangeContext(ctx.request(), ctx.profile(), ctx.pool(),
-                ctx.expiringIngredientIds(), incomplete, fixed, ctx.excludedDishIds()));
+                ctx.expiringIngredientIds(), incomplete, fixed, ctx.excludedDishIds(), ctx.operatorId()));
         List<PlannedSlot> out = new ArrayList<>(kept);
         out.addAll(filled);
         out.sort(Comparator.comparing(PlannedSlot::date).thenComparing(PlannedSlot::meal));

@@ -15,6 +15,7 @@ import com.gudu.xsd.modules.mealplan.domain.model.Nutrients;
 import com.gudu.xsd.modules.mealplan.domain.model.PlanRequest;
 import com.gudu.xsd.modules.mealplan.domain.model.PlannedSlot;
 import com.gudu.xsd.modules.mealplan.domain.model.SlotBadge;
+import com.gudu.xsd.modules.mealplan.domain.model.PlanCheck;
 import com.gudu.xsd.modules.mealplan.domain.model.WeekRange;
 import com.gudu.xsd.modules.mealplan.domain.port.MealPlanModelPort;
 import com.gudu.xsd.modules.mealplan.domain.service.HeuristicMealArranger;
@@ -141,17 +142,119 @@ class MealPlanLlmIntegrationTest {
     }
 
     @Test
-    void 网关适配器_CHAT_JSON_思考low() {
+    void 网关适配器_CHAT_JSON_关闭思考_并记发起人() {
         ModelGateway gateway = mock(ModelGateway.class);
         when(gateway.chat(any())).thenReturn(new ChatResult(ModelReply.text("{\"days\":[]}"), "deepseek",
                 "deepseek-flash", false, 10, BigDecimal.ZERO, List.of()));
-        String out = new GatewayMealPlanModelAdapter(gateway).arrange("排一周", LlmMealArranger.SCHEMA);
+        String out = new GatewayMealPlanModelAdapter(gateway).arrange("排一周", LlmMealArranger.SCHEMA, 42L);
         assertThat(out).isEqualTo("{\"days\":[]}");
         ArgumentCaptor<ChatRequest> req = ArgumentCaptor.forClass(ChatRequest.class);
         verify(gateway).chat(req.capture());
         assertThat(req.getValue().capability()).isEqualTo(Capability.CHAT);
         assertThat(req.getValue().jsonMode()).isTrue();
-        assertThat(req.getValue().thinking()).isEqualTo(ThinkingMode.LOW);
+        assertThat(req.getValue().thinking()).isEqualTo(ThinkingMode.DISABLED);
+        assertThat(req.getValue().memberId()).isEqualTo(42L);
         assertThat(req.getValue().scene()).isEqualTo("mealplan");
+    }
+
+    // ---------- 工作日时长放宽 / 回炉控时 ----------
+
+    static DishCandidate slow(long id, DishKind kind, int minutes) {
+        return new DishCandidate(id, "慢菜" + id, minutes, Set.of(), Set.of(id), List.of(), kind,
+                new Nutrients(300, 15, 10, 400, 2), 800, false);
+    }
+
+    static PlanRequest weekdayLimited(int max) {
+        return new PlanRequest(new WeekRange(MONDAY), List.of(Meal.DINNER), 3, List.of(), max, null, true);
+    }
+
+    @Test
+    void 工作日候选不够_自动放宽时长_并写说明() {
+        List<DishCandidate> slowPool = new ArrayList<>();
+        for (int i = 1; i <= 20; i++) slowPool.add(slow(i, i % 2 == 0 ? DishKind.MEAT : DishKind.VEG, 45));
+        MealPlanner.Outcome out = new MealPlanner(new HeuristicMealArranger())
+                .plan(weekdayLimited(30), FAMILY, slowPool, Set.of());
+        assertThat(out.request().weekdayMaxMinutes()).isNull();
+        assertThat(out.slots()).hasSize(7);
+        assertThat(out.check().notes()).contains("工作日 ≤30 分钟内能做的菜不够，工作日已不限时长");
+        // 换一道（replace 的 recheck）保留这条说明
+        PlanCheck again = MealPlanner.recheck(out.slots(), slowPool, FAMILY, out.request(), 1, out.check());
+        assertThat(again.notes()).contains("工作日 ≤30 分钟内能做的菜不够，工作日已不限时长");
+    }
+
+    @Test
+    void 工作日候选够用_不放宽() {
+        List<DishCandidate> mixed = new ArrayList<>();
+        for (int i = 1; i <= 20; i++) mixed.add(slow(i, i % 2 == 0 ? DishKind.MEAT : DishKind.VEG, i <= 10 ? 20 : 45));
+        MealPlanner.Outcome out = new MealPlanner(new HeuristicMealArranger())
+                .plan(weekdayLimited(30), FAMILY, mixed, Set.of());
+        assertThat(out.request().weekdayMaxMinutes()).isEqualTo(30);
+        assertThat(out.check().notes()).noneMatch(n -> n.contains("已不限时长"));
+        assertThat(out.slots().stream().filter(s -> WeekRange.isWeekday(s.date()))
+                .map(s -> mixed.get((int) s.dishId() - 1).minutes())).allMatch(m -> m <= 30);
+    }
+
+    /** 可推进的时钟。 */
+    static final class TickClock extends java.time.Clock {
+        long ms;
+        @Override public java.time.ZoneId getZone() { return java.time.ZoneOffset.UTC; }
+        @Override public java.time.Clock withZone(java.time.ZoneId z) { return this; }
+        @Override public java.time.Instant instant() { return java.time.Instant.ofEpochMilli(ms); }
+    }
+
+    /** 首轮只排周二..周日（周一留空触发回炉）。 */
+    static List<PlannedSlot> sixDays(com.gudu.xsd.modules.mealplan.domain.service.ArrangeContext ctx) {
+        List<PlannedSlot> out = new ArrayList<>();
+        long id = 1;
+        for (LocalDate d : ctx.days()) {
+            if (d.equals(MONDAY)) continue;
+            out.add(new PlannedSlot(d, Meal.DINNER, id++, Set.of()));
+        }
+        return out;
+    }
+
+    @Test
+    void 回炉_未超时调模型_超时或候选不足改用廉价排布() {
+        // 1) 未超时、候选足够 → 回炉仍用主排布
+        TickClock clock = new TickClock();
+        java.util.concurrent.atomic.AtomicInteger primary = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger cheap = new java.util.concurrent.atomic.AtomicInteger();
+        com.gudu.xsd.modules.mealplan.domain.service.MealArranger p = ctx -> {
+            primary.incrementAndGet();
+            return primary.get() == 1 ? sixDays(ctx) : new HeuristicMealArranger().arrange(ctx);
+        };
+        com.gudu.xsd.modules.mealplan.domain.service.MealArranger c = ctx -> {
+            cheap.incrementAndGet();
+            return new HeuristicMealArranger().arrange(ctx);
+        };
+        new MealPlanner(p, c, clock, java.time.Duration.ofSeconds(20)).plan(dinnerOnly(), FAMILY, pool(), Set.of());
+        assertThat(primary.get()).isEqualTo(2);
+        assertThat(cheap.get()).isZero();
+
+        // 2) 首轮耗时 25 秒 → 回炉改廉价排布
+        primary.set(0);
+        com.gudu.xsd.modules.mealplan.domain.service.MealArranger slowFirst = ctx -> {
+            primary.incrementAndGet();
+            clock.ms += 25_000;
+            return sixDays(ctx);
+        };
+        MealPlanner.Outcome out = new MealPlanner(slowFirst, c, clock, java.time.Duration.ofSeconds(20))
+                .plan(dinnerOnly(), FAMILY, pool(), Set.of());
+        assertThat(primary.get()).isEqualTo(1);
+        assertThat(cheap.get()).isEqualTo(1);
+        assertThat(out.slots()).hasSize(7);
+
+        // 3) 候选根本不够（池里只有 6 道且都已固定）→ 不调模型回炉
+        primary.set(0);
+        cheap.set(0);
+        TickClock fast = new TickClock();
+        com.gudu.xsd.modules.mealplan.domain.service.MealArranger counting = ctx -> {
+            primary.incrementAndGet();
+            return sixDays(ctx);
+        };
+        new MealPlanner(counting, c, fast, java.time.Duration.ofSeconds(20))
+                .plan(dinnerOnly(), FAMILY, pool().subList(0, 6), Set.of());
+        assertThat(primary.get()).isEqualTo(1);
+        assertThat(cheap.get()).isEqualTo(2);
     }
 }
