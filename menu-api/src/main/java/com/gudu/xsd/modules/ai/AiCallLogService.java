@@ -45,7 +45,8 @@ public class AiCallLogService {
      */
     static final String COUNTED_SQL = "(capability IS NOT NULL OR provider = '" + NO_MODEL_PROVIDER + "'"
             + " OR NOT EXISTS (SELECT 1 FROM ai_call_log g WHERE g.capability IS NOT NULL AND g.scene = ai_call_log.scene"
-            + " AND g.member_id <=> ai_call_log.member_id"
+            // 不用 MySQL 的 <=>：分页/租户拦截器用 JSqlParser 解析整条 SQL，解析不了 <=>（生产报 ParseException）
+            + " AND (g.member_id = ai_call_log.member_id OR (g.member_id IS NULL AND ai_call_log.member_id IS NULL))"
             + " AND g.create_time >= DATE_SUB(ai_call_log.create_time, INTERVAL " + DEDUP_WINDOW_SECONDS + " SECOND)"
             + " AND g.create_time <= ai_call_log.create_time))";
 
