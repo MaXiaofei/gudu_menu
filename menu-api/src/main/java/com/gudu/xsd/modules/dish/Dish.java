@@ -66,6 +66,30 @@ public class Dish {
     @TableLogic
     private Integer deleted;
 
+    /**
+     * 下架时间（V101）：null = 上架；非空 = 已下架（仅公共菜谱可下架）。只能经 DishLibraryAppService 写，
+     * 客户端不可写，普通保存（saveFull）也不会改它（updateStrategy NEVER）。
+     */
+    @TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private LocalDateTime offlineAt;
+
+    /** 下架原因（V101，运营填写）。不对用户端输出，运营在公共菜谱库接口里看。 */
+    @TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String offlineReason;
+
+    /** 下架操作人 account.id（V101）。不对外输出。 */
+    @TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Long offlineBy;
+
+    /** 是否已下架：详情接口带出 offline 标记，前端据此显示「已下架」并隐藏新入口按钮。 */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    public boolean isOffline() {
+        return offlineAt != null;
+    }
+
     /** 菜系名（关联查询，不入库）。 */
     @TableField(exist = false)
     private List<String> cuisineNames;

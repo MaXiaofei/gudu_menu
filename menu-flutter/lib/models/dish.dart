@@ -24,6 +24,9 @@ class Dish {
   /// 最近一次谁做的（成员名；旧接口为 null）。
   final String? lastCookedBy;
   final String? lastCookedByAvatar;
+  /// 公共菜谱已被运营下架（后端 offline 标记；旧接口缺省 false）。
+  /// 下架后新入口隐藏（不再提供「加入食集」），已有的做菜 / 查看照常。
+  final bool offline;
 
   const Dish({
     required this.id,
@@ -43,6 +46,7 @@ class Dish {
     this.lastCookedAt,
     this.lastCookedBy,
     this.lastCookedByAvatar,
+    this.offline = false,
   });
 
   factory Dish.fromJson(Map<String, dynamic> j) => Dish(
@@ -72,6 +76,7 @@ class Dish {
         lastCookedAt: j['lastCookedAt'] is String ? DateTime.tryParse(j['lastCookedAt'] as String) : null,
         lastCookedBy: j['lastCookedBy'] is Map ? (j['lastCookedBy']['name'] as String?) : null,
         lastCookedByAvatar: j['lastCookedBy'] is Map ? (j['lastCookedBy']['avatarUrl'] as String?) : null,
+        offline: j['offline'] == true,
       );
 }
 

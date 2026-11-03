@@ -222,6 +222,7 @@ public class MealPlanAppService {
         DishCatalog.Snapshot snap = catalog.load();
         DishCandidate cand = dishId == null ? null : snap.candidates().get(dishId);
         if (cand == null) throw new BizException("菜谱不存在");
+        if (snap.isOffline(dishId)) throw new BizException("这道菜谱已下架，换一道吧");
         HouseholdProfile profile = household.merge(household.members(draft.request().memberIds()));
         if (!CandidateFilter.allowed(cand, profile)) throw new BizException("这道菜不符合家人的饮食档案");
         Set<SlotBadge> badges = EnumSet.noneOf(SlotBadge.class);
@@ -233,7 +234,7 @@ public class MealPlanAppService {
         }
         draft.replaceDish(slotId, dishId, badges);
         int rounds = draft.check() == null ? 1 : draft.check().rounds();
-        PlanCheck check = MealPlanner.recheck(planned(draft), snap.candidateList(), profile, draft.request(), rounds, draft.check());
+        PlanCheck check = MealPlanner.recheck(planned(draft), snap.allCandidates(), profile, draft.request(), rounds, draft.check());
         draft.recheck(check);
         repository.save(draft);
         return view(draft, snap);
@@ -271,7 +272,7 @@ public class MealPlanAppService {
             MenuSaveDTO dto = new MenuSaveDTO();
             dto.setMenu(menu);
             dto.setDishes(dishes);
-            menuService.saveWithDishes(dto);
+            menuService.saveWithDishesKeepingOffline(dto); // 草稿里已排的菜（含后来下架的）照常生成
             menuIds.add(menu.getId());
         }
         int shoppingItems = 0;

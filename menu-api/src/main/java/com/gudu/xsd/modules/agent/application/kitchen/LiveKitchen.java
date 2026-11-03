@@ -130,7 +130,10 @@ class LiveKitchen implements Kitchen {
                     .in("name", q.ingredients())).stream().map(Ingredient::getId).toList();
             if (!ingIds.isEmpty()) {
                 List<Long> dishIds = f.dishService.dishIdsUsingIngredients(ingIds).stream().distinct().limit(POOL).toList();
-                if (!dishIds.isEmpty()) return new ArrayList<>(f.dishService.listByIds(dishIds));
+                if (!dishIds.isEmpty()) {
+                    List<Dish> online = f.dishService.listByIds(dishIds).stream().filter(d -> !d.isOffline()).toList();
+                    if (!online.isEmpty()) return new ArrayList<>(online); // 已下架的公共菜谱不推荐（V101）
+                }
             }
         }
         String kw = keyword(q.query());
@@ -169,12 +172,13 @@ class LiveKitchen implements Kitchen {
         String ref = nameOrId.trim();
         Dish d = null;
         if (ref.matches("\\d+")) d = f.dishService.getById(Long.parseLong(ref));
+        if (d != null && d.isOffline()) return Lookup.notFound(); // 已下架：咕嘟不再引用（V101）
         if (d == null) {
-            List<Dish> exact = f.dishService.list(new QueryWrapper<Dish>().eq("name", ref).orderByAsc("id").last("LIMIT 1"));
+            List<Dish> exact = f.dishService.list(new QueryWrapper<Dish>().eq("name", ref).isNull("offline_at").orderByAsc("id").last("LIMIT 1"));
             if (!exact.isEmpty()) d = exact.get(0);
         }
         if (d == null) {
-            List<Dish> like = f.dishService.list(new QueryWrapper<Dish>().like("name", ref).orderByAsc("id").last("LIMIT 6"));
+            List<Dish> like = f.dishService.list(new QueryWrapper<Dish>().like("name", ref).isNull("offline_at").orderByAsc("id").last("LIMIT 6"));
             if (like.size() == 1) d = like.get(0);
             else if (like.size() > 1) return Lookup.ambiguous(toInfos(like, Map.of(), Map.of(), false));
         }
@@ -205,7 +209,7 @@ class LiveKitchen implements Kitchen {
             for (DishCard c : part) if (!ids.contains(c.dishId())) ids.add(c.dishId());
         }
         if (ids.isEmpty()) return searchDishes(new DishQuery(null, List.of(), List.of(), excludeTags, Set.of(), null, n));
-        List<Dish> dishes = new ArrayList<>(f.dishService.listByIds(ids));
+        List<Dish> dishes = new ArrayList<>(f.dishService.listByIds(ids).stream().filter(d -> !d.isOffline()).toList());
         f.dishService.decorateCards(dishes);
         Map<Long, Dish> byId = dishes.stream().collect(Collectors.toMap(Dish::getId, Function.identity(), (a, b) -> a));
         // 完整菜谱（有封面 + 有步骤）排前，顺序内保持「临期 → 常做 → 应季」

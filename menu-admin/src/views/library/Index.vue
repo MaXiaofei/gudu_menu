@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { searchDishes, getDishDetail, type DishDetail, type DishSearchRow } from '@/api/dish'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getDishDetail, type DishDetail } from '@/api/dish'
+import { listLibrary, offlineDish, onlineDish, type LibraryRow, type LibraryStatus } from '@/api/dishLibrary'
+import { LIBRARY_STATUS_TABS, offlineReasonError, REASON_MAX } from '@/utils/dishLibrary'
 import { listIngredients, type Ingredient } from '@/api/ingredient'
 import { formatCount } from '@/utils/dashboard'
 import Pagination from '@/components/Pagination.vue'
@@ -10,9 +13,9 @@ import IngIcon from '@/components/IngIcon.vue'
 import LoadError from '@/components/LoadError.vue'
 
 /**
- * 公共菜谱库（原型 AdminLibrary）。
- * 多租户落地前，全部菜谱即公共库，用 /dish/search 真实数据。
- * 投稿审核（待审核 / 已驳回 / 已下架）后端未做：上线前隐藏对应标签、状态列与「下架」按钮。
+ * 公共菜谱库（原型 AdminLibrary）：只列公共菜谱（/admin/dish-library），可按上架状态筛选，
+ * 下架（弹窗填原因 + 二次确认）/ 重新上架。下架后新入口（搜索 / 推荐 / 加入食集 / 餐程 / 咕嘟推荐）隐藏，家庭已用的保留。
+ * 投稿审核（待审核 / 已驳回）后端未做，不显示。
  */
 const STEP_PREVIEW = 4
 
@@ -21,9 +24,11 @@ const loading = ref(false)
 const loadError = ref('')
 const detailError = ref(false)
 const stepsExpanded = ref(false)
-const list = ref<DishSearchRow[]>([])
+const list = ref<LibraryRow[]>([])
 const total = ref(0)
-const query = reactive({ keyword: '', pageNum: 1, pageSize: 15 })
+const query = reactive<{ keyword: string; status: LibraryStatus; pageNum: number; pageSize: number }>({
+  keyword: '', status: '', pageNum: 1, pageSize: 15,
+})
 
 const selectedId = ref<number | null>(null)
 const detail = ref<DishDetail | null>(null)
@@ -34,10 +39,13 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const page = await searchDishes({ keyword: query.keyword || undefined, pageNum: query.pageNum, pageSize: query.pageSize })
+    const page = await listLibrary({ keyword: query.keyword || undefined, status: query.status || undefined, pageNum: query.pageNum, pageSize: query.pageSize })
     list.value = Array.isArray(page?.records) ? page.records : []
     total.value = page?.total || 0
-    if (!list.value.some((d) => d.id === selectedId.value) && list.value[0]) select(list.value[0])
+    if (!list.value.some((d) => d.id === selectedId.value)) {
+      if (list.value[0]) select(list.value[0])
+      else clearSelection()
+    }
   } catch (e) {
     loadError.value = (e as Error)?.message || '加载失败'
     list.value = []
@@ -47,7 +55,12 @@ async function load() {
   }
 }
 
-async function select(row: DishSearchRow) {
+function clearSelection() {
+  selectedId.value = null
+  detail.value = null
+}
+
+async function select(row: LibraryRow) {
   selectedId.value = row.id
   stepsExpanded.value = false
   detailError.value = false
@@ -76,6 +89,11 @@ function onSearch() {
   load()
 }
 
+function pickStatus(v: LibraryStatus) {
+  query.status = v
+  onSearch()
+}
+
 function onPage(p: number) {
   query.pageNum = p
   load()
@@ -92,23 +110,84 @@ const ingredients = computed(() =>
 const steps = computed(() => (detail.value?.steps ?? []).map((s) => s.text).filter(Boolean))
 const shownSteps = computed(() => (stepsExpanded.value ? steps.value : steps.value.slice(0, STEP_PREVIEW)))
 
-function sourceText(d: DishSearchRow) {
+function sourceText(d: LibraryRow) {
   if (d.sourceName) return `导入 · ${d.sourceName}`
   if (d.source === 'IMPORT') return '链接导入'
   return '官方 / 家庭录入'
 }
 
-function minutes(d: { prepTime?: number; cookTime?: number }) {
+function minutes(d: { prepTime?: number | null; cookTime?: number | null }) {
   const m = (d.prepTime ?? 0) + (d.cookTime ?? 0)
   return m > 0 ? `${m} 分钟` : '—'
 }
 
-function formatDate(s?: string) {
+function formatDate(s?: string | null) {
   return (s || '').replace('T', ' ').slice(0, 10) || '—'
 }
 
-function rowClass({ row }: { row: DishSearchRow }) {
+function rowClass({ row }: { row: LibraryRow }) {
   return row.id === selectedId.value ? 'is-selected' : ''
+}
+
+// ---- 下架 / 重新上架 ----
+const offlineVisible = ref(false)
+const offlineReason = ref('')
+const offlineError = ref('')
+const submitting = ref(false)
+
+function openOffline() {
+  offlineReason.value = ''
+  offlineError.value = ''
+  offlineVisible.value = true
+}
+
+async function submitOffline() {
+  const row = selectedRow.value
+  if (!row) return
+  offlineError.value = offlineReasonError(offlineReason.value)
+  if (offlineError.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确认下架「${row.name}」？下架后用户端搜不到、不能加入食集或照着做；已加入食集 / 做过 / 收藏的家庭不受影响。`,
+      '二次确认',
+      { type: 'warning', confirmButtonText: '确认下架', cancelButtonText: '再想想' },
+    )
+  } catch {
+    return
+  }
+  submitting.value = true
+  try {
+    await offlineDish(row.id, offlineReason.value.trim())
+    ElMessage.success('已下架')
+    offlineVisible.value = false
+    await load()
+  } catch (e) {
+    ElMessage.error((e as Error)?.message || '下架失败')
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function goOnline() {
+  const row = selectedRow.value
+  if (!row) return
+  try {
+    await ElMessageBox.confirm(`确认重新上架「${row.name}」？上架后用户端可重新搜到。`, '重新上架', {
+      type: 'warning', confirmButtonText: '确认上架', cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  submitting.value = true
+  try {
+    await onlineDish(row.id)
+    ElMessage.success('已重新上架')
+    await load()
+  } catch (e) {
+    ElMessage.error((e as Error)?.message || '上架失败')
+  } finally {
+    submitting.value = false
+  }
 }
 
 onMounted(() => {
@@ -125,6 +204,11 @@ onMounted(() => {
         <div class="yh-sub">公共菜谱 · 来源 · 用料步骤</div>
       </div>
       <el-button type="primary" @click="router.push('/dish')">去菜谱管理</el-button>
+    </div>
+
+    <div class="yh-seg" role="group" aria-label="上架状态" data-testid="lib-tabs">
+      <button v-for="t in LIBRARY_STATUS_TABS" :key="t.value || 'all'" type="button" :class="{ on: query.status === t.value }"
+        :data-testid="`lib-tab-${t.value || 'all'}`" @click="pickStatus(t.value)">{{ t.label }}</button>
     </div>
 
     <div class="toolbar">
@@ -151,8 +235,11 @@ onMounted(() => {
           <el-table-column label="时长" width="96">
             <template #default="{ row }">{{ minutes(row) }}</template>
           </el-table-column>
-          <el-table-column label="做过" width="80">
-            <template #default="{ row }">{{ row.cookedCount ? `${row.cookedCount} 次` : '—' }}</template>
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag v-if="row.offline" type="danger" size="small" effect="light" data-testid="lib-status-offline">已下架</el-tag>
+              <el-tag v-else type="success" size="small" effect="light">已上架</el-tag>
+            </template>
           </el-table-column>
           <template #empty>
             <el-empty description="没有找到菜谱" :image-size="72" />
@@ -169,6 +256,10 @@ onMounted(() => {
               <b>{{ selectedRow.name }}</b>
               <span>{{ sourceText(selectedRow) }} · {{ minutes(selectedRow) }} · 录入 {{ formatDate(selectedRow.createTime) }}</span>
             </div>
+          </div>
+
+          <div v-if="selectedRow.offline" class="offline-note" data-testid="lib-offline-note">
+            已下架 · {{ formatDate(selectedRow.offlineAt) }}<template v-if="selectedRow.offlineReason">　原因：{{ selectedRow.offlineReason }}</template>
           </div>
 
           <el-skeleton v-if="detailLoading" :rows="4" animated />
@@ -196,16 +287,48 @@ onMounted(() => {
           </template>
 
           <div class="actions">
+            <el-button v-if="!selectedRow.offline" type="danger" plain :loading="submitting" data-testid="lib-offline-btn" @click="openOffline">下架</el-button>
+            <el-button v-else type="success" plain :loading="submitting" data-testid="lib-online-btn" @click="goOnline">重新上架</el-button>
             <el-button type="primary" @click="router.push('/dish')">编辑菜谱</el-button>
           </div>
         </template>
         <el-empty v-else description="选择左侧菜谱查看" :image-size="72" />
       </section>
     </div>
+
+    <el-dialog v-model="offlineVisible" title="下架公共菜谱" width="460px" data-testid="lib-offline-dialog">
+      <p class="dlg-tip">下架后用户端搜索、推荐、加入食集、一周餐程、咕嘟推荐、照着做都不再出现这道菜；已经加入食集 / 餐程 / 做菜记录 / 收藏的家庭照常可用。</p>
+      <el-form label-position="top" @submit.prevent>
+        <el-form-item label="下架原因（必填，写入操作日志）" :error="offlineError">
+          <el-input v-model="offlineReason" type="textarea" :rows="3" :maxlength="REASON_MAX" show-word-limit
+            placeholder="例如：图片侵权 / 做法有误" data-testid="lib-offline-reason" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="offlineVisible = false">取消</el-button>
+        <el-button type="danger" :loading="submitting" data-testid="lib-offline-submit" @click="submitOffline">下架</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <style scoped>
+.yh-seg {
+  margin-bottom: 12px;
+}
+.offline-note {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
+  font-size: 13px;
+}
+.dlg-tip {
+  margin: 0 0 12px;
+  color: var(--yh-body);
+  font-size: 13px;
+  line-height: 1.6;
+}
 .toolbar {
   display: flex;
   align-items: center;

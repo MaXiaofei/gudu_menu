@@ -144,14 +144,15 @@ public class DishVectorService {
 
     /**
      * 向量库是全局索引（含各家庭私有菜谱）：命中结果按菜谱可见性（公共 + 本家）回表过滤，
-     * 别家私有菜谱不出现在结果里（multi-tenant-family E.1）。
+     * 别家私有菜谱、已下架的公共菜谱不出现在结果里（multi-tenant-family E.1 / V101）。
      */
     List<Document> visibleOnly(List<Document> hits) {
         if (hits == null || hits.isEmpty()) return List.of();
         List<Long> ids = hits.stream().map(d -> d.getMetadata().get("dishId"))
                 .filter(o -> o instanceof Number).map(o -> ((Number) o).longValue()).distinct().toList();
         if (ids.isEmpty()) return List.of();
-        java.util.Set<Long> visible = dishMapper.selectBatchIds(ids).stream().map(Dish::getId)
+        // 已下架的公共菜谱不出现在语义检索结果里（V101，新入口隐藏）
+        java.util.Set<Long> visible = dishMapper.selectBatchIds(ids).stream().filter(d -> !d.isOffline()).map(Dish::getId)
                 .collect(java.util.stream.Collectors.toSet());
         return hits.stream().filter(d -> d.getMetadata().get("dishId") instanceof Number n
                 && visible.contains(n.longValue())).toList();

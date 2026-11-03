@@ -38,4 +38,17 @@ public class DishVisibilityGuard {
         if (ids.isEmpty()) return;
         if (dishMapper.selectBatchIds(ids).size() != ids.size()) throw BizException.notFound(NOT_FOUND);
     }
+
+    /**
+     * 新入口守卫（V101）：这些菜谱里若有已下架的公共菜谱则拒绝（400）。用于「新加入食集 / 新点菜」等新增动作；
+     * 已在食集 / 餐程 / 做菜记录 / 收藏里的不走这里，照常可用。null / 空忽略；读不到的 id 不在此判断（由可见性校验负责）。
+     */
+    public void requireNoneOffline(Collection<Long> dishIds) {
+        if (dishIds == null) return;
+        List<Long> ids = dishIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return;
+        for (Dish d : dishMapper.selectBatchIds(ids)) {
+            if (d != null && d.isOffline()) throw new BizException("菜谱「" + d.getName() + "」已下架，暂不能加入");
+        }
+    }
 }

@@ -51,23 +51,46 @@ public class DishCatalog {
                            List<String> tags, List<Long> ingredientIds) {
     }
 
-    public record Snapshot(Map<Long, DishCandidate> candidates, Map<Long, DishInfo> info) {
+    /**
+     * 目录快照。candidates 含全部菜（已下架的公共菜谱也在，已排进餐程 / 已做过的菜照常算营养、出卡片）；
+     * offlineIds 是其中已下架的菜：新排餐、换菜备选、营养建议的候选池（{@link #candidateList()}）不含它们。
+     */
+    public record Snapshot(Map<Long, DishCandidate> candidates, Map<Long, DishInfo> info, Set<Long> offlineIds) {
 
+        public Snapshot(Map<Long, DishCandidate> candidates, Map<Long, DishInfo> info) {
+            this(candidates, info, Set.of());
+        }
+
+        /** 可被新选择的候选（排除已下架）。 */
         public List<DishCandidate> candidateList() {
+            return candidates.values().stream().filter(c -> !offlineIds.contains(c.dishId()))
+                    .collect(Collectors.toCollection(ArrayList::new));
+        }
+
+        /** 含已下架菜的全部候选（校验已有草稿用）。 */
+        public List<DishCandidate> allCandidates() {
             return new ArrayList<>(candidates.values());
+        }
+
+        public boolean isOffline(Long dishId) {
+            return dishId != null && offlineIds.contains(dishId);
         }
     }
 
     private volatile Snapshot cached;
     private volatile Instant loadedAt;
+    private volatile long loadedEpoch = -1;
 
     public Snapshot load() {
         Instant now = clock.instant();
         Snapshot s = cached;
-        if (s == null || loadedAt == null || loadedAt.plus(CACHE_MINUTES, ChronoUnit.MINUTES).isBefore(now)) {
+        long epoch = DishService.catalogEpoch(); // 菜谱上下架后目录立即重建
+        if (s == null || loadedAt == null || loadedEpoch != epoch
+                || loadedAt.plus(CACHE_MINUTES, ChronoUnit.MINUTES).isBefore(now)) {
             s = build();
             cached = s;
             loadedAt = now;
+            loadedEpoch = epoch;
         }
         return s;
     }
@@ -95,8 +118,10 @@ public class DishCatalog {
 
         Map<Long, DishCandidate> candidates = new LinkedHashMap<>();
         Map<Long, DishInfo> info = new LinkedHashMap<>();
+        Set<Long> offlineIds = new LinkedHashSet<>();
         for (Dish d : dishes) {
             if (d.getId() == null) continue;
+            if (d.isOffline()) offlineIds.add(d.getId());
             List<DishIngredient> dis = linesByDish.getOrDefault(d.getId(), List.of());
             List<RecipeLine> lines = new ArrayList<>();
             Set<Long> ids = new LinkedHashSet<>();
@@ -115,7 +140,7 @@ public class DishCatalog {
             info.put(d.getId(), new DishInfo(d.getId(), d.getName(), d.getCoverUrl(), minutes, d.getDifficulty(),
                     tags, List.copyOf(ids)));
         }
-        return new Snapshot(candidates, info);
+        return new Snapshot(candidates, info, offlineIds);
     }
 
     private Map<Long, String> dictNames(String group) {

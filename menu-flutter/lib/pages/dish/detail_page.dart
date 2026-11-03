@@ -421,12 +421,32 @@ class _DishDetailPageState extends State<DishDetailPage> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Flexible(child: Text(dish.name, style: ts.h2)),
+                          if (dish.offline) ...[
+                            const SizedBox(width: AppTokens.sp8),
+                            const ToneBadge('已下架', key: Key('dish-offline-tag'), tone: BadgeTone.error),
+                          ],
                           if ((dish.sourceName ?? '').isNotEmpty) ...[
                             const SizedBox(width: AppTokens.sp8),
                             ToneBadge(dish.sourceName!, tone: BadgeTone.info),
                           ],
                         ],
                       ),
+                      if (dish.offline) ...[
+                        const SizedBox(height: AppTokens.sp10),
+                        Container(
+                          key: const Key('dish-offline-tip'),
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(AppTokens.sp12),
+                          decoration: BoxDecoration(
+                            color: AppTokens.errorBg,
+                            borderRadius: BorderRadius.circular(AppTokens.rMd),
+                          ),
+                          child: Text(
+                            '这道菜谱已从公共库下架，不能再加入食集；已经加入的食集、做菜记录、收藏不受影响，仍可查看和照着做。',
+                            style: ts.caption.copyWith(color: AppTokens.errorText),
+                          ),
+                        ),
+                      ],
                       if (meta.isNotEmpty) ...[
                         const SizedBox(height: AppTokens.sp6),
                         Row(children: [
@@ -494,16 +514,18 @@ class _DishDetailPageState extends State<DishDetailPage> {
                 ),
                 child: Row(
                   children: [
-                    Expanded(
-                      flex: 2,
-                      child: OutlinedButton.icon(
-                        onPressed: _adding ? null : _addToMenu,
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: Text(_adding ? '加入中…' : '加入食集'),
+                    // 已下架的公共菜谱不再提供「加入食集」（新入口隐藏），做菜 / 跟做照常
+                    if (!dish.offline)
+                      Expanded(
+                        flex: 2,
+                        child: OutlinedButton.icon(
+                          onPressed: _adding ? null : _addToMenu,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: Text(_adding ? '加入中…' : '加入食集'),
+                        ),
                       ),
-                    ),
                     if (_detail?.steps.isNotEmpty ?? false) ...[
-                      const SizedBox(width: AppTokens.sp8),
+                      if (!dish.offline) const SizedBox(width: AppTokens.sp8),
                       OutlinedButton.icon(
                         key: const Key('dish-cook-mode'),
                         style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: AppTokens.sp12)),

@@ -107,15 +107,39 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
         requireAllVisible(dishIds);
     }
 
-    /** 保存菜单并整体替换其菜品关联。更新时食集必须属于当前家庭（否则 404）。 */
+    /** 新加入的菜里不能有已下架的公共菜谱（V101）；本来就在食集里的菜不受影响（已用的保留）。 */
+    private void assertNoNewOffline(Long menuId, java.util.Collection<Long> dishIds) {
+        if (dishGuard == null || dishIds == null) return;
+        java.util.Set<Long> fresh = dishIds.stream().filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(java.util.HashSet::new));
+        if (menuId != null && !fresh.isEmpty()) {
+            menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId))
+                    .forEach(md -> fresh.remove(md.getDishId()));
+        }
+        dishGuard.requireNoneOffline(fresh);
+    }
+
+    /** 保存菜单并整体替换其菜品关联。更新时食集必须属于当前家庭（否则 404）；新加入的菜不能是已下架的公共菜谱。 */
     @Transactional(rollbackFor = Exception.class)
     public void saveWithDishes(MenuSaveDTO dto) {
+        saveWithDishes(dto, false);
+    }
+
+    /** 同 {@link #saveWithDishes}，但不拦已下架的菜：按已有餐程草稿 / 历史食集生成（已用的保留）。 */
+    @Transactional(rollbackFor = Exception.class)
+    public void saveWithDishesKeepingOffline(MenuSaveDTO dto) {
+        saveWithDishes(dto, true);
+    }
+
+    private void saveWithDishes(MenuSaveDTO dto, boolean keepOffline) {
         Menu menu = dto.getMenu();
         if (menu.getId() != null && getById(menu.getId()) == null) {
             throw com.gudu.xsd.common.BizException.notFound("食集不存在");
         }
         if (dto.getDishes() != null) {
-            assertDishesVisible(dto.getDishes().stream().map(MenuDish::getDishId).toList());
+            List<Long> ids = dto.getDishes().stream().map(MenuDish::getDishId).toList();
+            assertDishesVisible(ids);
+            if (!keepOffline) assertNoNewOffline(menu.getId(), ids);
         }
         if (menu.getServingCount() == null) {
             menu.setServingCount(1);
@@ -146,6 +170,7 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
     public List<Long> addDishes(Long menuId, List<Long> dishIds, Long memberId) {
         if (menuId == null || getById(menuId) == null) throw com.gudu.xsd.common.BizException.notFound("食集不存在");
         assertDishesVisible(dishIds);
+        assertNoNewOffline(menuId, dishIds);
         java.util.Set<Long> existing = menuDishMapper.selectList(new QueryWrapper<MenuDish>().eq("menu_id", menuId))
                 .stream().map(MenuDish::getDishId).filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());
@@ -282,7 +307,7 @@ public class MenuService extends ServiceImpl<MenuMapper, Menu> {
             }).toList();
         }
         dto.setDishes(copies);
-        saveWithDishes(dto);
+        saveWithDishesKeepingOffline(dto); // 复制的是已有食集 / 历史做菜记录：已用的保留
         return copy.getId();
     }
 

@@ -100,6 +100,11 @@ class DishServiceTest {
         throw new NoSuchFieldException(name);
     }
 
+    /** 供同包其它测试注入 baseMapper。 */
+    static void injectBaseMapperFor(DishService svc, DishMapper mapper) {
+        injectBaseMapper(svc, mapper);
+    }
+
     private static void injectBaseMapper(DishService svc, DishMapper mapper) {
         try {
             var f = findFieldUp(svc, "baseMapper"); // MP 3.5.9+ baseMapper 在父类 CrudRepository

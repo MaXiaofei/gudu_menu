@@ -12,7 +12,9 @@ public enum OperationAction {
     ADOPT_INGREDIENT("收编为公共食材", OperationTarget.INGREDIENT),
     MERGE_INGREDIENT("合并到公共食材", OperationTarget.INGREDIENT),
     ADD_INGREDIENT_ALIAS("新增食材别名", OperationTarget.INGREDIENT),
-    DEL_INGREDIENT_ALIAS("删除食材别名", OperationTarget.INGREDIENT);
+    DEL_INGREDIENT_ALIAS("删除食材别名", OperationTarget.INGREDIENT),
+    OFFLINE_DISH("下架公共菜谱", OperationTarget.DISH),
+    ONLINE_DISH("重新上架公共菜谱", OperationTarget.DISH);
 
     private final String label;
     private final OperationTarget target;

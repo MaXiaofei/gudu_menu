@@ -71,6 +71,7 @@ GUDU_PROD_E2E=1 GUDU_PROD_E2E_CLEANUP=1 ./mvnw test -Pprod-e2e -Dtest=GuduProdE2
 | `GuduProdE2ECommunityTest` | 厨房圈发布互动与治理申诉 |
 | `GuduProdE2EGatewayTest` | 模型网关：供应商、路由、用量、权限 |
 | `GuduProdE2ETenantIsolationTest` | 多家庭越权隔离 |
+| `GuduProdE2EDishOfflineTest` | 公共菜谱下架 / 重新上架：搜索隐藏、详情仍可读带标记、不能复制、操作日志 |
 | `GuduProdE2EAiTest` | 会调用大模型的用例（Agent、拍照识别、一周餐程、AI 估算 / 补全 / 推荐），需 `GUDU_PROD_E2E_AI=1` |
 | `GuduProdE2ECleanupTest` | 兜底清理入口 |
 

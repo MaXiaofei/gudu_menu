@@ -1,9 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { installHttpMock } from '../helpers/http'
-import { searchDishes, amountText, listDrafts, saveDish } from '@/api/dish'
+import { searchDishes, amountText, listDrafts, saveDish, isOfflineDish } from '@/api/dish'
 
 // api/dish：搜索参数构造（空值剔除 + sort 语义）、用量文本、草稿/发布端点。
 describe('api/dish', () => {
+  it('isOfflineDish：只认后端 offline=true，缺省 / false / 空都算未下架', () => {
+    expect(isOfflineDish({ offline: true })).toBe(true)
+    expect(isOfflineDish({ offline: false })).toBe(false)
+    expect(isOfflineDish({})).toBe(false)
+    expect(isOfflineDish(undefined)).toBe(false)
+    expect(isOfflineDish(null)).toBe(false)
+  })
+
   it('searchDishes：默认每页 10，空筛选项不传，sort=cooked 才传', async () => {
     const http = installHttpMock({ 'GET /dish/search': { records: [], total: 0 } })
     await searchDishes({ pageNum: 1 })

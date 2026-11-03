@@ -78,6 +78,7 @@ public class HomeRecommendAppService {
         List<Long> seasonalPool = cap(dishService.dishIdsUsingIngredients(seasonalIngredientIds()));
         List<Dish> popularDishes = dishService.hotDishes(POPULAR_MAX);
         Map<Long, Dish> dishById = seasonalPool.isEmpty() ? Map.of() : dishService.listByIds(seasonalPool).stream()
+                .filter(d -> !d.isOffline()) // 已下架的公共菜谱不再推荐（V101）
                 .collect(Collectors.toMap(Dish::getId, Function.identity(), (a, b) -> a));
         List<Long> visible = seasonalPool.stream().filter(dishById::containsKey).toList();
         Set<Long> withSteps = visible.isEmpty() ? Set.of() : dishService.dishIdsWithSteps(visible);
@@ -87,7 +88,7 @@ public class HomeRecommendAppService {
         List<Long> seasonalIds = ranker.topByCoverage(scores(visible, dishById, Map.of(), Map.of(), complete, Map.of()),
                 Set.of(), SEASONAL_MAX);
         Set<Long> seasonalSet = new HashSet<>(seasonalIds);
-        List<DishCard> popular = popularDishes.stream().filter(d -> d != null && !seasonalSet.contains(d.getId()))
+        List<DishCard> popular = popularDishes.stream().filter(d -> d != null && !d.isOffline() && !seasonalSet.contains(d.getId()))
                 .limit(POPULAR_MAX).map(HomeRecommendAppService::genericCard).toList();
         return new HomeRecommendView(List.of(), List.of(), List.of(),
                 seasonalIds.stream().map(dishById::get).filter(Objects::nonNull)
@@ -121,6 +122,7 @@ public class HomeRecommendAppService {
         if (allIds.isEmpty()) return new HomeRecommendView(expiring, List.of(), List.of(), List.of());
 
         Map<Long, Dish> dishById = dishService.listByIds(allIds).stream()
+                .filter(d -> !d.isOffline()) // 已下架的公共菜谱不再推荐（含「你常做」，推荐入口一律隐藏）（V101）
                 .collect(Collectors.toMap(Dish::getId, Function.identity(), (a, b) -> a));
         List<Long> visible = allIds.stream().filter(dishById::containsKey).toList();
         Map<Long, CoverageView> coverage = dishCoverageAppService.coverageOf(visible);

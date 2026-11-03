@@ -127,15 +127,34 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
         }
     }
 
+    /** 下架（V101）状态变化计数：餐程候选目录等缓存据此失效，下架 / 上架后立即生效。 */
+    private static final java.util.concurrent.atomic.AtomicLong OFFLINE_EPOCH = new java.util.concurrent.atomic.AtomicLong();
+
+    public static long catalogEpoch() {
+        return OFFLINE_EPOCH.get();
+    }
+
+    public static void bumpCatalogEpoch() {
+        OFFLINE_EPOCH.incrementAndGet();
+    }
+
+    /** 新入口可见的菜谱（排除已下架的公共菜谱）：对外「列表 / 推荐 / 候选池」入口统一用它。 */
+    public List<Dish> listBrowsable() {
+        if (com.gudu.xsd.common.security.TenantSession.isAdminScope()) return list(); // 运营后台管理菜谱，看得到已下架的
+        return list(new QueryWrapper<Dish>().isNull("offline_at"));
+    }
+
     /**
      * 冷启动热门菜：按 cooking_record 聚合做菜次数倒序取前 N（真实热度，cooked_count
      * 非表列而是聚合展示字段），聚合次数回填 cookedCount；不足 N 时用最新录入的新菜补位。
+     * 已下架的公共菜谱不进热门（新入口隐藏）。
      */
     public List<Dish> hotDishes(int limit) {
         List<Map<String, Object>> rows = cookingRecordMapper.selectMaps(
                 new QueryWrapper<CookingRecord>()
                         .select("dish_id, COUNT(*) AS cnt")
                         .isNotNull("dish_id")
+                        .notInSql("dish_id", "SELECT id FROM dish WHERE offline_at IS NOT NULL")
                         .groupBy("dish_id")
                         .orderByDesc("cnt")
                         .last("LIMIT " + limit));
@@ -157,6 +176,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
             List<Long> hotIds = ordered.stream().map(Dish::getId).toList();
             List<Dish> fresh = list(new QueryWrapper<Dish>()
                     .notIn(!hotIds.isEmpty(), "id", hotIds)
+                    .isNull("offline_at")
                     .orderByDesc("create_time")
                     .last("LIMIT " + (limit - ordered.size())));
             ordered.addAll(fresh);
@@ -167,6 +187,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     /** 最新录入的菜（L1 冷启动：菜谱 <10 且无做菜历史时推最新）。 */
     public List<Dish> latestDishes(int limit) {
         return list(new QueryWrapper<Dish>()
+                .isNull("offline_at")
                 .orderByDesc("create_time")
                 .last("LIMIT " + limit));
     }
@@ -364,6 +385,7 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     @Transactional(rollbackFor = Exception.class)
     public Long fork(Long sourceId) {
         Dish src = requireVisible(sourceId);
+        if (src.isOffline()) throw new BizException("该菜谱已下架，暂不能复制到我家");
         Dish copy = new Dish();
         copy.setName(src.getName());
         copy.setNote(src.getNote());
@@ -406,6 +428,11 @@ public class DishService extends ServiceImpl<DishMapper, Dish> {
     /** 搜索条件（search / searchPool 共用）。 */
     private QueryWrapper<Dish> buildSearchWrapper(DishSearchDTO q, Long curMember) {
         QueryWrapper<Dish> w = new QueryWrapper<>();
+        // 下架（V101）：新入口隐藏已下架的公共菜谱。例外：运营后台登录（管理菜谱）、「我做过 / 我收藏」（已用的保留）
+        boolean mineOnly = (Boolean.TRUE.equals(q.getDone()) || Boolean.TRUE.equals(q.getStar())) && curMember != null;
+        if (!mineOnly && !com.gudu.xsd.common.security.TenantSession.isAdminScope()) {
+            w.isNull("offline_at");
+        }
         if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
             w.like("name", q.getKeyword());
         }

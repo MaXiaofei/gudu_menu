@@ -134,7 +134,12 @@ public class CommunityPostAppService {
                 }
             }
         }
-        if (dishId != null && dishService.getById(dishId) == null) throw BizException.notFound("关联的菜谱不存在");
+        Dish linked = dishId == null ? null : dishService.getById(dishId);
+        if (dishId != null && linked == null) throw BizException.notFound("关联的菜谱不存在");
+        // 已下架的公共菜谱不能再被选来发帖（V101，新入口隐藏）；从自己的食记分享不受限（已用的保留）
+        if (linked != null && linked.isOffline() && sourceRecordId == null) {
+            throw new BizException("这道菜谱已下架，暂不能关联到帖子");
+        }
         List<Long> topicIds = cmd.topicIds() == null ? List.of() : cmd.topicIds();
         if (!topicIds.isEmpty() && topics.findByIds(topicIds).size() != topicIds.stream().distinct().count()) {
             throw new BizException("话题不存在");
@@ -233,6 +238,7 @@ public class CommunityPostAppService {
         if (existing.isPresent() && dishService.getById(existing.get()) != null) return new CopyResult(existing.get());
         DishService.DishDetail src = dishService.detail(p.dishId());
         if (src == null || src.dish() == null) throw new BizException("关联的菜谱已不存在");
+        if (src.dish().isOffline()) throw new BizException("这道菜谱已下架，暂不能照着做");
         Long newDishId = copyDish(src);
         interactions.saveCopy(p.id(), userId, newDishId);
         counters.incr(p.id(), PostCounter.COPY, 1);

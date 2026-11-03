@@ -24,6 +24,7 @@ const TYPES = [
   { value: 'TEXT_VIOLATION', label: '文本违规' },
   { value: 'DEACTIVATION', label: '注销' },
   { value: 'INGREDIENT', label: '食材收编' },
+  { value: 'DISH', label: '菜谱上下架' },
 ]
 
 async function load() {

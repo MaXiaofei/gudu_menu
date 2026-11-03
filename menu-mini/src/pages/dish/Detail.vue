@@ -21,6 +21,7 @@
         <view class="sheet">
           <view class="title-row">
             <text class="title">{{ detail.dish.name }}</text>
+            <text v-if="isOffline" class="src-tag offline" data-testid="dish-offline-tag">已下架</text>
             <text v-if="isPublic" class="src-tag" data-testid="dish-public-tag">公共库</text>
             <text v-else class="src-tag mine">我家的</text>
           </view>
@@ -34,7 +35,10 @@
           </view>
           <text v-if="detail.dish.sourceName" class="from">来源：{{ detail.dish.sourceName }}</text>
           <!-- 公共菜谱：复制到我家后可按自家口味改（multi-tenant-family fork） -->
-          <view v-if="isPublic" class="fork-row">
+          <view v-if="isOffline" class="fork-row offline-row" data-testid="dish-offline-tip">
+            <text class="fork-tip">这道菜谱已从公共库下架，不能再加入食集或复制；已经加入的食集、做菜记录、收藏不受影响，仍可查看和照着做。</text>
+          </view>
+          <view v-else-if="isPublic" class="fork-row">
             <text class="fork-tip">想按自家口味改？复制一份到我家，改动只在家里生效</text>
             <button class="btn-fork" :disabled="forking" data-testid="dish-fork" @click="onFork">
               {{ forking ? '复制中…' : '复制到我家' }}
@@ -72,7 +76,7 @@
       </scroll-view>
 
       <view v-if="showActions" class="bottom">
-        <button class="btn-add" :disabled="sheetRef?.busy" @click="onAddMenu">+ 加入食集</button>
+        <button v-if="!isOffline" class="btn-add" :disabled="sheetRef?.busy" data-testid="dish-add-menu" @click="onAddMenu">+ 加入食集</button>
         <button class="btn-follow" data-testid="cook-mode" @click="goCookMode">跟做</button>
         <button class="btn-cook" :disabled="cookLoading" data-testid="cook-now" @click="onCookNow">
           {{ cookLoading ? '加载中…' : '现在就做' }}
@@ -93,7 +97,7 @@
         @foodlog="goFoodlog"
       />
 
-      <add-to-menu-sheet ref="sheetRef" :dish-id="detail.dish.id" :dish-name="detail.dish.name" />
+      <add-to-menu-sheet v-if="!isOffline" ref="sheetRef" :dish-id="detail.dish.id" :dish-name="detail.dish.name" />
     </template>
   </view>
 </template>
@@ -104,7 +108,7 @@ import { isLoggedIn, requireLogin } from '@/utils/guest'
 import { launchAuthDone } from '@/utils/loginRedirect'
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onShareAppMessage } from '@dcloudio/uni-app'
-import { dishDetail, forkDish, isPublicDish, type DishDetail, type DishIngredient } from '@/api/dish'
+import { dishDetail, forkDish, isPublicDish, isOfflineDish, type DishDetail, type DishIngredient } from '@/api/dish'
 import { toAbsolute, originalList } from '@/utils/image'
 import { navInset } from '@/utils/token'
 import { dishCookMaterials, cookDish } from '@/api/cook'
@@ -176,6 +180,8 @@ const diffLabel = computed(() => {
   return d <= 2 ? '简单' : d <= 3 ? '中等' : '有挑战'
 })
 const isPublic = computed(() => isPublicDish(detail.value?.dish))
+/** 公共菜谱已被运营下架：新入口（加入食集 / 复制到我家）隐藏，已有的做菜 / 查看照常。 */
+const isOffline = computed(() => isOfflineDish(detail.value?.dish))
 const forking = ref(false)
 
 async function onFork() {
@@ -354,6 +360,10 @@ function goCookMode() {
 .src-tag.mine {
   background: var(--primary-soft);
   color: var(--title);
+}
+.src-tag.offline {
+  background: var(--error-soft);
+  color: var(--error);
 }
 .meta {
   display: flex;

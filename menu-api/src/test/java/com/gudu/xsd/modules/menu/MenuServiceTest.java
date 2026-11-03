@@ -221,7 +221,7 @@ class MenuServiceTest {
             captured[0] = inv.getArgument(0);
             captured[0].getMenu().setId(99L); // 模拟 save 回填 id
             return null;
-        }).when(svc).saveWithDishes(any(MenuSaveDTO.class));
+        }).when(svc).saveWithDishesKeepingOffline(any(MenuSaveDTO.class));
 
         Long newId = svc.copyMenu(10L, 88L);
 
@@ -263,7 +263,7 @@ class MenuServiceTest {
             captured[0] = inv.getArgument(0);
             captured[0].getMenu().setId(99L); // 模拟 save 回填 id
             return null;
-        }).when(svc).saveWithDishes(any(MenuSaveDTO.class));
+        }).when(svc).saveWithDishesKeepingOffline(any(MenuSaveDTO.class));
 
         Long newId = svc.copyMenu(99L, 1L);
 

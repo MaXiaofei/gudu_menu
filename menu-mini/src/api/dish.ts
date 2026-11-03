@@ -15,6 +15,8 @@ export interface Dish {
   familyId?: number | null
   /** 「复制到我家」的来源菜谱 id */
   sourceDishId?: number | null
+  /** 公共菜谱已被运营下架（旧后端缺省 undefined = 未下架） */
+  offline?: boolean
   cuisineNames?: string[]
   categoryNames?: string[]
   tagNames?: string[]
@@ -156,6 +158,11 @@ export function isPublicDish(d?: Pick<Dish, 'familyId' | 'sourceName'> | null): 
   if (d.familyId === null) return true
   if (d.familyId === undefined) return !!d.sourceName
   return false
+}
+
+/** 是否已下架的公共菜谱：后端 offline 标记。 */
+export function isOfflineDish(d?: Pick<Dish, 'offline'> | null): boolean {
+  return !!d && d.offline === true
 }
 
 /** 复制到我家：公共菜谱复制为当前家庭私有菜谱（记录来源），返回新菜谱 id。 */

@@ -169,7 +169,7 @@ class MealPlanAppServiceTest {
         doAnswer(inv -> {
             ((MenuSaveDTO) inv.getArgument(0)).getMenu().setId(menuSeq.incrementAndGet());
             return null;
-        }).when(menuService).saveWithDishes(any());
+        }).when(menuService).saveWithDishesKeepingOffline(any());
         when(shoppingService.generate(eq("dish"), isNull(), anyList())).thenReturn(77L);
         ShoppingListVO list = new ShoppingListVO();
         list.setItems(List.of(item(1, 1001L), item(2, 1002L), item(3, 1003L)));
@@ -179,7 +179,7 @@ class MealPlanAppServiceTest {
         Map<String, Object> out = svc.apply(10L, v.draftId());
         assertThat((List<?>) out.get("menuIds")).hasSize(7);
         assertThat(out.get("shoppingItemCount")).isEqualTo(2);
-        verify(menuService, times(7)).saveWithDishes(any());
+        verify(menuService, times(7)).saveWithDishesKeepingOffline(any());
         verify(shoppingService).deleteItem(1L);           // 余量里有的不买
         verify(shoppingService, never()).deleteItem(2L);
         verify(shoppingService).renameList(77L, "一周餐程 10.19–10.25");

@@ -359,6 +359,7 @@ public class TogetherService {
             if (dish == null || dish.getName() == null || !DishVisibility.isVisible(dish.getFamilyId())) {
                 throw BizException.notFound("菜品不存在");
             }
+            if (dish.isOffline()) throw new BizException("这道菜谱已下架，暂不能点");
             dishName = dish.getName();
         } else {
             dishName = custom;

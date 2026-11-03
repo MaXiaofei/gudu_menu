@@ -86,7 +86,7 @@ public class DishController {
 
     @GetMapping
     public R<List<Dish>> list() {
-        return R.ok(svc.list());
+        return R.ok(svc.listBrowsable());
     }
 
     /** 多维搜索分页（放在 /{id} 之前，避免被路径变量吞掉）。 */
