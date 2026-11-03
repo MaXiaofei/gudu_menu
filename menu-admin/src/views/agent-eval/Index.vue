@@ -13,7 +13,7 @@ import {
 import { toPct, traceTime } from '@/utils/agentTrace'
 
 /**
- * Agent 评测（原型 AdminAgentEval）：改提示词或换模型后跑全量评测集，页面按工具选择正确率 90% 给出「可以发布 / 不可发布」的判定（仅供参考，不会拦截发布）。
+ * Agent 评测（原型 AdminAgentEval）：改提示词或换模型后跑全量评测集，页面按工具选择正确率 90% 给出「达标 / 未达标」的判定（仅供参考，不会拦截发布）。
  * 数据来自 /admin/agent/eval/**（contracts.md §1 后台）。
  */
 const runs = ref<EvalRun[]>([])
@@ -203,7 +203,7 @@ onMounted(load)
     >
       <span class="gate-ico" aria-hidden="true">{{ gate.passed ? '✓' : '⨯' }}</span>
       <div class="gate-txt">
-        <b>{{ cand.promptVersion }} {{ gate.passed ? '可以发布' : '不可发布' }}</b>
+        <b>{{ cand.promptVersion }} {{ gate.passed ? '达标' : '未达标' }}</b>
         <span>
           运行 #{{ cand.runId }} · {{ traceTime(cand.createdAt) }} · {{ cases.total }} 条用例 · {{ gate.reason }}
           <template v-if="newFailCount">；{{ newFailCount }} 条相对基线新失败</template>

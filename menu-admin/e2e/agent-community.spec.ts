@@ -108,7 +108,7 @@ test.describe('Agent 与社区', () => {
     expect(listQueries.at(-1)).toContain('status=GUARDED')
   })
 
-  test('评测：门禁不可发布 → 版本对比 → 退化用例差异 → 发起评测', async ({ page }) => {
+  test('评测：门禁未达标 → 版本对比 → 退化用例差异 → 发起评测', async ({ page }) => {
     await base(page)
     const runPosts: unknown[] = []
     const runs = Array.from({ length: 10 }, (_, i) => ({
@@ -142,7 +142,7 @@ test.describe('Agent 与社区', () => {
 
     await page.goto('/agent-eval')
     const gate = page.getByTestId('gate')
-    await expect(gate).toContainText('v13 不可发布')
+    await expect(gate).toContainText('v13 未达标')
     await expect(gate).toContainText('89.1%')
     await expect(page.getByTestId('cases')).toContainText('312')
     await expect(page.getByTestId('cases')).toContainText('test 集 21')
