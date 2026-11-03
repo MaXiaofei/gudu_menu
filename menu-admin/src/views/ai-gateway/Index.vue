@@ -251,14 +251,17 @@ async function runTest() {
 const range = ref<'today' | '7d'>('today')
 const usage = ref<UsageRow[]>([])
 const usageLoading = ref(false)
+const usageError = ref('')
 
 async function loadUsage() {
   usageLoading.value = true
+  usageError.value = ''
   try {
     const res = await getGatewayUsage(range.value)
     usage.value = Array.isArray(res?.byRoute) ? res.byRoute : []
-  } catch {
+  } catch (e) {
     usage.value = []
+    usageError.value = (e as Error)?.message || '加载失败'
   } finally {
     usageLoading.value = false
   }
@@ -301,7 +304,10 @@ onMounted(() => {
       <el-button @click="load">刷新</el-button>
     </div>
 
-    <div v-if="loadError" class="yh-card yh-muted">{{ loadError }}</div>
+    <div v-if="loadError" class="yh-card load-err" role="alert" data-testid="gateway-load-error">
+      <span>加载失败：{{ loadError }}</span>
+      <el-button type="primary" size="small" @click="load">重试</el-button>
+    </div>
 
     <div v-loading="loading" class="routes" data-testid="routes">
       <section v-for="cap in CAPABILITIES" :key="cap" class="yh-card route" :data-testid="`route-${cap}`">
@@ -429,7 +435,11 @@ onMounted(() => {
           <button type="button" :class="{ on: range === '7d' }" @click="onRange('7d')">近 7 天</button>
         </div>
       </div>
-      <el-table v-loading="usageLoading" :data="usage" data-testid="usage" empty-text="暂无调用">
+      <div v-if="usageError" class="load-err" role="alert" data-testid="gateway-usage-error">
+        <span>加载失败：{{ usageError }}</span>
+        <el-button type="primary" size="small" @click="loadUsage">重试</el-button>
+      </div>
+      <el-table v-else v-loading="usageLoading" :data="usage" data-testid="usage" empty-text="暂无调用">
         <el-table-column label="能力" width="110">
           <template #default="{ row }">{{ CAPABILITY_META[row.capability as Capability]?.label || row.capability }}</template>
         </el-table-column>
@@ -547,6 +557,16 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.load-err {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--yh-error-text);
+}
+.yh-card.load-err {
+  padding: 12px 16px;
+}
 .routes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -31,7 +31,7 @@ test.describe('侧栏', () => {
     await page.route(/\/gudu\/ops\/stats/, (route) => route.fulfill(ok({ totals: { feedbackOpen: 2 }, last7d: {}, trend: [] })))
     await page.goto('/dish')
     const sidebar = page.locator('.sidebar')
-    for (const t of ['仪表盘', '公共菜谱库', '食材与营养', '意见反馈', '账号与家庭', '注销处理', '内容安全复核', '操作日志', 'AI 用量与限额', '系统健康', '内容与基础数据', '菜谱', '配置中心']) {
+    for (const t of ['仪表盘', '公共菜谱库', '食材与营养', '意见反馈', '账号与家庭', '注销处理', '内容安全复核', '操作日志', 'AI 调用明细', '系统健康', '内容与基础数据', '菜谱', '配置中心']) {
       await expect(sidebar.getByText(t, { exact: true })).toBeVisible()
     }
     await expect(page.getByTestId('badge-feedback')).toHaveText('2')
@@ -121,8 +121,8 @@ test.describe('食材与营养', () => {
   })
 })
 
-test.describe('AI 用量与限额', () => {
-  test('按功能汇总 + 明细算成本与 P95，限额设置为接口待上线', async ({ page }) => {
+test.describe('AI 调用明细', () => {
+  test('按功能汇总 + 明细算成本与 P95，额度入口跳转 AI 额度护栏', async ({ page }) => {
     const now = new Date()
     const iso = (minAgo: number) => new Date(now.getTime() - minAgo * 60000).toISOString().slice(0, 19)
     await page.route(/\/gudu\//, (route) => route.fulfill(ok({})))
@@ -140,7 +140,6 @@ test.describe('AI 用量与限额', () => {
     })))
 
     await page.goto('/ai-log')
-    await expect(page.getByTestId('ai-provider')).toContainText('当前模型 deepseek，可切换：glm')
     await expect(page.getByTestId('ai-kpi-calls')).toContainText('100')
     await expect(page.getByTestId('ai-kpi-calls')).toContainText('成功率 99.0%')
     await expect(page.getByTestId('ai-kpi-cost')).toContainText('¥0.30')
@@ -149,7 +148,7 @@ test.describe('AI 用量与限额', () => {
     await expect(page.getByTestId('ai-kpi-p95')).toContainText('营养补全最慢')
     await expect(page.getByTestId('ai-scenes')).toContainText('首页智荐')
     await expect(page.getByTestId('ai-scenes')).toContainText('90 次')
-    await expect(page.getByTestId('pending-api')).toContainText('prototype-ui-rollout 3.8')
+    await expect(page.getByTestId('ai-quota-link')).toContainText('AI 额度护栏')
     await expect(page.getByTestId('ai-logs')).toContainText('#3')
   })
 })

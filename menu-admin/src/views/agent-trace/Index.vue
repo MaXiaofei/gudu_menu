@@ -37,6 +37,9 @@ const list = ref<TraceSummary[]>([])
 const nextCursor = ref<string | null>(null)
 const listLoading = ref(false)
 const listError = ref('')
+const statsError = ref('')
+const detailError = ref('')
+const convError = ref('')
 const selectedId = ref<string | null>(null)
 const detail = ref<TraceDetail | null>(null)
 const detailLoading = ref(false)
@@ -88,11 +91,13 @@ async function openConversation() {
   convOpen.value = true
   if (fullMode.value) return // 已查看全文：直接展示，不再用摘要覆盖
   convLoading.value = true
+  convError.value = ''
   try {
     const res = await getTraceMessages(selectedId.value)
     messages.value = sortMessages(res)
-  } catch {
+  } catch (e) {
     messages.value = []
+    convError.value = (e as Error)?.message || '加载失败'
   } finally {
     convLoading.value = false
   }
@@ -137,10 +142,12 @@ function queryOf(f: Filter): TraceQuery {
 }
 
 async function loadStats() {
+  statsError.value = ''
   try {
     stats.value = await getAgentStats(date.value)
-  } catch {
+  } catch (e) {
     stats.value = null
+    statsError.value = (e as Error)?.message || '加载失败'
   }
 }
 
@@ -172,13 +179,15 @@ async function openTrace(traceId: string) {
   fullMode.value = false
   messages.value = []
   detailLoading.value = true
+  detailError.value = ''
   try {
     const d = await getTrace(traceId)
     detail.value = d && Array.isArray(d.spans) ? d : null
     const spans = detail.value?.spans ?? []
     selectedSpanId.value = (spans.find((s) => !s.ok) ?? spans.find((s) => s.type === 'retrieval') ?? spans[0])?.spanId ?? null
-  } catch {
+  } catch (e) {
     detail.value = null
+    detailError.value = (e as Error)?.message || '加载失败'
   } finally {
     detailLoading.value = false
   }
@@ -249,6 +258,11 @@ onMounted(() => {
       </div>
     </div>
 
+    <div v-if="statsError" class="yh-card load-err" role="alert" data-testid="trace-stats-error">
+      <span>统计加载失败：{{ statsError }}</span>
+      <el-button type="primary" size="small" @click="loadStats">重试</el-button>
+    </div>
+
     <div class="kpis" data-testid="trace-kpis">
       <StatCard label="对话轮数" :value="stats ? formatInt(stats.turns) : '—'" />
       <StatCard
@@ -300,7 +314,11 @@ onMounted(() => {
               </span>
             </span>
           </button>
-          <div v-if="!listLoading && !list.length" class="empty yh-muted">{{ listError || '该筛选下没有会话' }}</div>
+          <div v-if="!listLoading && listError" class="empty load-err" role="alert" data-testid="trace-list-error">
+            <span>加载失败：{{ listError }}</span>
+            <el-button type="primary" size="small" @click="loadList()">重试</el-button>
+          </div>
+          <div v-else-if="!listLoading && !list.length" class="empty yh-muted">该筛选下没有会话</div>
           <el-button v-if="nextCursor" text class="more" :loading="listLoading" @click="loadList(true)">加载更多</el-button>
         </div>
       </section>
@@ -378,6 +396,10 @@ onMounted(() => {
               </div>
             </div>
           </template>
+          <div v-else-if="!detailLoading && detailError" class="empty load-err" role="alert" data-testid="trace-detail-error">
+            <span>加载失败：{{ detailError }}</span>
+            <el-button type="primary" size="small" @click="selectedId && openTrace(selectedId)">重试</el-button>
+          </div>
           <div v-else-if="!detailLoading" class="empty yh-muted">选择左侧会话查看调用链</div>
         </section>
 
@@ -430,7 +452,11 @@ onMounted(() => {
                 <template v-if="m.traceId === selectedId"> · 当前轮</template>
               </span>
             </div>
-            <div v-if="!convLoading && !messages.length" class="empty yh-muted">没有对话记录</div>
+            <div v-if="!convLoading && convError" class="empty load-err" role="alert" data-testid="conv-error">
+              <span>加载失败：{{ convError }}</span>
+              <el-button type="primary" size="small" @click="openConversation">重试</el-button>
+            </div>
+            <div v-else-if="!convLoading && !messages.length" class="empty yh-muted">没有对话记录</div>
           </div>
         </el-drawer>
 
@@ -461,6 +487,16 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.load-err {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--yh-error-text);
+}
+.yh-card.load-err {
+  padding: 12px 16px;
+}
 .head-tools {
   display: flex;
   gap: 10px;

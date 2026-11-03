@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { MagicStick, Food, DataAnalysis, Bowl } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
-import { getAiProvider, getAiUsage, listAiCallLogs, type AiCallLog, type AiProviderInfo } from '@/api/ai'
+import { getAiUsage, listAiCallLogs, type AiCallLog } from '@/api/ai'
 import {
   formatMs,
   percentile,
@@ -14,7 +14,6 @@ import {
 } from '@/utils/aiStats'
 import { formatCount, formatYuan } from '@/utils/dashboard'
 import StatCard from '@/components/StatCard.vue'
-import PendingApi from '@/components/PendingApi.vue'
 
 /** 成本 / P95 由最近一批明细计算（/ai/usage 不含成本与分位数） */
 const SAMPLE_SIZE = 500
@@ -33,7 +32,7 @@ const days = ref(7)
 const usage = ref<UsageRow[]>([])
 const usageError = ref('')
 const sample = ref<AiCallLog[]>([])
-const provider = ref<AiProviderInfo | null>(null)
+const sampleError = ref('')
 
 const summary = computed(() => summarizeUsage(usage.value))
 const windowed = computed(() => withinDays(sample.value, days.value))
@@ -68,20 +67,13 @@ async function loadUsage() {
 }
 
 async function loadSample() {
+  sampleError.value = ''
   try {
     const page = await listAiCallLogs({ pageNum: 1, pageSize: SAMPLE_SIZE })
     sample.value = Array.isArray(page?.records) ? page.records : []
-  } catch {
+  } catch (e) {
     sample.value = []
-  }
-}
-
-async function loadProvider() {
-  try {
-    const p = await getAiProvider()
-    provider.value = p && typeof p.current === 'string' ? p : null
-  } catch {
-    provider.value = null
+    sampleError.value = (e as Error)?.message || '加载失败'
   }
 }
 
@@ -95,17 +87,20 @@ function setDays(d: number) {
 const logs = ref<AiCallLog[]>([])
 const total = ref(0)
 const loading = ref(false)
+const logsError = ref('')
 const query = ref({ pageNum: 1, pageSize: 15, scene: '', status: '' })
 
 async function loadLogs() {
   loading.value = true
+  logsError.value = ''
   try {
     const res = await listAiCallLogs(query.value)
     logs.value = Array.isArray(res?.records) ? res.records : []
     total.value = res?.total || 0
-  } catch {
+  } catch (e) {
     logs.value = []
     total.value = 0
+    logsError.value = (e as Error)?.message || '加载失败'
   } finally {
     loading.value = false
   }
@@ -138,17 +133,9 @@ function timeOf(s: string) {
   return (s || '').replace('T', ' ').slice(5, 19)
 }
 
-const providerText = computed(() => {
-  const p = provider.value
-  if (!p) return '模型 · 读取中'
-  const readyList = (p.ready ?? []).filter((r) => r.ready && r.provider !== p.current).map((r) => r.provider)
-  return `当前模型 ${p.current}${readyList.length ? ` · 可切换 ${readyList.join('、')}` : ''}`
-})
-
 onMounted(() => {
   loadUsage()
   loadSample()
-  loadProvider()
   loadLogs()
 })
 </script>
@@ -157,8 +144,8 @@ onMounted(() => {
   <div class="yh-page">
     <div class="yh-head">
       <div>
-        <h1>AI 用量与限额</h1>
-        <div class="yh-sub" data-testid="ai-provider">{{ providerText }}</div>
+        <h1>AI 调用明细</h1>
+        <div class="yh-sub">调用记录 · 成本 · 耗时</div>
       </div>
       <div class="yh-seg" role="group" aria-label="统计范围" data-testid="ai-days">
         <button
@@ -192,7 +179,17 @@ onMounted(() => {
         :hint="stats.slowestScene ? `${sceneLabel(stats.slowestScene)}最慢` : '暂无成功调用'"
         data-testid="ai-kpi-p95"
       />
-      <StatCard label="触发每日限额" value="—" hint="限额命中统计待上线" data-testid="ai-kpi-limit" />
+    </div>
+
+    <div class="quota-link" data-testid="ai-quota-link">
+      每日花费上限、各类次数上限在
+      <router-link to="/ai-guard">AI 额度护栏</router-link>
+      查看和修改
+    </div>
+
+    <div v-if="sampleError" class="yh-card load-err" role="alert" data-testid="ai-sample-error">
+      <span>成本与耗时统计加载失败：{{ sampleError }}</span>
+      <el-button type="primary" size="small" @click="loadSample">重试</el-button>
     </div>
 
     <div class="grid">
@@ -213,16 +210,6 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="yh-card" aria-label="限额设置">
-        <div class="yh-card-title">限额设置</div>
-        <PendingApi
-          compact
-          needs="每人每日上限、每周成本预算、80% 告警与超额降级的读写接口"
-          task="prototype-ui-rollout 3.8"
-        >
-          <span class="yh-muted">当前每人每日上限由服务端配置 gudu.ai.daily-limit（默认 50 次）决定</span>
-        </PendingApi>
-      </section>
     </div>
 
     <section class="yh-card logs" aria-label="调用明细">
@@ -240,7 +227,11 @@ onMounted(() => {
           </el-select>
         </div>
       </div>
-      <el-table :data="logs" v-loading="loading" data-testid="ai-logs" @row-click="showDetail">
+      <div v-if="logsError" class="load-err" role="alert" data-testid="ai-logs-error">
+        <span>加载失败：{{ logsError }}</span>
+        <el-button type="primary" size="small" @click="loadLogs">重试</el-button>
+      </div>
+      <el-table v-else :data="logs" v-loading="loading" data-testid="ai-logs" @row-click="showDetail">
         <el-table-column label="时间" width="150">
           <template #default="{ row }">{{ timeOf(row.createTime) }}</template>
         </el-table-column>
@@ -320,14 +311,20 @@ onMounted(() => {
 }
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
 }
-@media (max-width: 1100px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
+.quota-link {
+  font-size: 13px;
+  color: var(--yh-body);
+}
+.load-err {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--yh-error-text);
+  padding: 12px 16px;
 }
 .scenes {
   display: flex;

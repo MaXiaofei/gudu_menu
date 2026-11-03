@@ -250,3 +250,22 @@ export function trendGeometry(seriesValues: number[][], w: number, h: number, ga
 export function polyline(points: { x: number; y: number }[]): string {
   return points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
 }
+
+/** 当前基线运行：以后端返回的 baseline 标记为准（没有则 null，不再前端猜测）。 */
+export function baselineRun(runs: EvalRun[] | null | undefined): EvalRun | null {
+  const list = (runs ?? []).filter((r) => r.baseline === true)
+  if (!list.length) return null
+  return [...list].sort((a, b) => Number(b.runId) - Number(a.runId))[0]
+}
+
+/** 能否设为基线：未知状态按可以处理，RUNNING / FAILED 不行，已是基线的不重复设。 */
+export function canSetBaseline(r: EvalRun): boolean {
+  return r.baseline !== true && (r.status == null || r.status === 'DONE')
+}
+
+/** 运行状态的中文标签。 */
+export function runStatusLabel(r: EvalRun): string {
+  if (r.status === 'RUNNING') return '运行中'
+  if (r.status === 'FAILED') return '运行失败'
+  return r.passed ? '通过' : '未通过'
+}

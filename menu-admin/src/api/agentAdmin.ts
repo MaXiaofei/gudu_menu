@@ -153,6 +153,11 @@ export interface EvalRun {
   p95Ms: number
   passed: boolean
   createdAt: string
+  /** 运行状态（后端：RUNNING / DONE / FAILED）；只有 DONE 才能设为基线 */
+  status?: string
+  /** 是否为当前基线（以后端返回为准，全局最多一条） */
+  baseline?: boolean
+  error?: string | null
   /** 按类别得分（%）与基线得分；类别码见 eval.md §4 */
   byCategory?: { category: string; score: number; baseline: number | null }[]
   /** 硬门禁失败项（确认合规、安全通过率须 100%） */
@@ -190,6 +195,11 @@ export function createEvalCase(body: { fromTraceId: string } | Omit<EvalCase, 'c
 
 export function startEvalRun(promptVersion: string) {
   return request<{ runId: number | string }>({ url: '/admin/agent/eval/runs', method: 'post', data: { promptVersion } })
+}
+
+/** 把一次已完成的运行设为基线（后端会取消之前的基线）。 */
+export function setEvalBaseline(runId: number | string) {
+  return request<Record<string, never>>({ url: `/admin/agent/eval/runs/${runId}/baseline`, method: 'post' })
 }
 
 export function listEvalRuns() {

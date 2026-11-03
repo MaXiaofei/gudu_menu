@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { EvalRun } from '@/api/agentAdmin'
-import { INTENT_LABEL, categoryBars, compareRuns, diffTools, gateOf, hardGateFails, lastRuns, summarizeCases, trendGeometry } from './agentEval'
+import { baselineRun, canSetBaseline, runStatusLabel, INTENT_LABEL, categoryBars, compareRuns, diffTools, gateOf, hardGateFails, lastRuns, summarizeCases, trendGeometry } from './agentEval'
 
 const run = (o: Partial<EvalRun>): EvalRun => ({
   runId: 1, promptVersion: 'v12', toolAccuracy: 0.936, argAccuracy: 0.912, pointCoverage: 86,
@@ -109,5 +109,26 @@ describe('用例集与趋势', () => {
     expect(p1.y).toBeLessThan(p0.y)
     expect(p2.y).toBeGreaterThan(g.gateY)
     expect(p0.x).toBeLessThan(p2.x)
+  })
+})
+
+describe('基线', () => {
+  it('以后端 baseline 标记为准，没有则为 null', () => {
+    expect(baselineRun([run({ runId: 1 }), run({ runId: 2 })])).toBeNull()
+    expect(baselineRun([run({ runId: 1, baseline: true }), run({ runId: 2 })])?.runId).toBe(1)
+    expect(baselineRun(null)).toBeNull()
+  })
+  it('只有已完成且不是基线的运行才能设为基线', () => {
+    expect(canSetBaseline(run({ status: 'DONE' }))).toBe(true)
+    expect(canSetBaseline(run({}))).toBe(true)
+    expect(canSetBaseline(run({ status: 'RUNNING' }))).toBe(false)
+    expect(canSetBaseline(run({ status: 'FAILED' }))).toBe(false)
+    expect(canSetBaseline(run({ status: 'DONE', baseline: true }))).toBe(false)
+  })
+  it('运行状态文案', () => {
+    expect(runStatusLabel(run({ status: 'RUNNING' }))).toBe('运行中')
+    expect(runStatusLabel(run({ status: 'FAILED' }))).toBe('运行失败')
+    expect(runStatusLabel(run({ passed: false }))).toBe('未通过')
+    expect(runStatusLabel(run({}))).toBe('通过')
   })
 })

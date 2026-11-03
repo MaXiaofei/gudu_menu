@@ -26,4 +26,9 @@ describe('api/agentAdmin 调用链隐私', () => {
       url: '/admin/agent/traces/t1/full', method: 'post', data: { reason: '用户投诉回答异常' },
     })
   })
+
+  it('设为基线：POST /eval/runs/{id}/baseline', async () => {
+    await api.setEvalBaseline(7)
+    expect(requestFn).toHaveBeenLastCalledWith({ url: '/admin/agent/eval/runs/7/baseline', method: 'post' })
+  })
 })

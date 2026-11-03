@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AvatarStack from '@/components/AvatarStack.vue'
 import {
-  createEvalCase, listEvalCases, listEvalFailures, listEvalRuns, listTraces, startEvalRun,
+  createEvalCase, listEvalCases, listEvalFailures, listEvalRuns, listTraces, setEvalBaseline, startEvalRun,
   type EvalFailure, type EvalRun, type TraceSummary,
 } from '@/api/agentAdmin'
 import {
-  CATEGORY_DROP_LIMIT, TOOL_ACCURACY_GATE, categoryBars, compareRuns, diffTools, gateOf, hardGateFails, intentLabel,
-  lastRuns, polyline, summarizeCases, trendGeometry,
+  CATEGORY_DROP_LIMIT, TOOL_ACCURACY_GATE, baselineRun, canSetBaseline, categoryBars, compareRuns, diffTools, gateOf, hardGateFails, intentLabel,
+  lastRuns, polyline, runStatusLabel, summarizeCases, trendGeometry,
 } from '@/utils/agentEval'
 import { toPct, traceTime } from '@/utils/agentTrace'
 
 /**
- * Agent 评测（原型 AdminAgentEval）：改提示词或换模型后跑全量评测集，工具选择正确率低于 90% 时不允许发布。
+ * Agent 评测（原型 AdminAgentEval）：改提示词或换模型后跑全量评测集，页面按工具选择正确率 90% 给出「可以发布 / 不可发布」的判定（仅供参考，不会拦截发布）。
  * 数据来自 /admin/agent/eval/**（contracts.md §1 后台）。
  */
 const runs = ref<EvalRun[]>([])
@@ -29,9 +29,14 @@ const loading = ref(false)
 const runDialog = ref(false)
 const runVersion = ref('')
 const starting = ref(false)
+const loadError = ref('')
+const failuresError = ref('')
+const settingId = ref<string>('')
 
+const baselineOf = computed(() => baselineRun(runs.value))
 const sortedRuns = computed(() => lastRuns(runs.value, runs.value.length))
 const recent = computed(() => lastRuns(runs.value, 10))
+const recentDesc = computed(() => [...recent.value].reverse())
 const cand = computed(() => sortedRuns.value.find((r) => String(r.runId) === candId.value) ?? null)
 const base = computed(() => sortedRuns.value.find((r) => String(r.runId) === baseId.value) ?? null)
 const gate = computed(() => gateOf(cand.value))
@@ -65,39 +70,75 @@ const caseBars = computed(() => {
 })
 
 function runLabel(r: EvalRun) {
-  return `#${r.runId} · ${r.promptVersion}${r.passed ? '' : '（未通过）'}`
+  return `#${r.runId} · ${r.promptVersion}${r.passed ? '' : '（未通过）'}${r.baseline ? '（基线）' : ''}`
 }
 
 async function load() {
   loading.value = true
+  loadError.value = ''
+  const keepCand = candId.value
   try {
     const [r, c, d] = await Promise.allSettled([listEvalRuns(), listEvalCases(), listTraces({ rating: -1, size: 5 })])
+    const bad = [r, c, d].find((x) => x.status === 'rejected') as PromiseRejectedResult | undefined
+    if (bad) loadError.value = (bad.reason as Error)?.message || '部分数据加载失败'
     runs.value = r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : []
     cases.value = summarizeCases(c.status === 'fulfilled' ? c.value : null)
     downvotes.value = d.status === 'fulfilled' && Array.isArray(d.value?.items) ? d.value.items : []
     const sorted = sortedRuns.value
     const latest = sorted[sorted.length - 1]
-    candId.value = latest ? String(latest.runId) : ''
-    // 基线默认取候选之前最近一次通过的运行（即线上版本）
-    const prevPassed = [...sorted].reverse().find((x) => x !== latest && x.passed)
-    baseId.value = prevPassed ? String(prevPassed.runId) : ''
+    // 刷新（如设基线后）时保持当前选中的候选，不跳回最新一次
+    const keep = keepCand && sorted.some((x) => String(x.runId) === keepCand) ? keepCand : ''
+    candId.value = keep || (latest ? String(latest.runId) : '')
+    // 基线以后端返回的 baseline 标记为准；没有基线就留空，不再猜
+    const b = baselineOf.value
+    baseId.value = b ? String(b.runId) : ''
   } finally {
     loading.value = false
   }
 }
 
-watch(candId, async (id) => {
+async function loadFailures() {
+  const id = candId.value
   failures.value = []
   failIntent.value = ''
   onlyNew.value = false
+  failuresError.value = ''
   if (!id) return
   try {
     const f = await listEvalFailures(id)
+    if (id !== candId.value) return
     failures.value = Array.isArray(f) ? f : []
-  } catch {
+  } catch (e) {
+    if (id !== candId.value) return
     failures.value = []
+    failuresError.value = (e as Error)?.message || '失败用例加载失败'
   }
-})
+}
+
+watch(candId, loadFailures)
+
+async function onSetBaseline(r: EvalRun) {
+  try {
+    await ElMessageBox.confirm(
+      `把运行 #${r.runId}（${r.promptVersion}）设为基线？之后的评测会以它对比新失败和分类得分，原基线会被取代。`,
+      '设为基线',
+      { confirmButtonText: '设为基线', cancelButtonText: '取消', type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  settingId.value = String(r.runId)
+  try {
+    await setEvalBaseline(r.runId)
+    ElMessage.success(`已把 #${r.runId} 设为基线`)
+    await load()
+    await loadFailures()
+  } catch {
+    // request.ts 已弹出错误提示
+  } finally {
+    settingId.value = ''
+  }
+}
 
 function openRun() {
   runVersion.value = cand.value?.promptVersion ?? ''
@@ -134,7 +175,7 @@ onMounted(load)
     <div class="yh-head">
       <div>
         <h1>Agent 评测</h1>
-        <div class="yh-sub">评测集 · 发布门槛</div>
+        <div class="yh-sub">评测集 · 版本对比 · 基线</div>
       </div>
       <div class="head-tools">
         <el-select v-model="candId" placeholder="候选版本" style="width: 220px" aria-label="候选版本" data-testid="cand-select">
@@ -147,6 +188,11 @@ onMounted(load)
         <el-button type="primary" data-testid="start-run" @click="openRun">发起评测</el-button>
       </div>
     </div>
+
+    <section v-if="loadError" class="yh-card load-err" role="alert" data-testid="eval-load-error">
+      <span>加载失败：{{ loadError }}</span>
+      <el-button type="primary" size="small" @click="load">重试</el-button>
+    </section>
 
     <section
       v-if="cand"
@@ -164,7 +210,7 @@ onMounted(load)
         </span>
       </div>
     </section>
-    <section v-else-if="!loading" class="yh-card empty yh-muted">还没有评测运行记录，点右上角「发起评测」</section>
+    <section v-else-if="!loading && !loadError" class="yh-card empty yh-muted">还没有评测运行记录，点右上角「发起评测」</section>
 
     <section v-if="hardFails.length" class="hard" role="alert" data-testid="hard-gates">
       <b>硬门禁未通过（必须 100%）</b>
@@ -243,6 +289,42 @@ onMounted(load)
       </div>
     </section>
 
+    <section v-if="recentDesc.length" class="yh-card" aria-label="运行记录" data-testid="runs">
+      <div class="card-head">
+        <span class="yh-card-title">运行记录</span>
+        <span class="yh-muted">
+          <template v-if="baselineOf">当前基线：#{{ baselineOf.runId }} · {{ baselineOf.promptVersion }}</template>
+          <template v-else>还没有基线，选一次通过的运行设为基线</template>
+        </span>
+      </div>
+      <el-table :data="recentDesc" row-key="runId">
+        <el-table-column label="运行" width="90"><template #default="{ row }">#{{ row.runId }}</template></el-table-column>
+        <el-table-column label="提示词版本" prop="promptVersion" min-width="110" />
+        <el-table-column label="工具选择" width="100">
+          <template #default="{ row }">{{ toPct(row.toolAccuracy) == null ? '—' : `${toPct(row.toolAccuracy)!.toFixed(1)}%` }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="110">
+          <template #default="{ row }">
+            <span class="yh-tag" :class="row.status === 'RUNNING' ? 'mute' : row.status === 'FAILED' || !row.passed ? 'err' : 'ok'">{{ runStatusLabel(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="时间" min-width="140"><template #default="{ row }">{{ traceTime(row.createdAt) }}</template></el-table-column>
+        <el-table-column label="基线" width="140" align="right">
+          <template #default="{ row }">
+            <span v-if="row.baseline" class="yh-tag ok" data-testid="baseline-tag">当前基线</span>
+            <el-button
+              v-else
+              size="small"
+              :disabled="!canSetBaseline(row)"
+              :loading="settingId === String(row.runId)"
+              :data-testid="`set-baseline-${row.runId}`"
+              @click="onSetBaseline(row)"
+            >设为基线</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
     <div class="grid2 wide-left">
       <section class="yh-card" aria-label="版本对比">
         <div class="card-head"><span class="yh-card-title">版本对比</span></div>
@@ -306,7 +388,11 @@ onMounted(load)
           >{{ f.label }} {{ f.count }}</button>
         </div>
       </div>
-      <el-table :data="shownFailures" empty-text="候选版本没有退化用例">
+      <div v-if="failuresError" class="load-err" role="alert" data-testid="eval-failures-error">
+        <span>加载失败：{{ failuresError }}</span>
+        <el-button type="primary" size="small" @click="loadFailures">重试</el-button>
+      </div>
+      <el-table v-else :data="shownFailures" empty-text="候选版本没有退化用例">
         <el-table-column label="用例" width="110">
           <template #default="{ row }">
             <code>{{ row.caseId }}</code>
@@ -363,6 +449,14 @@ onMounted(load)
 </template>
 
 <style scoped>
+.load-err {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  color: var(--yh-error-text);
+}
 .head-tools {
   display: flex;
   gap: 10px;

@@ -17,7 +17,7 @@ import {
 } from '@/utils/aiGuard'
 
 /**
- * AI 用量与额度：今日全站已花费 / 上限 / 百分比（≥提醒比例醒目提醒，≥100% 显示已暂停），
+ * AI 额度护栏：今日全站已花费 / 上限 / 百分比（≥提醒比例醒目提醒，≥100% 显示已暂停），
  * 今日各类调用次数，可改限额（改动留痕：操作人、时间、新旧值）。次日自动恢复（北京时间）。
  */
 const overview = ref<AiGuardOverview | null>(null)
@@ -73,12 +73,12 @@ onMounted(load)
 <template>
   <div class="page" v-loading="loading">
     <div class="head">
-      <h2 class="title">AI 用量与额度</h2>
-      <p class="desc">每日花费 · 次数上限</p>
+      <h2 class="title">AI 额度护栏</h2>
+      <p class="desc">每日花费 · 次数上限 · 修改记录</p>
     </div>
 
     <div v-if="loadError" class="yh-card err">
-      <span>{{ loadError }}</span>
+      <span>加载失败：{{ loadError }}</span>
       <el-button link @click="load">重试</el-button>
     </div>
 

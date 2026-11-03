@@ -72,7 +72,7 @@ const routes: RouteRecordRaw[] = [
         path: 'ai-log',
         name: 'AiLog',
         component: () => import('@/views/ai-log/Index.vue'),
-        meta: { title: 'AI 用量与限额', group: 'ops', superAdmin: true },
+        meta: { title: 'AI 调用明细', group: 'ops', superAdmin: true },
       },
       {
         path: 'ai-gateway',
@@ -114,7 +114,7 @@ const routes: RouteRecordRaw[] = [
         path: 'ai-guard',
         name: 'AiGuard',
         component: () => import('@/views/ai-guard/Index.vue'),
-        meta: { title: 'AI 用量与额度', group: 'agent' },
+        meta: { title: 'AI 额度护栏', group: 'agent' },
       },
       {
         path: 'dish',
