@@ -1,0 +1,60 @@
+# 生产端到端测试专用 profile（prod-e2e）。只在测试类路径里，不会被打进发布包。
+# 本机起 Spring 应用，经 SSH 隧道直连生产 MySQL / Redis（隧道把 127.0.0.1:3306 / 6379 映射到生产）。
+# 所有连接信息只走环境变量，仓库里不放任何真实密码：
+#   DB_HOST(默认127.0.0.1) DB_PORT(默认3306) DB_USER(默认root) DB_PASSWORD
+#   REDIS_HOST(默认127.0.0.1) REDIS_PORT(默认6379) REDIS_PASSWORD
+#   GUDU_FIELD_CRYPTO_KEYS / GUDU_FIELD_CRYPTO_HMAC_KEY / GUDU_FIELD_CRYPTO_ACTIVE（必须与生产一致，否则手机号盲索引对不上）
+# 刻意不连：向量库(pgvector)与 Ollama 一律指向不可达地址并在测试里替换为空实现，避免往生产向量库写测试菜谱；
+#          大模型默认走 mock（不配 DEEPSEEK_API_KEY / GLM_API_KEY 就不会真实调用），保存期限清理关闭，微信内容安全关闭。
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/gudu?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  task:
+    scheduling:
+      pool:
+        size: 1
+  ai:
+    ollama:
+      base-url: http://127.0.0.1:1
+      embedding:
+        model: bge-m3
+    vectorstore:
+      pgvector:
+        host: 127.0.0.1
+        port: 1
+        database: gudu
+        username: gudu
+        password: unused
+
+gudu:
+  vectorstore:
+    initialize-schema: false
+  expose-error-detail: true
+  # 字段加密：必须用生产同一套密钥（无默认值，缺失则启动失败，防止用测试密钥写出生产读不了的密文）
+  field-crypto:
+    keys: ${GUDU_FIELD_CRYPTO_KEYS}
+    active-version: ${GUDU_FIELD_CRYPTO_ACTIVE:1}
+    hmac-key: ${GUDU_FIELD_CRYPTO_HMAC_KEY}
+  retention:
+    enabled: false
+  upload-dir: /tmp/gudu-prod-e2e-uploads
+  upload-sign:
+    enabled: true
+    secret: ${GUDU_PROD_E2E_UPLOAD_SIGN_SECRET:prod-e2e-local-upload-sign-secret-0123456789}
+  content-security:
+    wx-enabled: false
+    media-base-url: ""
+    quarantine-dir: /tmp/gudu-prod-e2e-quarantine
+  ai:
+    provider: mock
+
+auth:
+  login-check: true

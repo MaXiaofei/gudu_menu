@@ -52,7 +52,7 @@ node community.mjs --env=staging --clean            # 只清理厨房圈演示�
 | 补食材 | 只补 `mappings/extra-ingredients.json` 列出的 20 样基础食材（姜、香叶、低筋面粉…，无营养数据） |
 | 用量 | 分数、区间（取上限）、中文数字、「个半」、适量/少许（amount=0）；质量单位换算 grams |
 | 图片 | URL = `SEED_IMAGE_BASE/dish/original/xc_<id>.jpg`，缩略图同名在 `/thumbnail/`（与客户端替换规则一致） |
-| 演示家庭 | 成员 `phone` 以 `STAGING_DEMO_USER`（demo）开头；食集挂在演示成员名下；`e2e-seed.sql` 不清理这些行 |
+| 演示家庭 | 成员 `phone` 以 `STAGING_DEMO_USER`（demo）开头；食集挂在演示成员名下 |
 
 ## 注意
 

@@ -7,7 +7,7 @@
 //
 // 当前为单家庭模型（无 family 表）：成员 = 账号/档案，余量为全局表。
 // 演示标记：member.phone 以 demo 开头；食集 target_member_id 指向演示成员；
-//           做饭记录/收藏/通知按 member_id 归属。e2e-seed.sql 不清理这些行。
+//           做饭记录/收藏/通知按 member_id 归属。
 // 账号：phone = .env STAGING_DEMO_USER，密码 = STAGING_DEMO_PASSWORD（只读 .env，不打印）。
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';

@@ -209,5 +209,23 @@
                 <surefire.excludedGroups>none</surefire.excludedGroups>
             </properties>
         </profile>
+        <!-- 生产端到端测试：./mvnw test -Pprod-e2e -Dtest='GuduProdE2E*'（另需环境变量 GUDU_PROD_E2E=1，见 menu-api/docs/prod-e2e.md）。
+             不带本 profile 时测试类被条件跳过，普通 ./mvnw test 与 CI 不会误连生产。 -->
+        <profile>
+            <id>prod-e2e</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <gudu.prod.e2e.profile>prod-e2e</gudu.prod.e2e.profile>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>

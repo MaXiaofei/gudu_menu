@@ -1,19 +1,8 @@
-package com.gudu.xsd;
+package com.gudu.xsd.prode2e;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.jdbc.Sql;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,28 +14,15 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 厨房圈 E2E（showcase-ai-community S3，契约 contracts.md §2）。
- *
- * <p>自建 E2E 成员（phone 1390000710x）与 'E2E' 前缀帖子，e2e-seed.sql 的 [community] 区块兜底清理；
- * 「照着做」复制出的菜在用例末尾删除。
+ * 厨房圈生产 E2E（由 GuduE2ECommunityTest 改写）。
+ * 成员由测试自建（E2E_PROD_ 昵称）、帖子标题 E2E_PROD_ 开头，治理操作只对自建帖子；不改 community.enabled。
+ * 关联菜谱用生产里已有的公共菜谱（只读）；「照着做」复制出的菜在用例末尾删除，其余由基类清理。
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@Sql(scripts = "classpath:e2e-seed.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
-@Sql(scripts = "classpath:e2e-teardown.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-class GuduE2ECommunityTest {
+class GuduProdE2ECommunityTest extends ProdE2EBase {
 
-    @Autowired
-    private TestRestTemplate http;
-
-    private final ObjectMapper om = new ObjectMapper();
-
-    private static final long DISH_FANQIE = 1L;   // 种子菜
-    private static final long TOPIC_CHALLENGE = 1L; // V71 种子：#一周不重样
     private static final String IMG = "/gudu/uploads/e2e/community-a.jpg";
 
-    /** 上传地址签名（A.3）：test profile 开启校验，请求体里的本站图片须是服务端签发的地址。 */
+    /** 上传地址签名：请求体里的本站图片须是服务端签发的地址。 */
     @Autowired
     private com.gudu.xsd.common.upload.UploadUrlSigner uploadSigner;
 
@@ -54,47 +30,9 @@ class GuduE2ECommunityTest {
         return uploadSigner.sign(IMG);
     }
 
-    // ===================== HTTP helper（同 GuduE2EFlowTest 范式） =====================
-
-    private String login(String username, String password) {
-        JsonNode r = post(null, "/auth/login", Map.of("username", username, "password", password));
-        assertThat(r.get("code").asInt()).as("登录 " + username + " msg=" + text(r, "msg")).isEqualTo(0);
-        return r.get("data").get("token").asText();
-    }
-
-    private String newUser(String admin, String name, String phone) {
-        JsonNode created = post(admin, "/member", Map.of("name", name, "phone", phone, "password", "e2etest123"));
-        assertThat(created.get("code").asInt()).as("建成员 msg=" + text(created, "msg")).isEqualTo(0);
-        return login(phone, "e2etest123");
-    }
-
-    private JsonNode post(String token, String path, Object body) {
-        return exchange(token, path, HttpMethod.POST, body);
-    }
-
-    private JsonNode get(String token, String path) {
-        return exchange(token, path, HttpMethod.GET, null);
-    }
-
-    private JsonNode delete(String token, String path) {
-        return exchange(token, path, HttpMethod.DELETE, null);
-    }
-
-    private JsonNode exchange(String token, String path, HttpMethod method, Object body) {
-        HttpHeaders h = new HttpHeaders();
-        if (body != null) h.setContentType(MediaType.APPLICATION_JSON);
-        if (token != null) h.set("Authorization", token);
-        try {
-            ResponseEntity<String> resp = http.exchange(path, method, new HttpEntity<>(body, h), String.class);
-            return om.readTree(resp.getBody());
-        } catch (Exception e) {
-            throw new RuntimeException(method + " " + path + " 失败: " + e.getMessage(), e);
-        }
-    }
-
-    private static String text(JsonNode r, String field) {
-        JsonNode n = r.get(field);
-        return n == null || n.isNull() ? "" : n.asText();
+    /** 生产里已有的挑战话题「一周不重样」（只读查 id）。 */
+    private long topicChallenge() {
+        return jdbc.queryForObject("SELECT id FROM community_topic WHERE name = '一周不重样' ORDER BY id LIMIT 1", Long.class);
     }
 
     private static JsonNode ok(JsonNode r, String what) {
@@ -105,10 +43,10 @@ class GuduE2ECommunityTest {
     private long publish(String token, String title, Map<String, Object> extra) {
         Map<String, Object> body = new HashMap<>();
         body.put("title", title);
-        body.put("text", "E2E 正文：火候是关键");
+        body.put("text", P + " 正文：火候是关键");
         body.put("imageUrls", List.of(img()));
-        body.put("dishId", DISH_FANQIE);
-        body.put("topicIds", List.of(TOPIC_CHALLENGE));
+        body.put("dishId", publicDishId);
+        body.put("topicIds", List.of(topicChallenge()));
         body.put("coverRatio", 0.75);
         body.putAll(extra);
         JsonNode d = ok(post(token, "/community/posts", body), "发布 " + title);
@@ -125,16 +63,16 @@ class GuduE2ECommunityTest {
 
     @Test
     void A_发布与互动主链路() {
-        String admin = login("admin", "admin123");
-        String bob = newUser(admin, "E2E小厨", "13900007101");
+        String admin = loginAdmin();
+        String bob = registerAndLogin(phoneFor("comBobA"), P + "小厨").get("token").asText();
 
-        long p1 = publish(bob, "E2E第一次做番茄炒蛋", Map.of());
-        long p2 = publish(bob, "E2E周五打卡", Map.of());
+        long p1 = publish(bob, P + "第一次做番茄炒蛋", Map.of());
+        long p2 = publish(bob, P + "周五打卡", Map.of());
         JsonNode d1 = ok(get(bob, "/community/posts/" + p1), "作者看详情");
         assertThat(d1.get("status").asText()).isEqualTo("PUBLISHED");
         assertThat(d1.get("coverRatio").asDouble()).isEqualTo(0.75);
         assertThat(d1.get("topics").get(0).get("name").asText()).isEqualTo("一周不重样");
-        assertThat(d1.get("recipe").get("id").asLong()).isEqualTo(DISH_FANQIE);
+        assertThat(d1.get("recipe").get("id").asLong()).isEqualTo(publicDishId);
 
         // 推荐流：size=1 逐页翻，两帖都出现且不重复
         JsonNode page1 = ok(get(admin, "/community/feed?tab=recommend&size=1"), "推荐第一页");
@@ -166,13 +104,13 @@ class GuduE2ECommunityTest {
         JsonNode banner = ok(get(admin, "/community/banner"), "横幅");
         assertThat(banner.get("topic").get("name").asText()).isEqualTo("一周不重样");
         assertThat(banner.get("topic").get("startDate").asText()).as("挑战周期从周一开始").isNotBlank();
-        assertThat(banner.get("followingUpdates").toString()).contains("E2E小厨");
+        assertThat(banner.get("followingUpdates").toString()).contains(P + "小厨");
         assertThat(ok(get(admin, "/community/posts/" + p1), "详情").get("following").asBoolean()).isTrue();
 
         // 照着做：复制到我家，幂等；作者收到通知
         long copied = ok(post(admin, "/community/posts/" + p1 + "/copy-recipe", null), "照着做").get("dishId").asLong();
         try {
-            assertThat(copied).isNotEqualTo(DISH_FANQIE);
+            assertThat(copied).isNotEqualTo(publicDishId);
             assertThat(ok(post(admin, "/community/posts/" + p1 + "/copy-recipe", null), "再点照着做")
                     .get("dishId").asLong()).isEqualTo(copied);
             assertThat(ok(get(admin, "/community/posts/" + p1), "详情").get("copyCount").asLong()).isEqualTo(1);
@@ -191,14 +129,14 @@ class GuduE2ECommunityTest {
         assertThat(ok(get(admin, "/community/posts/" + p1), "详情").get("commentCount").asLong()).isEqualTo(2);
 
         // 话题挑战：今天已打卡，7 天周一开始；话题流
-        JsonNode topic = ok(get(bob, "/community/topics/" + TOPIC_CHALLENGE), "话题");
+        JsonNode topic = ok(get(bob, "/community/topics/" + topicChallenge()), "话题");
         JsonNode days = topic.get("myProgress").get("days");
         assertThat(days.size()).isEqualTo(7);
         assertThat(java.time.LocalDate.parse(days.get(0).get("date").asText()).getDayOfWeek())
                 .isEqualTo(java.time.DayOfWeek.MONDAY);
         assertThat(topic.get("myProgress").get("doneCount").asInt()).isEqualTo(1);
         assertThat(topic.get("myRank").isNull()).isFalse();
-        assertThat(ids(ok(get(admin, "/community/feed?tab=topic&topicId=" + TOPIC_CHALLENGE), "话题流"))).contains(p1, p2);
+        assertThat(ids(ok(get(admin, "/community/feed?tab=topic&topicId=" + topicChallenge()), "话题流"))).contains(p1, p2);
 
         // 话题列表（发布页选话题）
         JsonNode topicList = ok(get(bob, "/community/topics?status=ALL&size=10"), "话题列表");
@@ -206,7 +144,7 @@ class GuduE2ECommunityTest {
         assertThat(ok(get(bob, "/community/topics"), "进行中话题").size()).isPositive();
 
         // AI 帮写（模板）
-        assertThat(ok(post(bob, "/community/drafts/ai-text", Map.of("dishId", DISH_FANQIE, "style", "short")), "AI 帮写")
+        assertThat(ok(post(bob, "/community/drafts/ai-text", Map.of("dishId", publicDishId, "style", "short")), "AI 帮写")
                 .get("text").asText()).isNotBlank();
 
         // 删除：他人看不到
@@ -218,13 +156,13 @@ class GuduE2ECommunityTest {
 
     @Test
     void B_内容治理与申诉() {
-        String admin = login("admin", "admin123");
-        String bob = newUser(admin, "E2E小厨", "13900007101");
-        String carol = newUser(admin, "E2E甲", "13900007102");
-        String dave = newUser(admin, "E2E乙", "13900007103");
+        String admin = loginAdmin();
+        String bob = registerAndLogin(phoneFor("comBobB"), P + "小厨").get("token").asText();
+        String carol = registerAndLogin(phoneFor("comCarol"), P + "甲").get("token").asText();
+        String dave = registerAndLogin(phoneFor("comDave"), P + "乙").get("token").asText();
 
         // 高风险：他人不可见，进审核队列，带 AI 分项与摘要
-        long risky = publish(bob, "E2E加微信 abcdef12 私聊", Map.of());
+        long risky = publish(bob, P + "加微信 abcdef12 私聊", Map.of());
         assertThat(ok(get(bob, "/community/posts/" + risky), "作者看审核中").get("status").asText()).isEqualTo("REVIEWING");
         assertThat(get(carol, "/community/posts/" + risky).get("code").asInt()).as("他人不可见").isNotEqualTo(0);
         JsonNode queue = ok(get(admin, "/admin/community/queue?status=PENDING&risk=HIGH&size=50"), "审核队列");
@@ -236,7 +174,7 @@ class GuduE2ECommunityTest {
         assertThat(item.get("authorHistory").get("posts").asLong()).isPositive();
 
         // 站外图片被拦截：管理员详情能看到 blockedImages
-        long ext = publish(bob, "E2E带外链图", Map.of("imageUrls", List.of(img(), "https://evil.example.com/x.png")));
+        long ext = publish(bob, P + "带外链图", Map.of("imageUrls", List.of(img(), "https://evil.example.com/x.png")));
         JsonNode extDetail = ok(get(admin, "/admin/community/posts/" + ext), "管理员详情");
         assertThat(extDetail.get("blockedImages").get(0).asText()).isEqualTo("https://evil.example.com/x.png");
         assertThat(extDetail.get("images").size()).isEqualTo(1);
@@ -244,16 +182,16 @@ class GuduE2ECommunityTest {
 
         // 隐藏 → 作者申诉（一次）→ 申诉队列 → 再处置后申诉关闭
         ok(post(admin, "/admin/community/posts/" + risky + "/moderate",
-                Map.of("action", "HIDE", "reason", "联系方式导流", "note", "E2E")), "隐藏");
+                Map.of("action", "HIDE", "reason", "联系方式导流", "note", P + "")), "隐藏");
         JsonNode afterHide = ok(get(admin, "/admin/community/posts/" + risky), "处置后详情");
         assertThat(afterHide.get("moderation").get("action").asText()).isEqualTo("HIDE");
         assertThat(post(carol, "/community/posts/" + risky + "/appeal", Map.of("text", "不是我的")).get("code").asInt())
                 .as("非作者不能申诉").isNotEqualTo(0);
-        ok(post(bob, "/community/posts/" + risky + "/appeal", Map.of("text", "E2E 那是我家的菜谱号")), "申诉");
+        ok(post(bob, "/community/posts/" + risky + "/appeal", Map.of("text", P + " 那是我家的菜谱号")), "申诉");
         assertThat(post(bob, "/community/posts/" + risky + "/appeal", Map.of("text", "再来")).get("code").asInt())
                 .as("只能申诉一次").isNotEqualTo(0);
         JsonNode appealed = ok(get(admin, "/admin/community/queue?status=APPEALED&size=50"), "申诉队列");
-        assertThat(appealed.toString()).contains("E2E 那是我家的菜谱号");
+        assertThat(appealed.toString()).contains(P + " 那是我家的菜谱号");
         assertThat(ok(get(admin, "/admin/community/stats"), "统计").get("appealed").asLong()).isPositive();
         ok(post(admin, "/admin/community/posts/" + risky + "/moderate",
                 Map.of("action", "APPROVE", "reason", "申诉成立")), "申诉后通过");
@@ -262,7 +200,7 @@ class GuduE2ECommunityTest {
         assertThat(ids(done)).contains(risky);
 
         // 举报阈值：3 个不同用户举报自动隐藏；重复举报不计
-        long normal = publish(bob, "E2E正常帖", Map.of());
+        long normal = publish(bob, P + "正常帖", Map.of());
         ok(post(admin, "/community/reports", Map.of("postId", normal, "reason", "广告")), "举报1");
         ok(post(admin, "/community/reports", Map.of("postId", normal, "reason", "广告")), "重复举报");
         ok(post(carol, "/community/reports", Map.of("postId", normal, "reason", "广告")), "举报2");
@@ -282,7 +220,7 @@ class GuduE2ECommunityTest {
         ok(post(admin, "/admin/community/posts/" + normal + "/moderate",
                 Map.of("action", "BAN_7D", "reason", "多次违规")), "封禁");
         Map<String, Object> body = new HashMap<>();
-        body.put("title", "E2E封禁后发帖");
+        body.put("title", P + "封禁后发帖");
         body.put("imageUrls", List.of(img()));
         assertThat(post(bob, "/community/posts", body).get("code").asInt()).as("封禁期不能发帖").isNotEqualTo(0);
         assertThat(ok(get(admin, "/admin/community/posts/" + normal), "详情").get("authorHistory").get("bans").asLong())
