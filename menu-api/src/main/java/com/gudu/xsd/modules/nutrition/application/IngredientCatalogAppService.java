@@ -8,6 +8,7 @@ import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import com.gudu.xsd.modules.dict.CatalogWriteGuard;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.IngredientAlias;
+import com.gudu.xsd.modules.nutrition.IngredientNutrition;
 import com.gudu.xsd.modules.nutrition.IngredientService;
 import com.gudu.xsd.modules.nutrition.domain.repository.IngredientReferences;
 import com.gudu.xsd.modules.nutrition.domain.service.IngredientNameNormalizer;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -115,6 +117,21 @@ public class IngredientCatalogAppService {
         if (in.getEdible() != null) u.setEdible(validEdible(in.getEdible()));
         if (u.getName() == null && u.getPurchaseCategoryId() == null && u.getEdible() == null) return; // 无变化
         ingredients.updateById(u);
+    }
+
+    /**
+     * 修改食材本体 + 整体替换营养（管理后台编辑保存）。同一事务：先按 {@link #update} 的归属规则改本体，
+     * 再在 nutritions 非空时整体替换营养。营养只对公共食材生效（权限同本体：仅管理后台运营）；
+     * 本家私有食材的营养不由用户维护（与新建时忽略营养一致），传入的营养被忽略。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateWithNutrition(Ingredient in, List<IngredientNutrition> nutritions) {
+        if (in == null || in.getId() == null) throw new BizException("缺少食材 id");
+        Ingredient old = ingredients.getById(in.getId());
+        update(in);
+        if (old != null && old.getFamilyId() == null && nutritions != null && !nutritions.isEmpty()) {
+            ingredients.replaceNutrition(in.getId(), nutritions);
+        }
     }
 
     /** 删除：公共食材仅管理后台运营；本家私有食材未被引用才可删（软删）。 */
