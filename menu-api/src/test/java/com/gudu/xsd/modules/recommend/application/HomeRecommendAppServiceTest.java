@@ -64,7 +64,7 @@ class HomeRecommendAppServiceTest {
 
     @Test
     void 关闭个性化_不读库存做饭记录覆盖率_只给时令与大家常做() {
-        when(preferences.personalizedRecommendEnabled(7L)).thenReturn(false);
+        when(preferences.personalizedRecommendEnabled(70L)).thenReturn(false);
         when(ingredientService.list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
                 .thenReturn(List.of(ing(200)));
         when(dishService.dishIdsUsingIngredients(List.of(200L))).thenReturn(List.of(6L, 1L));
@@ -76,7 +76,7 @@ class HomeRecommendAppServiceTest {
         hot.setCookedCount(30);
         when(dishService.hotDishes(6)).thenReturn(List.of(dish(1), hot));
 
-        HomeRecommendView v = svc.home(7L);
+        HomeRecommendView v = svc.home(70L, 7L);
 
         assertThat(v.personalized()).isFalse();
         assertThat(v.expiring()).isEmpty();
@@ -96,7 +96,7 @@ class HomeRecommendAppServiceTest {
         when(dishService.dishIdsUsingIngredients(any())).thenReturn(List.of());
         when(records.mostCooked(7L, 6)).thenReturn(List.of());
         when(ingredientService.list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
-        HomeRecommendView v = svc.home(7L);
+        HomeRecommendView v = svc.home(70L, 7L);
         assertThat(v.personalized()).isTrue();
         assertThat(v.popular()).isEmpty();
         verify(dishService, never()).hotDishes(org.mockito.ArgumentMatchers.anyInt());
@@ -140,7 +140,7 @@ class HomeRecommendAppServiceTest {
                 1L, cov(1, 2), 2L, cov(2, 2), 3L, cov(0, 2), 4L, cov(2, 3), 5L, cov(1, 1), 6L, cov(1, 3)));
         when(records.cookedCounts(any(), any())).thenReturn(Map.of(5L, 9));
 
-        HomeRecommendView v = svc.home(7L);
+        HomeRecommendView v = svc.home(70L, 7L);
 
         assertThat(v.expiring()).hasSize(5);
         assertThat(v.expiringPicks()).extracting(DishCard::dishId).containsExactly(2L, 4L, 1L);
@@ -162,7 +162,7 @@ class HomeRecommendAppServiceTest {
         when(records.mostCooked(7L, 6)).thenReturn(List.of());
         when(ingredientService.list(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
 
-        HomeRecommendView v = svc.home(7L);
+        HomeRecommendView v = svc.home(70L, 7L);
 
         assertThat(v.expiring()).isEmpty();
         assertThat(v.expiringPicks()).isEmpty();

@@ -53,6 +53,25 @@ class GuduProdE2ECommunityTest extends ProdE2EBase {
         return d.get("postId").asLong();
     }
 
+    /**
+     * 读帖子详情里的计数。计数先攒在 Redis、由服务端定时回刷到库；生产里有常驻服务在跑回刷，
+     * 「读库」与「读 Redis 增量」之间恰好撞上回刷会瞬时少算，所以最多等 8 秒取到期望值（一般首读即中）。
+     */
+    private long awaitCount(String token, long postId, String field, long expected) {
+        long v = -1;
+        for (int i = 0; i < 16; i++) {
+            v = ok(get(token, "/community/posts/" + postId), "详情").get(field).asLong();
+            if (v == expected) return v;
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        return v;
+    }
+
     private List<Long> ids(JsonNode page) {
         List<Long> out = new ArrayList<>();
         page.get("items").forEach(i -> out.add(i.get("postId").asLong()));
@@ -113,7 +132,7 @@ class GuduProdE2ECommunityTest extends ProdE2EBase {
             assertThat(copied).isNotEqualTo(publicDishId);
             assertThat(ok(post(admin, "/community/posts/" + p1 + "/copy-recipe", null), "再点照着做")
                     .get("dishId").asLong()).isEqualTo(copied);
-            assertThat(ok(get(admin, "/community/posts/" + p1), "详情").get("copyCount").asLong()).isEqualTo(1);
+            assertThat(awaitCount(admin, p1, "copyCount", 1)).isEqualTo(1);
             assertThat(ok(get(admin, "/community/posts/" + p1 + "/copies"), "他们照着做了").get("items").size()).isEqualTo(1);
             assertThat(ok(get(admin, "/dish/" + copied), "复制出的菜").toString()).contains("厨房圈");
         } finally {
@@ -126,7 +145,7 @@ class GuduProdE2ECommunityTest extends ProdE2EBase {
         ok(post(bob, "/community/posts/" + p1 + "/comments", Map.of("text", "谢谢！", "parentId", c1)), "回复");
         JsonNode comments = ok(get(bob, "/community/posts/" + p1 + "/comments"), "评论列表");
         assertThat(comments.get("items").get(0).get("replies").get(0).get("isAuthor").asBoolean()).isTrue();
-        assertThat(ok(get(admin, "/community/posts/" + p1), "详情").get("commentCount").asLong()).isEqualTo(2);
+        assertThat(awaitCount(admin, p1, "commentCount", 2)).isEqualTo(2);
 
         // 话题挑战：今天已打卡，7 天周一开始；话题流
         JsonNode topic = ok(get(bob, "/community/topics/" + topicChallenge()), "话题");

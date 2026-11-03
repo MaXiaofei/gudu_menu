@@ -538,7 +538,11 @@ class GuduProdE2ECoverageMoreTest extends ProdE2EBase {
         JsonNode me = get(token, "/member/me");
         assertThat(me.get("code").asInt()).as("me msg=" + text(me, "msg")).isEqualTo(0);
         String oldName = me.get("data").get("name").asText();
-        assertThat(me.get("data").get("isAdmin").asBoolean()).isTrue();
+        // /member/me 的 isAdmin 读成员档案上的旧列 member.is_admin（仅展示），生产夹具只提了 account.platform_role，
+        // 所以只断言字段存在；超管身份以登录响应（读 account.platform_role）为准
+        assertThat(me.get("data").has("isAdmin")).isTrue();
+        JsonNode login = post(null, "/auth/login", Map.of("username", adminPhone, "password", PW));
+        assertThat(login.get("data").get("isAdmin").asBoolean()).as("登录响应里的超管标记").isTrue();
         assertThat(me.get("data").has("phone")).isTrue();
 
         try {

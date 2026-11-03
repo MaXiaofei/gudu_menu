@@ -46,6 +46,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  */
 class GuduProdE2ESafetyTest extends ProdE2EBase {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private UploadUrlSigner uploadSigner;
+
+
     @Autowired
     private WxProperties wxProps;
     @Autowired
@@ -245,6 +249,8 @@ class GuduProdE2ESafetyTest extends ProdE2EBase {
         Map<String, Object> own = new HashMap<>();
         own.put("title", P + "App发帖");
         own.put("text", P + "App 端正常发帖");
+        // 发帖至少要 1 张服务端签发的本站图片（任何环境都一样，原用例漏了；地址不要求真实存在）
+        own.put("imageUrls", List.of(uploadSigner.sign("/gudu/uploads/e2e/community-y.jpg")));
         JsonNode ownPost = post(token, "/community/posts", own);
         assertThat(ownPost.get("code").asInt()).as("App 发帖 msg=" + text(ownPost, "msg")).isZero();
         long postId = ownPost.get("data").get("postId").asLong();
@@ -257,6 +263,7 @@ class GuduProdE2ESafetyTest extends ProdE2EBase {
         Map<String, Object> postBody = new HashMap<>();
         postBody.put("title", P + "小程序发帖");
         postBody.put("text", P + "小程序不该发出去");
+        postBody.put("imageUrls", List.of(uploadSigner.sign("/gudu/uploads/e2e/community-y.jpg")));
         String[][] writes = {
                 {"/community/posts", om.writeValueAsString(postBody)},
                 {"/community/posts/" + postId + "/comments", "{\"text\":\"" + P + "评论\"}"},

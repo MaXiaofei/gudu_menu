@@ -65,10 +65,11 @@ public class HomeRecommendAppService {
      * 首页智荐。账号关闭个性化推荐（A.8，个人信息保护法第 24 条）时走 {@link #generic()}：
      * 不读库存、做饭记录、成员档案，只给时令 + 大家常做。
      *
-     * @param memberId 登录账号 id
+     * @param accountId 登录账号 id（个性化开关按账号存，不能用成员档案 id 查）；null 视为默认开启
+     * @param memberId  当前成员档案 id（库存 / 做饭记录按档案取）
      */
-    public HomeRecommendView home(Long memberId) {
-        if (!preferences.personalizedRecommendEnabled(memberId)) return generic();
+    public HomeRecommendView home(Long accountId, Long memberId) {
+        if (!preferences.personalizedRecommendEnabled(accountId)) return generic();
         return personalized(memberId);
     }
 

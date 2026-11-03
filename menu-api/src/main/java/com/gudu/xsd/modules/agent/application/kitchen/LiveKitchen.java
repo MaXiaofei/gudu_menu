@@ -198,7 +198,8 @@ class LiveKitchen implements Kitchen {
 
     @Override
     public List<DishInfo> recommendTonight(int n, Set<String> excludeTags) {
-        HomeRecommendView home = f.homeRecommend.home(memberId);
+        HomeRecommendView home = f.homeRecommend.home(com.gudu.xsd.common.tenant.TenantContextHolder.current()
+                .map(com.gudu.xsd.common.tenant.TenantContext::accountId).orElse(null), memberId);
         List<Long> ids = new ArrayList<>();
         for (List<DishCard> part : List.of(home.expiringPicks(), home.frequent(), home.seasonal())) {
             for (DishCard c : part) if (!ids.contains(c.dishId())) ids.add(c.dishId());

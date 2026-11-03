@@ -66,10 +66,10 @@ class RecommendControllerTest {
     @Test
     void 首页智荐_契约结构() throws Exception {
         try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
-            stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 7L, 7L, "MEMBER"));
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(70L); com.gudu.xsd.common.tenant.TenantContextHolder.set(new com.gudu.xsd.common.tenant.TenantContext(1L, 70L, 7L, "MEMBER"));
             DishCard card = new DishCard(1L, "菠菜炒蛋", "https://img/1.jpg", 15, 2, 3,
                     new CoverageView(1, 2, List.of(new CoverageView.Missing(2L, "鸡蛋"))));
-            given(appService.home(7L)).willReturn(new HomeRecommendView(
+            given(appService.home(70L, 7L)).willReturn(new HomeRecommendView(
                     List.of(new ExpiringItemView(5L, "菠菜", "ENOUGH", LocalDate.of(2026, 10, 18), 2, "spinach")),
                     List.of(card), List.of(), List.of()));
 

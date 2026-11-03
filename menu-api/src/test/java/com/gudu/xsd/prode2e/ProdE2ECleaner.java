@@ -95,6 +95,12 @@ public final class ProdE2ECleaner {
         return n != null && n > 0;
     }
 
+    private List<String> tablesWithColumn(String column) {
+        return jdbc.queryForList("SELECT c.table_name FROM information_schema.columns c JOIN information_schema.tables t "
+                + "ON t.table_schema = c.table_schema AND t.table_name = c.table_name WHERE c.table_schema = DATABASE() "
+                + "AND t.table_type = 'BASE TABLE' AND c.column_name = ?", String.class, column);
+    }
+
     private Set<Long> accountIds() {
         Set<Long> a = new LinkedHashSet<>(ids("SELECT id FROM account WHERE " + pfx("nickname") + " OR " + pfx("wx_openid")));
         if (!a.isEmpty() && columnExists("account", "merged_into")) {
@@ -153,6 +159,17 @@ public final class ProdE2ECleaner {
         delChild("ingredient_unit_gram", "ingredient_id", ingredients);
         delChild("ingredient_stock", "ingredient_id", ingredients);
         delChild("stock_log", "ingredient_id", ingredients);
+
+        // 公共食材（family_id 为空、含已软删）/ 公共菜谱：通用扫描只认 family_id，必须按 id 显式删本体，
+        // 并清掉所有以 ingredient_id / dish_id 指向它们的关联行（营养、别名、合并记录等），口径与 residue() 一致
+        for (Map.Entry<String, List<Long>> parent : Map.of("ingredient_id", ingredients, "dish_id", dishes).entrySet()) {
+            if (parent.getValue().isEmpty()) continue;
+            for (String t : tablesWithColumn(parent.getKey())) {
+                if (!PROTECTED_TABLES.contains(t)) delChild(t, parent.getKey(), parent.getValue());
+            }
+        }
+        delChild("ingredient", "id", ingredients);
+        delChild("dish", "id", dishes);
 
         // 厨房圈
         List<Long> posts = tableExists("community_post")
