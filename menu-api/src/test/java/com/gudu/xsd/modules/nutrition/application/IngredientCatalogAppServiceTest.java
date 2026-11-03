@@ -8,6 +8,7 @@ import com.gudu.xsd.modules.contentsecurity.domain.model.ContentPurpose;
 import com.gudu.xsd.modules.dict.CatalogWriteGuard;
 import com.gudu.xsd.modules.nutrition.Ingredient;
 import com.gudu.xsd.modules.nutrition.IngredientAlias;
+import com.gudu.xsd.modules.nutrition.IngredientNutrition;
 import com.gudu.xsd.modules.nutrition.IngredientService;
 import com.gudu.xsd.modules.nutrition.domain.repository.IngredientReferences;
 import com.gudu.xsd.modules.nutrition.mapper.IngredientAliasMapper;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -200,6 +202,73 @@ class IngredientCatalogAppServiceTest {
         when(ingredients.getOne(any(), anyBoolean())).thenReturn(null, ing(9L, "秘制", 7L));
         assertThatThrownBy(() -> svc.update(ing(8L, "秘制", null)))
                 .isInstanceOf(BizException.class).hasMessageContaining("已经有");
+    }
+
+    // ------------------------------------------------ 修改本体 + 营养整体替换
+
+    private static IngredientNutrition nut(long metricId, String v) {
+        IngredientNutrition n = new IngredientNutrition();
+        n.setMetricId(metricId);
+        n.setValue(new java.math.BigDecimal(v));
+        return n;
+    }
+
+    @Test
+    void 改营养_公共食材运营_改本体并整体替换营养() {
+        when(ingredients.getById(3L)).thenReturn(ing(3L, "番茄", null));
+        when(guard.canMaintainPublic()).thenReturn(true);
+        Ingredient in = ing(3L, "西红柿", null);
+        List<IngredientNutrition> nuts = List.of(nut(1L, "18"), nut(2L, "0.9"));
+
+        svc.updateWithNutrition(in, nuts);
+
+        verify(ingredients).updateById(in);
+        verify(ingredients).replaceNutrition(3L, nuts);
+    }
+
+    @Test
+    void 改营养_公共食材运营_营养为空不动营养() {
+        when(ingredients.getById(3L)).thenReturn(ing(3L, "番茄", null));
+        when(guard.canMaintainPublic()).thenReturn(true);
+
+        svc.updateWithNutrition(ing(3L, "西红柿", null), List.of());
+        svc.updateWithNutrition(ing(3L, "西红柿", null), null);
+
+        verify(ingredients, times(2)).updateById(any(Ingredient.class));
+        verify(ingredients, never()).replaceNutrition(any(), any());
+    }
+
+    @Test
+    void 改营养_普通用户改公共食材_403_本体与营养都不动() {
+        when(ingredients.getById(3L)).thenReturn(ing(3L, "番茄", null));
+        when(guard.canMaintainPublic()).thenReturn(false);
+
+        assertThatThrownBy(() -> svc.updateWithNutrition(ing(3L, "改名", null), List.of(nut(1L, "1"))))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(403));
+
+        verify(ingredients, never()).updateById(any(Ingredient.class));
+        verify(ingredients, never()).replaceNutrition(any(), any());
+    }
+
+    @Test
+    void 改营养_本家私有食材_本体可改_营养被忽略() {
+        when(ingredients.getById(8L)).thenReturn(ing(8L, "家传酱", 7L));
+        when(ingredients.getOne(any(), anyBoolean())).thenReturn(null);
+
+        svc.updateWithNutrition(ing(8L, "家传酱2", null), List.of(nut(1L, "1")));
+
+        verify(ingredients).updateById(any(Ingredient.class));
+        verify(ingredients, never()).replaceNutrition(any(), any());
+    }
+
+    @Test
+    void 改营养_缺id或不存在() {
+        assertThatThrownBy(() -> svc.updateWithNutrition(ing(null, "x", null), List.of()))
+                .isInstanceOf(BizException.class).hasMessage("缺少食材 id");
+        when(ingredients.getById(9L)).thenReturn(null);
+        assertThatThrownBy(() -> svc.updateWithNutrition(ing(9L, "x", null), List.of(nut(1L, "1"))))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(404));
+        verify(ingredients, never()).replaceNutrition(any(), any());
     }
 
     // ---------------------------------------------------------------- 删除

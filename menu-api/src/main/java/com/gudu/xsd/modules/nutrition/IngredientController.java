@@ -1,5 +1,7 @@
 package com.gudu.xsd.modules.nutrition;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.R;
@@ -28,6 +30,7 @@ public class IngredientController {
     private final IngredientService svc;
     private final CatalogWriteGuard guard;
     private final IngredientCatalogAppService catalog;
+    private final ObjectMapper mapper;
 
     /** 列表 / 搜索：keyword 匹配名称与别名；familyOnly=true 只看「我家」食材。 */
     @GetMapping
@@ -78,10 +81,19 @@ public class IngredientController {
         return R.ok(catalog.resolveOrCreate(in));
     }
 
-    /** 修改：公共食材仅管理后台运营；本家私有食材本家成员可改名 / 分类 / 食用属性。 */
+    /**
+     * 修改：公共食材仅管理后台运营；本家私有食材本家成员可改名 / 分类 / 食用属性。
+     * 请求体兼容两种形状：扁平 Ingredient（小程序）；{ingredient, nutritions}（管理后台，营养整体替换，仅公共食材）。
+     */
     @PutMapping
-    public R<?> update(@RequestBody Ingredient ing) {
-        catalog.update(ing);
+    public R<?> update(@RequestBody JsonNode body) {
+        if (body == null || !body.isObject()) throw new BizException("请求体不能为空");
+        if (body.has("ingredient") && body.get("ingredient").isObject()) {
+            IngredientSaveDTO dto = mapper.convertValue(body, IngredientSaveDTO.class);
+            catalog.updateWithNutrition(dto.getIngredient(), dto.getNutritions());
+        } else {
+            catalog.update(mapper.convertValue(body, Ingredient.class));
+        }
         return R.ok(null);
     }
 

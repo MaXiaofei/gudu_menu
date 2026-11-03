@@ -71,11 +71,13 @@ class CatalogWriteAccessTest {
         return (T) f.getProxy();
     }
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
     private final IngredientCatalogAppService catalog = mock(IngredientCatalogAppService.class);
 
     private IngredientController ingredientCtl(boolean adminOperator) {
         when(guard.canMaintainPublic()).thenReturn(adminOperator);
-        return new IngredientController(ingSvc, guard, catalog);
+        return new IngredientController(ingSvc, guard, catalog, MAPPER);
     }
 
     // ---------- 运营守卫：普通用户 PUT/DELETE 被拒，运营放行 ----------
@@ -107,7 +109,7 @@ class CatalogWriteAccessTest {
         DictController dict = proxied(new DictController(dictSvc, guard, security));
         NutritionMetricController metric = proxied(new NutritionMetricController(metricSvc));
 
-        ing.update(new Ingredient());
+        ing.update(MAPPER.createObjectNode());
         ing.del(1L);
         verify(catalog).update(any(Ingredient.class));
         verify(catalog).delete(1L);

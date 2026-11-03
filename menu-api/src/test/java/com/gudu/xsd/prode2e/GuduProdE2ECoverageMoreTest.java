@@ -149,6 +149,25 @@ class GuduProdE2ECoverageMoreTest extends ProdE2EBase {
             assertThat(put(user, "/ingredient", ingUpd).get("code").asInt()).isEqualTo(403);
             assertThat(delete(user, "/ingredient/" + pubIng).get("code").asInt()).isEqualTo(403);
             assertThat(get(user, "/ingredient/" + pubIng).get("data").get("edible").asInt()).isEqualTo(1);
+
+            // 后台编辑保存：PUT 发 {ingredient, nutritions} 形状 -> 改名并整体替换营养（曾因形状不符报「缺少食材 id」）
+            Map<String, Object> dtoBody = Map.of(
+                    "ingredient", Map.of("id", pubIng, "name", P + "公共食材N2改"),
+                    "nutritions", List.of(Map.of("metricId", 1L, "value", 42)));
+            assertThat(put(user, "/ingredient", dtoBody).get("code").asInt()).as("普通用户 DTO 形状改公共食材").isEqualTo(403);
+            JsonNode dtoPut = put(adminBo, "/ingredient", dtoBody);
+            assertThat(dtoPut.get("code").asInt()).as(dtoPut.toString()).isZero();
+            JsonNode afterPut = get(adminBo, "/ingredient/" + pubIng).get("data");
+            assertThat(afterPut.get("name").asText()).isEqualTo(P + "公共食材N2改");
+            assertThat(afterPut.get("nutrition").get("calorie").decimalValue()).isEqualByComparingTo("42");
+            // 再次整体替换：旧指标被替掉
+            Map<String, Object> dtoBody2 = Map.of(
+                    "ingredient", Map.of("id", pubIng, "name", P + "公共食材N2"), // 改回原名，后面步骤按原名断言
+                    "nutritions", List.of(Map.of("metricId", 2L, "value", 7)));
+            assertThat(put(adminBo, "/ingredient", dtoBody2).get("code").asInt()).isZero();
+            JsonNode afterPut2 = get(adminBo, "/ingredient/" + pubIng).get("data").get("nutrition");
+            assertThat(afterPut2.has("calorie")).isFalse();
+            assertThat(afterPut2.get("protein").decimalValue()).isEqualByComparingTo("7");
             assertThat(put(user, "/dict", Map.of("id", pubDict, "dictGroup", "unit", "name", P + "被改")).get("code").asInt())
                     .isEqualTo(403);
             assertThat(delete(user, "/dict/" + pubDict).get("code").asInt()).isEqualTo(403);

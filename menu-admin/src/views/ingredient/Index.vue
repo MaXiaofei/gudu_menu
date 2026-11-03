@@ -247,14 +247,20 @@ async function onSubmit() {
   saving.value = true
   try {
     if (editing.value) {
-      await updateIngredient({ ingredient: { id: editing.value.id, ...ingredient }, nutritions })
+      const id = editing.value.id
+      await updateIngredient({ ingredient: { id, ...ingredient }, nutritions })
       ElMessage.success('已保存')
+      // 刷新列表，并用库里最新数据重开右侧面板（含刚保存的营养），而不是直接关掉
+      await load()
+      const fresh = allList.value.find((r) => r.id === id)
+      if (fresh) await openEdit(fresh)
+      else closePanel()
     } else {
       await createIngredient({ ingredient, nutritions })
       ElMessage.success('已新增')
+      closePanel()
+      await load()
     }
-    closePanel()
-    await load()
   } finally {
     saving.value = false
   }
