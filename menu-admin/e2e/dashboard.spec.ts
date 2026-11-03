@@ -153,7 +153,7 @@ test.describe('运营仪表盘', () => {
     await expect(page.getByTestId('todo-nutrition')).toContainText('1') // 抽纸非食用不计
     await expect(page.getByTestId('todo-nutrition')).toContainText('鲈鱼')
     await expect(page.getByTestId('todo-feedback')).toContainText('小王')
-    await expect(page.getByTestId('todo-library')).toContainText('待接入')
+    await expect(page.getByTestId('todo-library')).toHaveCount(0)
 
     await page.getByRole('button', { name: '30 天' }).click()
     await expect.poll(() => statQueries.at(-1)).toContain('days=30')

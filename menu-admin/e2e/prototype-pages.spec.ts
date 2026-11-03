@@ -98,7 +98,7 @@ test.describe('食材与营养', () => {
     await expect(page.getByTestId('nut-total')).toContainText('3')
     await expect(page.getByTestId('nut-with-data')).toContainText('1')
     await expect(page.getByTestId('nut-missing')).toContainText('1') // 抽纸非食用不算缺数据
-    await expect(page.getByTestId('nut-pending')).toContainText('核对状态接口待上线')
+    await expect(page.getByTestId('nut-pending')).toHaveCount(0)
 
     const table = page.getByTestId('nut-table')
     await expect(table.locator('[data-icon="fish"]')).toBeVisible()

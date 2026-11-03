@@ -289,7 +289,6 @@ function rowClass({ row }: { row: Ingredient }) {
       <StatCard label="食材总数" :value="formatCount(counts.total)" data-testid="nut-total" />
       <StatCard label="有营养数据" :value="formatCount(counts.withData)" tone="ok" data-testid="nut-with-data" />
       <StatCard label="缺营养数据" :value="formatCount(counts.missing)" tone="err" hint="可在右侧面板用 AI 补全" data-testid="nut-missing" />
-      <StatCard label="AI 估算待核对" value="—" hint="核对状态接口待上线" data-testid="nut-pending" />
     </div>
 
     <div class="toolbar">

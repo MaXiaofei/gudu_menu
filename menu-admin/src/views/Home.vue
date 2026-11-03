@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { User, UserFilled, TrendCharts, Food, MagicStick, WarningFilled, ChatDotRound } from '@element-plus/icons-vue'
 import { useThemeStore } from '@/store/theme'
 import { useBadgeStore } from '@/store/badges'
-import { getOpsStats, type OpsStats } from '@/api/ops'
+import { getOpsHealth, getOpsStats, type HealthReport, type OpsStats } from '@/api/ops'
 import { searchDishes, type DishSearchRow } from '@/api/dish'
 import { listIngredients } from '@/api/ingredient'
 import { listFeedback, type Feedback } from '@/api/feedback'
@@ -95,12 +95,17 @@ async function load() {
   renderChart()
 }
 
+const health = ref<HealthReport | null>(null)
+const healthDown = computed(() => (health.value?.items || []).filter((i) => i.status !== 'ok').map((i) => i.label))
+
 async function loadSide() {
-  const [top, ings, fb] = await Promise.allSettled([
+  const [top, ings, fb, hp] = await Promise.allSettled([
     searchDishes({ sort: 'cooked', pageNum: 1, pageSize: 5 }),
     listIngredients(),
     listFeedback({ status: 'NEW', pageNum: 1, pageSize: 3 }),
+    getOpsHealth(),
   ])
+  if (hp.status === 'fulfilled') health.value = hp.value
   if (top.status === 'fulfilled') {
     const rows = Array.isArray(top.value?.records) ? [...top.value.records] : []
     topDishes.value = rows.sort((a, b) => (b.cookedCount ?? 0) - (a.cookedCount ?? 0)).slice(0, 5)
@@ -214,23 +219,15 @@ onUnmounted(disposeChart)
             <b class="todo-num">{{ formatCount(missingNutrition.count) }}</b>
           </router-link>
 
-          <div class="todo-row pending" data-testid="todo-library">
-            <span class="todo-ico"><el-icon><Food /></el-icon></span>
-            <span class="todo-txt">
-              <b>公共菜谱投稿待审核</b>
-              <span class="yh-muted">投稿审核接口待上线</span>
-            </span>
-            <span class="yh-tag mute">待接入</span>
-          </div>
 
-          <div class="todo-row pending" data-testid="todo-alert">
+          <router-link v-if="health" to="/ops" class="todo-row" data-testid="todo-alert">
             <span class="todo-ico"><el-icon><WarningFilled /></el-icon></span>
             <span class="todo-txt">
               <b>系统告警</b>
-              <span class="yh-muted">健康检查接口待上线</span>
+              <span class="yh-muted">{{ healthDown.length ? `${healthDown.join('、')} 异常` : '各项服务正常' }}</span>
             </span>
-            <span class="yh-tag mute">待接入</span>
-          </div>
+            <b class="todo-num" :class="{ hot: healthDown.length > 0 }">{{ formatCount(healthDown.length) }}</b>
+          </router-link>
         </section>
       </div>
     </template>
