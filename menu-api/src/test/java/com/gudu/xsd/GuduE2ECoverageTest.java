@@ -1295,6 +1295,19 @@ class GuduE2ECoverageTest {
         assertThat(d.get("trend").get(6).get("date").asText()).hasSize(10);
     }
 
+    @Test
+    void V_系统健康摘要_超管可读_含五项探测() {
+        String token = loginAdmin();
+        JsonNode r = get(token, "/ops/health");
+        assertThat(r.get("code").asInt()).as("health msg=" + text(r, "msg")).isEqualTo(0);
+        JsonNode items = r.get("data").get("items");
+        assertThat(items.size()).isEqualTo(5);
+        for (JsonNode it : items) {
+            assertThat(it.get("status").asText()).isIn("ok", "err");
+            assertThat(it.has("latencyMs")).isTrue();
+        }
+    }
+
     // ===================== W. 原型改版 P0（prototype-ui-rollout 0.2/0.3/0.7） =====================
 
     private static JsonNode byId(JsonNode arr, String idField, long id) {

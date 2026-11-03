@@ -35,6 +35,7 @@ class TenantGuardTest {
             "com.gudu.xsd.config.PgVectorConfig",
             // 运营统计：平台级聚合（仅超管可调），全局计数
             "com.gudu.xsd.modules.ops.infrastructure.JdbcOpsStatsQuery",
+            "com.gudu.xsd.modules.ops.infrastructure.HealthProbes", // 仅 select 1 连通性探测，无业务表访问
             // 运营后台账号目录：只读全局表 account / account_ban / family_membership / family（不碰家庭域表）
             "com.gudu.xsd.modules.backoffice.infrastructure.JdbcAccountDirectoryQuery",
             "com.gudu.xsd.modules.family.infrastructure.JdbcProfileReferences",
