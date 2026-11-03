@@ -74,7 +74,7 @@ inputs：`target`（prod 默认 / staging，staging 仅封存恢复用）、`con
 
 机制：
 - **按提交切换代码**：runner 把 `github.sha` 作为 `DEPLOY_SHA` 传给服务器，执行 `git fetch --all --prune && git checkout -f --detach "$DEPLOY_SHA"`（push main 也走同一条），不依赖服务器当前分支。`scripts/deploy.sh` 不读取当前分支名。
-- **部署前备份（仅非 main 部署 prod）**：`deploy.sh` 先 `mysqldump --single-transaction --routines --triggers` 全库，输出 `/root/gudu-backups/gudu-prod-<时间>-<分支名安全化>.sql.gz`；`gzip -t` 与「Dump completed」结尾校验，任一失败即中止部署（线上未改动）。main 推送部署不强制备份。恢复参考 2.8.4：`gunzip -c <文件> | docker exec -i <mysql容器> mysql -uroot -p'<密码>' gudu`。
+- **部署前备份（仅非 main 部署 prod）**：`deploy.sh` 先 `mysqldump --single-transaction --routines --triggers` 全库，输出 `/root/gudu-backups/gudu-auto-<YYYYMMDD-HHMMSS>-<分支名安全化>.sql.gz`；`gzip -t` 与「Dump completed」结尾校验，任一失败即中止部署（线上未改动）。main 推送部署不强制备份。**自动清理**：校验通过后只清理 `gudu-auto-*` 自动备份，且须同时「不在最新 `BACKUP_KEEP` 份内（默认 10）」与「修改时间早于 `BACKUP_MIN_DAYS` 天（默认 14）」，环境变量可覆盖；逐个打印被删文件名。**手动备份请用 `manual-` 前缀命名**（如 `manual-before-xxx-20261101.sql.gz`），不会被自动清理；旧格式 `gudu-prod-*` 也不再被自动清理，需人工处理。恢复参考 2.8.4：`gunzip -c <文件> | docker exec -i <mysql容器> mysql -uroot -p'<密码>' gudu`。
 - **来源记录**：部署成功后服务器写 `/root/gudu/.deployed`（env/branch/sha/services/time/actor）；GitHub job summary 写「生产当前运行：分支 X @ sha（触发人、时间）」，非 main 部署时附醒目警告。
 
 ⚠️ 风险：
