@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import Pagination from '@/components/Pagination.vue'
+import LoadError from '@/components/LoadError.vue'
 import { listOperationLogs, type OperationLogItem } from '@/api/backoffice'
+import { cleanOpLogQuery, operatorIdError } from '@/utils/backoffice'
 
-/** 运营操作日志：封禁、解封、违规复核、注销重试，谁在何时对什么做了什么、原因。 */
+/** 运营操作日志：封禁、解封、违规复核、注销重试，谁在何时对什么做了什么、原因。可按对象类型、操作人、时间范围筛选。 */
 const pageSize = 15
 const pageNum = ref(1)
 const total = ref(0)
 const targetType = ref('')
+const operatorId = ref('')
+const range = ref<[string, string] | null>(null)
+const operatorErr = ref('')
 const list = ref<OperationLogItem[]>([])
 const loading = ref(false)
+const loadError = ref('')
 
 const TYPES = [
   { value: '', label: '全部' },
@@ -22,15 +28,41 @@ const TYPES = [
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
-    const r = await listOperationLogs({ targetType: targetType.value || undefined, pageNum: pageNum.value, pageSize })
+    const r = await listOperationLogs({
+      ...cleanOpLogQuery({ targetType: targetType.value, operatorId: operatorId.value, range: range.value }),
+      pageNum: pageNum.value,
+      pageSize,
+    })
     list.value = r?.records || []
     total.value = r?.total || 0
-  } catch {
+  } catch (e) {
+    loadError.value = (e as Error)?.message || '加载失败'
     list.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
+}
+
+function search() {
+  operatorErr.value = operatorIdError(operatorId.value) || ''
+  if (operatorErr.value) return
+  pageNum.value = 1
+  load()
+}
+
+function reset() {
+  operatorId.value = ''
+  range.value = null
+  targetType.value = ''
+  search()
+}
+
+function pickType(v: string) {
+  targetType.value = v
+  search()
 }
 
 onMounted(load)
@@ -47,10 +79,24 @@ onMounted(load)
     </div>
     <div class="yh-seg" role="group" aria-label="对象类型">
       <button v-for="t in TYPES" :key="t.value || 'all'" type="button" :class="{ on: targetType === t.value }"
-        @click="targetType = t.value; pageNum = 1; load()">{{ t.label }}</button>
+        @click="pickType(t.value)">{{ t.label }}</button>
     </div>
+    <el-form inline class="filters" data-testid="oplog-filters" @submit.prevent="search">
+      <el-form-item label="操作人" :error="operatorErr">
+        <el-input v-model="operatorId" placeholder="操作人账号 ID" clearable style="width: 150px" data-testid="oplog-operator" />
+      </el-form-item>
+      <el-form-item label="时间范围">
+        <el-date-picker v-model="range" type="daterange" value-format="YYYY-MM-DD" range-separator="至"
+          start-placeholder="开始日期" end-placeholder="结束日期" style="width: 260px" data-testid="oplog-range" />
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" native-type="submit">查询</el-button>
+        <el-button @click="reset">重置</el-button>
+      </el-form-item>
+    </el-form>
     <section class="yh-card">
-      <el-table v-loading="loading" :data="list" data-testid="oplog-table">
+      <LoadError v-if="loadError" :message="loadError" @retry="load" />
+      <el-table v-else v-loading="loading" :data="list" data-testid="oplog-table">
         <el-table-column label="时间" width="150">
           <template #default="{ row }">{{ (row.createdAt || '').replace('T', ' ').slice(0, 16) }}</template>
         </el-table-column>
@@ -67,6 +113,9 @@ onMounted(load)
         <el-table-column label="详情" min-width="200">
           <template #default="{ row }">{{ row.detail || '—' }}</template>
         </el-table-column>
+        <template #empty>
+          <el-empty description="没有符合条件的操作记录" :image-size="72" />
+        </template>
       </el-table>
       <Pagination :total="total" :current-page="pageNum" :page-size="pageSize" @current-change="(p: number) => { pageNum = p; load() }" />
     </section>
@@ -76,5 +125,8 @@ onMounted(load)
 <style scoped>
 .yh-seg {
   margin-bottom: 12px;
+}
+.filters {
+  margin-bottom: 4px;
 }
 </style>

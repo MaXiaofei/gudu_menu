@@ -7,6 +7,7 @@ import com.gudu.xsd.modules.backoffice.application.dto.BackofficeViews;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountSearch;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationAction;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationLog;
+import com.gudu.xsd.modules.backoffice.domain.model.OperationLogFilter;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationTarget;
 import com.gudu.xsd.modules.backoffice.domain.repository.AccountDirectoryQuery;
 import com.gudu.xsd.modules.backoffice.domain.repository.OperationLogRepository;
@@ -23,7 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -137,6 +140,7 @@ public class BackofficeAppService {
     // ================================================================ 操作日志
 
     public BackofficeViews.Page<BackofficeViews.OperationLogItem> operationLogs(String targetType, Long targetId,
+                                                                                Long operatorId, String from, String to,
                                                                                 int page, int size) {
         OperationTarget type = null;
         if (targetType != null && !targetType.isBlank()) {
@@ -146,14 +150,28 @@ public class BackofficeAppService {
                 throw new BizException("不支持的对象类型：" + targetType);
             }
         }
+        LocalDateTime fromTime = parseDay(from, "起始日期");
+        LocalDateTime toTime = parseDay(to, "结束日期");
+        if (toTime != null) toTime = toTime.plusDays(1); // 结束日期含当天
+        if (fromTime != null && toTime != null && !fromTime.isBefore(toTime)) throw new BizException("起始日期不能晚于结束日期");
+        OperationLogFilter filter = new OperationLogFilter(type, targetId, operatorId, fromTime, toTime);
         int s = clamp(size);
-        List<OperationLog> list = logs.page(type, targetId, offset(page, s), s);
+        List<OperationLog> list = logs.page(filter, offset(page, s), s);
         Map<Long, String> names = accountQuery.nicknames(list.stream().map(OperationLog::operatorId)
                 .filter(Objects::nonNull).collect(Collectors.toSet()));
         return new BackofficeViews.Page<>(list.stream().map(l -> new BackofficeViews.OperationLogItem(l.id(),
                 l.operatorId(), names.get(l.operatorId()), l.action().name(), l.action().label(),
                 l.targetType().name(), l.targetId(), l.reason(), l.detail(), l.createdAt())).toList(),
-                logs.count(type, targetId));
+                logs.count(filter));
+    }
+
+    private static LocalDateTime parseDay(String day, String label) {
+        if (day == null || day.isBlank()) return null;
+        try {
+            return LocalDate.parse(day.trim()).atStartOfDay();
+        } catch (DateTimeParseException e) {
+            throw new BizException(label + "格式应为 yyyy-MM-dd");
+        }
     }
 
     // ================================================================ 内部

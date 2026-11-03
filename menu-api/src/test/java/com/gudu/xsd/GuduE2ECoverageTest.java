@@ -1999,6 +1999,19 @@ class GuduE2ECoverageTest {
         assertThat(logs.get("data").get("total").asLong()).isEqualTo(2);
         assertThat(hasRecord(logs.get("data").get("records"), "action", "BAN")).isTrue();
         assertThat(hasRecord(logs.get("data").get("records"), "action", "UNBAN")).isTrue();
+
+        // 操作日志筛选：操作人 + 日期区间（含当天）；起止颠倒 / 格式错误 → 业务错误
+        String today = LocalDate.now().toString();
+        JsonNode byOperator = get(admin, "/admin/operation-logs?targetType=ACCOUNT&targetId=" + accountId
+                + "&operatorId=" + logs.get("data").get("records").get(0).get("operatorId").asLong()
+                + "&from=" + today + "&to=" + today);
+        assertThat(byOperator.get("code").asInt()).isZero();
+        assertThat(byOperator.get("data").get("total").asLong()).isEqualTo(2);
+        JsonNode future = get(admin, "/admin/operation-logs?targetType=ACCOUNT&targetId=" + accountId
+                + "&from=" + LocalDate.now().plusDays(2));
+        assertThat(future.get("data").get("total").asLong()).isZero();
+        assertThat(get(admin, "/admin/operation-logs?from=2099-01-02&to=2099-01-01").get("code").asInt()).isNotZero();
+        assertThat(get(admin, "/admin/operation-logs?from=abc").get("code").asInt()).isNotZero();
     }
 
     @Test

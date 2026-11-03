@@ -49,8 +49,26 @@ export interface NutritionMetric {
   name: string
   unit: string
   metricGroup: string
+  sort?: number
 }
 
 export function listNutritionMetrics() {
   return request<NutritionMetric[]>({ url: '/nutrition/metric', method: 'get' })
+}
+
+export interface NutritionMetricSaveDTO {
+  id?: number
+  name: string
+  unit: string
+  metricGroup: string
+  sort?: number
+}
+
+/** 新增 / 修改营养指标（后端仅超管）。 */
+export function createNutritionMetric(data: NutritionMetricSaveDTO) {
+  return request<number>({ url: '/nutrition/metric', method: 'post', data })
+}
+
+export function updateNutritionMetric(data: NutritionMetricSaveDTO & { id: number }) {
+  return request<void>({ url: '/nutrition/metric', method: 'put', data })
 }

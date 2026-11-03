@@ -7,24 +7,20 @@ import { formatCount } from '@/utils/dashboard'
 import Pagination from '@/components/Pagination.vue'
 import DishThumb from '@/components/DishThumb.vue'
 import IngIcon from '@/components/IngIcon.vue'
-import PendingApi from '@/components/PendingApi.vue'
+import LoadError from '@/components/LoadError.vue'
 
 /**
  * 公共菜谱库（原型 AdminLibrary）。
- * 多租户落地前，全部菜谱即公共库；「已上架」用 /dish/search 真实数据。
- * 投稿审核（待审核 / 已驳回 / 已下架、自动检查）依赖 dish_submission，接口待上线（prototype-ui-rollout 3.7）。
+ * 多租户落地前，全部菜谱即公共库，用 /dish/search 真实数据。
+ * 投稿审核（待审核 / 已驳回 / 已下架）后端未做：上线前隐藏对应标签、状态列与「下架」按钮。
  */
-type Tab = 'pending' | 'online' | 'rejected' | 'offline'
-const TABS: { key: Tab; label: string; ready: boolean }[] = [
-  { key: 'pending', label: '待审核', ready: false },
-  { key: 'online', label: '已上架', ready: true },
-  { key: 'rejected', label: '已驳回', ready: false },
-  { key: 'offline', label: '已下架', ready: false },
-]
+const STEP_PREVIEW = 4
 
 const router = useRouter()
-const tab = ref<Tab>('online')
 const loading = ref(false)
+const loadError = ref('')
+const detailError = ref(false)
+const stepsExpanded = ref(false)
 const list = ref<DishSearchRow[]>([])
 const total = ref(0)
 const query = reactive({ keyword: '', pageNum: 1, pageSize: 15 })
@@ -36,11 +32,16 @@ const ingredientById = ref<Map<number, Ingredient>>(new Map())
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
     const page = await searchDishes({ keyword: query.keyword || undefined, pageNum: query.pageNum, pageSize: query.pageSize })
     list.value = Array.isArray(page?.records) ? page.records : []
     total.value = page?.total || 0
     if (!list.value.some((d) => d.id === selectedId.value) && list.value[0]) select(list.value[0])
+  } catch (e) {
+    loadError.value = (e as Error)?.message || '加载失败'
+    list.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -48,11 +49,14 @@ async function load() {
 
 async function select(row: DishSearchRow) {
   selectedId.value = row.id
+  stepsExpanded.value = false
+  detailError.value = false
   detailLoading.value = true
   try {
     detail.value = await getDishDetail(row.id)
   } catch {
     detail.value = null
+    detailError.value = true
   } finally {
     detailLoading.value = false
   }
@@ -86,6 +90,7 @@ const ingredients = computed(() =>
   })),
 )
 const steps = computed(() => (detail.value?.steps ?? []).map((s) => s.text).filter(Boolean))
+const shownSteps = computed(() => (stepsExpanded.value ? steps.value : steps.value.slice(0, STEP_PREVIEW)))
 
 function sourceText(d: DishSearchRow) {
   if (d.sourceName) return `导入 · ${d.sourceName}`
@@ -117,39 +122,21 @@ onMounted(() => {
     <div class="yh-head">
       <div>
         <h1>公共菜谱库</h1>
-        <div class="yh-sub">公共菜谱 · 家庭投稿</div>
+        <div class="yh-sub">公共菜谱 · 来源 · 用料步骤</div>
       </div>
       <el-button type="primary" @click="router.push('/dish')">去菜谱管理</el-button>
     </div>
 
     <div class="toolbar">
-      <div class="yh-seg" role="group" aria-label="上架状态" data-testid="lib-tabs">
-        <button
-          v-for="t in TABS"
-          :key="t.key"
-          type="button"
-          :class="{ on: tab === t.key }"
-          :aria-pressed="tab === t.key"
-          @click="tab = t.key"
-        >{{ t.key === 'online' && total ? `${t.label} ${formatCount(total)}` : t.label }}</button>
-      </div>
-      <template v-if="tab === 'online'">
-        <el-input v-model="query.keyword" placeholder="搜菜名" clearable class="kw" @keyup.enter="onSearch" @clear="onSearch" />
-        <el-button @click="onSearch">搜索</el-button>
-      </template>
+      <span class="count" data-testid="lib-count">共 {{ formatCount(total) }} 道菜谱</span>
+      <el-input v-model="query.keyword" placeholder="搜菜名" clearable class="kw" @keyup.enter="onSearch" @clear="onSearch" />
+      <el-button @click="onSearch">搜索</el-button>
     </div>
 
-    <section v-if="tab !== 'online'" class="yh-card">
-      <PendingApi
-        :title="`「${TABS.find((t) => t.key === tab)?.label}」列表待上线`"
-        needs="投稿审核状态（dish_submission）与自动检查：敏感词 / 外链图片 / 名称相似度"
-        task="prototype-ui-rollout 3.7"
-      />
-    </section>
-
-    <div v-else class="split">
+    <div class="split">
       <section class="yh-card table-card">
-        <el-table v-loading="loading" :data="list" :row-class-name="rowClass" data-testid="lib-table" @row-click="select">
+        <LoadError v-if="loadError" :message="loadError" @retry="load" />
+        <el-table v-else v-loading="loading" :data="list" :row-class-name="rowClass" data-testid="lib-table" @row-click="select">
           <el-table-column label="菜谱" min-width="240">
             <template #default="{ row }">
               <div class="dish-cell">
@@ -166,11 +153,6 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="做过" width="80">
             <template #default="{ row }">{{ row.cookedCount ? `${row.cookedCount} 次` : '—' }}</template>
-          </el-table-column>
-          <el-table-column label="状态" width="90">
-            <template #default>
-              <span class="yh-tag ok">已上架</span>
-            </template>
           </el-table-column>
           <template #empty>
             <el-empty description="没有找到菜谱" :image-size="72" />
@@ -190,6 +172,7 @@ onMounted(() => {
           </div>
 
           <el-skeleton v-if="detailLoading" :rows="4" animated />
+          <LoadError v-else-if="detailError" compact title="菜谱详情加载失败" @retry="select(selectedRow)" />
           <template v-else-if="detail">
             <div>
               <div class="label">用料 · {{ ingredients.length }} 样</div>
@@ -204,16 +187,15 @@ onMounted(() => {
             <div>
               <div class="label">步骤 · {{ steps.length }} 步</div>
               <ol class="steps">
-                <li v-for="(s, i) in steps.slice(0, 4)" :key="i">{{ s }}</li>
+                <li v-for="(s, i) in shownSteps" :key="i">{{ s }}</li>
               </ol>
-              <span v-if="steps.length > 4" class="yh-muted">还有 {{ steps.length - 4 }} 步…</span>
+              <el-button v-if="steps.length > STEP_PREVIEW" link type="primary" data-testid="lib-steps-toggle" @click="stepsExpanded = !stepsExpanded">
+                {{ stepsExpanded ? '收起' : `展开全部（还有 ${steps.length - STEP_PREVIEW} 步）` }}
+              </el-button>
             </div>
           </template>
 
           <div class="actions">
-            <el-tooltip content="下架需审核状态接口（prototype-ui-rollout 3.7）" placement="top">
-              <span><el-button disabled>下架</el-button></span>
-            </el-tooltip>
             <el-button type="primary" @click="router.push('/dish')">编辑菜谱</el-button>
           </div>
         </template>
@@ -232,6 +214,10 @@ onMounted(() => {
 }
 .kw {
   width: 240px;
+}
+.count {
+  color: var(--yh-body);
+  font-size: 13px;
 }
 .split {
   display: grid;

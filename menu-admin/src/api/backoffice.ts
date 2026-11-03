@@ -174,6 +174,6 @@ export interface OperationLogItem {
   createdAt: string
 }
 
-export function listOperationLogs(params: { targetType?: string; targetId?: number | null; pageNum?: number; pageSize?: number }) {
+export function listOperationLogs(params: { targetType?: string; targetId?: number | null; operatorId?: number; from?: string; to?: string; pageNum?: number; pageSize?: number }) {
   return request<Page<OperationLogItem>>({ url: '/admin/operation-logs', method: 'get', params })
 }

@@ -48,7 +48,7 @@ async function onSubmit() {
       <div class="title">
         <span class="dot"></span>咕嘟小食单
       </div>
-      <div class="subtitle">家庭菜谱 · 菜单 · 营养</div>
+      <div class="subtitle">菜谱 · 食材 · 运营管理</div>
 
       <el-form
         ref="formRef"

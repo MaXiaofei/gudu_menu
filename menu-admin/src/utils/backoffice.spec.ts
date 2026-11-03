@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ACCOUNT_STATUS, cleanAccountQuery, daysLeft, deactivationOverdue, label, mediaActions, reasonError, reviewLabel,
+  ACCOUNT_STATUS, cleanAccountQuery, cleanOpLogQuery, operatorIdError, daysLeft, deactivationOverdue, label, mediaActions, reasonError, reviewLabel,
 } from './backoffice'
 
 describe('utils/backoffice 运营后台展示规则', () => {
@@ -39,5 +39,20 @@ describe('utils/backoffice 运营后台展示规则', () => {
     expect(reasonError(' ')).toBe('请填写原因')
     expect(reasonError('x'.repeat(201))).toBe('原因不超过 200 字')
     expect(reasonError('刷广告')).toBeNull()
+  })
+
+  it('操作日志查询参数：操作人正整数、日期区间自动排序、单边只传 from', () => {
+    expect(cleanOpLogQuery({ targetType: '', operatorId: ' ', range: null })).toEqual({})
+    expect(cleanOpLogQuery({ targetType: 'ACCOUNT', operatorId: '12', range: ['2026-11-02', '2026-10-01'] }))
+      .toEqual({ targetType: 'ACCOUNT', operatorId: 12, from: '2026-10-01', to: '2026-11-02' })
+    expect(cleanOpLogQuery({ operatorId: 'abc' })).toEqual({})
+    expect(cleanOpLogQuery({ range: ['2026-10-01', ''] })).toEqual({ from: '2026-10-01' })
+  })
+
+  it('操作人输入校验', () => {
+    expect(operatorIdError('')).toBeNull()
+    expect(operatorIdError('15')).toBeNull()
+    expect(operatorIdError('0')).not.toBeNull()
+    expect(operatorIdError('张三')).not.toBeNull()
   })
 })
