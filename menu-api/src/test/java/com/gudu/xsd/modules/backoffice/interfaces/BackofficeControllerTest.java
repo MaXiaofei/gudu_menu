@@ -111,13 +111,16 @@ class BackofficeControllerTest {
             given(accountQuery.isOperator(1L)).willReturn(true);
             given(app.accounts(any(), anyInt(), anyInt())).willReturn(new BackofficeViews.Page<>(List.of(
                     new BackofficeViews.AccountItem(5L, "小王", "138****0001", "a1b2c3", "ACTIVE", "USER", 2, true,
-                            "刷广告", LocalDateTime.of(2026, 10, 26, 9, 0), LocalDateTime.of(2026, 1, 1, 0, 0), null)),
+                            "刷广告", LocalDateTime.of(2026, 10, 26, 9, 0), LocalDateTime.of(2026, 1, 1, 0, 0), null,
+                            List.of(new com.gudu.xsd.modules.backoffice.domain.model.FamilyBrief(8L, "我们家", "OWNER", "ACTIVE")))),
                     1));
             mvc.perform(get("/admin/accounts").param("keyword", "小王").param("openidTail", "b2c3")
                             .param("familyId", "8").param("bannedOnly", "true"))
                     .andExpect(jsonPath("$.code").value(0))
                     .andExpect(jsonPath("$.data.total").value(1))
                     .andExpect(jsonPath("$.data.records[0].familyCount").value(2))
+                    .andExpect(jsonPath("$.data.records[0].families[0].name").value("我们家"))
+                    .andExpect(jsonPath("$.data.records[0].families[0].role").value("OWNER"))
                     .andExpect(jsonPath("$.data.records[0].banned").value(true))
                     .andExpect(jsonPath("$.data.records[0].maskedPhone").value("138****0001"));
             ArgumentCaptor<AccountSearch> c = ArgumentCaptor.forClass(AccountSearch.class);

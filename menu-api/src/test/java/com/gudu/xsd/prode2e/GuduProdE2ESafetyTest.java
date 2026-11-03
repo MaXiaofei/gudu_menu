@@ -768,6 +768,15 @@ class GuduProdE2ESafetyTest extends ProdE2EBase {
         }
         assertThat(row).as("按昵称关键字查到自建账号").isNotNull();
         assertThat(row.get("familyCount").asInt()).isGreaterThanOrEqualTo(1);
+        // 所属家庭：返回家庭名称与角色（自建账号注册即为自己家庭的主理人），且只有元数据
+        JsonNode families = row.get("families");
+        assertThat(families).as("families 列表").isNotNull();
+        assertThat(families.size()).isEqualTo(row.get("familyCount").asInt());
+        JsonNode fam0 = families.get(0);
+        assertThat(text(fam0, "name")).isNotBlank();
+        assertThat(text(fam0, "role")).isEqualTo("OWNER");
+        assertThat(fam0.get("familyId").asLong()).isPositive();
+        assertThat(fam0.fieldNames()).toIterable().containsExactlyInAnyOrder("familyId", "name", "role", "status");
         assertThat(row.get("banned").asBoolean()).isFalse();
         assertThat(text(row, "maskedPhone")).isEqualTo(phone.substring(0, 3) + "****" + phone.substring(7));
         assertThat(row.toString()).doesNotContain(phone);

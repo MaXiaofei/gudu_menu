@@ -10,13 +10,13 @@ import {
 } from '@/api/backoffice'
 import { formatCount } from '@/utils/dashboard'
 import {
-  ACCOUNT_STATUS, DOC_TYPE, PLATFORM_ROLE, cleanAccountQuery, label, reasonError,
+  ACCOUNT_STATUS, DOC_TYPE, FAMILY_SHOW_MAX, PLATFORM_ROLE, cleanAccountQuery, familyTagText, label, reasonError,
 } from '@/utils/backoffice'
 
 /**
  * 账号与家庭（mini-release-compliance F.1 / F.4）：按昵称 / 账号 ID、openid 尾号、家庭 ID 查账号，
- * 看状态、平台角色、所属家庭数；封禁 / 解封带原因（写操作日志）；查看协议同意记录。
- * 最小可见：不展示任何家庭私有数据（菜单 / 余量 / 采购 / 成员档案）。
+ * 看状态、平台角色、所属家庭（名称 + 角色）；封禁 / 解封带原因（写操作日志）；查看协议同意记录。
+ * 最小可见：家庭只展示元数据（名称 / 角色），不展示任何家庭私有数据（菜单 / 余量 / 采购 / 成员档案）。
  */
 const pageSize = 15
 const pageNum = ref(1)
@@ -175,8 +175,21 @@ onMounted(async () => {
         <el-table-column label="平台角色" width="110">
           <template #default="{ row }">{{ label(PLATFORM_ROLE, row.platformRole) }}</template>
         </el-table-column>
-        <el-table-column label="所属家庭" width="90">
-          <template #default="{ row }">{{ row.familyCount }}</template>
+        <el-table-column label="所属家庭" min-width="220">
+          <template #default="{ row }">
+            <span v-if="!row.families?.length" class="fam-empty" data-testid="acc-fam-empty">—</span>
+            <div v-else class="fam-tags" data-testid="acc-families">
+              <el-tag v-for="f in row.families.slice(0, FAMILY_SHOW_MAX)" :key="f.familyId" size="small" effect="plain" data-testid="acc-fam-tag">
+                {{ familyTagText(f) }}
+              </el-tag>
+              <el-tooltip v-if="row.families.length > FAMILY_SHOW_MAX" placement="top">
+                <template #content>
+                  <div v-for="f in row.families" :key="f.familyId" data-testid="acc-fam-all">{{ familyTagText(f) }}</div>
+                </template>
+                <span class="fam-more" data-testid="acc-fam-more">等 {{ row.families.length }} 个</span>
+              </el-tooltip>
+            </div>
+          </template>
         </el-table-column>
         <el-table-column label="注册时间" width="150">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
@@ -250,6 +263,20 @@ onMounted(async () => {
 }
 .ban-warn {
   margin-bottom: 10px;
+}
+.fam-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.fam-more {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  cursor: default;
+}
+.fam-empty {
+  color: var(--el-text-color-placeholder);
 }
 .ban-tag {
   margin-left: 6px;

@@ -3,6 +3,7 @@ package com.gudu.xsd.modules.backoffice.infrastructure;
 import com.gudu.xsd.common.crypto.FieldCrypto;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountRow;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountSearch;
+import com.gudu.xsd.modules.backoffice.domain.model.FamilyBrief;
 import com.gudu.xsd.modules.backoffice.domain.repository.AccountDirectoryQuery;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -13,7 +14,10 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 账号目录 JDBC 实现（只读、平台级）：只访问全局表 account / account_ban / family_membership / family，
@@ -51,6 +55,22 @@ public class JdbcAccountDirectoryQuery implements AccountDirectoryQuery {
         List<Object> args = new ArrayList<>();
         Long n = jdbc.queryForObject(COUNT + where(s, args), Long.class, args.toArray());
         return n == null ? 0 : n;
+    }
+
+    @Override
+    public Map<Long, List<FamilyBrief>> familiesOf(Collection<Long> accountIds) {
+        Map<Long, List<FamilyBrief>> out = new LinkedHashMap<>();
+        if (accountIds == null || accountIds.isEmpty()) return out;
+        String in = String.join(",", java.util.Collections.nCopies(accountIds.size(), "?"));
+        jdbc.query("SELECT fm.account_id, f.id AS family_id, f.name, f.status, fm.role FROM family_membership fm"
+                + " JOIN family f ON f.id = fm.family_id AND f.status = 'ACTIVE'"
+                + " WHERE fm.account_id IN (" + in + ") ORDER BY fm.account_id, fm.joined_at, f.id",
+                rs -> {
+                    out.computeIfAbsent(rs.getLong("account_id"), k -> new ArrayList<>())
+                            .add(new FamilyBrief(rs.getLong("family_id"), rs.getString("name"),
+                                    rs.getString("role"), rs.getString("status")));
+                }, accountIds.toArray());
+        return out;
     }
 
     static String where(AccountSearch s, List<Object> args) {
