@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  listByGroup,
+  createNutritionMetric,
+  updateNutritionMetric,
   listDictPaged,
   createDict,
   updateDict,
@@ -12,6 +15,15 @@ import {
   type NutritionMetric,
 } from '@/api/dict'
 import Pagination from '@/components/Pagination.vue'
+import LoadError from '@/components/LoadError.vue'
+import { useAuthStore } from '@/store/auth'
+import {
+  METRIC_GROUPS, METRIC_UNITS, dictDeleteWarning, validateDictName, validateMetric,
+} from '@/utils/dict'
+
+const auth = useAuthStore()
+/** 营养指标写接口后端仅超管可调：运营只读。 */
+const canEditMetric = computed(() => auth.isSuperAdmin)
 
 type GroupKey =
   | 'cuisine'
@@ -39,6 +51,8 @@ const groupTabs: GroupTab[] = [
 
 const activeTab = ref<string>('cuisine')
 const loading = ref(false)
+const groupError = reactive<Record<string, string>>({})
+const metricError = ref('')
 const pageSize = 15
 
 // 营养指标 name(英文, DB/营养 EAV 兼容 key) → 中文展示名
@@ -98,10 +112,14 @@ function onSearch(group: string) {
 
 async function loadGroup(group: string) {
   loading.value = true
+  groupError[group] = ''
+  const st = dictMap[group] || { records: [], total: 0, pageNum: 1 }
   try {
-    const st = dictMap[group] || { records: [], total: 0, pageNum: 1 }
     const page = await listDictPaged(group, { pageNum: st.pageNum, pageSize })
     dictMap[group] = { records: page.records || [], total: page.total || 0, pageNum: st.pageNum }
+  } catch (e) {
+    groupError[group] = (e as Error)?.message || '加载失败'
+    dictMap[group] = { records: [], total: 0, pageNum: st.pageNum }
   } finally {
     loading.value = false
   }
@@ -114,7 +132,13 @@ function onPageChange(group: string, p: number) {
 }
 
 async function loadMetrics() {
-  metrics.value = await listNutritionMetrics()
+  metricError.value = ''
+  try {
+    metrics.value = await listNutritionMetrics()
+  } catch (e) {
+    metricError.value = (e as Error)?.message || '加载失败'
+    metrics.value = []
+  }
 }
 
 async function onTabChange(tab: string) {
@@ -129,6 +153,40 @@ onMounted(() => {
   loadGroup(activeTab.value)
   loadMetrics()
 })
+
+// ===== 营养指标新增/编辑（仅超管）=====
+const metricDialog = reactive({ visible: false, editing: null as NutritionMetric | null, saving: false })
+const metricForm = reactive({ name: '', unit: 'g', metricGroup: 'macro', sort: 0 })
+
+function openMetric(row: NutritionMetric | null) {
+  metricDialog.editing = row
+  metricDialog.saving = false
+  metricForm.name = row?.name ?? ''
+  metricForm.unit = row?.unit ?? 'g'
+  metricForm.metricGroup = row?.metricGroup ?? 'macro'
+  metricForm.sort = row?.sort ?? 0
+  metricDialog.visible = true
+}
+
+async function onSubmitMetric() {
+  if (!canEditMetric.value) return
+  const err = validateMetric(metricForm, metrics.value.map((m) => m.name), metricDialog.editing?.name)
+  if (err) {
+    ElMessage.warning(err)
+    return
+  }
+  metricDialog.saving = true
+  try {
+    const dto = { name: metricForm.name.trim(), unit: metricForm.unit.trim(), metricGroup: metricForm.metricGroup, sort: metricForm.sort }
+    if (metricDialog.editing) await updateNutritionMetric({ ...dto, id: metricDialog.editing.id })
+    else await createNutritionMetric(dto)
+    ElMessage.success('已保存')
+    metricDialog.visible = false
+    await loadMetrics()
+  } finally {
+    metricDialog.saving = false
+  }
+}
 
 // ===== 字典新增/编辑对话框 =====
 const dialogVisible = ref(false)
@@ -149,12 +207,31 @@ function openEdit(row: DictItem) {
   dialogVisible.value = true
 }
 
+const submitting = ref(false)
+
 async function onSubmit() {
-  if (!form.name.trim()) {
-    ElMessage.warning('请填写名称')
+  const group = activeTab.value as GroupKey
+  // 重名校验取同分组全量（列表只是当前页），取不到时仍交给后端唯一约束兜底
+  let existing: string[] = (dictMap[group]?.records || []).map((r) => r.name)
+  try {
+    existing = (await listByGroup(group)).map((r) => r.name)
+  } catch {
+    // 用当前页名称做校验
+  }
+  const err = validateDictName(form.name, existing, editing.value?.name)
+  if (err) {
+    ElMessage.warning(err)
     return
   }
-  const group = activeTab.value as GroupKey
+  submitting.value = true
+  try {
+    await save(group)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function save(group: GroupKey) {
   if (editing.value) {
     const dto: DictSaveDTO = {
       id: editing.value.id,
@@ -174,7 +251,7 @@ async function onSubmit() {
 }
 
 async function onDelete(row: DictItem) {
-  await ElMessageBox.confirm(`确定删除「${row.name}」？`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(dictDeleteWarning(activeTab.value, row.name), '删除确认', { type: 'warning', confirmButtonText: '确认删除' })
   await deleteDict(row.id)
   ElMessage.success('已删除')
   await loadGroup(activeTab.value as GroupKey)
@@ -202,7 +279,8 @@ async function onDelete(row: DictItem) {
           <div class="spacer" />
           <el-button type="primary" @click="openCreate">新增{{ g.title }}</el-button>
         </div>
-        <el-table v-loading="loading" :data="pagedRecords(g.key)" border size="default">
+        <LoadError v-if="groupError[g.key]" :message="groupError[g.key]" @retry="loadGroup(g.key)" />
+        <el-table v-else v-loading="loading" :data="pagedRecords(g.key)" border size="default">
           <el-table-column label="名称" prop="name" min-width="180" />
           <el-table-column label="排序" prop="sort" width="100" />
           <el-table-column label="操作" width="160" fixed="right">
@@ -221,16 +299,51 @@ async function onDelete(row: DictItem) {
       </el-tab-pane>
 
       <el-tab-pane label="营养指标" name="nutrition">
-        <el-table v-loading="loading" :data="metrics" border size="default">
+        <div v-if="canEditMetric" class="toolbar">
+          <div class="spacer" />
+          <el-button type="primary" data-testid="metric-add" @click="openMetric(null)">新增指标</el-button>
+        </div>
+        <LoadError v-if="metricError" :message="metricError" @retry="loadMetrics" />
+        <el-table v-else v-loading="loading" :data="metrics" border size="default">
           <el-table-column label="指标名称" min-width="160">
             <template #default="{ row }">{{ metricDisplayName(row.name) }}</template>
           </el-table-column>
           <el-table-column label="单位" prop="unit" width="120" />
           <el-table-column label="分组" prop="metricGroup" width="160" />
+          <el-table-column v-if="canEditMetric" label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" data-testid="metric-edit" @click="openMetric(row)">编辑</el-button>
+            </template>
+          </el-table-column>
         </el-table>
-        <div class="hint">营养指标由后端维护，此处仅查看。</div>
+        <div class="hint">{{ canEditMetric ? '营养指标仅超级管理员可新增 / 修改；指标标识创建后不可改，也不提供删除（已有食材营养数据按它存储）。' : '营养指标仅超级管理员可修改，此处仅查看。' }}</div>
       </el-tab-pane>
     </el-tabs>
+
+    <el-dialog v-model="metricDialog.visible" :title="metricDialog.editing ? '编辑营养指标' : '新增营养指标'" width="420px">
+      <el-form label-width="80px">
+        <el-form-item label="标识">
+          <el-input v-model="metricForm.name" :disabled="!!metricDialog.editing" placeholder="英文，如 fiber" maxlength="32" data-testid="metric-name" />
+        </el-form-item>
+        <el-form-item label="单位">
+          <el-select v-model="metricForm.unit" filterable allow-create default-first-option placeholder="选择或输入" data-testid="metric-unit">
+            <el-option v-for="u in METRIC_UNITS" :key="u" :label="u" :value="u" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="分组">
+          <el-select v-model="metricForm.metricGroup" placeholder="选择分组" data-testid="metric-group">
+            <el-option v-for="g in METRIC_GROUPS" :key="g.value" :label="g.label" :value="g.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="排序">
+          <el-input-number v-model="metricForm.sort" :min="0" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="metricDialog.visible = false">取消</el-button>
+        <el-button type="primary" :loading="metricDialog.saving" data-testid="metric-save" @click="onSubmitMetric">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="dialogVisible"
@@ -239,7 +352,7 @@ async function onDelete(row: DictItem) {
     >
       <el-form label-width="80px">
         <el-form-item label="名称">
-          <el-input v-model="form.name" placeholder="请输入名称" />
+          <el-input v-model="form.name" placeholder="请输入名称" maxlength="64" show-word-limit data-testid="dict-name" />
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" />
@@ -247,7 +360,7 @@ async function onDelete(row: DictItem) {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="onSubmit">保存</el-button>
+        <el-button type="primary" :loading="submitting" data-testid="dict-save" @click="onSubmit">保存</el-button>
       </template>
     </el-dialog>
   </div>

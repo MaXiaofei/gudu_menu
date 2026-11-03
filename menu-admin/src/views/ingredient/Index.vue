@@ -15,6 +15,7 @@ import { aiFillNutrition } from '@/api/ai'
 import { countNutrition, hasNutrition } from '@/utils/nutrition'
 import { formatCount } from '@/utils/dashboard'
 import Pagination from '@/components/Pagination.vue'
+import LoadError from '@/components/LoadError.vue'
 import StatCard from '@/components/StatCard.vue'
 import IngIcon from '@/components/IngIcon.vue'
 import DishThumb from '@/components/DishThumb.vue'
@@ -84,10 +85,16 @@ const list = computed<Ingredient[]>(() => {
   return filteredList.value.slice(start, start + pageSize)
 })
 
+const loadError = ref('')
+
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
     allList.value = await listIngredients()
+  } catch (e) {
+    loadError.value = (e as Error)?.message || '加载失败'
+    allList.value = []
   } finally {
     loading.value = false
   }
@@ -273,7 +280,7 @@ function rowClass({ row }: { row: Ingredient }) {
     <div class="yh-head">
       <div>
         <h1>食材与营养</h1>
-        <div class="yh-sub">每 100 克 · 营养 · 人群标记</div>
+        <div class="yh-sub">营养 · AI 补全 · 品类筛选</div>
       </div>
       <el-button type="primary" @click="openCreate">新建食材</el-button>
     </div>
@@ -301,7 +308,9 @@ function rowClass({ row }: { row: Ingredient }) {
 
     <div class="split" :class="{ 'with-panel': panelMode !== 'none' }">
       <section class="yh-card table-card">
+        <LoadError v-if="loadError" :message="loadError" @retry="load" />
         <el-table
+          v-else
           v-loading="loading"
           :data="list"
           :row-class-name="rowClass"

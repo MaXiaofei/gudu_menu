@@ -162,11 +162,13 @@ public class BackofficeController {
 
     // ---------------------------------------------------------------- 操作日志
 
-    @Operation(summary = "运营操作日志：targetType=ACCOUNT/MEDIA_CHECK/TEXT_VIOLATION/DEACTIVATION，targetId")
+    @Operation(summary = "运营操作日志：targetType=ACCOUNT/MEDIA_CHECK/TEXT_VIOLATION/DEACTIVATION，targetId；operatorId 操作人；from / to 日期 yyyy-MM-dd（含当天）")
     @GetMapping("/operation-logs")
     public R<BackofficeViews.Page<BackofficeViews.OperationLogItem>> operationLogs(
             @RequestParam(required = false) String targetType, @RequestParam(required = false) Long targetId,
+            @RequestParam(required = false) Long operatorId, @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
             @RequestParam(defaultValue = "1") int pageNum, @RequestParam(defaultValue = "20") int pageSize) {
-        return R.ok(app.operationLogs(targetType, targetId, pageNum, pageSize));
+        return R.ok(app.operationLogs(targetType, targetId, operatorId, from, to, pageNum, pageSize));
     }
 }

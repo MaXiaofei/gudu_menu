@@ -3,7 +3,7 @@ package com.gudu.xsd.modules.backoffice.infrastructure;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationAction;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationLog;
-import com.gudu.xsd.modules.backoffice.domain.model.OperationTarget;
+import com.gudu.xsd.modules.backoffice.domain.model.OperationLogFilter;
 import com.gudu.xsd.modules.backoffice.domain.repository.OperationLogRepository;
 import com.gudu.xsd.modules.backoffice.infrastructure.mapper.AdminOperationLogMapper;
 import com.gudu.xsd.modules.backoffice.infrastructure.po.AdminOperationLogPO;
@@ -37,21 +37,24 @@ public class MybatisOperationLogRepository implements OperationLogRepository {
     }
 
     @Override
-    public List<OperationLog> page(OperationTarget targetType, Long targetId, int offset, int limit) {
-        return mapper.selectList(filter(targetType, targetId).orderByDesc("created_at").orderByDesc("id")
+    public List<OperationLog> page(OperationLogFilter f, int offset, int limit) {
+        return mapper.selectList(filter(f).orderByDesc("created_at").orderByDesc("id")
                         .last("LIMIT " + Math.max(0, offset) + ", " + Math.max(1, limit)))
                 .stream().map(MybatisOperationLogRepository::toDomain).filter(Objects::nonNull).toList();
     }
 
     @Override
-    public long count(OperationTarget targetType, Long targetId) {
-        return mapper.selectCount(filter(targetType, targetId));
+    public long count(OperationLogFilter f) {
+        return mapper.selectCount(filter(f));
     }
 
-    private static QueryWrapper<AdminOperationLogPO> filter(OperationTarget targetType, Long targetId) {
+    private static QueryWrapper<AdminOperationLogPO> filter(OperationLogFilter f) {
         QueryWrapper<AdminOperationLogPO> q = new QueryWrapper<>();
-        if (targetType != null) q.eq("target_type", targetType.name());
-        if (targetId != null) q.eq("target_id", targetId);
+        if (f.targetType() != null) q.eq("target_type", f.targetType().name());
+        if (f.targetId() != null) q.eq("target_id", f.targetId());
+        if (f.operatorId() != null) q.eq("operator_id", f.operatorId());
+        if (f.from() != null) q.ge("created_at", f.from());
+        if (f.to() != null) q.lt("created_at", f.to());
         return q;
     }
 

@@ -3,6 +3,7 @@ import { onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import Pagination from '@/components/Pagination.vue'
 import StatCard from '@/components/StatCard.vue'
+import LoadError from '@/components/LoadError.vue'
 import { getOpsStats, type OpsStats } from '@/api/ops'
 import {
   accountConsents, banAccount, listAccounts, unbanAccount, type AccountItem, type ConsentItem,
@@ -116,7 +117,7 @@ onMounted(async () => {
     <div class="yh-head">
       <div>
         <h1>账号与家庭</h1>
-        <div class="yh-sub">账号 · 家庭数</div>
+        <div class="yh-sub">账号 · 封禁解封 · 同意记录</div>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>
@@ -151,8 +152,8 @@ onMounted(async () => {
         </el-form-item>
       </el-form>
 
-      <el-alert v-if="loadError" :title="loadError" type="error" show-icon :closable="false" />
-      <el-table v-loading="loading" :data="list" data-testid="acc-table">
+      <LoadError v-if="loadError" :message="loadError" @retry="load" />
+      <el-table v-else v-loading="loading" :data="list" data-testid="acc-table">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column label="昵称" min-width="140">
           <template #default="{ row }">{{ row.nickname || '—' }}</template>
@@ -194,9 +195,19 @@ onMounted(async () => {
     </section>
 
     <el-dialog v-model="reasonDialog.visible" :title="reasonDialog.mode === 'ban' ? '封禁账号' : '解封账号'" width="460px">
+      <el-alert
+        v-if="reasonDialog.mode === 'ban'"
+        class="ban-warn"
+        type="error"
+        show-icon
+        :closable="false"
+        title="封禁后该账号会立即下线"
+        description="登录与提交操作都会被拒绝，小程序会提示封禁原因。"
+        data-testid="ban-warning"
+      />
       <p class="yh-muted">
         {{ reasonDialog.account?.nickname || `#${reasonDialog.account?.id}` }}：
-        {{ reasonDialog.mode === 'ban' ? '封禁后立即下线，登录与提交操作都会被拒绝，小程序会提示封禁原因。' : '解封后可正常登录使用。' }}
+        {{ reasonDialog.mode === 'ban' ? '请填写封禁原因。' : '解封后可正常登录使用。' }}
       </p>
       <el-input v-model="reasonDialog.reason" type="textarea" :rows="3" maxlength="200" show-word-limit placeholder="原因（必填，会记入操作日志）" data-testid="reason-input" />
       <template #footer>
@@ -236,6 +247,9 @@ onMounted(async () => {
 }
 .filters {
   margin-bottom: 8px;
+}
+.ban-warn {
+  margin-bottom: 10px;
 }
 .ban-tag {
   margin-left: 6px;

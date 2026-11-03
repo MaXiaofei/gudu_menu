@@ -5,6 +5,7 @@ import {
   addAlias, adoptIngredient, deleteAlias, listAdoptionGroups, listAliases, mergeIngredient,
   type AdoptionGroup, type AliasItem,
 } from '@/api/ingredientAdoption'
+import LoadError from '@/components/LoadError.vue'
 import { listIngredients, type Ingredient } from '@/api/ingredient'
 import { listByGroup, type DictItem } from '@/api/dict'
 import { categorySummary, defaultCategoryId, filterGroups, formatTime, resultMessage } from '@/utils/ingredientAdoption'
@@ -24,14 +25,20 @@ const keyword = ref('')
 const loading = ref(false)
 const shown = computed(() => filterGroups(groups.value, keyword.value))
 
+const loadError = ref('')
+const aliasError = ref('')
+/** 公共食材 / 采购分类选项加载失败时的提示（下拉选项为空会让收编、合并、别名无法操作，不能静默当成空）。 */
+const refsError = ref('')
 const purchaseOptions = ref<DictItem[]>([])
 const publicList = ref<Ingredient[]>([])
 
 async function loadGroups() {
   loading.value = true
+  loadError.value = ''
   try {
     groups.value = (await listAdoptionGroups()) || []
-  } catch {
+  } catch (e) {
+    loadError.value = (e as Error)?.message || '加载失败'
     groups.value = []
   } finally {
     loading.value = false
@@ -115,12 +122,15 @@ const aliasForm = reactive<{ alias: string; ingredientId: number | null }>({ ali
 
 async function loadAliases() {
   aliasLoading.value = true
+  aliasError.value = ''
   try {
     const r = await listAliases({ keyword: aliasKeyword.value.trim() || undefined, pageNum: aliasPage.value, pageSize: aliasPageSize })
     aliasList.value = r?.records || []
     aliasTotal.value = r?.total || 0
-  } catch {
+  } catch (e) {
+    aliasError.value = (e as Error)?.message || '加载失败'
     aliasList.value = []
+    aliasTotal.value = 0
   } finally {
     aliasLoading.value = false
   }
@@ -155,11 +165,22 @@ function switchTab(t: Tab) {
   if (t === 'aliases' && !aliasList.value.length) loadAliases()
 }
 
-onMounted(async () => {
+async function loadRefs() {
+  refsError.value = ''
+  const failed: string[] = []
+  const [purchase, pub] = await Promise.all([
+    listByGroup('purchase_category').catch(() => { failed.push('采购分类'); return [] as DictItem[] }),
+    listIngredients().catch(() => { failed.push('公共食材列表'); return [] as Ingredient[] }),
+  ])
+  purchaseOptions.value = purchase
+  publicList.value = pub
+  if (failed.length) refsError.value = `${failed.join('、')}加载失败，收编 / 合并 / 新增别名的下拉选项会是空的`
+}
+
+onMounted(() => {
   loadGroups()
   loadAliases()
-  purchaseOptions.value = await listByGroup('purchase_category').catch(() => [])
-  publicList.value = await listIngredients().catch(() => [])
+  loadRefs()
 })
 </script>
 
@@ -178,12 +199,15 @@ onMounted(async () => {
       <button type="button" :class="{ on: tab === 'aliases' }" data-testid="tab-aliases" @click="switchTab('aliases')">食材别名</button>
     </div>
 
+    <LoadError v-if="refsError" compact :title="refsError" @retry="loadRefs" data-testid="refs-error" />
+
     <section v-if="tab === 'groups'" class="yh-card">
       <div class="toolbar">
         <el-input v-model="keyword" placeholder="按名称筛选" clearable style="width: 220px" data-testid="group-keyword" />
         <span class="muted">共 {{ shown.length }} 个名称</span>
       </div>
-      <el-table v-loading="loading" :data="shown" data-testid="group-table">
+      <LoadError v-if="loadError" :message="loadError" @retry="loadGroups" />
+      <el-table v-else v-loading="loading" :data="shown" data-testid="group-table">
         <el-table-column prop="name" label="名称" min-width="140" />
         <el-table-column prop="familyCount" label="家庭数" width="90" sortable />
         <el-table-column label="最早创建" width="150">
@@ -212,7 +236,8 @@ onMounted(async () => {
         </el-select>
         <el-button type="primary" data-testid="alias-add" @click="onAddAlias">新增</el-button>
       </div>
-      <el-table v-loading="aliasLoading" :data="aliasList" data-testid="alias-table">
+      <LoadError v-if="aliasError" :message="aliasError" @retry="loadAliases" />
+      <el-table v-else v-loading="aliasLoading" :data="aliasList" data-testid="alias-table">
         <el-table-column prop="alias" label="别名" min-width="140" />
         <el-table-column label="公共食材" min-width="140">
           <template #default="{ row }">{{ row.ingredientName || `#${row.ingredientId}` }}</template>

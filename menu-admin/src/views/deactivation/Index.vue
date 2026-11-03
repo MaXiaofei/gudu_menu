@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import Pagination from '@/components/Pagination.vue'
+import LoadError from '@/components/LoadError.vue'
 import { listDeactivations, retryDeactivation, type DeactivationItem } from '@/api/backoffice'
 import { DEACTIVATION_STATUS, daysLeft, deactivationOverdue } from '@/utils/backoffice'
 
@@ -17,6 +18,7 @@ const status = ref('')
 const overdueOnly = ref(false)
 const list = ref<DeactivationItem[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const retryingId = ref<number | null>(null)
 
 const TABS = [
@@ -28,12 +30,14 @@ const TABS = [
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await listDeactivations({ status: status.value || undefined, overdue: overdueOnly.value || undefined, pageNum: pageNum.value, pageSize })
     list.value = Array.isArray(res?.records) ? res.records : []
     total.value = res?.total || 0
     overdueTotal.value = res?.overdueTotal || 0
-  } catch {
+  } catch (e) {
+    loadError.value = (e as Error)?.message || '加载失败'
     list.value = []
     total.value = 0
   } finally {
@@ -81,7 +85,7 @@ onMounted(load)
     <div class="yh-head">
       <div>
         <h1>注销处理</h1>
-        <div class="yh-sub">注销 · 15 日时限</div>
+        <div class="yh-sub">注销 · 超期标红 · 失败重试</div>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>
@@ -97,7 +101,8 @@ onMounted(load)
     </div>
 
     <section class="yh-card">
-      <el-table v-loading="loading" :data="list" :row-class-name="rowClass" data-testid="deact-table">
+      <LoadError v-if="loadError" :message="loadError" @retry="load" />
+      <el-table v-else v-loading="loading" :data="list" :row-class-name="rowClass" data-testid="deact-table">
         <el-table-column prop="accountId" label="账号 ID" width="90" />
         <el-table-column label="申请时间" width="150">
           <template #default="{ row }">{{ formatTime(row.requestedAt) }}</template>

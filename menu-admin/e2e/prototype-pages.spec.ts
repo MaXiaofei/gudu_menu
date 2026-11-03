@@ -42,7 +42,7 @@ test.describe('侧栏', () => {
 })
 
 test.describe('公共菜谱库', () => {
-  test('已上架：封面缩略图 + 右侧大图预览与用料插画；待审核为接口待上线', async ({ page }) => {
+  test('封面缩略图 + 右侧大图预览与用料插画；无投稿审核占位标签与下架按钮', async ({ page }) => {
     await page.route(/\/gudu\//, (route) => route.fulfill(ok({})))
     await page.route(/\/gudu\/uploads\//, (route) => route.fulfill({ status: 200, contentType: 'image/png', body: PNG }))
     await page.route(/\/gudu\/dish\/search/, (route) => route.fulfill(ok({
@@ -75,10 +75,9 @@ test.describe('公共菜谱库', () => {
     await expect(preview).toContainText('1条')
     await expect(preview.locator('.ing-chip [data-icon="fish"]')).toBeVisible()
     await expect(preview).toContainText('大火蒸 8 分钟')
-    await expect(preview.getByRole('button', { name: '下架' })).toBeDisabled()
-
-    await page.getByTestId('lib-tabs').getByText('待审核').click()
-    await expect(page.getByTestId('pending-api')).toContainText('dish_submission')
+    await expect(preview.getByRole('button', { name: '下架' })).toHaveCount(0)
+    await expect(page.getByTestId('lib-tabs')).toHaveCount(0)
+    await expect(page.getByTestId('pending-api')).toHaveCount(0)
   })
 })
 

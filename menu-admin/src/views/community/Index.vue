@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AvatarStack from '@/components/AvatarStack.vue'
 import DishThumb from '@/components/DishThumb.vue'
+import LoadError from '@/components/LoadError.vue'
 import StatCard from '@/components/StatCard.vue'
 import SwitchBar from './SwitchBar.vue'
 import {
@@ -41,6 +42,7 @@ const queue = ref<QueueItem[]>([])
 const nextCursor = ref<string | null>(null)
 const loading = ref(false)
 const loadError = ref('')
+const statsError = ref('')
 const selectedId = ref<number | null>(null)
 const post = ref<PostDetailLite | null>(null)
 const postLoading = ref(false)
@@ -86,10 +88,12 @@ const statCards = computed(() => {
 })
 
 async function loadStats() {
+  statsError.value = ''
   try {
     stats.value = await getCommunityStats()
     badgeStore.setCommunityPending(stats.value?.pending)
-  } catch {
+  } catch (e) {
+    statsError.value = (e as Error)?.message || '加载失败'
     stats.value = null
   }
 }
@@ -208,7 +212,8 @@ onMounted(() => {
     <!-- A.12 厨房圈紧急关停开关（只用于出现内容风险时一键关闭） -->
     <SwitchBar class="switch" />
 
-    <div class="kpis" data-testid="community-stats">
+    <LoadError v-if="statsError" compact title="审核统计加载失败" :message="statsError" @retry="loadStats" />
+    <div v-else class="kpis" data-testid="community-stats">
       <StatCard v-for="c in statCards" :key="c.label" :label="c.label" :value="c.value" :hint="c.hint" :tone="c.tone ?? 'default'" />
     </div>
 
@@ -251,7 +256,8 @@ onMounted(() => {
               </span>
             </span>
           </button>
-          <div v-if="!loading && !queue.length" class="empty yh-muted">{{ loadError || (status === 'PENDING' ? '队列已清空' : status === 'DONE' ? '暂无已处理记录' : '暂无申诉') }}</div>
+          <LoadError v-if="loadError && !queue.length" :message="loadError" @retry="loadQueue()" />
+          <div v-else-if="!loading && !queue.length" class="empty yh-muted">{{ status === 'PENDING' ? '队列已清空' : status === 'DONE' ? '暂无已处理记录' : '暂无申诉' }}</div>
           <el-button v-if="nextCursor" text class="more" :loading="loading" @click="loadQueue(true)">加载更多</el-button>
         </div>
       </section>

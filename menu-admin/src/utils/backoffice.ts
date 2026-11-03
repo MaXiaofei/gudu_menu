@@ -93,3 +93,26 @@ export function reasonError(reason: string | null | undefined): string | null {
   if (r.length > 200) return '原因不超过 200 字'
   return null
 }
+
+/** 操作日志查询参数清洗：操作人为正整数才传；日期区间取 yyyy-MM-dd，起止颠倒时对调。 */
+export function cleanOpLogQuery(q: { targetType?: string; operatorId?: string | number | null; range?: [string, string] | null }) {
+  const out: { targetType?: string; operatorId?: number; from?: string; to?: string } = {}
+  if (q.targetType) out.targetType = q.targetType
+  const oid = Number(q.operatorId)
+  if (q.operatorId !== '' && q.operatorId != null && Number.isInteger(oid) && oid > 0) out.operatorId = oid
+  const [a, b] = q.range ?? []
+  if (a && b) {
+    out.from = a <= b ? a : b
+    out.to = a <= b ? b : a
+  } else if (a || b) {
+    out.from = a || b
+  }
+  return out
+}
+
+/** 操作人输入校验：空合法；非正整数返回提示。 */
+export function operatorIdError(v: string | number | null | undefined): string | null {
+  const t = String(v ?? '').trim()
+  if (!t) return null
+  return /^[1-9]\d{0,17}$/.test(t) ? null : '操作人请填账号 ID（正整数）'
+}

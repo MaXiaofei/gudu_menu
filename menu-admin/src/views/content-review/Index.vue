@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import Pagination from '@/components/Pagination.vue'
+import LoadError from '@/components/LoadError.vue'
 import {
   confirmMedia, confirmText, listMediaViolations, listTextViolations, mediaViolationImage, restoreMedia,
   type MediaViolation, type TextViolation,
@@ -16,8 +17,8 @@ import { PURPOSE, label, mediaActions, reasonError, reviewLabel } from '@/utils/
 const pageSize = 15
 const tab = ref<'media' | 'text'>('media')
 
-const media = reactive({ review: 'PENDING', pageNum: 1, total: 0, list: [] as MediaViolation[], loading: false })
-const text = reactive({ confirmed: 'false' as '' | 'true' | 'false', pageNum: 1, total: 0, list: [] as TextViolation[], loading: false })
+const media = reactive({ review: 'PENDING', pageNum: 1, total: 0, list: [] as MediaViolation[], loading: false, error: '' })
+const text = reactive({ confirmed: 'false' as '' | 'true' | 'false', pageNum: 1, total: 0, list: [] as TextViolation[], loading: false, error: '' })
 const preview = reactive({ visible: false, src: '' as string | null, loading: false })
 const dialog = reactive({ visible: false, kind: 'restore' as 'restore' | 'confirm-media' | 'confirm-text', id: 0, reason: '', saving: false })
 
@@ -30,12 +31,15 @@ const MEDIA_TABS = [
 
 async function loadMedia() {
   media.loading = true
+  media.error = ''
   try {
     const r = await listMediaViolations({ review: media.review || undefined, pageNum: media.pageNum, pageSize })
     media.list = r?.records || []
     media.total = r?.total || 0
-  } catch {
+  } catch (e) {
+    media.error = (e as Error)?.message || '加载失败'
     media.list = []
+    media.total = 0
   } finally {
     media.loading = false
   }
@@ -43,12 +47,15 @@ async function loadMedia() {
 
 async function loadText() {
   text.loading = true
+  text.error = ''
   try {
     const r = await listTextViolations({ confirmed: text.confirmed === '' ? undefined : text.confirmed === 'true', pageNum: text.pageNum, pageSize })
     text.list = r?.records || []
     text.total = r?.total || 0
-  } catch {
+  } catch (e) {
+    text.error = (e as Error)?.message || '加载失败'
     text.list = []
+    text.total = 0
   } finally {
     text.loading = false
   }
@@ -113,7 +120,7 @@ onMounted(() => {
     <div class="yh-head">
       <div>
         <h1>内容安全复核</h1>
-        <div class="yh-sub">拦截文本 · 隔离图片</div>
+        <div class="yh-sub">文本拦截 · 图片隔离 · 人工复核</div>
       </div>
       <el-button @click="tab === 'media' ? loadMedia() : loadText()">刷新</el-button>
     </div>
@@ -125,7 +132,8 @@ onMounted(() => {
             @click="media.review = t.value; media.pageNum = 1; loadMedia()">{{ t.label }}</button>
         </div>
         <section class="yh-card">
-          <el-table v-loading="media.loading" :data="media.list" data-testid="cr-media-table">
+          <LoadError v-if="media.error" :message="media.error" @retry="loadMedia" />
+          <el-table v-else v-loading="media.loading" :data="media.list" data-testid="cr-media-table">
             <el-table-column prop="id" label="ID" width="70" />
             <el-table-column label="用途" width="110">
               <template #default="{ row }">{{ label(PURPOSE, row.purpose) }}</template>
@@ -163,7 +171,8 @@ onMounted(() => {
           <el-radio-button value="">全部</el-radio-button>
         </el-radio-group>
         <section class="yh-card">
-          <el-table v-loading="text.loading" :data="text.list" data-testid="cr-text-table">
+          <LoadError v-if="text.error" :message="text.error" @retry="loadText" />
+          <el-table v-else v-loading="text.loading" :data="text.list" data-testid="cr-text-table">
             <el-table-column prop="id" label="ID" width="70" />
             <el-table-column label="用途" width="110">
               <template #default="{ row }">{{ label(PURPOSE, row.purpose) }}</template>

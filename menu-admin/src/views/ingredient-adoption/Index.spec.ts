@@ -78,6 +78,17 @@ describe('家庭新建食材（运营收编页）', () => {
     expect(api.mergeIngredient).not.toHaveBeenCalled()
   })
 
+  it('公共食材列表加载失败 -> 明确提示，不静默当成空；点重试可恢复', async () => {
+    const ing = await import('@/api/ingredient')
+    vi.mocked(ing.listIngredients).mockRejectedValueOnce(new Error('x'))
+    const w = mountPage()
+    await flushPromises()
+    expect(w.get('[data-testid="refs-error"]').text()).toContain('公共食材列表加载失败')
+    await w.get('[data-testid="refs-error"] [data-testid="load-error-retry"]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-testid="refs-error"]').exists()).toBe(false)
+  })
+
   it('别名页签：列表展示，缺信息时不新增', async () => {
     const w = mountPage()
     await flushPromises()

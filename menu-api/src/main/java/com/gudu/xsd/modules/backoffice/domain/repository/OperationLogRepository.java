@@ -1,7 +1,7 @@
 package com.gudu.xsd.modules.backoffice.domain.repository;
 
 import com.gudu.xsd.modules.backoffice.domain.model.OperationLog;
-import com.gudu.xsd.modules.backoffice.domain.model.OperationTarget;
+import com.gudu.xsd.modules.backoffice.domain.model.OperationLogFilter;
 
 import java.util.List;
 
@@ -10,8 +10,8 @@ public interface OperationLogRepository {
 
     void save(OperationLog log);
 
-    /** 按时间倒序；targetType / targetId 为 null 不过滤。 */
-    List<OperationLog> page(OperationTarget targetType, Long targetId, int offset, int limit);
+    /** 按时间倒序；filter 中为 null 的项不过滤。 */
+    List<OperationLog> page(OperationLogFilter filter, int offset, int limit);
 
-    long count(OperationTarget targetType, Long targetId);
+    long count(OperationLogFilter filter);
 }
