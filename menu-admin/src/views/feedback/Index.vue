@@ -165,7 +165,7 @@ onMounted(load)
     <div class="yh-head">
       <div>
         <h1>意见反馈</h1>
-        <div class="yh-sub">用户在小程序「意见反馈」与 AI 内容旁「反馈」入口提交的内容；回复会以站内消息通知用户（隐私政策承诺 15 个工作日内答复）</div>
+        <div class="yh-sub">用户反馈 · 站内回复</div>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>

@@ -108,7 +108,7 @@ onMounted(load)
   <div class="page" v-loading="loading">
     <div class="head">
       <h2 class="title">功能开关</h2>
-      <p class="desc">生成式 AI 按类别、按端紧急关停。小程序默认开启，App 默认关闭（App 上线前保持关闭，上线时在此逐项打开）；关停后对应端的用户看到「暂停服务」，其他功能不受影响。</p>
+      <p class="desc">一键关停 · 小程序 · App</p>
     </div>
 
     <div v-if="loadError" class="yh-card err">

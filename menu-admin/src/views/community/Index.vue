@@ -188,7 +188,7 @@ onMounted(() => {
     <div class="yh-head">
       <div>
         <h1>社区审核</h1>
-        <div class="yh-sub">发布时同步检查敏感词与外链；AI 预审分级后，低风险直接发布，中风险先发后审，高风险进人工队列</div>
+        <div class="yh-sub">预审分级 · 人工队列</div>
       </div>
       <div class="head-tools">
         <div class="yh-seg" role="group" aria-label="处理状态" data-testid="status-tabs">

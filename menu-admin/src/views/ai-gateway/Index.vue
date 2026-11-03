@@ -296,7 +296,7 @@ onMounted(() => {
     <div class="yh-head">
       <div>
         <h1>模型网关</h1>
-        <div class="yh-sub">所有模型调用按能力路由到「主模型 + 降级链」；切换即时生效并写入审计日志，key 只显示掩码</div>
+        <div class="yh-sub">主模型 · 降级链</div>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>

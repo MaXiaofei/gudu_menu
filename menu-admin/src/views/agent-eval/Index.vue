@@ -134,7 +134,7 @@ onMounted(load)
     <div class="yh-head">
       <div>
         <h1>Agent 评测</h1>
-        <div class="yh-sub">改提示词或换模型后跑全量评测集；工具选择正确率低于 {{ TOOL_ACCURACY_GATE }}% 时不允许发布</div>
+        <div class="yh-sub">评测集 · 发布门槛</div>
       </div>
       <div class="head-tools">
         <el-select v-model="candId" placeholder="候选版本" style="width: 220px" aria-label="候选版本" data-testid="cand-select">

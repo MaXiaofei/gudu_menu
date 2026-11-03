@@ -74,10 +74,7 @@ onMounted(load)
   <div class="page" v-loading="loading">
     <div class="head">
       <h2 class="title">AI 用量与额度</h2>
-      <p class="desc">
-        全站每日花费达到上限后，AI 暂停调用模型（有规则兜底的功能走规则），次日（北京时间）自动恢复；
-        各类次数上限按登录账号每天计。
-      </p>
+      <p class="desc">每日花费 · 次数上限</p>
     </div>
 
     <div v-if="loadError" class="yh-card err">

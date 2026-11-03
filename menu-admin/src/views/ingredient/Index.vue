@@ -273,7 +273,7 @@ function rowClass({ row }: { row: Ingredient }) {
     <div class="yh-head">
       <div>
         <h1>食材与营养</h1>
-        <div class="yh-sub">每 100 克可食部分；AI 估算的数据需人工核对后保存，才会用于菜谱营养和特殊人群标记</div>
+        <div class="yh-sub">每 100 克 · 营养 · 人群标记</div>
       </div>
       <el-button type="primary" @click="openCreate">新建食材</el-button>
     </div>

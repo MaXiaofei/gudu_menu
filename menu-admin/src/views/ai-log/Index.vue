@@ -140,9 +140,9 @@ function timeOf(s: string) {
 
 const providerText = computed(() => {
   const p = provider.value
-  if (!p) return '模型配置读取中或不可用'
+  if (!p) return '模型 · 读取中'
   const readyList = (p.ready ?? []).filter((r) => r.ready && r.provider !== p.current).map((r) => r.provider)
-  return `当前模型 ${p.current}${readyList.length ? `，可切换：${readyList.join('、')}` : ''}；失败时降级到规则推荐`
+  return `当前模型 ${p.current}${readyList.length ? ` · 可切换 ${readyList.join('、')}` : ''}`
 })
 
 onMounted(() => {

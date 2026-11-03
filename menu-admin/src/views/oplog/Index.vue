@@ -41,7 +41,7 @@ onMounted(load)
     <div class="yh-head">
       <div>
         <h1>操作日志</h1>
-        <div class="yh-sub">运营后台的封禁、解封、违规复核、注销重试均留痕，不可修改</div>
+        <div class="yh-sub">操作 · 留痕 · 只读</div>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>

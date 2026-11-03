@@ -81,7 +81,7 @@ onMounted(load)
     <div class="yh-head">
       <div>
         <h1>注销处理</h1>
-        <div class="yh-sub">隐私政策承诺注销后 15 个工作日内删除或匿名化；超期未完成的记录标红</div>
+        <div class="yh-sub">注销 · 15 日时限</div>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>
