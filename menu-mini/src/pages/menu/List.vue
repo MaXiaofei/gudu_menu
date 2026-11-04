@@ -99,7 +99,7 @@ import { defaultPlanWeekStart, weekRangeLabel } from '@/utils/week'
 import { ref, computed, reactive } from 'vue'
 import { useSwipe } from '@/composables/useSwipe'
 import ActiveMenuCard from './parts/ActiveMenuCard.vue'
-import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
 import { listMenus, createMenu, deleteMenu, menuDetail, type Menu } from '@/api/menu'
 import { parseDate } from '@/utils/datetime'
 import { useLoginState } from '@/composables/useLoginState'
@@ -152,9 +152,9 @@ function dayOf(s?: string | null) {
 const activeCount = computed(() => menus.value.filter((m) => m.status !== 'DONE').length)
 const doneCount = computed(() => menus.value.filter((m) => m.status === 'DONE').length)
 
-// 游客不请求家庭数据；等启动登录流程结束后按登录态加载
-refreshLogin().then((ok) => {
-  if (ok) reload()
+// 游客不请求家庭数据；Tab 页不会重建，每次显示都重新判断登录态（从登录页回来要切到已登录）
+onShow(async () => {
+  if (await refreshLogin()) reload()
 })
 
 async function fetch(p: number): Promise<Menu[]> {

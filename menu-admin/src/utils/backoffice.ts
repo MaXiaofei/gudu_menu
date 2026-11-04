@@ -12,6 +12,20 @@ export const PLATFORM_ROLE: Record<string, string> = {
   SUPER_ADMIN: '超级管理员',
 }
 
+export const FAMILY_ROLE: Record<string, string> = {
+  OWNER: '主理人',
+  ADMIN: '管理员',
+  MEMBER: '成员',
+}
+
+export const FAMILY_SHOW_MAX = 3
+
+/** 家庭标签文案：「名称 · 角色」；名称为空时用「家庭#id」。 */
+export function familyTagText(f: { familyId: number; name?: string | null; role?: string | null }): string {
+  const name = f.name && f.name.trim() ? f.name : `家庭#${f.familyId}`
+  return f.role ? `${name} · ${label(FAMILY_ROLE, f.role)}` : name
+}
+
 export const PURPOSE: Record<string, string> = {
   NICKNAME: '昵称',
   AVATAR: '头像',

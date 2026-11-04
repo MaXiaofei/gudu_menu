@@ -70,6 +70,7 @@
 
 <script setup lang="ts">
 import { useAgentTabSync } from '@/composables/useAgentTabSync'
+import { useLoginState } from '@/composables/useLoginState'
 import { computed, ref, watch } from 'vue'
 import { onShow, onPullDownRefresh, onReachBottom, onShareAppMessage } from '@dcloudio/uni-app'
 import { banner, countText, coverHeightRatio, feed, react, toggleLikeLocal, weekNoText, type FeedTab, type PostCard as Post, type Topic } from '@/api/community'
@@ -92,17 +93,20 @@ const list = createCursorList<Post>((cursor) => feed(tab.value as FeedTab, curso
 /** 列高 ≈ 图高（与卡片同一换算）+ 文字区 0.45 */
 const cols = computed(() => splitColumns(list.items, (p) => coverHeightRatio(p.coverRatio) + 0.45))
 
-let loaded = false
+const { refresh: refreshLogin } = useLoginState()
+/** 上次按哪种登录态加载的列表；Tab 页不会重建，登录 / 失效回来要重拉（点赞状态、关注流随账号变）。 */
+let loadedAs: boolean | null = null
 useAgentTabSync()
-onShow(() => {
+onShow(async () => {
+  const nowLoggedIn = await refreshLogin()
   banner()
     .then((b) => {
       topic.value = b.topic
       updates.value = b.followingUpdates
     })
     .catch(() => {})
-  if (!loaded) {
-    loaded = true
+  if (loadedAs !== nowLoggedIn) {
+    loadedAs = nowLoggedIn
     list.refresh()
   }
 })

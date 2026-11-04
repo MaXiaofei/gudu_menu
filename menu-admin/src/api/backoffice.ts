@@ -12,6 +12,13 @@ export interface Page<T> {
 
 // ---------------------------------------------------------------- F.1 账号
 
+export interface FamilyBrief {
+  familyId: number
+  name: string | null
+  role: 'OWNER' | 'ADMIN' | 'MEMBER' | string
+  status: string | null
+}
+
 export interface AccountItem {
   id: number
   nickname: string | null
@@ -20,6 +27,7 @@ export interface AccountItem {
   status: 'ACTIVE' | 'DEACTIVATED' | 'MERGED' | string
   platformRole: 'USER' | 'OPERATOR' | 'SUPER_ADMIN' | string
   familyCount: number
+  families?: FamilyBrief[]
   banned: boolean
   banReason: string | null
   bannedAt: string | null

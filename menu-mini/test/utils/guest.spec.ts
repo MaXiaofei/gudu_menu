@@ -38,6 +38,20 @@ describe('游客路由守卫判定', () => {
     expect(routeNeedsLogin('/pages/menu/List')).toBe(false)
   })
 
+  it('带登录占位的 Tab 页在 onShow 里重新判断登录态（登录回来不能还显示未登录）', () => {
+    for (const p of ['pages/menu/List.vue', 'pages/pantry/List.vue', 'pages/profile/Profile.vue']) {
+      expect(src(p), p).toMatch(/onShow\(async \(\) => \{[\s\S]{0,120}await refreshLogin\(\)/)
+    }
+  })
+
+  it('首页 / 社区 Tab 记住按哪种登录态加载，onShow 发现登录态变了就重新加载', () => {
+    for (const p of ['pages/dish/List.vue', 'pages/community/Index.vue']) {
+      const s = src(p)
+      expect(s, p).toMatch(/let loadedAs: boolean \| null = null/)
+      expect(s, p).toMatch(/onShow\(async \(\) => \{[\s\S]{0,160}refreshLogin\(\)[\s\S]{0,400}loadedAs/)
+    }
+  })
+
   it('家庭 / 采购 / 食记 / 写菜谱 / 点评 / 成员 / 账号 → 需要登录', () => {
     for (const u of [
       '/pages/shopping/List',

@@ -39,4 +39,34 @@ describe('账号与家庭', () => {
     await flushPromises()
     expect(w.find('[data-testid="acc-table"]').exists()).toBe(true)
   })
+
+  it('所属家庭：显示「名称 · 角色」标签', async () => {
+    api.listAccounts.mockResolvedValue({ records: [{ ...acc, familyCount: 2, families: [
+      { familyId: 1, name: '我们家', role: 'OWNER', status: 'ACTIVE' },
+      { familyId: 2, name: '爸妈家', role: 'MEMBER', status: 'ACTIVE' },
+    ] }], total: 1 })
+    const w = mount(Index, { global: { plugins: [ElementPlus] }, attachTo: document.body })
+    await flushPromises()
+    const tags = w.findAll('[data-testid="acc-fam-tag"]').map((t) => t.text())
+    expect(tags).toEqual(['我们家 · 主理人', '爸妈家 · 成员'])
+    expect(w.find('[data-testid="acc-fam-more"]').exists()).toBe(false)
+  })
+
+  it('所属家庭超过 3 个：只显示前 3 个 + 「等 N 个」', async () => {
+    const families = [1, 2, 3, 4, 5].map((i) => ({ familyId: i, name: `家${i}`, role: i === 2 ? 'ADMIN' : 'MEMBER', status: 'ACTIVE' }))
+    api.listAccounts.mockResolvedValue({ records: [{ ...acc, familyCount: 5, families }], total: 1 })
+    const w = mount(Index, { global: { plugins: [ElementPlus] }, attachTo: document.body })
+    await flushPromises()
+    const tags = w.findAll('[data-testid="acc-fam-tag"]').map((t) => t.text())
+    expect(tags).toEqual(['家1 · 成员', '家2 · 管理员', '家3 · 成员'])
+    expect(w.get('[data-testid="acc-fam-more"]').text()).toBe('等 5 个')
+  })
+
+  it('没有家庭显示「—」', async () => {
+    api.listAccounts.mockResolvedValue({ records: [{ ...acc, familyCount: 0, families: [] }], total: 1 })
+    const w = mount(Index, { global: { plugins: [ElementPlus] }, attachTo: document.body })
+    await flushPromises()
+    expect(w.get('[data-testid="acc-fam-empty"]').text()).toBe('—')
+    expect(w.find('[data-testid="acc-fam-tag"]').exists()).toBe(false)
+  })
 })

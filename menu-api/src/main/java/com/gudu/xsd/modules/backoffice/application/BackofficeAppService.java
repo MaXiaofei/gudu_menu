@@ -4,7 +4,9 @@ import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.modules.agent.application.AgentTraceAppService;
 import com.gudu.xsd.modules.agent.application.dto.AgentViews;
 import com.gudu.xsd.modules.backoffice.application.dto.BackofficeViews;
+import com.gudu.xsd.modules.backoffice.domain.model.AccountRow;
 import com.gudu.xsd.modules.backoffice.domain.model.AccountSearch;
+import com.gudu.xsd.modules.backoffice.domain.model.FamilyBrief;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationAction;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationLog;
 import com.gudu.xsd.modules.backoffice.domain.model.OperationLogFilter;
@@ -58,8 +60,12 @@ public class BackofficeAppService {
 
     public BackofficeViews.Page<BackofficeViews.AccountItem> accounts(AccountSearch search, int page, int size) {
         int s = clamp(size);
-        return new BackofficeViews.Page<>(directory.search(search, offset(page, s), s).stream()
-                .map(BackofficeViews.AccountItem::of).toList(), directory.count(search));
+        List<AccountRow> rows = directory.search(search, offset(page, s), s);
+        // 批量取家庭简要信息（仅 id / 名称 / 角色 / 状态），避免逐行查询
+        Map<Long, List<FamilyBrief>> fams = rows.isEmpty() ? Map.of()
+                : directory.familiesOf(rows.stream().map(AccountRow::id).toList());
+        return new BackofficeViews.Page<>(rows.stream()
+                .map(r -> BackofficeViews.AccountItem.of(r, fams.get(r.id()))).toList(), directory.count(search));
     }
 
     @Transactional(rollbackFor = Exception.class)
