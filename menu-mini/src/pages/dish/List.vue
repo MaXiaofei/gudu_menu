@@ -159,16 +159,26 @@ const { offsets, onTs, onTm, onTe, reset: resetSwipe } = useSwipe()
 
 const memberFaces = ref<{ name: string; tags?: string[] | null }[]>([])
 
-onLoad(async (options) => {
-  selectForMenuId.value = options?.selectForMenuId ? Number(options.selectForMenuId) : null
-  loadDicts()
+/** 上次按哪种登录态加载的；Tab 页不会重建，登录 / 失效回来时 onShow 发现变了要重新加载。 */
+let loadedAs: boolean | null = null
+async function loadForLoginState() {
   await refreshLogin() // 等启动静默登录结束再判断登录态
+  loadedAs = loggedIn.value
   if (!loggedIn.value) sort.value = 'latest' // 游客没有家庭库存，「家里够的优先」无意义
   reload()
-  if (!loggedIn.value) return
+  if (!loggedIn.value) {
+    memberFaces.value = []
+    return
+  }
   listMembers()
     .then((ms) => (memberFaces.value = ms.map((m) => ({ name: m.name, tags: m.audienceTags }))))
     .catch(() => {})
+}
+
+onLoad(async (options) => {
+  selectForMenuId.value = options?.selectForMenuId ? Number(options.selectForMenuId) : null
+  loadDicts()
+  await loadForLoginState()
 })
 
 // 首推：首页（无关键词）第一道有封面的菜；其余进列表
@@ -211,7 +221,11 @@ function goMembers() {
 
 // 写菜谱发布后 switchTab 无法带参 → 全局标志（storage）触发「最新」排序
 useAgentTabSync()
-onShow(() => {
+onShow(async () => {
+  if (loadedAs !== null && (await refreshLogin()) !== loadedAs) {
+    await loadForLoginState()
+    return
+  }
   if (uni.getStorageSync('dish_sort_latest')) {
     uni.removeStorageSync('dish_sort_latest')
     if (sort.value !== 'latest') {

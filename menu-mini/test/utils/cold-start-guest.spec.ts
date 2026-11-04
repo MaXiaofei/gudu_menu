@@ -125,11 +125,11 @@ describe('静态保护：启动配置与首页请求', () => {
 
   it('首页 onLoad 的请求都是游客可读接口（字典 / 菜谱搜索），且不用「需要登录」类请求', () => {
     const list = src('pages/dish/List.vue')
-    const onLoad = list.slice(list.indexOf('onLoad(async'), list.indexOf('// 首推'))
+    const onLoad = list.slice(list.indexOf('async function loadForLoginState'), list.indexOf('// 首推'))
     expect(onLoad).toContain('loadDicts()')
     expect(onLoad).toContain('refreshLogin')
     // 登录后才请求家庭成员
-    expect(onLoad.indexOf('if (!loggedIn.value) return')).toBeLessThan(onLoad.indexOf('listMembers()'))
+    expect(onLoad.indexOf('if (!loggedIn.value) {')).toBeLessThan(onLoad.indexOf('listMembers()'))
   })
 })
 
