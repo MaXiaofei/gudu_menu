@@ -23,11 +23,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 按 switch_key 通用的紧急关停开关服务：6 类生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程、营养估算、AI 帮写）× 2 端（小程序 / App）。
+ * 按 switch_key 通用的紧急关停开关服务。
  *
- * <p>只用于出现内容风险 / 审核要求时一键关闭；开关行缺失时小程序默认开、App 默认关。
+ * <p>两组开关：
+ * <ul>
+ *   <li>生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程、营养估算、AI 帮写）：开关行缺失时小程序默认开、App 默认关；</li>
+ *   <li>页面入口（写菜谱、草稿箱、采购清单分享）：与 AI 独立，开关行缺失时两端默认开，关停时客户端隐藏入口。</li>
+ * </ul>
+ *
+ * <p>只用于出现内容风险 / 审核要求时一键关闭。
  * 读路径走进程内短缓存 {@link #CACHE_TTL}：本实例切换立即生效，其他实例最迟 TTL 后生效。
- * 读库失败时沿用上次已知值（从未读到则取该端默认：小程序开、App 关）。
+ * 读库失败时沿用上次已知值（从未读到则取该类别的默认值）。
  */
 @Slf4j
 @Service
@@ -65,9 +71,10 @@ public class FeatureSwitchAppService {
                              List<FeatureSwitch> recentChanges) {
     }
 
-    /** 用户侧只读状态（按请求端；客户端据此隐藏入口）。 */
+    /** 用户侧只读状态（按请求端；客户端据此隐藏入口）。前六项为 AI，后三项为与 AI 独立的页面入口。 */
     public record PublicStatus(boolean agentChat, boolean cookAsk, boolean vision, boolean mealPlan,
-                              boolean estimate, boolean postText) {
+                              boolean estimate, boolean postText, boolean recipeWrite, boolean dishDrafts,
+                              boolean shoppingShare) {
     }
 
     /** 是否开放（带短缓存，拦截判定用）。 */
@@ -78,9 +85,9 @@ public class FeatureSwitchAppService {
         if (c != null && now.isBefore(c.expiresAt())) return c.enabled();
         boolean enabled;
         try {
-            enabled = repository.load(key).map(FeatureSwitch::enabled).orElse(platform.defaultEnabled());
+            enabled = repository.load(key).map(FeatureSwitch::enabled).orElse(feature.defaultEnabled(platform));
         } catch (RuntimeException e) {
-            enabled = c == null ? platform.defaultEnabled() : c.enabled();
+            enabled = c == null ? feature.defaultEnabled(platform) : c.enabled();
             log.warn("读取开关 {} 失败，沿用 {}：{}", key, enabled ? "开" : "关", e.getMessage());
         }
         cache.put(key, new Cached(enabled, now.plus(CACHE_TTL)));
@@ -94,10 +101,13 @@ public class FeatureSwitchAppService {
                 isEnabled(FeatureKey.VISION, platform),
                 isEnabled(FeatureKey.MEAL_PLAN, platform),
                 isEnabled(FeatureKey.ESTIMATE, platform),
-                isEnabled(FeatureKey.POST_TEXT, platform));
+                isEnabled(FeatureKey.POST_TEXT, platform),
+                isEnabled(FeatureKey.RECIPE_WRITE, platform),
+                isEnabled(FeatureKey.DISH_DRAFTS, platform),
+                isEnabled(FeatureKey.SHOPPING_SHARE, platform));
     }
 
-    /** 管理后台：全部开关（类别 × 端，不走缓存）。 */
+    /** 管理后台：全部开关（AI + 页面入口，类别 × 端，不走缓存）。 */
     public List<SwitchView> viewAll() {
         return Arrays.stream(FeatureKey.values())
                 .flatMap(f -> Arrays.stream(Platform.values()).map(p -> view(f, p))).toList();
@@ -105,7 +115,7 @@ public class FeatureSwitchAppService {
 
     public SwitchView view(FeatureKey feature, Platform platform) {
         String key = feature.key(platform);
-        FeatureSwitch s = repository.load(key).orElse(FeatureSwitch.defaultFor(key, platform));
+        FeatureSwitch s = repository.load(key).orElse(FeatureSwitch.defaultFor(key, feature.defaultEnabled(platform)));
         return new SwitchView(key, feature.category(), feature.label(), platform.code(), s.enabled(), s.updatedBy(),
                 s.updatedByName(), s.updatedAt(), s.reason(), repository.recentChanges(key, RECENT_CHANGES));
     }
@@ -136,12 +146,12 @@ public class FeatureSwitchAppService {
         return view(feature, r.platform());
     }
 
-    /** 管理后台：某端一键切换全部类别（同一原因，逐个记日志）。 */
+    /** 管理后台：某端一键切换全部 AI 类别（页面入口独立，不受影响；同一原因，逐个记日志）。 */
     @Transactional(rollbackFor = Exception.class)
     public List<SwitchView> setAll(Long operatorId, String platformCode, boolean enabled, String reason) {
         Platform platform = Platform.ofCode(platformCode).orElseThrow(() -> new BizException("未知的端"));
         if (!enabled && (reason == null || reason.isBlank())) throw new BizException("关停请填写原因");
-        return Arrays.stream(FeatureKey.values())
+        return FeatureKey.aiKeys().stream()
                 .map(f -> set(operatorId, f.key(platform), enabled, reason)).toList();
     }
 

@@ -52,7 +52,7 @@
           <text class="title detail-title">{{ detail?.name ? detail.name : `采购单 #${detail?.seq ?? detail?.id}` }}</text>
           <text v-if="detail?.name" class="rename">✎</text>
         </view>
-        <text class="top-btn" @click="view = 'share'">分享</text>
+        <text v-if="entryOn('shoppingShare')" class="top-btn" data-testid="shopping-share" @click="view = 'share'">分享</text>
       </view>
 
       <scroll-view scroll-y class="body">
@@ -110,8 +110,13 @@
       <add-items-sheet v-if="addSheet" :list-id="detail!.id" @close="addSheet = false" @saved="onAdded" />
     </template>
 
-    <!-- ===== 分享预览视图 ===== -->
-    <share-view v-else-if="detail" :detail="detail" :items="unPurchasedItems" @back="view = 'detail'" />
+    <!-- ===== 分享预览视图（入口被后台关停时不可进入） ===== -->
+    <share-view
+      v-else-if="detail && entryOn('shoppingShare')"
+      :detail="detail"
+      :items="unPurchasedItems"
+      @back="view = 'detail'"
+    />
 
     <!-- 改名弹窗 -->
     <view v-if="renameDialog" class="mask" @click="renameDialog = false">
@@ -129,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import ShareView from './parts/ShareView.vue'
 import AddItemsSheet from './parts/AddItemsSheet.vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
@@ -141,11 +146,19 @@ import {
 } from '@/api/shopping'
 import { mdHm } from '@/utils/datetime'
 import { navInset } from '@/utils/token'
+import { entryOn } from '@/utils/featureSwitch'
 
 const sb = navInset()
 
 // 视图切换：list → detail → share
 const view = ref<'list' | 'detail' | 'share'>('list')
+// 后台紧急关停分享入口时，正在看分享预览的用户退回详情
+watch(
+  () => entryOn('shoppingShare'),
+  (on) => {
+    if (!on && view.value === 'share') view.value = 'detail'
+  },
+)
 
 // ---- 列表视图 ----
 const lists = ref<ShoppingListSummary[]>([])

@@ -61,25 +61,29 @@ class FeatureSwitchMatrixTest {
     }
 
     private void apply(Platform p, int mask) {
-        FeatureKey[] keys = FeatureKey.values();
+        List<FeatureKey> keys = FeatureKey.aiKeys();
         assertThat(keys).hasSize(CATS);
-        for (int i = 0; i < keys.length; i++) {
+        for (int i = 0; i < keys.size(); i++) {
             boolean on = bit(mask, i);
-            svc.set(1L, keys[i].key(p), on, on ? null : "测试关停");
+            svc.set(1L, keys.get(i).key(p), on, on ? null : "测试关停");
         }
     }
 
+    /** AI 六位 + 页面入口三项（与 AI 独立，默认两端都开）。 */
     private static PublicStatus expected(int mask) {
-        return new PublicStatus(bit(mask, 0), bit(mask, 1), bit(mask, 2), bit(mask, 3), bit(mask, 4), bit(mask, 5));
+        return new PublicStatus(bit(mask, 0), bit(mask, 1), bit(mask, 2), bit(mask, 3), bit(mask, 4), bit(mask, 5),
+                true, true, true);
     }
 
     @Test
-    void 未配置时_小程序默认全开_App默认全关() {
+    void 未配置时_AI小程序默认全开App默认全关_页面入口两端默认开() {
         assertThat(svc.publicStatus(Platform.MP)).isEqualTo(expected(FULL));
         assertThat(svc.publicStatus(Platform.APP)).isEqualTo(expected(NONE));
-        // 管理后台视图的默认状态与拦截判定一致
-        assertThat(svc.viewAll()).filteredOn(v -> v.platform().equals("mp")).allMatch(v -> v.enabled());
-        assertThat(svc.viewAll()).filteredOn(v -> v.platform().equals("app")).allMatch(v -> !v.enabled());
+        // 管理后台视图的默认状态与拦截判定一致：AI 小程序开 / App 关，页面入口两端开
+        assertThat(svc.viewAll()).hasSize(18);
+        assertThat(svc.publicStatus(Platform.APP).recipeWrite()).isTrue();
+        assertThat(svc.publicStatus(Platform.APP).dishDrafts()).isTrue();
+        assertThat(svc.publicStatus(Platform.APP).shoppingShare()).isTrue();
     }
 
     @Test
@@ -158,9 +162,10 @@ class FeatureSwitchMatrixTest {
     }
 
     @Test
-    void 公共状态接口只暴露六个布尔字段() {
+    void 公共状态接口暴露六个AI与三个页面入口布尔字段() {
         assertThat(PublicStatus.class.getRecordComponents()).extracting("name")
-                .containsExactly("agentChat", "cookAsk", "vision", "mealPlan", "estimate", "postText");
+                .containsExactly("agentChat", "cookAsk", "vision", "mealPlan", "estimate", "postText",
+                        "recipeWrite", "dishDrafts", "shoppingShare");
     }
 
     @Test

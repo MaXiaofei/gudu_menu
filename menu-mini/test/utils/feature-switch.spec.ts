@@ -2,10 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { __testUni } from '../setup'
 import { request } from '@/utils/request'
 import {
+  anyAiEnabled,
   canSendFor,
+  entryOn,
+  entryStatus,
+  featureState,
   featureStatus,
+  FEATURE_CACHE_KEY,
   loadFeatureSwitches,
   noteSuspendedCode,
+  restoreFeatureSwitches,
 } from '@/utils/featureSwitch'
 import { applyAgentEvent, emptyAssistantMessage } from '@/api/agent'
 import { useAgentChat } from '@/composables/useAgentChat'
@@ -17,6 +23,8 @@ describe('utils/featureSwitch', () => {
     featureStatus.cookAsk = true
     featureStatus.vision = true
     featureStatus.mealPlan = true
+    Object.assign(entryStatus, { recipeWrite: true, dishDrafts: true, shoppingShare: true })
+    featureState.known = true
     __testUni.resetStorage()
     vi.mocked(__testUni.mocks.showToast).mockClear()
     vi.mocked(__testUni.mocks.request).mockReset()
@@ -110,6 +118,31 @@ describe('utils/featureSwitch', () => {
     expect(featureStatus).toMatchObject({ vision: false, mealPlan: false, agentChat: true })
     expect(__testUni.mocks.showToast).not.toHaveBeenCalled()
     expect(noteSuspendedCode(5036)).toBe(false)
+  })
+
+  it('页面入口三项独立于 AI：读取、未知隐藏、旧缓存缺字段按开', async () => {
+    featureState.known = false
+    expect(entryOn('recipeWrite')).toBe(false) // 未知时隐藏
+    Object.assign(entryStatus, { recipeWrite: true, dishDrafts: true, shoppingShare: true })
+    reply(0, 'ok', { recipeWrite: false, dishDrafts: false, shoppingShare: false })
+    await loadFeatureSwitches()
+    expect(entryStatus).toEqual({ recipeWrite: false, dishDrafts: false, shoppingShare: false })
+    expect(entryOn('recipeWrite')).toBe(false)
+    expect(featureStatus.agentChat).toBe(true) // AI 不受影响
+    expect(anyAiEnabled()).toBe(true)
+
+    // 恢复后重新读取即解除
+    reply(0, 'ok', { recipeWrite: true, dishDrafts: true, shoppingShare: true })
+    await loadFeatureSwitches()
+    expect(entryOn('recipeWrite')).toBe(true)
+
+    // 旧版本缓存只有四类 AI：三个入口缺省按开
+    entryStatus.recipeWrite = entryStatus.dishDrafts = entryStatus.shoppingShare = false
+    featureState.known = false
+    __testUni.setStorage(FEATURE_CACHE_KEY, { agentChat: true, cookAsk: true, vision: true, mealPlan: true })
+    restoreFeatureSwitches()
+    expect(entryStatus).toEqual({ recipeWrite: true, dishDrafts: true, shoppingShare: true })
+    expect(entryOn('shoppingShare')).toBe(true)
   })
 
   it('loadFeatureSwitches 读取 vision / mealPlan；旧后端缺字段按开', async () => {

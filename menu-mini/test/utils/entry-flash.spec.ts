@@ -5,6 +5,7 @@ import { resolve, join } from 'node:path'
 import { __testUni } from '../setup'
 import {
   entryOn,
+  entryStatus,
   featureCover,
   featureState,
   featureStatus,
@@ -32,6 +33,7 @@ const setCache = (v: Record<FeatureName, boolean>) => (globalThis as any).uni.se
 beforeEach(() => {
   __testUni.resetStorage()
   Object.assign(featureStatus, { agentChat: true, cookAsk: true, vision: true, mealPlan: true })
+  Object.assign(entryStatus, { recipeWrite: true, dishDrafts: true, shoppingShare: true })
   featureState.known = false
   ;(featureState as any).failed = false
   vi.mocked(__testUni.mocks.request).mockReset()
@@ -111,6 +113,8 @@ describe('源码守卫：入口显隐统一走 entryOn', () => {
     ['pkg-agent/parts/AssistantMessage.vue', "entryOn('mealPlan')", "c.type === 'plan'"],
     ['pages/agent/Index.vue', "entryOn('agentChat')", 'hero-swap'],
     ['pkg-community/Topic.vue', "entryOn('agentChat')", 'topic-ask'],
+    ['pages/dish/List.vue', "entryOn('recipeWrite')", 'fab-create'],
+    ['pages/shopping/List.vue', "entryOn('shoppingShare')", 'shopping-share'],
   ]
   it.each(ENTRIES)('%s 用 %s 控制 %s', (file, expr, marker) => {
     const line = tpl(file)
@@ -118,6 +122,15 @@ describe('源码守卫：入口显隐统一走 entryOn', () => {
       .find((l) => l.includes(marker))!
     expect(line, `${file} 找不到 ${marker}`).toBeTruthy()
     expect(line).toContain(expr)
+  })
+  it('「我的」页用 entryOn 控制写菜谱 / 草稿箱入口', () => {
+    const src = read('pages/profile/Profile.vue')
+    expect(src).toContain("i.label !== '写菜谱' || entryOn('recipeWrite')")
+    expect(src).toContain("i.label !== '草稿箱' || entryOn('dishDrafts')")
+  })
+  it('写菜谱 / 草稿箱页面挂覆盖层，兜底直达与返回栈', () => {
+    expect(tpl('pages/dish/Create.vue')).toContain('<ui-feature-paused feature="recipeWrite" />')
+    expect(tpl('pages/dish/Drafts.vue')).toContain('<ui-feature-paused feature="dishDrafts" />')
   })
   it('咕嘟页：快捷提问过滤 / 临期按钮 / 问咕嘟 askOn 用 entryOn', () => {
     expect(read('pages/agent/Index.vue')).toContain("entryOn('vision') || !(p.includes('拍')")

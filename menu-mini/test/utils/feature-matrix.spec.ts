@@ -69,7 +69,8 @@ describe('状态拉取：16 种组合逐项还原，互不影响', () => {
       expect(canSendFor({ page: 'cook_mode' })).toBe(c.agentChat && c.cookAsk)
       expect(canSendFor({ page: 'agent' })).toBe(c.agentChat)
       expect(canSendFor(null)).toBe(c.agentChat)
-      expect(__testUni.getStorage(FEATURE_CACHE_KEY)).toEqual(c)
+      // 缓存额外带三个页面入口（与 AI 独立，默认开）
+      expect(__testUni.getStorage(FEATURE_CACHE_KEY)).toMatchObject(c)
     })
   }
 

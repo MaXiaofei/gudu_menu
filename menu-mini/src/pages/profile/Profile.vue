@@ -92,6 +92,7 @@ import { FAMILY_SWITCH_PAGE, roleLabel } from '@/utils/family'
 import { useLoginState } from '@/composables/useLoginState'
 import { shouldPromptProfile } from '@/utils/profileSetup'
 import { currentPageTarget, loginUrl } from '@/utils/loginRedirect'
+import { entryOn } from '@/utils/featureSwitch'
 
 /** 游客可见的设置项（其余需登录）。 */
 const GUEST_ROWS = new Set(['食材库', '主题外观', '隐私与协议', '用户协议', '关于小食单'])
@@ -200,7 +201,11 @@ const allGroups = computed(() => [
       { label: '草稿箱', icon: 'image', tone: 't4', url: '/pages/dish/Drafts' },
       { label: '我的评价', icon: 'star', tone: 't2', url: '/pages/review/Mine' },
       { label: '食材库', icon: 'fridge', tone: 't3', url: '/pages/ingredient/List' },
-    ],
+    ].filter(
+      (i) =>
+        (i.label !== '写菜谱' || entryOn('recipeWrite')) &&
+        (i.label !== '草稿箱' || entryOn('dishDrafts')),
+    ),
   },
   {
     title: '设置',

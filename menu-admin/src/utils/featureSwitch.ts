@@ -7,18 +7,28 @@ export { validateSwitchReason, SWITCH_REASON_MAX } from './communitySwitch'
 
 export const PLATFORM_LABEL: Record<FeaturePlatform, string> = { mp: '小程序', app: 'App' }
 
-/** 表格行顺序。 */
+/** AI 表格行顺序。 */
 export const CATEGORY_ORDER: FeatureCategory[] = ['agentChat', 'cookAsk', 'vision', 'mealPlan', 'estimate', 'postText']
 
-/** 各端的默认状态：小程序默认开启，App 默认关闭（App 暂未上线，防止入口被恶意调用）。 */
+/** 页面入口表格行顺序：与 AI 独立分组。 */
+export const ENTRY_CATEGORY_ORDER: FeatureCategory[] = ['recipeWrite', 'dishDrafts', 'shoppingShare']
+
+/** AI 各端的默认状态：小程序默认开启，App 默认关闭（App 暂未上线，防止入口被恶意调用）。 */
 export const DEFAULT_ENABLED: Record<FeaturePlatform, boolean> = { mp: true, app: false }
 
-/** 「最后操作：运营小王 · 2026-10-26 18:00」；从未切换过按该端默认写「默认开启 / 默认关闭，尚未操作过」。 */
+/** 该类别在该端未配置时的默认状态：页面入口两端默认开启，AI 沿用端默认。 */
+export function defaultEnabled(category: FeatureCategory | undefined, platform: FeaturePlatform): boolean {
+  return ENTRY_CATEGORY_ORDER.includes(category as FeatureCategory) ? true : DEFAULT_ENABLED[platform]
+}
+
+/** 「最后操作：运营小王 · 2026-10-26 18:00」；从未切换过按该类别默认写「默认开启 / 默认关闭，尚未操作过」。 */
 export function lastOperationText(
   s: Pick<SwitchChange, 'updatedByName' | 'updatedBy' | 'updatedAt'> | null,
   platform: FeaturePlatform = 'mp',
+  category?: FeatureCategory,
 ): string {
-  if (!s || (!s.updatedBy && !s.updatedAt)) return DEFAULT_ENABLED[platform] ? '默认开启，尚未操作过' : '默认关闭，尚未操作过'
+  if (!s || (!s.updatedBy && !s.updatedAt))
+    return defaultEnabled(category, platform) ? '默认开启，尚未操作过' : '默认关闭，尚未操作过'
   return baseLastOperationText(s)
 }
 
@@ -38,9 +48,9 @@ export interface MatrixRow {
   app: FeatureSwitchState | null
 }
 
-/** 后端扁平列表 → 行 = 类别、列 = 端。 */
-export function buildMatrix(states: FeatureSwitchState[]): MatrixRow[] {
-  return CATEGORY_ORDER.map((category) => {
+/** 后端扁平列表 → 行 = 类别、列 = 端（默认 AI 六类，页面入口传 ENTRY_CATEGORY_ORDER）。 */
+export function buildMatrix(states: FeatureSwitchState[], order: FeatureCategory[] = CATEGORY_ORDER): MatrixRow[] {
+  return order.map((category) => {
     const of = (p: FeaturePlatform) => states.find((s) => s.category === category && s.platform === p) ?? null
     const mp = of('mp')
     const app = of('app')
@@ -71,6 +81,9 @@ const IMPACT: Record<string, string> = {
   营养估算:
     '无法再用 AI 估算一餐营养、补全食材营养（入口暂停，提示「营养估算暂停服务」）；管理后台运营维护食材时补全营养不受影响，已有营养数据照常显示',
   'AI 帮写': '发帖页的「AI 帮写」暂停（提示「AI 帮写暂停服务」），自己写文案和发帖照常',
+  写菜谱: '菜谱页的「写菜谱」按钮与「我的 → 写菜谱」入口隐藏，已有菜谱与草稿不受影响',
+  草稿箱: '「我的 → 草稿箱」入口隐藏，草稿箱页显示「草稿箱暂停服务」，已有草稿仍保留，其他功能不受影响',
+  采购清单分享: '采购清单详情页的「分享」按钮隐藏，清单查看、添加、入库与已有分享内容不受影响',
 }
 
 /** 二次确认：标题 / 正文 / 按钮。name 形如「小程序咕嘟助手」，label 为类别名（用于查影响说明）。 */

@@ -28,6 +28,9 @@
       <ui-state v-if="!loading && !drafts.length" mode="empty" text="还没有草稿" hint="写菜谱没填完，点「存草稿」就会出现在这里" />
       <view v-if="drafts.length && !hasMore" class="footer">没有更多了</view>
     </scroll-view>
+
+    <!-- 后台紧急关停：盖住草稿箱（入口已隐藏，这里兜底直达 / 返回栈） -->
+    <ui-feature-paused feature="dishDrafts" />
   </view>
 </template>
 
