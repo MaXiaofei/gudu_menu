@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** 紧急关停开关管理（咕嘟助手 / 问咕嘟），权限与厨房圈开关一致（OPERATOR / SUPER_ADMIN）。 */
+/** 紧急关停开关管理（AI 六类 + 页面入口三项），权限与厨房圈开关一致（OPERATOR / SUPER_ADMIN）。 */
 @RestController
 @RequestMapping("/admin/feature-switches")
 @RequiredArgsConstructor

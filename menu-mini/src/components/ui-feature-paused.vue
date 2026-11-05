@@ -19,10 +19,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { featureCover, loadFeatureSwitches, SUSPENDED_MESSAGE, type FeatureName } from '@/utils/featureSwitch'
+import { featureCover, loadFeatureSwitches, SUSPENDED_MESSAGE, type EntryName, type FeatureName } from '@/utils/featureSwitch'
 import { statusBarHeight } from '@/utils/token'
 
-const props = withDefaults(defineProps<{ feature: FeatureName; back?: boolean }>(), { back: true })
+const props = withDefaults(defineProps<{ feature: FeatureName | EntryName; back?: boolean }>(), { back: true })
 /** 未知 -> 加载态；已知关 -> 暂停提示；已知开 -> 不渲染。 */
 const cover = computed(() => featureCover(props.feature))
 const inset = statusBarHeight() + 6

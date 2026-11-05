@@ -145,6 +145,9 @@
       @pick="addIngredient"
       @created="onIngCreated"
     />
+
+    <!-- 后台紧急关停：盖住录入页（入口已隐藏，这里兜底直达 / 返回栈） -->
+    <ui-feature-paused feature="recipeWrite" />
   </view>
 </template>
 

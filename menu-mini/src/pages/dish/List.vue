@@ -98,13 +98,13 @@
         mode="empty"
         :text="keyword ? '没找到这道菜' : '还没有菜谱'"
         :hint="keyword ? '换个说法试试，比如食材名' : '写下家里常做的菜，智荐才知道你家口味'"
-        :action-text="keyword ? '' : '写菜谱'"
+        :action-text="keyword || !entryOn('recipeWrite') ? '' : '写菜谱'"
         @action="goCreate"
       />
       <ui-state v-if="firstLoading" mode="loading" />
     </view>
 
-    <view v-if="!selectForMenuId" class="fab" data-testid="fab-create" @click="goCreate">
+    <view v-if="!selectForMenuId && entryOn('recipeWrite')" class="fab" data-testid="fab-create" @click="goCreate">
       <text class="fab-plus">＋</text><text class="fab-txt">写菜谱</text>
     </view>
   </view>
@@ -124,6 +124,7 @@ import { navInset } from '@/utils/token'
 import { isAllActive, pickTag, pickCuisine, toSearchParams, createLatestGuard } from '@/utils/dishFilter'
 import { useLoginState } from '@/composables/useLoginState'
 import { useAgentTabSync } from '@/composables/useAgentTabSync'
+import { entryOn } from '@/utils/featureSwitch'
 
 // 游客浏览：未登录也能看公共菜谱；家庭数据（余量够不够、做过几次、成员头像）登录后才有
 const { loggedIn, refresh: refreshLogin } = useLoginState()

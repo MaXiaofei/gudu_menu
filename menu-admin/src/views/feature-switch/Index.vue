@@ -9,6 +9,7 @@ import {
   type FeatureSwitchState,
 } from '@/api/featureSwitch'
 import {
+  ENTRY_CATEGORY_ORDER,
   PLATFORM_LABEL,
   buildMatrix,
   featureConfirmCopy,
@@ -21,7 +22,8 @@ import {
 
 /**
  * 功能开关：6 类生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程、营养估算、AI 帮写）按「小程序 / App」分别紧急关停。
- * 小程序默认开启，App 默认关闭；关停必须填原因，切换留痕。每端可一键关闭 / 恢复全部 AI。
+ * 另有与 AI 独立的 3 个页面入口（写菜谱、草稿箱、采购清单分享），同样按端关停。
+ * AI 小程序默认开启、App 默认关闭；页面入口两端默认开启。关停必须填原因，切换留痕。每端可一键关闭 / 恢复全部 AI。
  */
 const states = ref<FeatureSwitchState[]>([])
 const loadError = ref('')
@@ -30,6 +32,7 @@ const savingKey = ref('')
 const batchSaving = ref('')
 
 const rows = computed(() => buildMatrix(states.value))
+const entryRows = computed(() => buildMatrix(states.value, ENTRY_CATEGORY_ORDER))
 const recent = computed(() => recentChangeRows(states.value, 20))
 const platforms: FeaturePlatform[] = ['mp', 'app']
 
@@ -108,7 +111,7 @@ onMounted(load)
   <div class="page" v-loading="loading">
     <div class="head">
       <h2 class="title">功能开关</h2>
-      <p class="desc">一键关停 · 小程序 · App</p>
+      <p class="desc">一键关停 · 小程序 · App · AI 小程序默认开启，App 默认关闭；页面入口两端默认开启</p>
     </div>
 
     <div v-if="loadError" class="yh-card err">
@@ -145,7 +148,35 @@ onMounted(load)
               <div class="info">
                 <div class="status">{{ row[p].enabled ? '运行中' : '已暂停' }}</div>
                 <div class="meta">
-                  {{ lastOperationText(row[p], p) }}<template v-if="row[p].reason"> · {{ row[p].reason }}</template>
+                  {{ lastOperationText(row[p], p, row.category) }}<template v-if="row[p].reason"> · {{ row[p].reason }}</template>
+                </div>
+              </div>
+              <el-button
+                size="small"
+                :type="row[p].enabled ? 'danger' : 'primary'"
+                :loading="savingKey === row[p].key"
+                @click="toggle(row[p])"
+              >{{ row[p].enabled ? '关停' : '恢复' }}</el-button>
+            </div>
+            <span v-else class="meta">—</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <div class="yh-card table-card" data-testid="entry-switch-card">
+      <div class="status">页面入口</div>
+      <p class="meta entry-note">写菜谱、草稿箱、采购清单分享的紧急关停，与上方 AI 开关互不影响。</p>
+      <el-table :data="entryRows" row-key="category" data-testid="entry-switch-table">
+        <el-table-column label="页面入口" prop="label" min-width="120" />
+        <el-table-column v-for="p in platforms" :key="p" :label="PLATFORM_LABEL[p]" min-width="240">
+          <template #default="{ row }">
+            <div v-if="row[p]" class="cell" :class="{ off: !row[p].enabled }" :data-testid="`entry-switch-${row[p].key}`">
+              <span class="dot" :class="row[p].enabled ? 'on' : 'off'" />
+              <div class="info">
+                <div class="status">{{ row[p].enabled ? '运行中' : '已暂停' }}</div>
+                <div class="meta">
+                  {{ lastOperationText(row[p], p, row.category) }}<template v-if="row[p].reason"> · {{ row[p].reason }}</template>
                 </div>
               </div>
               <el-button
@@ -212,6 +243,9 @@ onMounted(load)
 .table-card,
 .recent {
   padding: 12px 16px;
+}
+.entry-note {
+  margin: 4px 0 12px;
 }
 .cell {
   display: flex;

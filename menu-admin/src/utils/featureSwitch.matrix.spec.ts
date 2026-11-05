@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import {
   buildMatrix,
   CATEGORY_ORDER,
+  ENTRY_CATEGORY_ORDER,
   featureConfirmCopy,
   featureStatusText,
   lastOperationText,
@@ -20,6 +21,9 @@ const LABEL: Record<FeatureCategory, string> = {
   mealPlan: '一周餐程',
   estimate: '营养估算',
   postText: 'AI 帮写',
+  recipeWrite: '写菜谱',
+  dishDrafts: '草稿箱',
+  shoppingShare: '采购清单分享',
 }
 const state = (category: FeatureCategory, platform: FeaturePlatform, enabled: boolean): FeatureSwitchState => ({
   key: `${category}.${platform}` as any,
@@ -96,6 +100,43 @@ describe('二次确认文案：每类 × 每端 × 关停 / 恢复', () => {
   })
 })
 
+describe('页面入口开关：与 AI 独立成组', () => {
+  const entryLabels: [FeatureCategory, string][] = [
+    ['recipeWrite', '写菜谱'],
+    ['dishDrafts', '草稿箱'],
+    ['shoppingShare', '采购清单分享'],
+  ]
+
+  it('固定 3 类，按 AI 之后的独立顺序渲染', () => {
+    expect(ENTRY_CATEGORY_ORDER).toEqual(['recipeWrite', 'dishDrafts', 'shoppingShare'])
+    const list = entryLabels.flatMap(([c, label]) => [
+      { ...state(c, 'mp', true), label },
+      { ...state(c, 'app', true), label },
+    ])
+    const rows = buildMatrix(list, ENTRY_CATEGORY_ORDER)
+    expect(rows.map((r) => r.label)).toEqual(['写菜谱', '草稿箱', '采购清单分享'])
+    expect(rows.every((r) => r.mp?.enabled && r.app?.enabled)).toBe(true)
+    // AI 表格不混入页面入口
+    expect(buildMatrix(list)).toEqual([])
+  })
+
+  it('页面入口两端默认开启，AI 仍为小程序开 / App 关', () => {
+    expect(lastOperationText(null, 'mp', 'recipeWrite')).toBe('默认开启，尚未操作过')
+    expect(lastOperationText(null, 'app', 'dishDrafts')).toBe('默认开启，尚未操作过')
+    expect(lastOperationText(null, 'app', 'shoppingShare')).toBe('默认开启，尚未操作过')
+    expect(lastOperationText(null, 'app', 'agentChat')).toBe('默认关闭，尚未操作过')
+  })
+
+  it('关停影响说明覆盖三个入口', () => {
+    for (const [, label] of entryLabels) {
+      const copy = featureConfirmCopy(switchName('mp', label), false, label)
+      expect(copy.title).toBe(`紧急关停小程序${label}`)
+      expect(copy.message).toContain('不受影响')
+      expect(copy.confirm).toBe('确认关停')
+    }
+  })
+})
+
 describe('默认状态与最后操作文案', () => {
   it('小程序默认开启，App 默认关闭；操作过则显示操作人', () => {
     expect(lastOperationText(null, 'mp')).toBe('默认开启，尚未操作过')
@@ -126,5 +167,10 @@ describe('开关页源码守卫：一键操作按端传参', () => {
   })
   it('关停必须填原因（恢复不用）', () => {
     expect(view).toContain('validateSwitchReason(false, v)')
+  })
+  it('页面入口与 AI 分表展示', () => {
+    expect(view).toContain('ENTRY_CATEGORY_ORDER')
+    expect(view).toContain('data-testid="entry-switch-table"')
+    expect(view).toContain('与上方 AI 开关互不影响')
   })
 })

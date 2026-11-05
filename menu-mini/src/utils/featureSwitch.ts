@@ -1,12 +1,13 @@
 /**
- * 生成式 AI 紧急关停（出现内容风险 / 审核要求时由后台按类别、按端一键关闭，默认开）。
- * 类别：咕嘟助手 agentChat、问咕嘟 cookAsk、拍照识别 vision、一周餐程 mealPlan；后端按 X-Client 判端，
- * 小程序拿到的就是「小程序」这一端的状态。
+ * 紧急关停（出现内容风险 / 审核要求时由后台按类别、按端一键关闭，默认开）。
+ * AI 类别：咕嘟助手 agentChat、问咕嘟 cookAsk、拍照识别 vision、一周餐程 mealPlan；
+ * 页面入口（与 AI 独立）：写菜谱 recipeWrite、草稿箱 dishDrafts、采购清单分享 shoppingShare。
+ * 后端按 X-Client 判端，小程序拿到的就是「小程序」这一端的状态。
  *
  * - 启动 / 进入相关页时 GET /feature-switches 拉取状态，失败按「开」处理；
  * - 收到业务码 5032（咕嘟助手）/ 5033（问咕嘟）/ 5034（拍照识别）/ 5035（一周餐程）时不弹通用报错，直接切到暂停状态；
  * - 关闭的类别：入口隐藏（页面用 entryOn 判断，未知时也隐藏），对应页面由 ui-feature-paused 显示「XX暂停服务，其他功能不受影响」；
- * - 只拦生成 / 发新消息，查看已有内容、删除历史、确认 / 撤销动作等不受影响。
+ * - 只拦生成 / 发新消息与对应页面入口，查看已有内容、删除历史、确认 / 撤销动作等不受影响。
  */
 import { reactive } from 'vue'
 import { bridgedRequest } from './requestBridge'
@@ -20,15 +21,23 @@ export const MSG_AGENT_SUSPENDED = '咕嘟助手暂停服务，其他功能不�
 export const MSG_COOK_ASK_SUSPENDED = '问咕嘟暂停服务，跟做模式其他功能照常使用'
 export const MSG_VISION_SUSPENDED = '拍照识别暂停服务，其他功能不受影响'
 export const MSG_MEALPLAN_SUSPENDED = '一周餐程暂停服务，其他功能不受影响'
+export const MSG_RECIPE_WRITE_SUSPENDED = '写菜谱暂停服务，其他功能不受影响'
+export const MSG_DISH_DRAFTS_SUSPENDED = '草稿箱暂停服务，其他功能不受影响'
+export const MSG_SHOPPING_SHARE_SUSPENDED = '采购清单分享暂停服务，其他功能不受影响'
 
+/** AI（featureStatus）与页面入口（entryStatus）分开存放，入口关闭不影响 anyAiEnabled 等 AI 判定。 */
 export type FeatureName = 'agentChat' | 'cookAsk' | 'vision' | 'mealPlan'
+export type EntryName = 'recipeWrite' | 'dishDrafts' | 'shoppingShare'
 
 /** 各类别暂停时的提示语。 */
-export const SUSPENDED_MESSAGE: Record<FeatureName, string> = {
+export const SUSPENDED_MESSAGE: Record<FeatureName | EntryName, string> = {
   agentChat: MSG_AGENT_SUSPENDED,
   cookAsk: MSG_COOK_ASK_SUSPENDED,
   vision: MSG_VISION_SUSPENDED,
   mealPlan: MSG_MEALPLAN_SUSPENDED,
+  recipeWrite: MSG_RECIPE_WRITE_SUSPENDED,
+  dishDrafts: MSG_DISH_DRAFTS_SUSPENDED,
+  shoppingShare: MSG_SHOPPING_SHARE_SUSPENDED,
 }
 
 const CODE_TO_FEATURE: Record<number, FeatureName> = {
@@ -38,6 +47,9 @@ const CODE_TO_FEATURE: Record<number, FeatureName> = {
   [MEALPLAN_SUSPENDED]: 'mealPlan',
 }
 
+const AI_NAMES: FeatureName[] = ['agentChat', 'cookAsk', 'vision', 'mealPlan']
+const ENTRY_NAMES: EntryName[] = ['recipeWrite', 'dishDrafts', 'shoppingShare']
+
 /** true = 可用（默认开）。 */
 export const featureStatus = reactive<Record<FeatureName, boolean>>({
   agentChat: true,
@@ -46,7 +58,22 @@ export const featureStatus = reactive<Record<FeatureName, boolean>>({
   mealPlan: true,
 })
 
-/** 本地缓存键：上次从服务端拿到（或收到暂停码确认）的四类开关，启动时先用它，再以服务端为准。 */
+/** 页面入口（写菜谱 / 草稿箱 / 采购清单分享）开关，默认开；与 AI 独立。 */
+export const entryStatus = reactive<Record<EntryName, boolean>>({
+  recipeWrite: true,
+  dishDrafts: true,
+  shoppingShare: true,
+})
+
+function isEntry(name: FeatureName | EntryName): name is EntryName {
+  return (ENTRY_NAMES as string[]).includes(name)
+}
+
+function enabledOf(name: FeatureName | EntryName): boolean {
+  return isEntry(name) ? entryStatus[name] : featureStatus[name]
+}
+
+/** 本地缓存键：上次从服务端拿到的 AI 与页面入口开关，启动时先用它，再以服务端为准。 */
 export const FEATURE_CACHE_KEY = 'feature_switches_cache'
 
 /**
@@ -56,20 +83,20 @@ export const FEATURE_CACHE_KEY = 'feature_switches_cache'
 export const featureState = reactive({ known: false, failed: false })
 
 /**
- * AI 入口（按钮 / 卡片 / 快捷提问）是否显示：状态已知且该类别开才显示，未知时隐藏。
+ * 入口（AI 按钮 / 页面入口）是否显示：状态已知且该类别开才显示，未知时隐藏。
  * featureStatus 默认全是 true，页面绝不能直接用它判断入口显隐，否则开关关闭时入口会在状态拉到前先闪出来。
  */
-export function entryOn(name: FeatureName): boolean {
-  return featureState.known && featureStatus[name]
+export function entryOn(name: FeatureName | EntryName): boolean {
+  return featureState.known && enabledOf(name)
 }
 
 /**
  * AI 页面盖层状态：未知 -> 'loading'（骨架屏，不闪可操作按钮也不闪暂停提示）；已知关 -> 'paused'；已知开 -> null。
  * 拉取失败且没有缓存时撤掉盖层（null），页面照常可用，后端请求拦截兜底。
  */
-export function featureCover(name: FeatureName): 'loading' | 'paused' | null {
+export function featureCover(name: FeatureName | EntryName): 'loading' | 'paused' | null {
   if (!featureState.known) return featureState.failed ? null : 'loading'
-  return featureStatus[name] ? null : 'paused'
+  return enabledOf(name) ? null : 'paused'
 }
 
 /** 前台节流窗口：底部标签页 onShow 在此窗口内不重复请求。 */
@@ -100,12 +127,10 @@ function notify(): void {
 
 function persist(): void {
   try {
-    uni.setStorageSync(FEATURE_CACHE_KEY, {
-      agentChat: featureStatus.agentChat,
-      cookAsk: featureStatus.cookAsk,
-      vision: featureStatus.vision,
-      mealPlan: featureStatus.mealPlan,
-    })
+    const snapshot: Partial<Record<FeatureName | EntryName, boolean>> = {}
+    AI_NAMES.forEach((k) => (snapshot[k] = featureStatus[k]))
+    ENTRY_NAMES.forEach((k) => (snapshot[k] = entryStatus[k]))
+    uni.setStorageSync(FEATURE_CACHE_KEY, snapshot)
   } catch {
     // 存储不可用时忽略
   }
@@ -119,9 +144,10 @@ export function restoreFeatureSwitches(): void {
   } catch {
     return
   }
-  const keys: FeatureName[] = ['agentChat', 'cookAsk', 'vision', 'mealPlan']
-  if (!c || typeof c !== 'object' || !keys.every((k) => typeof c[k] === 'boolean')) return
-  keys.forEach((k) => (featureStatus[k] = c[k]))
+  if (!c || typeof c !== 'object' || !AI_NAMES.every((k) => typeof c[k] === 'boolean')) return
+  AI_NAMES.forEach((k) => (featureStatus[k] = c[k]))
+  // 旧缓存没有三个页面入口：缺省按开
+  ENTRY_NAMES.forEach((k) => (entryStatus[k] = typeof c[k] === 'boolean' ? c[k] : true))
   featureState.known = true
   notify()
 }
@@ -161,8 +187,8 @@ export function resetFeatureRefreshClock(): void {
 }
 
 /**
- * 拉取本端状态（强制，不节流）。游客（无 token）也拉取：后端 GET /feature-switches 免登录、只返回六个布尔值（小程序只认其中原四类），
- * 审核员未登录读协议时也要拿到真实状态。
+ * 拉取本端状态（强制，不节流）。游客（无 token）也拉取：后端 GET /feature-switches 免登录、只返回布尔值
+ * （小程序认四类 AI + 三个页面入口），审核员未登录读协议时也要拿到真实状态。
  * - 并发时以「最后发起」的请求为准：序号落后的晚到响应直接丢弃，不覆盖新结果；
  * - 失败保持原状（本地缓存的上次结果；没有缓存则仍是「未知」，标签保守显示「推荐」），并通知订阅者按最新登录态重算；
  * - 成功后写入本地缓存。
@@ -172,7 +198,7 @@ export async function loadFeatureSwitches(): Promise<void> {
   lastAttemptAt = Date.now()
   try {
     // 经注入点取 request（避免与 request.ts 循环依赖；小程序不支持动态 import）
-    const r = await bridgedRequest<Partial<Record<FeatureName, boolean>> | null>({
+    const r = await bridgedRequest<Partial<Record<FeatureName | EntryName, boolean>> | null>({
       url: '/feature-switches',
       method: 'GET',
       silent: true,
@@ -182,6 +208,9 @@ export async function loadFeatureSwitches(): Promise<void> {
     featureStatus.cookAsk = r?.cookAsk !== false
     featureStatus.vision = r?.vision !== false
     featureStatus.mealPlan = r?.mealPlan !== false
+    entryStatus.recipeWrite = r?.recipeWrite !== false
+    entryStatus.dishDrafts = r?.dishDrafts !== false
+    entryStatus.shoppingShare = r?.shoppingShare !== false
     featureState.known = true
     featureState.failed = false
     persist()

@@ -68,7 +68,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { loadFeatureSwitches } from '@/utils/featureSwitch'
+import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 import { onLoad } from '@dcloudio/uni-app'
 import { applyJob, getJob, toReviewRows, MODE_LABEL, type ReviewRow, type VisionJob } from '@/api/vision'
 import { saveDraft } from '@/api/dish'
@@ -123,7 +123,10 @@ async function apply() {
         cuisineIds: [],
       } as any)
       uni.showToast({ title: '已存到草稿箱', icon: 'success' })
-      setTimeout(() => uni.redirectTo({ url: '/pages/dish/Drafts' }), 500)
+      // 草稿箱被后台关停时留在当前页，不跳进暂停页（草稿已保存，恢复后可查看）
+      setTimeout(() => {
+        if (entryOn('dishDrafts')) uni.redirectTo({ url: '/pages/dish/Drafts' })
+      }, 500)
       return
     }
     if (!checked.value.length) return

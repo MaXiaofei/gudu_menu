@@ -96,18 +96,25 @@ class FeatureSwitchAppServiceTest {
     static final Platform APP = Platform.APP;
 
     @Test
-    void 库里无记录_小程序默认全开_App默认全关() {
-        for (FeatureKey f : FeatureKey.values()) {
+    void 库里无记录_AI小程序默认全开App默认全关_页面入口两端默认开() {
+        for (FeatureKey f : FeatureKey.aiKeys()) {
             assertThat(svc.isEnabled(f, MP)).isTrue();
             assertThat(svc.isEnabled(f, APP)).isFalse();
         }
+        for (FeatureKey f : FeatureKey.entryKeys()) {
+            assertThat(svc.isEnabled(f, MP)).isTrue();
+            assertThat(svc.isEnabled(f, APP)).isTrue();
+        }
         var mp = svc.publicStatus(MP);
         assertThat(mp.agentChat() && mp.cookAsk() && mp.vision() && mp.mealPlan() && mp.estimate() && mp.postText()).isTrue();
+        assertThat(mp.recipeWrite() && mp.dishDrafts() && mp.shoppingShare()).isTrue();
         var app = svc.publicStatus(APP);
         assertThat(app.agentChat() || app.cookAsk() || app.vision() || app.mealPlan() || app.estimate() || app.postText())
                 .isFalse();
-        assertThat(svc.viewAll()).hasSize(12).allMatch(v -> v.updatedBy() == null)
-                .allMatch(v -> v.enabled() == v.platform().equals("mp"));
+        assertThat(app.recipeWrite() && app.dishDrafts() && app.shoppingShare())
+                .as("页面入口与 AI 独立，App 默认也开").isTrue();
+        // 9 类 × 2 端 = 18 行
+        assertThat(svc.viewAll()).hasSize(18).allMatch(v -> v.updatedBy() == null);
     }
 
     @Test
@@ -132,6 +139,23 @@ class FeatureSwitchAppServiceTest {
         assertThat(FeatureKey.POST_TEXT.category()).isEqualTo("postText");
         assertThat(FeatureKey.ESTIMATE.label()).isEqualTo("营养估算");
         assertThat(FeatureKey.POST_TEXT.label()).isEqualTo("AI 帮写");
+    }
+
+    @Test
+    void 页面入口三项_键与默认值与AI独立() {
+        assertThat(FeatureKey.entryKeys()).extracting(FeatureKey::category)
+                .containsExactly("recipeWrite", "dishDrafts", "shoppingShare");
+        assertThat(FeatureKey.RECIPE_WRITE.key(MP)).isEqualTo("entry.recipe_write.enabled.mp");
+        assertThat(FeatureKey.RECIPE_WRITE.defaultEnabled(MP)).isTrue();
+        assertThat(FeatureKey.RECIPE_WRITE.defaultEnabled(APP)).isTrue();
+        assertThat(FeatureKey.AGENT_CHAT.defaultEnabled(APP)).isFalse();
+
+        svc.set(7L, "entry.recipe_write.enabled.mp", false, "提审要求");
+        assertThat(svc.publicStatus(MP).recipeWrite()).isFalse();
+        assertThat(svc.publicStatus(MP).dishDrafts()).isTrue();
+        assertThat(svc.publicStatus(MP).shoppingShare()).isTrue();
+        assertThat(svc.publicStatus(APP).recipeWrite()).as("另一端不受影响").isTrue();
+        assertThat(svc.publicStatus(MP).agentChat()).as("AI 不受影响").isTrue();
     }
 
     @Test
@@ -196,12 +220,15 @@ class FeatureSwitchAppServiceTest {
         var views = svc.setAll(7L, "mp", false, "提审要求");
         assertThat(views).hasSize(6).allMatch(v -> !v.enabled() && v.platform().equals("mp"));
         assertThat(repo.logs).hasSize(6).allMatch(l -> l.key().endsWith(".mp") && "提审要求".equals(l.reason()));
-        for (FeatureKey f : FeatureKey.values()) {
+        for (FeatureKey f : FeatureKey.aiKeys()) {
             assertThat(svc.isEnabled(f, MP)).isFalse();
             assertThat(svc.isEnabled(f, APP)).isFalse(); // App 默认关，不受影响
         }
+        for (FeatureKey f : FeatureKey.entryKeys()) {
+            assertThat(svc.isEnabled(f, MP)).as("一键关 AI 不影响页面入口").isTrue();
+        }
         svc.setAll(7L, "mp", true, null);
-        for (FeatureKey f : FeatureKey.values()) assertThat(svc.isEnabled(f, MP)).isTrue();
+        for (FeatureKey f : FeatureKey.aiKeys()) assertThat(svc.isEnabled(f, MP)).isTrue();
     }
 
     @Test
