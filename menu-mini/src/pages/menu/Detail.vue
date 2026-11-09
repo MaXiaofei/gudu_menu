@@ -55,7 +55,7 @@
         </template>
         <template v-else>
           <button class="btn-cook done" disabled>已完成</button>
-          <button class="btn-review" @click="goReview">去评价</button>
+          <button v-if="entryOn('review')" class="btn-review" data-testid="menu-review" @click="goReview">去评价</button>
         </template>
       </view>
     </template>
@@ -104,6 +104,7 @@ import {
 import { getPrep, updatePrepStatus, type MenuPrep, type PrepItem } from '@/api/prep'
 import { getTogether, createInvite, togetherSharePath, type TogetherVO } from '@/api/together'
 import { mdHm } from '@/utils/datetime'
+import { entryOn } from '@/utils/featureSwitch'
 import DishesTab from './parts/DishesTab.vue'
 import PrepTab from './parts/PrepTab.vue'
 import ShopTab from './parts/ShopTab.vue'

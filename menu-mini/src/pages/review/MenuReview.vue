@@ -53,6 +53,8 @@
       <view class="tip-bar">评过的菜会更新菜谱评分，以后找菜、避雷都用得上。</view>
       <view style="height: 24px" />
     </scroll-view>
+
+    <ui-feature-paused feature="review" fail-closed />
   </view>
 </template>
 

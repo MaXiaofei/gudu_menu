@@ -107,14 +107,14 @@ class FeatureSwitchAppServiceTest {
         }
         var mp = svc.publicStatus(MP);
         assertThat(mp.agentChat() && mp.cookAsk() && mp.vision() && mp.mealPlan() && mp.estimate() && mp.postText()).isTrue();
-        assertThat(mp.recipeWrite() && mp.dishDrafts() && mp.shoppingShare()).isTrue();
+        assertThat(mp.recipeWrite() && mp.dishDrafts() && mp.shoppingShare() && mp.review()).isTrue();
         var app = svc.publicStatus(APP);
         assertThat(app.agentChat() || app.cookAsk() || app.vision() || app.mealPlan() || app.estimate() || app.postText())
                 .isFalse();
-        assertThat(app.recipeWrite() && app.dishDrafts() && app.shoppingShare())
+        assertThat(app.recipeWrite() && app.dishDrafts() && app.shoppingShare() && app.review())
                 .as("页面入口与 AI 独立，App 默认也开").isTrue();
-        // 9 类 × 2 端 = 18 行
-        assertThat(svc.viewAll()).hasSize(18).allMatch(v -> v.updatedBy() == null);
+        // 10 类 × 2 端 = 20 行
+        assertThat(svc.viewAll()).hasSize(20).allMatch(v -> v.updatedBy() == null);
     }
 
     @Test
@@ -142,15 +142,20 @@ class FeatureSwitchAppServiceTest {
     }
 
     @Test
-    void 页面入口三项_键与默认值与AI独立() {
+    void 页面入口四项_键与默认值与AI独立() {
         assertThat(FeatureKey.entryKeys()).extracting(FeatureKey::category)
-                .containsExactly("recipeWrite", "dishDrafts", "shoppingShare");
+                .containsExactly("recipeWrite", "dishDrafts", "shoppingShare", "review");
         assertThat(FeatureKey.RECIPE_WRITE.key(MP)).isEqualTo("entry.recipe_write.enabled.mp");
+        assertThat(FeatureKey.REVIEW.key(MP)).isEqualTo("entry.review.enabled.mp");
         assertThat(FeatureKey.RECIPE_WRITE.defaultEnabled(MP)).isTrue();
         assertThat(FeatureKey.RECIPE_WRITE.defaultEnabled(APP)).isTrue();
+        assertThat(FeatureKey.REVIEW.defaultEnabled(APP)).isTrue();
         assertThat(FeatureKey.AGENT_CHAT.defaultEnabled(APP)).isFalse();
 
         svc.set(7L, "entry.recipe_write.enabled.mp", false, "提审要求");
+        svc.set(7L, "entry.review.enabled.mp", false, "提审要求");
+        assertThat(svc.publicStatus(MP).review()).isFalse();
+        assertThat(svc.publicStatus(APP).review()).as("另一端不受影响").isTrue();
         assertThat(svc.publicStatus(MP).recipeWrite()).isFalse();
         assertThat(svc.publicStatus(MP).dishDrafts()).isTrue();
         assertThat(svc.publicStatus(MP).shoppingShare()).isTrue();

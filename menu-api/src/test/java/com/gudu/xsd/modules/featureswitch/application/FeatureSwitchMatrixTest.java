@@ -69,10 +69,10 @@ class FeatureSwitchMatrixTest {
         }
     }
 
-    /** AI 六位 + 页面入口三项（与 AI 独立，默认两端都开）。 */
+    /** AI 六位 + 页面入口四项（与 AI 独立，默认两端都开）。 */
     private static PublicStatus expected(int mask) {
         return new PublicStatus(bit(mask, 0), bit(mask, 1), bit(mask, 2), bit(mask, 3), bit(mask, 4), bit(mask, 5),
-                true, true, true);
+                true, true, true, true);
     }
 
     @Test
@@ -80,10 +80,11 @@ class FeatureSwitchMatrixTest {
         assertThat(svc.publicStatus(Platform.MP)).isEqualTo(expected(FULL));
         assertThat(svc.publicStatus(Platform.APP)).isEqualTo(expected(NONE));
         // 管理后台视图的默认状态与拦截判定一致：AI 小程序开 / App 关，页面入口两端开
-        assertThat(svc.viewAll()).hasSize(18);
+        assertThat(svc.viewAll()).hasSize(20);
         assertThat(svc.publicStatus(Platform.APP).recipeWrite()).isTrue();
         assertThat(svc.publicStatus(Platform.APP).dishDrafts()).isTrue();
         assertThat(svc.publicStatus(Platform.APP).shoppingShare()).isTrue();
+        assertThat(svc.publicStatus(Platform.APP).review()).isTrue();
     }
 
     @Test
@@ -162,10 +163,10 @@ class FeatureSwitchMatrixTest {
     }
 
     @Test
-    void 公共状态接口暴露六个AI与三个页面入口布尔字段() {
+    void 公共状态接口暴露六个AI与四个页面入口布尔字段() {
         assertThat(PublicStatus.class.getRecordComponents()).extracting("name")
                 .containsExactly("agentChat", "cookAsk", "vision", "mealPlan", "estimate", "postText",
-                        "recipeWrite", "dishDrafts", "shoppingShare");
+                        "recipeWrite", "dishDrafts", "shoppingShare", "review");
     }
 
     @Test

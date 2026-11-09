@@ -16,6 +16,7 @@ export type FeatureCategory =
   | 'recipeWrite'
   | 'dishDrafts'
   | 'shoppingShare'
+  | 'review'
 export type FeaturePlatform = 'mp' | 'app'
 export type FeatureKey =
   | 'agent.chat.enabled.mp'
@@ -36,6 +37,8 @@ export type FeatureKey =
   | 'entry.dish_drafts.enabled.app'
   | 'entry.shopping_share.enabled.mp'
   | 'entry.shopping_share.enabled.app'
+  | 'entry.review.enabled.mp'
+  | 'entry.review.enabled.app'
 
 export interface FeatureSwitchState extends SwitchChange {
   key: FeatureKey

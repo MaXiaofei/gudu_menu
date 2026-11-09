@@ -24,10 +24,11 @@ export const MSG_MEALPLAN_SUSPENDED = '一周餐程暂停服务，其他功能�
 export const MSG_RECIPE_WRITE_SUSPENDED = '写菜谱暂停服务，其他功能不受影响'
 export const MSG_DISH_DRAFTS_SUSPENDED = '草稿箱暂停服务，其他功能不受影响'
 export const MSG_SHOPPING_SHARE_SUSPENDED = '采购清单分享暂停服务，其他功能不受影响'
+export const MSG_REVIEW_SUSPENDED = '评价暂停服务，其他功能不受影响'
 
 /** AI（featureStatus）与页面入口（entryStatus）分开存放，入口关闭不影响 anyAiEnabled 等 AI 判定。 */
 export type FeatureName = 'agentChat' | 'cookAsk' | 'vision' | 'mealPlan'
-export type EntryName = 'recipeWrite' | 'dishDrafts' | 'shoppingShare'
+export type EntryName = 'recipeWrite' | 'dishDrafts' | 'shoppingShare' | 'review'
 
 /** 各类别暂停时的提示语。 */
 export const SUSPENDED_MESSAGE: Record<FeatureName | EntryName, string> = {
@@ -38,6 +39,7 @@ export const SUSPENDED_MESSAGE: Record<FeatureName | EntryName, string> = {
   recipeWrite: MSG_RECIPE_WRITE_SUSPENDED,
   dishDrafts: MSG_DISH_DRAFTS_SUSPENDED,
   shoppingShare: MSG_SHOPPING_SHARE_SUSPENDED,
+  review: MSG_REVIEW_SUSPENDED,
 }
 
 const CODE_TO_FEATURE: Record<number, FeatureName> = {
@@ -48,7 +50,7 @@ const CODE_TO_FEATURE: Record<number, FeatureName> = {
 }
 
 const AI_NAMES: FeatureName[] = ['agentChat', 'cookAsk', 'vision', 'mealPlan']
-const ENTRY_NAMES: EntryName[] = ['recipeWrite', 'dishDrafts', 'shoppingShare']
+const ENTRY_NAMES: EntryName[] = ['recipeWrite', 'dishDrafts', 'shoppingShare', 'review']
 
 /** true = 可用（默认开）。 */
 export const featureStatus = reactive<Record<FeatureName, boolean>>({
@@ -63,6 +65,7 @@ export const entryStatus = reactive<Record<EntryName, boolean>>({
   recipeWrite: true,
   dishDrafts: true,
   shoppingShare: true,
+  review: true,
 })
 
 function isEntry(name: FeatureName | EntryName): name is EntryName {
@@ -91,11 +94,15 @@ export function entryOn(name: FeatureName | EntryName): boolean {
 }
 
 /**
- * AI 页面盖层状态：未知 -> 'loading'（骨架屏，不闪可操作按钮也不闪暂停提示）；已知关 -> 'paused'；已知开 -> null。
- * 拉取失败且没有缓存时撤掉盖层（null），页面照常可用，后端请求拦截兜底。
+ * 页面盖层状态：未知 -> 'loading'（骨架屏，不闪可操作按钮也不闪暂停提示）；已知关 -> 'paused'；已知开 -> null。
+ * 默认拉取失败且没有缓存时撤掉盖层（null），页面照常可用（AI 由后端请求拦截兜底）。
+ * failClosed=true 时失败也显示暂停（评价等没有后端拦截的入口用）。
  */
-export function featureCover(name: FeatureName | EntryName): 'loading' | 'paused' | null {
-  if (!featureState.known) return featureState.failed ? null : 'loading'
+export function featureCover(name: FeatureName | EntryName, failClosed = false): 'loading' | 'paused' | null {
+  if (!featureState.known) {
+    if (featureState.failed) return failClosed ? 'paused' : null
+    return 'loading'
+  }
   return enabledOf(name) ? null : 'paused'
 }
 
@@ -211,6 +218,7 @@ export async function loadFeatureSwitches(): Promise<void> {
     entryStatus.recipeWrite = r?.recipeWrite !== false
     entryStatus.dishDrafts = r?.dishDrafts !== false
     entryStatus.shoppingShare = r?.shoppingShare !== false
+    entryStatus.review = r?.review !== false
     featureState.known = true
     featureState.failed = false
     persist()

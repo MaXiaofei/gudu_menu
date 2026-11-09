@@ -32,7 +32,9 @@ public enum FeatureKey {
     /** 草稿箱（「我的 → 草稿箱」入口与草稿箱页）。 */
     DISH_DRAFTS("entry.dish_drafts.enabled", "dishDrafts", "草稿箱", Group.ENTRY),
     /** 采购清单分享（采购清单详情的「分享」按钮）。 */
-    SHOPPING_SHARE("entry.shopping_share.enabled", "shoppingShare", "采购清单分享", Group.ENTRY);
+    SHOPPING_SHARE("entry.shopping_share.enabled", "shoppingShare", "采购清单分享", Group.ENTRY),
+    /** 评价入口（我的评价 / 食集详情去评价 / 食记详情去评价，一个总开关）。 */
+    REVIEW("entry.review.enabled", "review", "评价入口", Group.ENTRY);
 
     /** 开关分组：管理后台分开展示，一键关闭全部 AI 只作用于 AI 组。 */
     public enum Group {

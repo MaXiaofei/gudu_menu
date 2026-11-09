@@ -19,8 +19,8 @@
           <text class="head-sub">{{ mdHm(detail.cookedAt) }} · {{ detail.servingCount ?? 1 }} 人份</text>
         </view>
 
-        <!-- 这顿饭的菜 -->
-        <view class="review-box">
+        <!-- 这顿饭的菜（评价入口由后台开关控制） -->
+        <view v-if="entryOn('review')" class="review-box">
           <view class="review-main">
             <text class="review-title">这顿饭的菜 · 吃完别忘了评价</text>
             <text class="review-dishes">{{ dishNames }}</text>
@@ -61,6 +61,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { foodLogDetail, copyMenu, type FoodLogDetail } from '@/api/foodlog'
 import { mdHm } from '@/utils/datetime'
 import { navInset } from '@/utils/token'
+import { entryOn } from '@/utils/featureSwitch'
 
 const sb = navInset()
 const loading = ref(true)

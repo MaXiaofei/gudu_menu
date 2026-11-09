@@ -73,6 +73,8 @@
         {{ submitting ? '提交中…' : '提交点评' }}
       </button>
     </view>
+
+    <ui-feature-paused feature="review" fail-closed />
   </view>
 </template>
 

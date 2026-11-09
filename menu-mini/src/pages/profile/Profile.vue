@@ -204,7 +204,8 @@ const allGroups = computed(() => [
     ].filter(
       (i) =>
         (i.label !== '写菜谱' || entryOn('recipeWrite')) &&
-        (i.label !== '草稿箱' || entryOn('dishDrafts')),
+        (i.label !== '草稿箱' || entryOn('dishDrafts')) &&
+        (i.label !== '我的评价' || entryOn('review')),
     ),
   },
   {
