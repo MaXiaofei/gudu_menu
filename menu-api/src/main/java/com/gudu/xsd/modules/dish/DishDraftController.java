@@ -3,6 +3,9 @@ package com.gudu.xsd.modules.dish;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gudu.xsd.common.PageQuery;
 import com.gudu.xsd.common.R;
+import com.gudu.xsd.common.web.ClientSource;
+import com.gudu.xsd.modules.dish.application.RecipeWriteSwitchPolicy;
+import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
 import com.gudu.xsd.modules.dish.DishDraftDTO.Detail;
 import com.gudu.xsd.modules.dish.DishDraftDTO.ListItem;
 import com.gudu.xsd.modules.dish.DishDraftDTO.Save;
@@ -25,10 +28,13 @@ import java.util.List;
 public class DishDraftController {
 
     private final DishDraftService svc;
+    private final RecipeWriteSwitchPolicy recipeWritePolicy;
 
     /** 保存草稿（id 空 = 新建，返回草稿 id；非空 = 更新）。 */
     @PostMapping
-    public R<Long> save(@RequestBody Save dto) {
+    public R<Long> save(@RequestBody Save dto,
+                        @RequestHeader(value = ClientSource.HEADER, required = false) String client) {
+        recipeWritePolicy.requireEnabled(Platform.fromClientHeader(client));
         return R.ok(svc.save(dto));
     }
 

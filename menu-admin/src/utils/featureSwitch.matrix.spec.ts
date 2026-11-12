@@ -25,6 +25,9 @@ const LABEL: Record<FeatureCategory, string> = {
   dishDrafts: '草稿箱',
   shoppingShare: '采购清单分享',
   review: '评价入口',
+  share: '菜谱食集分享',
+  together: '一起吃',
+  familyInvite: '家庭邀请',
 }
 const state = (category: FeatureCategory, platform: FeaturePlatform, enabled: boolean): FeatureSwitchState => ({
   key: `${category}.${platform}` as any,
@@ -107,16 +110,35 @@ describe('页面入口开关：与 AI 独立成组', () => {
     ['dishDrafts', '草稿箱'],
     ['shoppingShare', '采购清单分享'],
     ['review', '评价入口'],
+    ['share', '菜谱食集分享'],
+    ['together', '一起吃'],
+    ['familyInvite', '家庭邀请'],
   ]
 
-  it('固定 4 类，按 AI 之后的独立顺序渲染', () => {
-    expect(ENTRY_CATEGORY_ORDER).toEqual(['recipeWrite', 'dishDrafts', 'shoppingShare', 'review'])
+  it('固定 7 类，按 AI 之后的独立顺序渲染', () => {
+    expect(ENTRY_CATEGORY_ORDER).toEqual([
+      'recipeWrite',
+      'dishDrafts',
+      'shoppingShare',
+      'review',
+      'share',
+      'together',
+      'familyInvite',
+    ])
     const list = entryLabels.flatMap(([c, label]) => [
       { ...state(c, 'mp', true), label },
       { ...state(c, 'app', true), label },
     ])
     const rows = buildMatrix(list, ENTRY_CATEGORY_ORDER)
-    expect(rows.map((r) => r.label)).toEqual(['写菜谱', '草稿箱', '采购清单分享', '评价入口'])
+    expect(rows.map((r) => r.label)).toEqual([
+      '写菜谱',
+      '草稿箱',
+      '采购清单分享',
+      '评价入口',
+      '菜谱食集分享',
+      '一起吃',
+      '家庭邀请',
+    ])
     expect(rows.every((r) => r.mp?.enabled && r.app?.enabled)).toBe(true)
     // AI 表格不混入页面入口
     expect(buildMatrix(list)).toEqual([])
@@ -130,7 +152,7 @@ describe('页面入口开关：与 AI 独立成组', () => {
     expect(lastOperationText(null, 'app', 'agentChat')).toBe('默认关闭，尚未操作过')
   })
 
-  it('关停影响说明覆盖四个入口', () => {
+  it('关停影响说明覆盖七个入口', () => {
     for (const [, label] of entryLabels) {
       const copy = featureConfirmCopy(switchName('mp', label), false, label)
       expect(copy.title).toBe(`紧急关停小程序${label}`)

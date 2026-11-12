@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>两组开关：
  * <ul>
  *   <li>生成式 AI（咕嘟助手、问咕嘟、拍照识别、一周餐程、营养估算、AI 帮写）：开关行缺失时小程序默认开、App 默认关；</li>
- *   <li>页面入口（写菜谱、草稿箱、采购清单分享、评价）：与 AI 独立，开关行缺失时两端默认开，关停时客户端隐藏入口。</li>
+ *   <li>页面入口（写菜谱、草稿箱、采购清单分享、评价、分享、一起吃、家庭邀请）：与 AI 独立，开关行缺失时两端默认开，关停时客户端隐藏入口。</li>
  * </ul>
  *
  * <p>只用于出现内容风险 / 审核要求时一键关闭。
@@ -71,10 +71,11 @@ public class FeatureSwitchAppService {
                              List<FeatureSwitch> recentChanges) {
     }
 
-    /** 用户侧只读状态（按请求端；客户端据此隐藏入口）。前六项为 AI，后四项为与 AI 独立的页面入口。 */
+    /** 用户侧只读状态（按请求端；客户端据此隐藏入口）。前六项为 AI，后七项为与 AI 独立的页面入口。 */
     public record PublicStatus(boolean agentChat, boolean cookAsk, boolean vision, boolean mealPlan,
                               boolean estimate, boolean postText, boolean recipeWrite, boolean dishDrafts,
-                              boolean shoppingShare, boolean review) {
+                              boolean shoppingShare, boolean review, boolean share, boolean together,
+                              boolean familyInvite) {
     }
 
     /** 是否开放（带短缓存，拦截判定用）。 */
@@ -105,7 +106,10 @@ public class FeatureSwitchAppService {
                 isEnabled(FeatureKey.RECIPE_WRITE, platform),
                 isEnabled(FeatureKey.DISH_DRAFTS, platform),
                 isEnabled(FeatureKey.SHOPPING_SHARE, platform),
-                isEnabled(FeatureKey.REVIEW, platform));
+                isEnabled(FeatureKey.REVIEW, platform),
+                isEnabled(FeatureKey.SHARE, platform),
+                isEnabled(FeatureKey.TOGETHER, platform),
+                isEnabled(FeatureKey.FAMILY_INVITE, platform));
     }
 
     /** 管理后台：全部开关（AI + 页面入口，类别 × 端，不走缓存）。 */

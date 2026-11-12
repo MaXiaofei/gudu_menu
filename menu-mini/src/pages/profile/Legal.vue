@@ -25,7 +25,7 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { parseLegal, legalMarkdown } from '@/utils/legal'
-import { anyAiEnabled, loadFeatureSwitches } from '@/utils/featureSwitch'
+import { anyAiEnabled, entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 
 const type = ref<'terms' | 'privacy'>('terms')
 onLoad((options) => {
@@ -35,7 +35,7 @@ onLoad((options) => {
 })
 
 const title = computed(() => (type.value === 'privacy' ? '隐私政策' : '用户协议'))
-const blocks = computed(() => parseLegal(legalMarkdown(type.value, anyAiEnabled())))
+const blocks = computed(() => parseLegal(legalMarkdown(type.value, anyAiEnabled(), entryOn('review'))))
 </script>
 
 <style scoped>

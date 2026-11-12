@@ -49,6 +49,22 @@ describe('协议无 AI 版', () => {
     expect(PRIVACY_NOAI_MD).toBe(readFileSync(resolve(root, 'docs/legal/privacy-noai.md'), 'utf8'))
   })
 
+  it('评价入口关闭时，协议/隐私不再出现点评、评分相关描述', () => {
+    for (const aiOn of [true, false]) {
+      for (const type of ['terms', 'privacy'] as const) {
+        const off = legalMarkdown(type, aiOn, false)
+        expect(off).not.toContain('点评')
+        expect(off).not.toContain('评分')
+        expect(legalMarkdown(type, aiOn, true)).toMatch(/点评|评分/)
+      }
+    }
+    // 食记保留，只去掉点评/评分/点评照片与口味画像
+    expect(legalMarkdown('privacy', false, false)).toContain('| 食记 | 做菜记录、饮食日志 |')
+    expect(legalMarkdown('privacy', false, false)).not.toContain('照片')
+    expect(legalMarkdown('terms', true, false)).toContain('采购清单、食记、聚餐协同点菜')
+    expect(legalMarkdown('terms', true, false)).toContain('您录入或上传的菜谱、图片等内容')
+  })
+
   it('成员档案说明与敏感授权弹窗：全关时不提 AI 回答', () => {
     expect(consentHint(true)).toContain('AI 回答')
     expect(consentHint(false)).not.toContain('AI')

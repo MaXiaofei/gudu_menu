@@ -39,6 +39,8 @@
         <button class="btn ghost" data-testid="invite-skip" @click="onSkip">暂不加入</button>
       </template>
     </view>
+
+    <ui-feature-paused feature="familyInvite" fail-closed />
   </view>
 </template>
 

@@ -13,6 +13,11 @@ import com.gudu.xsd.modules.mealplan.interfaces.MealPlanController;
 import com.gudu.xsd.modules.agent.interfaces.AgentController;
 import com.gudu.xsd.modules.vision.application.VisionSwitchPolicy;
 import com.gudu.xsd.modules.vision.interfaces.VisionController;
+import com.gudu.xsd.modules.dish.DishController;
+import com.gudu.xsd.modules.dish.DishDraftController;
+import com.gudu.xsd.modules.dish.DishDraftDTO;
+import com.gudu.xsd.modules.dish.DishSaveDTO;
+import com.gudu.xsd.modules.dish.application.RecipeWriteSwitchPolicy;
 import com.gudu.xsd.modules.identity.application.AccountQueryApi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,10 +74,10 @@ class FeatureSwitchMatrixTest {
         }
     }
 
-    /** AI 六位 + 页面入口四项（与 AI 独立，默认两端都开）。 */
+    /** AI 六位 + 页面入口七项（与 AI 独立，默认两端都开）。 */
     private static PublicStatus expected(int mask) {
         return new PublicStatus(bit(mask, 0), bit(mask, 1), bit(mask, 2), bit(mask, 3), bit(mask, 4), bit(mask, 5),
-                true, true, true, true);
+                true, true, true, true, true, true, true);
     }
 
     @Test
@@ -80,11 +85,14 @@ class FeatureSwitchMatrixTest {
         assertThat(svc.publicStatus(Platform.MP)).isEqualTo(expected(FULL));
         assertThat(svc.publicStatus(Platform.APP)).isEqualTo(expected(NONE));
         // 管理后台视图的默认状态与拦截判定一致：AI 小程序开 / App 关，页面入口两端开
-        assertThat(svc.viewAll()).hasSize(20);
+        assertThat(svc.viewAll()).hasSize(26);
         assertThat(svc.publicStatus(Platform.APP).recipeWrite()).isTrue();
         assertThat(svc.publicStatus(Platform.APP).dishDrafts()).isTrue();
         assertThat(svc.publicStatus(Platform.APP).shoppingShare()).isTrue();
         assertThat(svc.publicStatus(Platform.APP).review()).isTrue();
+        assertThat(svc.publicStatus(Platform.APP).share()).isTrue();
+        assertThat(svc.publicStatus(Platform.APP).together()).isTrue();
+        assertThat(svc.publicStatus(Platform.APP).familyInvite()).isTrue();
     }
 
     @Test
@@ -152,6 +160,29 @@ class FeatureSwitchMatrixTest {
     }
 
     @Test
+    void 写菜谱关停_新建导入更新与存草稿都在写库前拒绝_另一端不受影响() {
+        RecipeWriteSwitchPolicy policy = new RecipeWriteSwitchPolicy(svc);
+        svc.set(1L, FeatureKey.RECIPE_WRITE.key(Platform.MP), false, "审核要求");
+        assertThatThrownBy(() -> policy.requireEnabled(Platform.MP)).isInstanceOfSatisfying(BizException.class,
+                e -> assertThat(e.getCode()).isEqualTo(5038));
+        policy.requireEnabled(Platform.APP); // App 默认开，不受小程序影响
+        // Controller 在业务服务为空时也能先拒绝，证明拦截发生在写库之前
+        DishController dc = new DishController(null, null, null, null, null, null, policy);
+        assertThatThrownBy(() -> dc.save(new DishSaveDTO(), "mp-weixin")).isInstanceOfSatisfying(BizException.class,
+                e -> assertThat(e.getCode()).isEqualTo(5038));
+        assertThatThrownBy(() -> dc.importUrl("http://x", "mp-weixin")).isInstanceOfSatisfying(BizException.class,
+                e -> assertThat(e.getCode()).isEqualTo(5038));
+        assertThatThrownBy(() -> dc.update(new DishSaveDTO(), "mp-weixin")).isInstanceOfSatisfying(BizException.class,
+                e -> assertThat(e.getCode()).isEqualTo(5038));
+        DishDraftController draft = new DishDraftController(null, policy);
+        assertThatThrownBy(() -> draft.save(new DishDraftDTO.Save(), "mp-weixin")).isInstanceOfSatisfying(BizException.class,
+                e -> assertThat(e.getCode()).isEqualTo(5038));
+        assertThat(methodsReadingClientHeader(DishController.class))
+                .containsExactlyInAnyOrder("save", "importUrl", "update");
+        assertThat(methodsReadingClientHeader(DishDraftController.class)).containsExactly("save");
+    }
+
+    @Test
     void 控制器按X_Client头判端_小程序头看mp开关_缺省与其他头看app开关() {
         apply(Platform.MP, 0b010101); // mp: agentChat 开, cookAsk 关, vision 开, mealPlan 关, estimate 开, postText 关
         apply(Platform.APP, 0b101010);
@@ -163,10 +194,11 @@ class FeatureSwitchMatrixTest {
     }
 
     @Test
-    void 公共状态接口暴露六个AI与四个页面入口布尔字段() {
+    void 公共状态接口暴露六个AI与七个页面入口布尔字段() {
         assertThat(PublicStatus.class.getRecordComponents()).extracting("name")
                 .containsExactly("agentChat", "cookAsk", "vision", "mealPlan", "estimate", "postText",
-                        "recipeWrite", "dishDrafts", "shoppingShare", "review");
+                        "recipeWrite", "dishDrafts", "shoppingShare", "review", "share", "together",
+                        "familyInvite");
     }
 
     @Test

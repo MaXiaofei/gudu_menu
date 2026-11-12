@@ -51,10 +51,21 @@ import { PRIVACY_MD } from '@/static/legal/privacy'
 import { TERMS_NOAI_MD } from '@/static/legal/terms-noai'
 import { PRIVACY_NOAI_MD } from '@/static/legal/privacy-noai'
 
-/** 协议正文：aiOn=false（本端四类 AI 全关）取「无 AI 版」，否则完整版。 */
-export function legalMarkdown(type: 'terms' | 'privacy', aiOn: boolean): string {
-  if (type === 'privacy') return aiOn ? PRIVACY_MD : PRIVACY_NOAI_MD
-  return aiOn ? TERMS_MD : TERMS_NOAI_MD
+/** 评价入口被后台关停时，协议/隐私里不再出现点评、评分、点评照片等描述。 */
+function withoutReview(md: string): string {
+  return md
+    .replace(
+      '| 食记与点评 | 做菜记录、饮食日志、评分与点评文字、照片 | 记录饮食、生成营养报告、形成口味画像 | 使用该功能时必需 |',
+      '| 食记 | 做菜记录、饮食日志 | 记录饮食、生成营养报告 | 使用该功能时必需 |',
+    )
+    .replace('采购清单、食记、餐后点评、聚餐协同点菜', '采购清单、食记、聚餐协同点菜')
+    .replace('您录入或上传的菜谱、图片、点评等内容', '您录入或上传的菜谱、图片等内容')
+}
+
+/** 协议正文：aiOn=false（本端四类 AI 全关）取「无 AI 版」，否则完整版；reviewOn=false 时不展示评价相关描述。 */
+export function legalMarkdown(type: 'terms' | 'privacy', aiOn: boolean, reviewOn = true): string {
+  const md = type === 'privacy' ? (aiOn ? PRIVACY_MD : PRIVACY_NOAI_MD) : aiOn ? TERMS_MD : TERMS_NOAI_MD
+  return reviewOn ? md : withoutReview(md)
 }
 
 /** 成员档案「敏感信息授权」说明：本端四类 AI 全关时不提 AI 回答。 */

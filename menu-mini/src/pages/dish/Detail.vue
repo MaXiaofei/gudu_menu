@@ -13,7 +13,7 @@
           <view class="float-row" :style="{ top: floatTop + 'px' }">
             <view class="fbtn" aria-label="返回" @click="goBack"><ui-icon name="back" :size="20" /></view>
             <!-- #ifdef MP-WEIXIN -->
-            <button class="fbtn share" open-type="share" aria-label="分享"><ui-icon name="share" :size="18" /></button>
+            <button v-if="entryOn('share')" class="fbtn share" data-testid="dish-share" open-type="share" aria-label="分享"><ui-icon name="share" :size="18" /></button>
             <!-- #endif -->
           </view>
         </ui-hero-gallery>
@@ -106,8 +106,9 @@
 import { PAGES, withQuery, COOK_AFTER_MODE_KEY } from '@/utils/nav'
 import { isLoggedIn, requireLogin } from '@/utils/guest'
 import { launchAuthDone } from '@/utils/loginRedirect'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { onLoad, onShow, onShareAppMessage } from '@dcloudio/uni-app'
+import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 import { dishDetail, forkDish, isPublicDish, isOfflineDish, type DishDetail, type DishIngredient } from '@/api/dish'
 import { toAbsolute, originalList } from '@/utils/image'
 import { navInset } from '@/utils/token'
@@ -137,16 +138,28 @@ const cookItems = ref<CookMaterial[]>([])
 onLoad(async (options) => {
   dishId.value = Number(options?.id || 0)
   if (options?.showActions === '0') showActions.value = false
+  void loadFeatureSwitches() // 分享落地页也要拿到开关状态
   // 游客可直接看菜谱详情（分享落地也一样）；加食集 / 复制 / 现在就做 / 加采购时才提示登录
   await launchAuthDone()
   load(dishId.value)
 })
 
-onShareAppMessage(() => ({
-  title: detail.value?.dish.name || '咕嘟小食单',
-  path: `/pages/dish/Detail?id=${dishId.value}`,
-  imageUrl: toAbsolute(detail.value?.dish.coverUrl) || undefined,
-}))
+onShareAppMessage(() => {
+  if (!entryOn('share')) return { title: '咕嘟小食单', path: '/pages/dish/List' }
+  return {
+    title: detail.value?.dish.name || '咕嘟小食单',
+    path: `/pages/dish/Detail?id=${dishId.value}`,
+    imageUrl: toAbsolute(detail.value?.dish.coverUrl) || undefined,
+  }
+})
+
+/** 分享开关同步微信右上角菜单（按钮隐藏后，系统转发入口也要关掉）。 */
+function syncShareMenu() {
+  const menus: Array<'shareAppMessage' | 'shareTimeline'> = ['shareAppMessage', 'shareTimeline']
+  if (entryOn('share')) uni.showShareMenu({ menus })
+  else uni.hideShareMenu({ hideShareItems: menus })
+}
+watch(() => entryOn('share'), syncShareMenu)
 
 async function load(id: number) {
   loading.value = true
@@ -274,6 +287,7 @@ function goFoodlog() {
 
 /** 跟做模式最后一步「做好了」→ 回到详情直接打开做完确认（storage 标记，跨分包不传对象）。 */
 onShow(() => {
+  syncShareMenu()
   const flag = uni.getStorageSync(COOK_AFTER_MODE_KEY)
   if (flag && Number(flag) === dishId.value) {
     uni.removeStorageSync(COOK_AFTER_MODE_KEY)

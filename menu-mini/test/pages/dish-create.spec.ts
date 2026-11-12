@@ -29,6 +29,7 @@ vi.mock('@/api/upload', () => ({ chooseImages: vi.fn(), uploadImage: vi.fn() }))
 vi.mock('@/store/preview', () => ({ usePreviewStore: () => ({ set: vi.fn() }) }))
 
 import Create from '@/pages/dish/Create.vue'
+import { entryStatus, featureState } from '@/utils/featureSwitch'
 
 const flush = async () => {
   for (let i = 0; i < 5; i++) {
@@ -49,6 +50,8 @@ describe('pages/dish/Create.vue', () => {
 
   beforeEach(async () => {
     vi.useFakeTimers({ toFake: ['setTimeout'] })
+    featureState.known = true
+    entryStatus.recipeWrite = true
     Object.values(api).forEach((f) => f.mockReset())
     api.draftDetail.mockResolvedValue({
       name: '番茄炒蛋',

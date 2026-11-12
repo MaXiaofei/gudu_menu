@@ -147,7 +147,7 @@
     />
 
     <!-- 后台紧急关停：盖住录入页（入口已隐藏，这里兜底直达 / 返回栈） -->
-    <ui-feature-paused feature="recipeWrite" />
+    <ui-feature-paused feature="recipeWrite" fail-closed />
   </view>
 </template>
 
@@ -163,6 +163,7 @@ import { listAllIngredients, type IngredientItem } from '@/api/ingredient'
 import { chooseImages, uploadImage } from '@/api/upload'
 import { thumbOf } from '@/utils/image'
 import { navInset } from '@/utils/token'
+import { entryOn } from '@/utils/featureSwitch'
 import { usePreviewStore } from '@/store/preview'
 
 const sb = navInset()
@@ -385,6 +386,7 @@ async function onSaveDraft() {
 
 // ---- 预览 ----
 function onPreview() {
+  if (!entryOn('recipeWrite')) return
   preview.set({
     name: name.value,
     coverLocal: coverLocal.value,
@@ -405,6 +407,7 @@ function onPreview() {
 
 // ---- 发布 ----
 async function onPublish() {
+  if (!entryOn('recipeWrite')) return
   if (!name.value.trim()) {
     uni.showToast({ title: '请输入菜名', icon: 'none' })
     return

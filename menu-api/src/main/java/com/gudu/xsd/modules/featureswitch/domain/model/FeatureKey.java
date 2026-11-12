@@ -34,7 +34,13 @@ public enum FeatureKey {
     /** 采购清单分享（采购清单详情的「分享」按钮）。 */
     SHOPPING_SHARE("entry.shopping_share.enabled", "shoppingShare", "采购清单分享", Group.ENTRY),
     /** 评价入口（我的评价 / 食集详情去评价 / 食记详情去评价，一个总开关）。 */
-    REVIEW("entry.review.enabled", "review", "评价入口", Group.ENTRY);
+    REVIEW("entry.review.enabled", "review", "评价入口", Group.ENTRY),
+    /** 菜谱食集分享（菜谱详情分享按钮、食集详情转发）。 */
+    SHARE("entry.share.enabled", "share", "菜谱食集分享", Group.ENTRY),
+    /** 一起吃（食集详情的「一起吃」Tab 与聚餐邀请）。 */
+    TOGETHER("entry.together.enabled", "together", "一起吃", Group.ENTRY),
+    /** 家庭邀请（生成邀请、复制/分享邀请码、邀请落地页、用邀请码加入）。 */
+    FAMILY_INVITE("entry.family_invite.enabled", "familyInvite", "家庭邀请", Group.ENTRY);
 
     /** 开关分组：管理后台分开展示，一键关闭全部 AI 只作用于 AI 组。 */
     public enum Group {

@@ -25,10 +25,10 @@
           <text v-if="f.id === store.currentId" class="role OWNER" data-testid="family-current">当前</text>
           <text v-else class="row-act">切换</text>
         </view>
-        <text v-if="!store.families.length" class="note">你还没有家庭，新建一个，或用家人给的邀请码加入。</text>
+        <text v-if="!store.families.length" class="note">{{ entryOn('familyInvite') ? '你还没有家庭，新建一个，或用家人给的邀请码加入。' : '你还没有家庭，先新建一个。' }}</text>
       </view>
 
-      <view class="card">
+      <view v-if="entryOn('familyInvite')" class="card">
         <text class="group-title">用邀请码加入</text>
         <view class="join-row">
           <view class="input-wrap grow">
@@ -50,6 +50,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { useFamilyStore } from '@/store/family'
 import { roleLabel } from '@/utils/family'
+import { entryOn } from '@/utils/featureSwitch'
 import { inputModal } from './parts/dialog'
 
 const store = useFamilyStore()

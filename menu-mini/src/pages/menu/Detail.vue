@@ -30,7 +30,7 @@
           <prep-tab v-else-if="tab === 1" :prep="prep" :loading="prepLoading" @toggle="togglePrep" @more="longPressPrep" @retry="loadPrep" />
           <shop-tab v-else-if="tab === 2" :prep="prep" :loading="prepLoading" :menu-id="menuId" :dish-count="detail.dishes.length" />
           <together-tab
-            v-else
+            v-else-if="tab === 3 && entryOn('together')"
             :together="together"
             :loading="togetherLoading"
             :is-done="isDone"
@@ -104,7 +104,7 @@ import {
 import { getPrep, updatePrepStatus, type MenuPrep, type PrepItem } from '@/api/prep'
 import { getTogether, createInvite, togetherSharePath, type TogetherVO } from '@/api/together'
 import { mdHm } from '@/utils/datetime'
-import { entryOn } from '@/utils/featureSwitch'
+import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 import DishesTab from './parts/DishesTab.vue'
 import PrepTab from './parts/PrepTab.vue'
 import ShopTab from './parts/ShopTab.vue'
@@ -141,23 +141,44 @@ let togetherTimer: ReturnType<typeof setInterval> | null = null
 
 /** 分享给微信好友：落地页带免登录 token（小程序码/分享卡片方案）。 */
 onShareAppMessage(() => {
-  if (invite.value) {
+  if (!entryOn('share')) return { title: '咕嘟小食单', path: '/pages/dish/List' }
+  if (entryOn('together') && invite.value) {
     return {
       title: `一起来点菜：${detail.value?.menu.name || '聚餐清单'}`,
       path: togetherSharePath(menuId.value, invite.value.token),
     }
   }
-  return { title: '咕嘟小食单', path: '/pages/dish/List' }
+  return { title: detail.value?.menu.name || '咕嘟小食单', path: `/pages/menu/Detail?id=${menuId.value}` }
 })
+
+/** 分享开关同步微信右上角菜单（关闭后系统转发入口也要关掉）。 */
+function syncShareMenu() {
+  const menus: Array<'shareAppMessage' | 'shareTimeline'> = ['shareAppMessage', 'shareTimeline']
+  if (entryOn('share')) uni.showShareMenu({ menus })
+  else uni.hideShareMenu({ hideShareItems: menus })
+}
+watch(() => entryOn('share'), syncShareMenu)
+watch(
+  () => entryOn('together'),
+  (on) => {
+    if (!on) {
+      stopPolling()
+      if (tab.value === 3) tab.value = 0
+    }
+  },
+)
 
 onLoad((options) => {
   menuId.value = Number(options?.id || 0)
+  void loadFeatureSwitches()
   load()
 })
 
 // 从选菜页返回刷新
 onShow(() => {
+  syncShareMenu()
   if (menuId.value && detail.value) load(false)
+  if (tab.value === 3 && entryOn('together')) startPolling()
 })
 
 async function load(showLoading = true) {
@@ -194,12 +215,15 @@ const tabKey = computed({
   get: () => TAB_KEYS[tab.value],
   set: (k: string) => (tab.value = Math.max(0, TAB_KEYS.indexOf(k))),
 })
-const tabs = computed(() => [
-  { key: 'dish', label: '菜', badge: detail.value?.dishes.length ?? 0 },
-  { key: 'prep', label: '备菜', badge: prep.value ? `${prep.value.readyCount}/${prep.value.totalCount}` : '' },
-  { key: 'shop', label: '采购', badge: '' },
-  { key: 'together', label: '一起吃', badge: togetherCnt.value || '' },
-])
+const tabs = computed(() => {
+  const list: Array<{ key: string; label: string; badge: string | number }> = [
+    { key: 'dish', label: '菜', badge: detail.value?.dishes.length ?? 0 },
+    { key: 'prep', label: '备菜', badge: prep.value ? `${prep.value.readyCount}/${prep.value.totalCount}` : '' },
+    { key: 'shop', label: '采购', badge: '' },
+  ]
+  if (entryOn('together')) list.push({ key: 'together', label: '一起吃', badge: togetherCnt.value || '' })
+  return list
+})
 // ---- 菜 Tab ----
 function tapDish(d: MenuDish) {
   if (!d.dishId) return
@@ -336,7 +360,7 @@ async function loadTogether() {
 }
 
 watch(tab, (t) => {
-  if (t === 3) {
+  if (t === 3 && entryOn('together')) {
     togetherLoading.value = !together.value
     loadTogether().finally(() => (togetherLoading.value = false))
     startPolling()
@@ -356,12 +380,9 @@ function stopPolling() {
   }
 }
 onHide(stopPolling)
-onShow(() => {
-  if (tab.value === 3) startPolling()
-})
 
 async function doCreateInvite() {
-  if (inviting.value) return
+  if (!entryOn('together') || inviting.value) return
   inviting.value = true
   try {
     const r = await createInvite(menuId.value)

@@ -53,6 +53,8 @@
       </button>
       <text class="bottom-hint">发布后进菜谱库 · 不满意点左上角返回改</text>
     </view>
+
+    <ui-feature-paused feature="recipeWrite" fail-closed />
   </view>
 </template>
 
@@ -60,6 +62,7 @@
 import { ref, computed } from 'vue'
 import { usePreviewStore } from '@/store/preview'
 import { thumbOf } from '@/utils/image'
+import { entryOn } from '@/utils/featureSwitch'
 import { navInset } from '@/utils/token'
 
 const sb = navInset()
@@ -82,6 +85,7 @@ function goBack() {
 
 /** 发布：通过页面栈回调写菜谱页的发布方法（onPublish）。 */
 function publish() {
+  if (!entryOn('recipeWrite')) return
   publishing.value = true
   const pages = getCurrentPages()
   const prev = pages[pages.length - 2] as any

@@ -25,10 +25,20 @@ export const MSG_RECIPE_WRITE_SUSPENDED = '写菜谱暂停服务，其他功能�
 export const MSG_DISH_DRAFTS_SUSPENDED = '草稿箱暂停服务，其他功能不受影响'
 export const MSG_SHOPPING_SHARE_SUSPENDED = '采购清单分享暂停服务，其他功能不受影响'
 export const MSG_REVIEW_SUSPENDED = '评价暂停服务，其他功能不受影响'
+export const MSG_SHARE_SUSPENDED = '分享暂停服务，其他功能不受影响'
+export const MSG_TOGETHER_SUSPENDED = '一起吃暂停服务，其他功能不受影响'
+export const MSG_FAMILY_INVITE_SUSPENDED = '家庭邀请暂停服务，其他功能不受影响'
 
 /** AI（featureStatus）与页面入口（entryStatus）分开存放，入口关闭不影响 anyAiEnabled 等 AI 判定。 */
 export type FeatureName = 'agentChat' | 'cookAsk' | 'vision' | 'mealPlan'
-export type EntryName = 'recipeWrite' | 'dishDrafts' | 'shoppingShare' | 'review'
+export type EntryName =
+  | 'recipeWrite'
+  | 'dishDrafts'
+  | 'shoppingShare'
+  | 'review'
+  | 'share'
+  | 'together'
+  | 'familyInvite'
 
 /** 各类别暂停时的提示语。 */
 export const SUSPENDED_MESSAGE: Record<FeatureName | EntryName, string> = {
@@ -40,6 +50,9 @@ export const SUSPENDED_MESSAGE: Record<FeatureName | EntryName, string> = {
   dishDrafts: MSG_DISH_DRAFTS_SUSPENDED,
   shoppingShare: MSG_SHOPPING_SHARE_SUSPENDED,
   review: MSG_REVIEW_SUSPENDED,
+  share: MSG_SHARE_SUSPENDED,
+  together: MSG_TOGETHER_SUSPENDED,
+  familyInvite: MSG_FAMILY_INVITE_SUSPENDED,
 }
 
 const CODE_TO_FEATURE: Record<number, FeatureName> = {
@@ -50,7 +63,15 @@ const CODE_TO_FEATURE: Record<number, FeatureName> = {
 }
 
 const AI_NAMES: FeatureName[] = ['agentChat', 'cookAsk', 'vision', 'mealPlan']
-const ENTRY_NAMES: EntryName[] = ['recipeWrite', 'dishDrafts', 'shoppingShare', 'review']
+const ENTRY_NAMES: EntryName[] = [
+  'recipeWrite',
+  'dishDrafts',
+  'shoppingShare',
+  'review',
+  'share',
+  'together',
+  'familyInvite',
+]
 
 /** true = 可用（默认开）。 */
 export const featureStatus = reactive<Record<FeatureName, boolean>>({
@@ -66,6 +87,9 @@ export const entryStatus = reactive<Record<EntryName, boolean>>({
   dishDrafts: true,
   shoppingShare: true,
   review: true,
+  share: true,
+  together: true,
+  familyInvite: true,
 })
 
 function isEntry(name: FeatureName | EntryName): name is EntryName {
@@ -219,6 +243,9 @@ export async function loadFeatureSwitches(): Promise<void> {
     entryStatus.dishDrafts = r?.dishDrafts !== false
     entryStatus.shoppingShare = r?.shoppingShare !== false
     entryStatus.review = r?.review !== false
+    entryStatus.share = r?.share !== false
+    entryStatus.together = r?.together !== false
+    entryStatus.familyInvite = r?.familyInvite !== false
     featureState.known = true
     featureState.failed = false
     persist()

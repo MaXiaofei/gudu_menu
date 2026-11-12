@@ -48,7 +48,7 @@
         </view>
       </view>
 
-      <view v-if="manage" class="card" data-testid="invite-card">
+      <view v-if="manage && entryOn('familyInvite')" class="card" data-testid="invite-card">
         <text class="group-title">邀请家人</text>
         <text class="note">生成邀请码发给家人，7 天内有效、最多 10 人使用；对方打开卡片登录后即可加入。</text>
         <view v-if="fresh" class="invite-box" data-testid="invite-fresh">
@@ -95,8 +95,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { onShareAppMessage, onShow } from '@dcloudio/uni-app'
+import { entryOn, loadFeatureSwitches } from '@/utils/featureSwitch'
 import {
   changeMemberRole,
   createInvitation,
@@ -131,7 +132,11 @@ const activeInvites = computed(() =>
   ),
 )
 
-onShow(load)
+onShow(() => {
+  void loadFeatureSwitches()
+  load()
+  syncShareMenu()
+})
 
 async function load() {
   loading.value = !detail.value
@@ -145,12 +150,21 @@ async function load() {
 }
 
 onShareAppMessage((res: any) => {
+  if (!entryOn('familyInvite')) return { title: '咕嘟小食单', path: '/pages/dish/List' }
   const code = res?.target?.dataset?.code || fresh.value?.code
   const name = detail.value?.name || '我家'
   return code
     ? { title: `邀请你加入「${name}」，一起管家里的菜谱和余量`, path: invitePath(code) }
     : { title: '咕嘟小食单', path: '/pages/dish/List' }
 })
+
+/** 家庭邀请开关同步微信右上角菜单。 */
+function syncShareMenu() {
+  const menus: Array<'shareAppMessage' | 'shareTimeline'> = ['shareAppMessage', 'shareTimeline']
+  if (entryOn('familyInvite')) uni.showShareMenu({ menus })
+  else uni.hideShareMenu({ hideShareItems: menus })
+}
+watch(() => entryOn('familyInvite'), syncShareMenu)
 
 function go(url: string) {
   uni.navigateTo({ url })
@@ -181,7 +195,7 @@ async function onRename() {
 }
 
 async function onInvite() {
-  if (!detail.value || busy.value) return
+  if (!entryOn('familyInvite') || !detail.value || busy.value) return
   busy.value = true
   try {
     fresh.value = await createInvitation(detail.value.id)

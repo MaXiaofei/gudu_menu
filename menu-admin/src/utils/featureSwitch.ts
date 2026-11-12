@@ -11,7 +11,15 @@ export const PLATFORM_LABEL: Record<FeaturePlatform, string> = { mp: '小程序'
 export const CATEGORY_ORDER: FeatureCategory[] = ['agentChat', 'cookAsk', 'vision', 'mealPlan', 'estimate', 'postText']
 
 /** 页面入口表格行顺序：与 AI 独立分组。 */
-export const ENTRY_CATEGORY_ORDER: FeatureCategory[] = ['recipeWrite', 'dishDrafts', 'shoppingShare', 'review']
+export const ENTRY_CATEGORY_ORDER: FeatureCategory[] = [
+  'recipeWrite',
+  'dishDrafts',
+  'shoppingShare',
+  'review',
+  'share',
+  'together',
+  'familyInvite',
+]
 
 /** AI 各端的默认状态：小程序默认开启，App 默认关闭（App 暂未上线，防止入口被恶意调用）。 */
 export const DEFAULT_ENABLED: Record<FeaturePlatform, boolean> = { mp: true, app: false }
@@ -85,6 +93,9 @@ const IMPACT: Record<string, string> = {
   草稿箱: '「我的 → 草稿箱」入口隐藏，草稿箱页显示「草稿箱暂停服务」，已有草稿仍保留，其他功能不受影响',
   采购清单分享: '采购清单详情页的「分享」按钮隐藏，清单查看、添加、入库与已有分享内容不受影响',
   评价入口: '「我的评价」「食集详情去评价」「食记详情去评价」三个入口隐藏，评价页显示暂停；已有评价数据仍保留，其他功能不受影响',
+  菜谱食集分享: '菜谱详情分享按钮与食集转发隐藏，菜谱/食集查看不受影响',
+  一起吃: '食集详情的「一起吃」Tab 与聚餐邀请隐藏，已有聚餐数据保留，其他功能不受影响',
+  家庭邀请: '生成邀请、复制/分享邀请码、邀请落地页与用邀请码加入隐藏，家庭内已有成员与数据不受影响',
 }
 
 /** 二次确认：标题 / 正文 / 按钮。name 形如「小程序咕嘟助手」，label 为类别名（用于查影响说明）。 */

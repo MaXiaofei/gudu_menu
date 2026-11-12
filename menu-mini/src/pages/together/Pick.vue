@@ -65,6 +65,8 @@
       </view>
       <view style="height: 24px" />
     </scroll-view>
+
+    <ui-feature-paused feature="together" fail-closed />
   </view>
 </template>
 

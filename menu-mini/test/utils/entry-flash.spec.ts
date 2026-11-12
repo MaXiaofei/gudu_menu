@@ -33,7 +33,15 @@ const setCache = (v: Record<FeatureName, boolean>) => (globalThis as any).uni.se
 beforeEach(() => {
   __testUni.resetStorage()
   Object.assign(featureStatus, { agentChat: true, cookAsk: true, vision: true, mealPlan: true })
-  Object.assign(entryStatus, { recipeWrite: true, dishDrafts: true, shoppingShare: true, review: true })
+  Object.assign(entryStatus, {
+    recipeWrite: true,
+    dishDrafts: true,
+    shoppingShare: true,
+    review: true,
+    share: true,
+    together: true,
+    familyInvite: true,
+  })
   featureState.known = false
   ;(featureState as any).failed = false
   vi.mocked(__testUni.mocks.request).mockReset()
@@ -129,6 +137,9 @@ describe('源码守卫：入口显隐统一走 entryOn', () => {
     ['pages/shopping/List.vue', "entryOn('shoppingShare')", 'shopping-share'],
     ['pages/menu/Detail.vue', "entryOn('review')", 'menu-review'],
     ['pages/foodlog/Detail.vue', "entryOn('review')", 'review-box'],
+    ['pages/dish/Detail.vue', "entryOn('share')", 'dish-share'],
+    ['pkg-family/Index.vue', "entryOn('familyInvite')", 'invite-card'],
+    ['pkg-family/Switch.vue', "entryOn('familyInvite')", 'v-if="entryOn(\'familyInvite\')" class="card"'],
   ]
   it.each(ENTRIES)('%s 用 %s 控制 %s', (file, expr, marker) => {
     const line = tpl(file)
@@ -143,12 +154,36 @@ describe('源码守卫：入口显隐统一走 entryOn', () => {
     expect(src).toContain("i.label !== '草稿箱' || entryOn('dishDrafts')")
     expect(src).toContain("i.label !== '我的评价' || entryOn('review')")
   })
+  it('协议/隐私页按评价开关隐藏点评描述', () => {
+    expect(read('pages/profile/Legal.vue')).toContain("entryOn('review')")
+  })
+  it('一起吃 Tab 与聚餐落地页按开关隐藏', () => {
+    const menu = read('pages/menu/Detail.vue')
+    expect(menu).toContain("v-else-if=\"tab === 3 && entryOn('together')\"")
+    expect(menu).toContain("if (entryOn('together')) list.push")
+    expect(tpl('pages/together/Pick.vue')).toContain('<ui-feature-paused feature="together" fail-closed />')
+  })
+  it('菜谱/食集分享与家庭邀请开关会同步隐藏微信转发菜单', () => {
+    for (const f of ['pages/dish/Detail.vue', 'pages/menu/Detail.vue', 'pkg-family/Index.vue']) {
+      const src = read(f)
+      expect(src).toContain('uni.hideShareMenu')
+      expect(src).toContain('uni.showShareMenu')
+    }
+  })
+  it('家庭邀请落地页挂覆盖层', () => {
+    expect(tpl('pkg-family/Invite.vue')).toContain('<ui-feature-paused feature="familyInvite" fail-closed />')
+  })
   it('写菜谱 / 草稿箱 / 评价页面挂覆盖层，兜底直达与返回栈', () => {
-    expect(tpl('pages/dish/Create.vue')).toContain('<ui-feature-paused feature="recipeWrite" />')
+    expect(tpl('pages/dish/Create.vue')).toContain('<ui-feature-paused feature="recipeWrite" fail-closed />')
+    expect(tpl('pages/dish/Preview.vue')).toContain('<ui-feature-paused feature="recipeWrite" fail-closed />')
     expect(tpl('pages/dish/Drafts.vue')).toContain('<ui-feature-paused feature="dishDrafts" />')
     for (const f of ['pages/review/Form.vue', 'pages/review/MenuReview.vue', 'pages/review/Mine.vue']) {
       expect(tpl(f)).toContain('<ui-feature-paused feature="review" fail-closed />')
     }
+  })
+  it('写菜谱预览与发布前都再校验一次开关', () => {
+    expect(read('pages/dish/Create.vue')).toContain("if (!entryOn('recipeWrite')) return")
+    expect(read('pages/dish/Preview.vue')).toContain("if (!entryOn('recipeWrite')) return")
   })
   it('咕嘟页：快捷提问过滤 / 临期按钮 / 问咕嘟 askOn 用 entryOn', () => {
     expect(read('pages/agent/Index.vue')).toContain("entryOn('vision') || !(p.includes('拍')")

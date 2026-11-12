@@ -3,7 +3,10 @@ package com.gudu.xsd.modules.dish;
 import com.gudu.xsd.common.security.RequireAdmin;
 import com.gudu.xsd.common.BizException;
 import com.gudu.xsd.common.R;
+import com.gudu.xsd.common.web.ClientSource;
+import com.gudu.xsd.modules.dish.application.RecipeWriteSwitchPolicy;
 import com.gudu.xsd.modules.dish.DishService.DishDetail;
+import com.gudu.xsd.modules.featureswitch.domain.model.Platform;
 import com.gudu.xsd.modules.member.MpPerm;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,6 +31,7 @@ public class DishController {
     private final DishVectorService vectorSvc;
     private final com.gudu.xsd.modules.dish.application.DishCoverageAppService coverageApp;
     private final com.gudu.xsd.modules.contentsecurity.application.ContentSecurityAppService contentSecurity;
+    private final RecipeWriteSwitchPolicy recipeWritePolicy;
 
     /** 内容安全：菜谱名称、简介、步骤文字（用户可编辑并会展示；微信不可用降级规则）。 */
     private void screen(DishSaveDTO dto) {
@@ -145,7 +149,9 @@ public class DishController {
 
     @PostMapping
     @MpPerm("dish.create")
-    public R<?> save(@RequestBody DishSaveDTO dto) {
+    public R<?> save(@RequestBody DishSaveDTO dto,
+                     @RequestHeader(value = ClientSource.HEADER, required = false) String client) {
+        recipeWritePolicy.requireEnabled(Platform.fromClientHeader(client)); // 紧急关停：不写库
         screen(dto);
         svc.saveFull(dto);
         return R.ok(dto.getDish().getId());
@@ -154,7 +160,9 @@ public class DishController {
     /** URL 导入菜谱：抓网页 → 解析 → 落库，返回新菜品 id。 */
     @PostMapping("/import-url")
     @MpPerm("dish.create")
-    public R<Long> importUrl(@RequestParam String url) {
+    public R<Long> importUrl(@RequestParam String url,
+                             @RequestHeader(value = ClientSource.HEADER, required = false) String client) {
+        recipeWritePolicy.requireEnabled(Platform.fromClientHeader(client));
         try {
             DishSaveDTO dto = recipeImporter.importFromUrl(url);
             screen(dto);
@@ -171,7 +179,9 @@ public class DishController {
     /** 更新：先存历史快照，再保存（Controller 编排，避开 Service 循环依赖）。 */
     @PutMapping
     @MpPerm("dish.edit")
-    public R<?> update(@RequestBody DishSaveDTO dto) {
+    public R<?> update(@RequestBody DishSaveDTO dto,
+                       @RequestHeader(value = ClientSource.HEADER, required = false) String client) {
+        recipeWritePolicy.requireEnabled(Platform.fromClientHeader(client));
         screen(dto);
         if (dto.getDish().getId() != null) {
             svc.checkWritable(dto.getDish().getId()); // 先校验写权限（别家 404 / 公共菜谱非运营 403），再写历史快照
