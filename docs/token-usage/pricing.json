@@ -1,0 +1,6 @@
+{
+  "input": 1,
+  "output": 5,
+  "cacheWrite": 1.25,
+  "cacheRead": 0.1
+}
