@@ -2,8 +2,8 @@
     "name" : "",
     "appid" : "",
     "description" : "",
-    "versionName" : "1.0.20",
-    "versionCode" : "120",
+    "versionName" : "1.0.21",
+    "versionCode" : "121",
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {

@@ -7,6 +7,22 @@ onShow(() => {
 });
 onHide(() => onAppHide());
 onLaunch((options) => onAppLaunch(options as any));
+
+// 小程序新版本发布后：后台下载完成即提示用户重启，点「重启」立即进新版（体验版不适用，正式版生效）
+// #ifdef MP-WEIXIN
+const updateManager = uni.getUpdateManager()
+updateManager.onUpdateReady(() => {
+  uni.showModal({
+    title: '更新提示',
+    content: '新版本已准备好，是否重启应用？',
+    confirmText: '重启',
+    cancelText: '稍后',
+    success(res) {
+      if (res.confirm) updateManager.applyUpdate()
+    },
+  })
+})
+// #endif
 </script>
 
 <style lang="scss">
