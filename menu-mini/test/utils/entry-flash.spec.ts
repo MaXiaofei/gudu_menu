@@ -161,7 +161,13 @@ describe('源码守卫：入口显隐统一走 entryOn', () => {
     const menu = read('pages/menu/Detail.vue')
     expect(menu).toContain("v-else-if=\"tab === 3 && entryOn('together')\"")
     expect(menu).toContain("if (entryOn('together')) list.push")
+    expect(menu).toContain("if (entryOn('together')) togetherCount")
     expect(tpl('pages/together/Pick.vue')).toContain('<ui-feature-paused feature="together" fail-closed />')
+  })
+  it('已建食集主卡的一起吃进度按开关隐藏', () => {
+    const card = read('pages/menu/parts/ActiveMenuCard.vue')
+    expect(card).toContain("v-if=\"entryOn('together')\" class=\"bar\"")
+    expect(card).toContain("if (entryOn('together')) togetherCount")
   })
   it('菜谱/食集分享与家庭邀请开关会同步隐藏微信转发菜单', () => {
     for (const f of ['pages/dish/Detail.vue', 'pages/menu/Detail.vue', 'pkg-family/Index.vue']) {

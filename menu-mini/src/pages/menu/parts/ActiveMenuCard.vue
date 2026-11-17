@@ -17,7 +17,7 @@
           <view class="bar-top"><text class="bar-l">备菜</text><text class="bar-v">{{ prepReady }}/{{ prepTotal }}</text></view>
           <view class="track"><view class="fill p" :style="{ width: pct(prepReady, prepTotal) }" /></view>
         </view>
-        <view class="bar">
+        <view v-if="entryOn('together')" class="bar">
           <view class="bar-top"><text class="bar-l">一起吃</text><text class="bar-v">{{ together }} 人点了</text></view>
           <view class="track"><view class="fill i" :style="{ width: together ? '100%' : '0%' }" /></view>
         </view>
@@ -31,6 +31,7 @@ import { ref, watch } from 'vue'
 import { togetherCount, type Menu } from '@/api/menu'
 import { getPrep } from '@/api/prep'
 import { mdHm } from '@/utils/datetime'
+import { entryOn } from '@/utils/featureSwitch'
 
 const props = defineProps<{ menu: Menu; dishes: { cover?: string | null; name?: string | null }[] }>()
 defineEmits<{ (e: 'tap'): void }>()
@@ -48,7 +49,7 @@ watch(
         prepTotal.value = p.totalCount ?? 0
       })
       .catch(() => {})
-    togetherCount(id).then((n) => (together.value = Number(n) || 0)).catch(() => {})
+    if (entryOn('together')) togetherCount(id).then((n) => (together.value = Number(n) || 0)).catch(() => {})
   },
   { immediate: true },
 )

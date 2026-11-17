@@ -186,7 +186,7 @@ async function load(showLoading = true) {
   try {
     detail.value = await menuDetail(menuId.value)
     loadPrep()
-    togetherCount(menuId.value).then((n) => (togetherCnt.value = n)).catch(() => {})
+    if (entryOn('together')) togetherCount(menuId.value).then((n) => (togetherCnt.value = n)).catch(() => {})
   } catch {
     detail.value = null
   }
